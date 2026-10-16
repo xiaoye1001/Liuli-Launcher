@@ -17,7 +17,7 @@ export function openLogWindow(): void {
     height: 600,
     minWidth: 600,
     minHeight: 360,
-    title: '游戏日志 - MC Launcher',
+    title: '游戏日志 - 琉璃启动器',
     show: false,
     autoHideMenuBar: true,
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0b1120' : '#f8fafc',

@@ -205,9 +205,9 @@ export async function launchGame(versionId: string): Promise<void> {
       accessToken: auth.accessToken,
       // 官方启动器给微软账号传的是 msa，xmcl 的类型定义还没有这个值
       userType: auth.userType as 'legacy' | 'mojang',
-      launcherName: 'mc_launcher',
-      launcherBrand: 'mc_launcher',
-      versionType: 'MC Launcher',
+      launcherName: 'liuli-launcher',
+      launcherBrand: 'Liuli Launcher',
+      versionType: 'Liuli Launcher',
       // 强制游戏以 UTF-8 输出日志，避免中文 Windows 下日志乱码
       extraJVMArgs: ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8'],
       extraExecOption: { windowsHide: false }

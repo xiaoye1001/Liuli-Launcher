@@ -110,7 +110,7 @@ async function downloadOptions(): Promise<Options> {
   return {
     ...mirrorOptions(settings.downloadSource),
     dispatcher: getDefaultAgent({ maxRetries: 3 }),
-    headers: { 'User-Agent': 'mc_launcher/0.1.0' },
+    headers: { 'User-Agent': 'LiuliLauncher/0.1.0' },
     throwErrorImmediately: false
   }
 }

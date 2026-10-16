@@ -1,3 +1,4 @@
+import './paths'
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -136,7 +137,7 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(async () => {
-  electronApp.setAppUserModelId('com.mclauncher.app')
+  electronApp.setAppUserModelId('io.github.xiaoye1001.liuli-launcher')
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
