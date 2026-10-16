@@ -13,6 +13,8 @@ import type {
   NeoForgeVersionInfo,
   OptiFineVersionInfo,
   ModList,
+  AccountsInfo,
+  MsLoginStatus,
   ModrinthInstallResult,
   ModrinthSearchResult,
   SystemInfo,
@@ -58,6 +60,17 @@ declare global {
       launchGame: (versionId: string) => Promise<void>
       getGameStatus: () => Promise<GameStatus>
       onGameStatus: (callback: (status: GameStatus) => void) => () => void
+      getAccounts: () => Promise<AccountsInfo>
+      /** id 为 'offline' 或微软账号 UUID */
+      setActiveAccount: (id: string) => Promise<AccountsInfo>
+      removeAccount: (uuid: string) => Promise<AccountsInfo>
+      /** 获取设备代码后立即返回，之后的进度通过 onMicrosoftLogin 推送 */
+      startMicrosoftLogin: () => Promise<MsLoginStatus>
+      cancelMicrosoftLogin: () => Promise<void>
+      getMicrosoftLoginStatus: () => Promise<MsLoginStatus>
+      /** 复制代码并打开登录网页 */
+      openMicrosoftLoginPage: () => Promise<void>
+      onMicrosoftLogin: (callback: (status: MsLoginStatus) => void) => () => void
       getGameDirInfo: () => Promise<GameDirInfo>
       setGameDir: (dir: string) => Promise<GameDirInfo>
       pickGameDir: () => Promise<GameDirInfo | null>

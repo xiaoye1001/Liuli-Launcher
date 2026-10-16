@@ -33,6 +33,10 @@ export interface AppSettings {
   theme: ThemeMode
   /** 版本隔离：开启后版本使用 versions/<版本名> 作为游戏目录，模组、存档、配置互不影响 */
   versionIsolation: VersionIsolation
+  /** 当前使用的账号：'offline' 为离线账号，否则为微软账号的 UUID */
+  activeAccount: string
+  /** 微软登录使用的 Azure 应用 Client ID（需经 Mojang 审核） */
+  msClientId: string
 }
 
 /** 版本隔离：关闭 / 只隔离装了模组加载器的版本 / 隔离所有版本 */
@@ -270,4 +274,37 @@ export interface ModrinthInstallResult {
   installed: { projectId: string; title: string; fileName: string; dependency: boolean }[]
   /** 找不到适用版本的前置模组名称 */
   missingDependencies: string[]
+}
+
+/** 已登录的微软账号（不含令牌） */
+export interface MicrosoftAccount {
+  /** Minecraft 档案 UUID（无连字符） */
+  uuid: string
+  /** 游戏内玩家名 */
+  name: string
+  /** 正版皮肤（PNG 的 data URL），没有自定义皮肤时为空 */
+  skin: string
+  skinModel: SkinModel
+}
+
+export interface AccountsInfo {
+  /** 当前使用的账号：'offline' 或微软账号的 UUID */
+  active: string
+  accounts: MicrosoftAccount[]
+}
+
+/** 微软登录进度 */
+export type MsLoginState = 'idle' | 'waiting' | 'authorizing' | 'success' | 'failed' | 'cancelled'
+
+export interface MsLoginStatus {
+  state: MsLoginState
+  /** 需要在网页中输入的代码 */
+  userCode?: string
+  /** 输入代码的网页 */
+  verificationUri?: string
+  /** 代码过期时间（毫秒时间戳） */
+  expiresAt?: number
+  error?: string
+  /** 登录成功的账号 */
+  account?: MicrosoftAccount
 }

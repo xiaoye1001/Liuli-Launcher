@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, Box, Check, ChevronDown, Gamepad2, Loader2, Play, Terminal, UserRound } from 'lucide-react'
-import type { AppSettings, GameStatus, InstalledVersion } from '../../../shared/types'
+import SkinHead from '../components/SkinHead'
+import type { AccountsInfo, AppSettings, GameStatus, InstalledVersion } from '../../../shared/types'
 
 const NAME_PATTERN = /^[A-Za-z0-9_]{3,16}$/
 
@@ -69,14 +70,17 @@ function HomePage(): JSX.Element {
   const [versions, setVersions] = useState<InstalledVersion[]>([])
   const [name, setName] = useState('')
   const [game, setGame] = useState<GameStatus>({ state: 'idle', versionId: '' })
+  const [accounts, setAccounts] = useState<AccountsInfo | null>(null)
 
   useEffect(() => {
     const init = async (): Promise<void> => {
-      const [loaded, installed, gameStatus] = await Promise.all([
+      const [loaded, installed, gameStatus, accountsInfo] = await Promise.all([
         window.api.getSettings(),
         window.api.getInstalledVersions(),
-        window.api.getGameStatus()
+        window.api.getGameStatus(),
+        window.api.getAccounts()
       ])
+      setAccounts(accountsInfo)
       setSettings(loaded)
       setName(loaded.offlineName)
       setVersions(installed)
@@ -90,12 +94,15 @@ function HomePage(): JSX.Element {
     return window.api.onGameStatus(setGame)
   }, [])
 
-  const nameValid = NAME_PATTERN.test(name)
+  // 使用微软账号时玩家名来自正版档案，不需要输入
+  const msAccount = accounts?.accounts.find((a) => a.uuid === accounts.active)
+  const nameValid = msAccount ? true : NAME_PATTERN.test(name)
+  const displayName = msAccount ? msAccount.name : name
   const busy = game.state === 'launching' || game.state === 'running'
   const selected = settings?.selectedVersion ?? ''
 
   const saveName = async (): Promise<void> => {
-    if (nameValid && settings && name !== settings.offlineName) {
+    if (!msAccount && nameValid && settings && name !== settings.offlineName) {
       setSettings(await window.api.updateSettings({ offlineName: name }))
     }
   }
@@ -131,30 +138,42 @@ function HomePage(): JSX.Element {
       </AnimatePresence>
 
       <div className="rounded-2xl border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
-        <h1 className="text-3xl font-bold tracking-tight">欢迎回来{nameValid ? `，${name}` : ''}</h1>
+        <h1 className="text-3xl font-bold tracking-tight">欢迎回来{nameValid ? `，${displayName}` : ''}</h1>
         <p className="mt-2 text-sm text-white/60">
-          {versions.length > 0 ? '选择版本后点击启动，开始你的冒险。' : '还没有安装任何版本，请先到「下载」页安装游戏。'}
+          {versions.length > 0
+            ? '选择版本后点击启动，开始你的冒险。'
+            : '还没有安装任何版本，请先到「下载」页安装游戏。'}
         </p>
 
         <div className="mt-6 flex flex-wrap items-end gap-4">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-xs text-white/50">离线玩家名</span>
-            <div
-              className={`flex w-44 items-center gap-2 rounded-xl border bg-black/20 px-4 py-3 ${
-                nameValid ? 'border-white/10' : 'border-red-400/60'
-              }`}
-            >
-              <UserRound className="h-4 w-4 shrink-0 text-sky-300" />
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onBlur={saveName}
-                maxLength={16}
-                placeholder="Steve"
-                className="w-full bg-transparent text-sm outline-none placeholder:text-white/30"
-              />
+          {msAccount ? (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs text-white/50">微软账号（在账号页切换）</span>
+              <div className="flex w-44 items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2.5">
+                <SkinHead skin={msAccount.skin} size={24} />
+                <span className="truncate text-sm font-medium">{msAccount.name}</span>
+              </div>
             </div>
-          </label>
+          ) : (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs text-white/50">离线玩家名</span>
+              <div
+                className={`flex w-44 items-center gap-2 rounded-xl border bg-black/20 px-4 py-3 ${
+                  nameValid ? 'border-white/10' : 'border-red-400/60'
+                }`}
+              >
+                <UserRound className="h-4 w-4 shrink-0 text-sky-300" />
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onBlur={saveName}
+                  maxLength={16}
+                  placeholder="Steve"
+                  className="w-full bg-transparent text-sm outline-none placeholder:text-white/30"
+                />
+              </div>
+            </label>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <span className="text-xs text-white/50">游戏版本</span>

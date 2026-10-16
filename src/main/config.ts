@@ -23,7 +23,9 @@ function defaultSettings(): AppSettings {
     skinDataUrl: '',
     skinModel: 'default',
     theme: 'system',
-    versionIsolation: 'modded'
+    versionIsolation: 'modded',
+    activeAccount: 'offline',
+    msClientId: ''
   }
 }
 

@@ -21,6 +21,7 @@
     "@xmcl/mod-parser": "3.4.2",
     "@xmcl/system": "2.2.9",
     "@xmcl/task": "4.1.1",
+    "@xmcl/user": "4.3.0",
     "framer-motion": "11.18.2",
     "lucide-react": "0.460.0",
     "skinview3d": "3.4.2"

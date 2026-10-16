@@ -22,6 +22,15 @@ import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
 import { deleteVersion, openVersionDir } from './versionManage'
 import { addMods, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
 import { installFromModrinth, searchModrinth } from './modrinth'
+import {
+  cancelMicrosoftLogin,
+  getAccounts,
+  getLoginStatus,
+  openLoginPage,
+  removeAccount,
+  setActiveAccount,
+  startMicrosoftLogin
+} from './microsoft'
 import type { AppSettings, InstallRequest, SystemInfo } from '../shared/types'
 
 function createWindow(): void {
@@ -48,7 +57,8 @@ function createWindow(): void {
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    // 只用系统浏览器打开网页链接
+    if (/^https?:\/\//.test(details.url)) shell.openExternal(details.url)
     return { action: 'deny' }
   })
 
@@ -94,6 +104,13 @@ function registerIpc(): void {
     addMods(versionId, BrowserWindow.fromWebContents(event.sender))
   )
   ipcMain.handle('mods:open', (_, versionId: string) => openModsDir(versionId))
+  ipcMain.handle('accounts:list', () => getAccounts())
+  ipcMain.handle('accounts:setActive', (_, id: string) => setActiveAccount(id))
+  ipcMain.handle('accounts:remove', (_, uuid: string) => removeAccount(uuid))
+  ipcMain.handle('ms:login', () => startMicrosoftLogin())
+  ipcMain.handle('ms:cancel', () => cancelMicrosoftLogin())
+  ipcMain.handle('ms:status', () => getLoginStatus())
+  ipcMain.handle('ms:openLoginPage', () => openLoginPage())
   ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>
     searchModrinth(versionId, query, offset)
   )
