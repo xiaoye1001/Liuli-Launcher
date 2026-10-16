@@ -1,6 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { AppSettings, GameLogEvent, GameStatus, InstallRequest, InstallStatus } from '../shared/types'
+import type {
+  AppSettings,
+  GameLogEvent,
+  GameStatus,
+  InstallRequest,
+  InstallStatus,
+  MsLoginStatus
+} from '../shared/types'
 
 const api = {
   versions: {
@@ -46,6 +53,20 @@ const api = {
   launchGame: (versionId: string) => ipcRenderer.invoke('game:launch', versionId),
   getGameStatus: () => ipcRenderer.invoke('game:status'),
   /** 订阅游戏运行状态，返回取消订阅函数 */
+  getAccounts: () => ipcRenderer.invoke('accounts:list'),
+  setActiveAccount: (id: string) => ipcRenderer.invoke('accounts:setActive', id),
+  removeAccount: (uuid: string) => ipcRenderer.invoke('accounts:remove', uuid),
+  startMicrosoftLogin: () => ipcRenderer.invoke('ms:login'),
+  cancelMicrosoftLogin: () => ipcRenderer.invoke('ms:cancel'),
+  getMicrosoftLoginStatus: () => ipcRenderer.invoke('ms:status'),
+  openMicrosoftLoginPage: () => ipcRenderer.invoke('ms:openLoginPage'),
+  onMicrosoftLogin: (callback: (status: MsLoginStatus) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, status: MsLoginStatus): void => callback(status)
+    ipcRenderer.on('ms:login', listener)
+    return () => {
+      ipcRenderer.removeListener('ms:login', listener)
+    }
+  },
   onGameStatus: (callback: (status: GameStatus) => void) => {
     const listener = (_: Electron.IpcRendererEvent, status: GameStatus): void => callback(status)
     ipcRenderer.on('game:status', listener)

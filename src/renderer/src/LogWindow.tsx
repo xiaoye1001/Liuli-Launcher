@@ -31,7 +31,7 @@ function LogWindow(): JSX.Element {
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    document.title = '游戏日志 - MC Launcher'
+    document.title = '游戏日志 - 琉璃启动器'
     window.api.getGameLogs().then(setLines)
     window.api.getGameStatus().then(setStatus)
     const offLog = window.api.onGameLog((event) => {

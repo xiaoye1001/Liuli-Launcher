@@ -10,7 +10,7 @@ const OFFICIAL_CDN = 'https://cdn.modrinth.com/'
 /** MCIM 镜像（国内常用的 Modrinth / CurseForge 镜像），失败时回退到官方 */
 const MIRROR_API = 'https://mod.mcimirror.top/modrinth/v2'
 const MIRROR_CDN = 'https://mod.mcimirror.top/'
-const USER_AGENT = 'mc_launcher/0.1.0 (github.com/xiaoye1001/mc_launcher)'
+const USER_AGENT = 'LiuliLauncher/0.1.0 (github.com/xiaoye1001/mc_launcher)'
 
 interface ModrinthFile {
   url: string

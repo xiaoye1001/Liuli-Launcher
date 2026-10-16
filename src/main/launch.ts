@@ -5,6 +5,7 @@ import { BrowserWindow } from 'electron'
 import { createMinecraftProcessWatcher, launch, Version } from '@xmcl/core'
 import { getSettings } from './config'
 import { isIsolated, versionGameDir } from './isolation'
+import { getMicrosoftLaunchAuth } from './microsoft'
 import { resolveJava } from './java'
 import { openLogWindow } from './logWindow'
 import type { GameLogEvent, GameStatus, InstalledVersion, ModLoader } from '../shared/types'
@@ -163,8 +164,17 @@ export async function launchGame(versionId: string): Promise<void> {
     if (!settings.javaPath) {
       throw new Error('尚未选择 Java，请先到「设置」页选择')
     }
-    if (!/^[A-Za-z0-9_]{3,16}$/.test(settings.offlineName)) {
+    // 微软账号会在这里自动刷新过期的令牌；离线账号使用玩家名生成固定的 UUID
+    const msAuth = await getMicrosoftLaunchAuth()
+    if (!msAuth && !/^[A-Za-z0-9_]{3,16}$/.test(settings.offlineName)) {
       throw new Error('玩家名只能包含字母、数字和下划线，长度 3~16')
+    }
+    const auth = msAuth ?? {
+      name: settings.offlineName,
+      uuid: offlineUuid(settings.offlineName),
+      accessToken: offlineUuid(settings.offlineName),
+      userType: 'legacy' as const,
+      microsoft: false
     }
 
     // 检查 Java 版本是否满足该游戏版本的要求
@@ -178,7 +188,7 @@ export async function launchGame(versionId: string): Promise<void> {
       throw new Error(`${versionId} 需要 Java ${required} 或更高版本，当前选择的是 Java ${java.majorVersion}`)
     }
     launcherLog(`Java ${java.version}：${java.path}`)
-    launcherLog(`玩家名 ${settings.offlineName}，最大内存 ${settings.maxMemory} MB`)
+    launcherLog(`${auth.microsoft ? '微软账号' : '离线账号'} ${auth.name}，最大内存 ${settings.maxMemory} MB`)
     // 版本隔离：模组、存档、配置放在版本自己的文件夹里，依赖库与资源文件仍从游戏目录读取
     const isolated = isIsolated(settings.versionIsolation, detectLoader(version))
     const gamePath = versionGameDir(settings.gameDir, versionId, isolated)
@@ -191,12 +201,13 @@ export async function launchGame(versionId: string): Promise<void> {
       version,
       maxMemory: settings.maxMemory,
       minMemory: Math.min(512, settings.maxMemory),
-      gameProfile: { name: settings.offlineName, id: offlineUuid(settings.offlineName) },
-      accessToken: offlineUuid(settings.offlineName),
-      userType: 'legacy',
-      launcherName: 'mc_launcher',
-      launcherBrand: 'mc_launcher',
-      versionType: 'MC Launcher',
+      gameProfile: { name: auth.name, id: auth.uuid },
+      accessToken: auth.accessToken,
+      // 官方启动器给微软账号传的是 msa，xmcl 的类型定义还没有这个值
+      userType: auth.userType as 'legacy' | 'mojang',
+      launcherName: 'liuli-launcher',
+      launcherBrand: 'Liuli Launcher',
+      versionType: 'Liuli Launcher',
       // 强制游戏以 UTF-8 输出日志，避免中文 Windows 下日志乱码
       extraJVMArgs: ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8'],
       extraExecOption: { windowsHide: false }

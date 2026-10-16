@@ -29,8 +29,8 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
           <Boxes className="h-6 w-6 text-white" />
         </div>
         <div>
-          <div className="text-base font-bold leading-tight">MC Launcher</div>
-          <div className="text-xs text-white/50">Java Edition</div>
+          <div className="text-base font-bold leading-tight">琉璃启动器</div>
+          <div className="text-xs text-white/50">Liuli Launcher</div>
         </div>
       </div>
 
