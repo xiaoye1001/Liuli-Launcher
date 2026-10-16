@@ -3,9 +3,11 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import LogWindow from './LogWindow'
 import { initTheme } from './utils/theme'
+import { initAppearance } from './utils/appearance'
 import './index.css'
 
 initTheme()
+initAppearance()
 
 // 日志窗口与主窗口共用同一个页面，通过地址中的 #logs 区分
 const isLogWindow = window.location.hash === '#logs'

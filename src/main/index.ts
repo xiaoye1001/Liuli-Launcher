@@ -1,4 +1,6 @@
 import './paths'
+import { clearBackground, pickBackground, registerBackgroundProtocol } from './appearance'
+import { setMainWindow } from './windows'
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -34,6 +36,12 @@ import {
 } from './microsoft'
 import type { AppSettings, InstallRequest, SystemInfo } from '../shared/types'
 
+/** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
+function broadcastSettings(settings: AppSettings): AppSettings {
+  for (const win of BrowserWindow.getAllWindows()) win.webContents.send('settings:changed', settings)
+  return settings
+}
+
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 1100,
@@ -48,6 +56,8 @@ function createWindow(): void {
       sandbox: false
     }
   })
+
+  setMainWindow(mainWindow)
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -76,8 +86,12 @@ function registerIpc(): void {
   ipcMain.handle('settings:update', (_, patch: Partial<AppSettings>) => {
     // 修改主题时同步给 Electron，所有窗口的 prefers-color-scheme 会随之变化
     if (patch.theme) nativeTheme.themeSource = patch.theme
-    return updateSettings(patch)
+    return updateSettings(patch).then(broadcastSettings)
   })
+  ipcMain.handle('appearance:pickBackground', (event) =>
+    pickBackground(BrowserWindow.fromWebContents(event.sender)).then(broadcastSettings)
+  )
+  ipcMain.handle('appearance:clearBackground', () => clearBackground().then(broadcastSettings))
   ipcMain.handle('versions:list', async (_, force: boolean) => {
     const settings = await getSettings()
     return getVersionManifest(settings.downloadSource, force)
@@ -144,6 +158,7 @@ app.whenReady().then(async () => {
   })
 
   registerIpc()
+  registerBackgroundProtocol()
   // 先应用保存的主题，再创建窗口，避免启动时闪烁
   nativeTheme.themeSource = (await getSettings()).theme
   createWindow()

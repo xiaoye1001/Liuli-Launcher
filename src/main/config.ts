@@ -25,7 +25,13 @@ function defaultSettings(): AppSettings {
     theme: 'system',
     versionIsolation: 'modded',
     activeAccount: 'offline',
-    msClientId: ''
+    msClientId: '',
+    accentColor: 'emerald',
+    backgroundImage: '',
+    backgroundBlur: 0,
+    backgroundDim: 30,
+    animations: true,
+    afterLaunch: 'keep'
   }
 }
 

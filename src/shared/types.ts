@@ -37,7 +37,25 @@ export interface AppSettings {
   activeAccount: string
   /** 微软登录使用的 Azure 应用 Client ID（需经 Mojang 审核） */
   msClientId: string
+  /** 主题色 */
+  accentColor: AccentColor
+  /** 自定义背景图片（用户数据目录 backgrounds 下的文件名），空字符串表示使用默认渐变背景 */
+  backgroundImage: string
+  /** 背景模糊程度（像素，0~20） */
+  backgroundBlur: number
+  /** 背景遮罩浓度（百分比，0~80），让文字在明亮的图片上也看得清 */
+  backgroundDim: number
+  /** 是否开启界面动画 */
+  animations: boolean
+  /** 游戏窗口出现后启动器的行为 */
+  afterLaunch: AfterLaunch
 }
+
+/** 主题色 */
+export type AccentColor = 'emerald' | 'sky' | 'violet' | 'rose' | 'amber'
+
+/** 游戏启动后：保持不变 / 最小化 / 隐藏（游戏退出后都会恢复） */
+export type AfterLaunch = 'keep' | 'minimize' | 'hide'
 
 /** 版本隔离：关闭 / 只隔离装了模组加载器的版本 / 隔离所有版本 */
 export type VersionIsolation = 'off' | 'modded' | 'all'
