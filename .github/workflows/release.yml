@@ -1,10 +1,10 @@
-# 发布流程：推送 v 开头的标签（例如 v0.1.0）时，自动打包 Linux 免安装版（AppImage）并发布到 GitHub Releases
+# 发布流程：在 GitHub 网页上发布 Release（Releases → Draft a new release → Publish release）后，
+# 自动打包 Linux 免安装版（AppImage），上传到这个 Release，并在说明末尾追加使用方法
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
 
 permissions:
   contents: write
@@ -34,12 +34,13 @@ jobs:
       - name: Build AppImage
         run: npm run build && npx electron-builder --linux AppImage --publish never
 
-      - name: Publish release
+      - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
-          name: 琉璃启动器 ${{ github.ref_name }}
           files: dist/*.AppImage
           fail_on_unmatched_files: true
+          # 保留发布时填写的说明，在末尾追加下载与运行方法
+          append_body: true
           body: |
             ## 琉璃启动器 ${{ github.ref_name }}
 
