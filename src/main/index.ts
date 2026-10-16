@@ -1,6 +1,7 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { scanJava } from './java'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -33,6 +34,10 @@ function createWindow(): void {
   }
 }
 
+function registerIpc(): void {
+  ipcMain.handle('java:scan', () => scanJava())
+}
+
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.mclauncher.app')
 
@@ -40,6 +45,7 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  registerIpc()
   createWindow()
 
   app.on('activate', () => {

@@ -15,6 +15,8 @@
   "dependencies": {
     "@electron-toolkit/preload": "3.0.2",
     "@electron-toolkit/utils": "4.0.0",
+    "@xmcl/core": "2.15.1",
+    "@xmcl/installer": "6.1.2",
     "framer-motion": "11.18.2",
     "lucide-react": "0.460.0"
   },

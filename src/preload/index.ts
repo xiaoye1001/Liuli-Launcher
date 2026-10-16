@@ -1,4 +1,4 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 const api = {
@@ -6,7 +6,8 @@ const api = {
     electron: process.versions.electron,
     chrome: process.versions.chrome,
     node: process.versions.node
-  }
+  },
+  scanJava: () => ipcRenderer.invoke('java:scan')
 }
 
 if (process.contextIsolated) {
