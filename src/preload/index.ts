@@ -67,6 +67,15 @@ const api = {
       ipcRenderer.removeListener('ms:login', listener)
     }
   },
+  pickBackground: () => ipcRenderer.invoke('appearance:pickBackground'),
+  clearBackground: () => ipcRenderer.invoke('appearance:clearBackground'),
+  onSettingsChanged: (callback: (settings: AppSettings) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, settings: AppSettings): void => callback(settings)
+    ipcRenderer.on('settings:changed', listener)
+    return () => {
+      ipcRenderer.removeListener('settings:changed', listener)
+    }
+  },
   onGameStatus: (callback: (status: GameStatus) => void) => {
     const listener = (_: Electron.IpcRendererEvent, status: GameStatus): void => callback(status)
     ipcRenderer.on('game:status', listener)

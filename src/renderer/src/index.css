@@ -2,11 +2,69 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 主题色（默认翡翠绿），由 <html data-accent="..."> 切换 */
+:root {
+  --accent-200: 167 243 208;
+  --accent-300: 110 231 183;
+  --accent-400: 52 211 153;
+  --accent-500: 16 185 129;
+  --accent-600: 5 150 105;
+  --accent2-400: 34 211 238;
+  --accent2-500: 6 182 212;
+  /* 默认背景渐变的最后一段颜色（深色 / 浅色主题） */
+  --accent-bg: 6 78 59;
+  --accent-bg-light: 209 250 229;
+}
+html[data-accent='sky'] {
+  --accent-bg: 12 74 110;
+  --accent-bg-light: 219 234 254;
+  --accent-200: 186 230 253;
+  --accent-300: 125 211 252;
+  --accent-400: 56 189 248;
+  --accent-500: 14 165 233;
+  --accent-600: 2 132 199;
+  --accent2-400: 129 140 248;
+  --accent2-500: 99 102 241;
+}
+html[data-accent='violet'] {
+  --accent-bg: 76 29 149;
+  --accent-bg-light: 237 233 254;
+  --accent-200: 221 214 254;
+  --accent-300: 196 181 253;
+  --accent-400: 167 139 250;
+  --accent-500: 139 92 246;
+  --accent-600: 124 58 237;
+  --accent2-400: 232 121 249;
+  --accent2-500: 217 70 239;
+}
+html[data-accent='rose'] {
+  --accent-bg: 136 19 55;
+  --accent-bg-light: 255 228 230;
+  --accent-200: 254 205 211;
+  --accent-300: 253 164 175;
+  --accent-400: 251 113 133;
+  --accent-500: 244 63 94;
+  --accent-600: 225 29 72;
+  --accent2-400: 251 146 60;
+  --accent2-500: 249 115 22;
+}
+html[data-accent='amber'] {
+  --accent-bg: 120 53 15;
+  --accent-bg-light: 254 243 199;
+  --accent-200: 253 230 138;
+  --accent-300: 252 211 77;
+  --accent-400: 251 191 36;
+  --accent-500: 245 158 11;
+  --accent-600: 217 119 6;
+  --accent2-400: 251 146 60;
+  --accent2-500: 249 115 22;
+}
+
 /* 深色主题（默认） */
 :root {
   --c-ink: 255 255 255;
   --c-shade: 0 0 0;
-  --bg-app: linear-gradient(to bottom right, #0f172a, #1e1b4b, #064e3b);
+  --bg-app: linear-gradient(to bottom right, #0f172a, #1e1b4b, rgb(var(--accent-bg)));
   --bg-log: linear-gradient(to bottom right, #020617, #0f172a, #1e1b4b);
   --c-popover: 15 23 42;
   color-scheme: dark;
@@ -16,7 +74,7 @@
 html.light {
   --c-ink: 15 23 42;
   --c-shade: 255 255 255;
-  --bg-app: linear-gradient(to bottom right, #e0f2fe, #ede9fe, #d1fae5);
+  --bg-app: linear-gradient(to bottom right, #e0f2fe, #ede9fe, rgb(var(--accent-bg-light)));
   --bg-log: linear-gradient(to bottom right, #f8fafc, #f1f5f9, #e0e7ff);
   --c-popover: 255 255 255;
   color-scheme: light;
@@ -55,7 +113,7 @@ body {
 /* 浅色模式下，把深色背景用的浅色强调文字（xxx-200/300）换成更深的颜色，保证可读性 */
 html.light .text-emerald-300,
 html.light .text-emerald-400 {
-  color: rgb(5 150 105);
+  color: rgb(var(--accent-600));
 }
 html.light .text-sky-300 {
   color: rgb(2 132 199);
@@ -83,6 +141,14 @@ html.light .from-emerald-400 .text-white,
 html.light .bg-emerald-500,
 html.light .bg-emerald-500\/80:not(:disabled) {
   color: rgb(255 255 255);
+}
+
+/* 关闭界面动画：去掉过渡与动画效果（加载转圈除外，它表示「正在进行」） */
+html.no-anim *:not(.animate-spin),
+html.no-anim *::before,
+html.no-anim *::after {
+  transition-duration: 0s !important;
+  animation-duration: 0s !important;
 }
 
 @keyframes slide-in {

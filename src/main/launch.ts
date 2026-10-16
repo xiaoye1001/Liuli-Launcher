@@ -6,6 +6,7 @@ import { createMinecraftProcessWatcher, launch, Version } from '@xmcl/core'
 import { getSettings } from './config'
 import { isIsolated, versionGameDir } from './isolation'
 import { getMicrosoftLaunchAuth } from './microsoft'
+import { onGameEnded, onGameWindowReady } from './windows'
 import { resolveJava } from './java'
 import { openLogWindow } from './logWindow'
 import type { GameLogEvent, GameStatus, InstalledVersion, ModLoader } from '../shared/types'
@@ -124,8 +125,12 @@ function pipeLines(stream: NodeJS.ReadableStream | null): void {
 }
 
 function setStatus(next: GameStatus): void {
+  const previous = status.state
   status = next
   broadcast()
+  // 「游戏启动后」设置：窗口出现时最小化/隐藏启动器，游戏结束后恢复
+  if (next.state === 'running' && previous !== 'running') void onGameWindowReady()
+  if (next.state === 'exited' || next.state === 'crashed') onGameEnded()
 }
 
 export function getGameStatus(): GameStatus {

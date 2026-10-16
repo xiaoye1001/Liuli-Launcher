@@ -60,6 +60,11 @@ declare global {
       launchGame: (versionId: string) => Promise<void>
       getGameStatus: () => Promise<GameStatus>
       onGameStatus: (callback: (status: GameStatus) => void) => () => void
+      /** 选择背景图片，取消时返回原设置 */
+      pickBackground: () => Promise<AppSettings>
+      clearBackground: () => Promise<AppSettings>
+      /** 任意窗口修改设置后推送最新设置 */
+      onSettingsChanged: (callback: (settings: AppSettings) => void) => () => void
       getAccounts: () => Promise<AccountsInfo>
       /** id 为 'offline' 或微软账号 UUID */
       setActiveAccount: (id: string) => Promise<AccountsInfo>

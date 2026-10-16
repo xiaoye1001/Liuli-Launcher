@@ -76,6 +76,28 @@ The project ships with an `.npmrc` that downloads Electron from a mirror in Chin
 | `npm run dev` | Run in development mode (reloads on code changes) |
 | `npm run build` | Build into the `out/` directory |
 | `npm run typecheck` | Run TypeScript type checking |
+| `npm run build:win` | Build both the Windows installer and the portable version |
+| `npm run build:win:setup` | Build the installer only |
+| `npm run build:win:portable` | Build the portable version only |
+| `npm run build:unpack` | Build an unpacked app folder (no installer, for quick testing) |
+
+### Building for Windows
+On Windows, run:
+```bash
+npm run build:win
+```
+Two files are written to `dist/`:
+
+| File | Description |
+|---|---|
+| `LiuliLauncher-Setup-<version>.exe` | **Installer**: lets you choose the install location and creates desktop and Start menu shortcuts. Uninstalling keeps your settings, accounts and game files |
+| `LiuliLauncher-Portable-<version>.exe` | **Portable**: a single exe that runs without installation. Data is stored in the `LiuliLauncher-Data` folder next to the exe, so you can carry both on a USB drive |
+
+The portable version unpacks itself on every start, so it launches a few seconds slower than the installed one. If the exe's folder is not writable (e.g. inside `C:\Program Files`), data is stored in the same place as the installed version instead.
+
+> The installer is not code-signed, so Windows SmartScreen may show "Windows protected your PC" on first run. Click **More info** → **Run anyway**.
+
+`build:mac` / `build:linux` build a macOS dmg and a Linux AppImage respectively, and must be run on those systems.
 
 ## Microsoft login
 
@@ -92,6 +114,8 @@ Minecraft's login API only accepts **Azure apps approved by Mojang**, so you nee
 Until the app is approved, login fails at the last step with a "not approved by Mojang" message. This is expected, and offline accounts keep working.
 
 ## Data location
+
+The portable version keeps its data in the `LiuliLauncher-Data` folder next to the exe. The installed version and development mode use:
 
 | OS | Path |
 |---|---|

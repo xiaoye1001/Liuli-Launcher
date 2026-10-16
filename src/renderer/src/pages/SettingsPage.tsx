@@ -7,6 +7,9 @@ import {
   ExternalLink,
   FolderOpen,
   FolderSearch,
+  ImageIcon,
+  Rocket,
+  Sparkles,
   Layers,
   Globe,
   Loader2,
@@ -19,7 +22,10 @@ import {
   Sun,
   type LucideIcon
 } from 'lucide-react'
+import { backgroundUrl } from '../utils/appearance'
 import type {
+  AccentColor,
+  AfterLaunch,
   AppSettings,
   DownloadSource,
   GameDirInfo,
@@ -31,6 +37,21 @@ import type {
 const SOURCES: { key: DownloadSource; label: string; desc: string }[] = [
   { key: 'bmclapi', label: 'BMCLAPI 镜像', desc: '国内高速镜像，推荐' },
   { key: 'mojang', label: '官方源', desc: 'Mojang 官方服务器' }
+]
+
+/** 主题色：色块显示主色到副色的渐变（与 index.css 中的变量一致） */
+const ACCENTS: { key: AccentColor; label: string; from: string; to: string }[] = [
+  { key: 'emerald', label: '翡翠绿', from: '#10b981', to: '#06b6d4' },
+  { key: 'sky', label: '天空蓝', from: '#0ea5e9', to: '#6366f1' },
+  { key: 'violet', label: '星辰紫', from: '#8b5cf6', to: '#d946ef' },
+  { key: 'rose', label: '樱花粉', from: '#f43f5e', to: '#f97316' },
+  { key: 'amber', label: '琥珀橙', from: '#f59e0b', to: '#f97316' }
+]
+
+const AFTER_LAUNCH: { key: AfterLaunch; label: string; desc: string }[] = [
+  { key: 'keep', label: '保持不变', desc: '启动器窗口保持原样' },
+  { key: 'minimize', label: '最小化', desc: '游戏退出后自动恢复' },
+  { key: 'hide', label: '隐藏', desc: '游戏退出或崩溃后自动出现' }
 ]
 
 const ISOLATIONS: { key: VersionIsolation; label: string; desc: string }[] = [
@@ -65,6 +86,8 @@ function SettingsPage(): JSX.Element {
   const [scanning, setScanning] = useState(false)
   const [error, setError] = useState('')
   const memoryTimer = useRef<ReturnType<typeof setTimeout>>()
+  const sliderTimer = useRef<ReturnType<typeof setTimeout>>()
+  const [backgroundError, setBackgroundError] = useState('')
   const [gameDir, setGameDir] = useState<GameDirInfo | null>(null)
   const [gameDirBusy, setGameDirBusy] = useState(false)
   const [gameDirError, setGameDirError] = useState('')
@@ -90,6 +113,22 @@ function SettingsPage(): JSX.Element {
     setSettings((prev) => (prev ? { ...prev, ...patch } : prev))
     const saved = await window.api.updateSettings(patch)
     setSettings(saved)
+  }
+
+  /** 拖动滑块时先更新界面，停止拖动 150 毫秒后再保存，避免频繁写入设置文件 */
+  const updateSlider = (patch: Partial<AppSettings>): void => {
+    setSettings((prev) => (prev ? { ...prev, ...patch } : prev))
+    clearTimeout(sliderTimer.current)
+    sliderTimer.current = setTimeout(() => update(patch), 150)
+  }
+
+  const changeBackground = async (action: () => Promise<AppSettings>): Promise<void> => {
+    setBackgroundError('')
+    try {
+      setSettings(await action())
+    } catch (e) {
+      setBackgroundError(cleanError(e))
+    }
   }
 
   const scan = async (current: AppSettings): Promise<void> => {
@@ -154,7 +193,7 @@ function SettingsPage(): JSX.Element {
           <Palette className="h-5 w-5 text-fuchsia-300" />
           <div>
             <h2 className="text-lg font-semibold">外观</h2>
-            <p className="text-xs text-white/50">选择界面的深色或浅色主题</p>
+            <p className="text-xs text-white/50">主题、主题色、背景图片与界面动画</p>
           </div>
         </div>
         <div className="mt-5 grid grid-cols-3 gap-3">
@@ -181,6 +220,118 @@ function SettingsPage(): JSX.Element {
               </button>
             )
           })}
+        </div>
+
+        {/* 主题色 */}
+        <div className="mt-6 text-sm font-medium">主题色</div>
+        <div className="mt-3 flex flex-wrap gap-4">
+          {ACCENTS.map((accent) => {
+            const active = settings.accentColor === accent.key
+            return (
+              <button
+                key={accent.key}
+                onClick={() => update({ accentColor: accent.key })}
+                className="flex flex-col items-center gap-1.5"
+              >
+                <span
+                  className={`flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-transparent transition ${
+                    active ? 'ring-white/80' : 'ring-transparent hover:ring-white/30'
+                  }`}
+                  style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}
+                >
+                  {active && <CheckCircle2 className="h-5 w-5 text-[#fff]" />}
+                </span>
+                <span className={`text-xs ${active ? 'text-white' : 'text-white/50'}`}>{accent.label}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* 背景图片 */}
+        <div className="mt-6 text-sm font-medium">背景图片</div>
+        <div className="mt-3 flex items-center gap-4">
+          <div
+            className="h-16 w-28 shrink-0 rounded-lg border border-white/10 bg-cover bg-center app-background"
+            style={settings.backgroundImage ? { backgroundImage: `url("${backgroundUrl(settings.backgroundImage)}")` } : undefined}
+          />
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => changeBackground(() => window.api.pickBackground())}
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+            >
+              <ImageIcon className="h-4 w-4" />
+              选择图片...
+            </button>
+            {settings.backgroundImage && (
+              <button
+                onClick={() => changeBackground(() => window.api.clearBackground())}
+                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+              >
+                <RotateCcw className="h-4 w-4" />
+                恢复默认
+              </button>
+            )}
+          </div>
+        </div>
+        {settings.backgroundImage && (
+          <div className="mt-4 grid grid-cols-2 gap-6">
+            <label className="block">
+              <div className="flex justify-between text-xs text-white/60">
+                <span>模糊</span>
+                <span>{settings.backgroundBlur} px</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={20}
+                value={settings.backgroundBlur}
+                onChange={(e) => updateSlider({ backgroundBlur: Number(e.target.value) })}
+                className="mt-2 w-full accent-emerald-500"
+              />
+            </label>
+            <label className="block">
+              <div className="flex justify-between text-xs text-white/60">
+                <span>遮罩</span>
+                <span>{settings.backgroundDim}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={80}
+                value={settings.backgroundDim}
+                onChange={(e) => updateSlider({ backgroundDim: Number(e.target.value) })}
+                className="mt-2 w-full accent-emerald-500"
+              />
+            </label>
+          </div>
+        )}
+        {backgroundError && (
+          <div className="mt-3 rounded-xl bg-red-500/20 px-4 py-2.5 text-sm text-red-200">{backgroundError}</div>
+        )}
+
+        {/* 界面动画 */}
+        <div className="mt-6 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-4 w-4 text-emerald-300" />
+            <div>
+              <div className="text-sm font-medium">界面动画</div>
+              <div className="text-xs text-white/50">关闭后页面切换与按钮效果不再有动画，适合配置较低的电脑</div>
+            </div>
+          </div>
+          <button
+            role="switch"
+            aria-checked={settings.animations}
+            onClick={() => update({ animations: !settings.animations })}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+              settings.animations ? 'bg-emerald-500' : 'bg-white/20'
+            }`}
+          >
+            <span
+              className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                settings.animations ? 'left-6' : 'left-1'
+              }`}
+            />
+          </button>
         </div>
       </section>
 
@@ -351,6 +502,37 @@ function SettingsPage(): JSX.Element {
         <div className="mt-1 flex justify-between text-xs text-white/40">
           <span>{formatMemory(MEMORY_MIN)}</span>
           <span>{formatMemory(memoryMax)}</span>
+        </div>
+      </section>
+
+      {/* 启动游戏后 */}
+      <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <Rocket className="h-5 w-5 text-sky-300" />
+          <div>
+            <h2 className="text-lg font-semibold">启动游戏后</h2>
+            <p className="text-xs text-white/50">游戏窗口出现后，启动器窗口如何处理</p>
+          </div>
+        </div>
+        <div className="mt-5 grid grid-cols-3 gap-3">
+          {AFTER_LAUNCH.map((option) => {
+            const active = settings.afterLaunch === option.key
+            return (
+              <button
+                key={option.key}
+                onClick={() => update({ afterLaunch: option.key })}
+                className={`flex items-center justify-between gap-2 rounded-xl border px-4 py-3 text-left transition-colors ${
+                  active ? 'border-emerald-400/50 bg-emerald-500/15' : 'border-white/5 bg-black/20 hover:bg-black/30'
+                }`}
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">{option.label}</div>
+                  <div className="text-xs text-white/50">{option.desc}</div>
+                </div>
+                {active && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
+              </button>
+            )
+          })}
         </div>
       </section>
 

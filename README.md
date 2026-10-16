@@ -72,6 +72,28 @@ npm run dev
 | `npm run dev` | 开发模式运行（修改代码后自动刷新） |
 | `npm run build` | 构建到 `out/` 目录 |
 | `npm run typecheck` | TypeScript 类型检查 |
+| `npm run build:win` | 同时打包 Windows 安装版与免安装版 |
+| `npm run build:win:setup` | 只打包安装版 |
+| `npm run build:win:portable` | 只打包免安装版 |
+| `npm run build:unpack` | 打包成免安装文件夹（不生成安装程序，用于快速测试） |
+
+### 打包 Windows 版本
+在 Windows 上运行：
+```bash
+npm run build:win
+```
+完成后在 `dist/` 目录得到两个文件：
+
+| 文件 | 说明 |
+|---|---|
+| `LiuliLauncher-Setup-<版本号>.exe` | **安装版**：可以选择安装位置，会创建桌面和开始菜单快捷方式；卸载时不会删除你的设置、账号和游戏文件 |
+| `LiuliLauncher-Portable-<版本号>.exe` | **免安装版**：单个 exe，双击直接运行；数据保存在 exe 旁边的 `LiuliLauncher-Data` 文件夹，连同 exe 一起复制到 U 盘就能带走 |
+
+免安装版每次启动需要先解压，会比安装版慢几秒。exe 所在位置不可写时（例如放在 `C:\Program Files` 里），数据会改存到与安装版相同的位置。
+
+> 安装包没有代码签名证书，第一次运行时 Windows 可能提示「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」即可。
+
+`build:mac` / `build:linux` 分别用于打包 macOS（dmg）和 Linux（AppImage），需要在对应系统上运行。
 
 ## 微软正版登录
 
@@ -88,6 +110,8 @@ Minecraft 的登录接口只允许 **经过 Mojang 审核的 Azure 应用** 使�
 审核通过前，登录会在最后一步提示「未通过 Mojang 审核」，这是正常的。离线账号不受影响。
 
 ## 数据存放位置
+
+免安装版的数据在 exe 旁边的 `LiuliLauncher-Data` 文件夹；安装版与开发模式如下：
 
 | 系统 | 路径 |
 |---|---|
