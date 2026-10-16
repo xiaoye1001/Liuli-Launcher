@@ -19,6 +19,8 @@ export interface AppSettings {
   maxMemory: number
   /** 下载源 */
   downloadSource: DownloadSource
+  /** 游戏目录（.minecraft） */
+  gameDir: string
 }
 
 /** 系统信息 */
@@ -35,6 +37,8 @@ export interface VersionEntry {
   id: string
   type: VersionType
   releaseTime: string
+  /** 版本 json 的下载地址 */
+  url: string
 }
 
 /** 版本清单 */
@@ -46,4 +50,26 @@ export interface VersionManifest {
   versions: VersionEntry[]
   /** 实际使用的下载源（首选源失败时会自动切换到另一个） */
   source: DownloadSource
+}
+
+/** 安装状态 */
+export type InstallState = 'running' | 'success' | 'failed' | 'cancelled'
+
+/** 安装阶段：游戏本体（版本 json 与客户端 jar） → 依赖库与资源文件（并行下载） */
+export type InstallPhase = 'version' | 'dependencies'
+
+/** 安装进度，由主进程实时推送到界面 */
+export interface InstallStatus {
+  versionId: string
+  state: InstallState
+  /** 当前正在下载的阶段 */
+  phase: InstallPhase
+  /** 已下载字节数 */
+  progress: number
+  /** 总字节数（随着阶段推进会逐渐增大） */
+  total: number
+  /** 下载速度（字节/秒） */
+  speed: number
+  /** 失败原因 */
+  error?: string
 }

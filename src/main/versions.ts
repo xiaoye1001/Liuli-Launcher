@@ -25,7 +25,8 @@ async function fetchFrom(source: DownloadSource): Promise<VersionManifest> {
       (v): VersionEntry => ({
         id: v.id,
         type: v.type as VersionEntry['type'],
-        releaseTime: v.releaseTime
+        releaseTime: v.releaseTime,
+        url: v.url
       })
     ),
     source

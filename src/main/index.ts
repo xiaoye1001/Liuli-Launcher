@@ -5,6 +5,7 @@ import { totalmem } from 'os'
 import { scanJava } from './java'
 import { getSettings, updateSettings } from './config'
 import { getVersionManifest } from './versions'
+import { cancelInstall, getInstallStatus, startInstall } from './install'
 import type { AppSettings, SystemInfo } from '../shared/types'
 
 function createWindow(): void {
@@ -46,6 +47,9 @@ function registerIpc(): void {
     const settings = await getSettings()
     return getVersionManifest(settings.downloadSource, force)
   })
+  ipcMain.handle('install:start', (_, versionId: string) => startInstall(versionId))
+  ipcMain.handle('install:cancel', () => cancelInstall())
+  ipcMain.handle('install:status', () => getInstallStatus())
   ipcMain.handle(
     'system:info',
     (): SystemInfo => ({ totalMemory: Math.floor(totalmem() / 1024 / 1024) })

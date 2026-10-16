@@ -11,7 +11,8 @@ function defaultSettings(): AppSettings {
   return {
     javaPath: '',
     maxMemory: Math.min(4096, Math.floor(totalMB / 2 / 256) * 256),
-    downloadSource: 'bmclapi'
+    downloadSource: 'bmclapi',
+    gameDir: join(app.getPath('userData'), '.minecraft')
   }
 }
 

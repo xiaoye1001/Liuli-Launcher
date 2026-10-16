@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, Download, Loader2, RefreshCw, Search, Sparkles, FlaskConical } from 'lucide-react'
-import type { VersionEntry, VersionManifest, VersionType } from '../../../shared/types'
+import InstallProgressCard from '../components/InstallProgressCard'
+import type { InstallStatus, VersionEntry, VersionManifest, VersionType } from '../../../shared/types'
 
 type Filter = 'release' | 'snapshot' | 'old'
 
@@ -30,12 +31,19 @@ function formatDate(iso: string): string {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString('zh-CN')
 }
 
+/** 去掉 Electron IPC 错误前缀，只保留真正的错误信息 */
+function cleanError(e: unknown): string {
+  return e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e)
+}
+
 function DownloadPage(): JSX.Element {
   const [manifest, setManifest] = useState<VersionManifest | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState<Filter>('release')
   const [keyword, setKeyword] = useState('')
+  const [install, setInstall] = useState<InstallStatus | null>(null)
+  const [installError, setInstallError] = useState('')
 
   const load = async (force: boolean): Promise<void> => {
     setLoading(true)
@@ -43,7 +51,7 @@ function DownloadPage(): JSX.Element {
     try {
       setManifest(await window.api.getVersionList(force))
     } catch (e) {
-      setError(e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e))
+      setError(cleanError(e))
     } finally {
       setLoading(false)
     }
@@ -51,7 +59,19 @@ function DownloadPage(): JSX.Element {
 
   useEffect(() => {
     load(false)
+    // 进入页面时获取当前安装状态，并订阅主进程推送的实时进度
+    window.api.getInstallStatus().then(setInstall)
+    return window.api.onInstallStatus(setInstall)
   }, [])
+
+  const startInstall = async (versionId: string): Promise<void> => {
+    setInstallError('')
+    try {
+      await window.api.startInstall(versionId)
+    } catch (e) {
+      setInstallError(cleanError(e))
+    }
+  }
 
   const visible = useMemo(() => {
     if (!manifest) return []
@@ -80,8 +100,26 @@ function DownloadPage(): JSX.Element {
         </motion.button>
       </div>
 
+      {/* 安装进度 */}
+      <AnimatePresence>
+        {install && (
+          <InstallProgressCard
+            status={install}
+            onCancel={() => window.api.cancelInstall()}
+            onRetry={() => startInstall(install.versionId)}
+            onDismiss={() => setInstall(null)}
+          />
+        )}
+      </AnimatePresence>
+      {installError && (
+        <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span className="break-all">{installError}</span>
+        </div>
+      )}
+
       {/* 最新版本 */}
-      {manifest && (
+      {manifest && !install && (
         <div className="grid grid-cols-2 gap-4">
           <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-xl">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/20">
@@ -165,9 +203,9 @@ function DownloadPage(): JSX.Element {
                   <span className={`rounded-md px-2 py-0.5 text-xs ${typeInfo.className}`}>{typeInfo.label}</span>
                   <span className="flex-1 text-xs text-white/40">{formatDate(version.releaseTime)}</span>
                   <button
-                    disabled
-                    title="下一阶段实现"
-                    className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/40 opacity-0 transition-opacity group-hover:opacity-100"
+                    onClick={() => startInstall(version.id)}
+                    disabled={install?.state === 'running'}
+                    className="flex items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium opacity-0 transition-opacity hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40 group-hover:opacity-100"
                   >
                     <Download className="h-3.5 w-3.5" />
                     安装
