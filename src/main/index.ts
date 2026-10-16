@@ -5,7 +5,14 @@ import { totalmem } from 'os'
 import { scanJava } from './java'
 import { getSettings, updateSettings } from './config'
 import { getVersionManifest } from './versions'
-import { cancelInstall, getInstallStatus, startInstall, startRepair } from './install'
+import {
+  cancelInstall,
+  getFabricLoaders,
+  getInstallStatus,
+  startFabricInstall,
+  startInstall,
+  startRepair
+} from './install'
 import { getGameLogs, getGameStatus, launchGame, listInstalledVersions } from './launch'
 import { closeLogWindow, openLogWindow } from './logWindow'
 import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
@@ -62,6 +69,10 @@ function registerIpc(): void {
   ipcMain.handle('install:start', (_, versionId: string) => startInstall(versionId))
   ipcMain.handle('install:cancel', () => cancelInstall())
   ipcMain.handle('install:status', () => getInstallStatus())
+  ipcMain.handle('fabric:loaders', (_, minecraftVersion: string) => getFabricLoaders(minecraftVersion))
+  ipcMain.handle('fabric:install', (_, minecraftVersion: string, loaderVersion: string) =>
+    startFabricInstall(minecraftVersion, loaderVersion)
+  )
   ipcMain.handle('versions:installed', () => listInstalledVersions())
   ipcMain.handle('versions:repair', (_, versionId: string) => startRepair(versionId))
   ipcMain.handle('versions:delete', (event, versionId: string) =>

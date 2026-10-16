@@ -1,12 +1,21 @@
 import { BrowserWindow } from 'electron'
 import { Version } from '@xmcl/core'
 import { getDefaultAgent } from '@xmcl/file-transfer'
-import { installDependenciesTask, installTask, type Options } from '@xmcl/installer'
+import {
+  getLoaderArtifactListFor,
+  installDependenciesTask,
+  installFabric,
+  installTask,
+  type Options
+} from '@xmcl/installer'
+import { task as createTask, type Task } from '@xmcl/task'
 import { getSettings } from './config'
 import { getVersionManifest } from './versions'
-import type { DownloadSource, InstallKind, InstallPhase, InstallStatus } from '../shared/types'
+import type { DownloadSource, FabricLoaderVersion, InstallKind, InstallPhase, InstallStatus } from '../shared/types'
 
 const BMCLAPI = 'https://bmclapi2.bangbang93.com'
+const FABRIC_META = 'https://meta.fabricmc.net'
+const FABRIC_MAVEN = 'https://maven.fabricmc.net/'
 
 /** 根据下载源生成 @xmcl/installer 的镜像参数（镜像失败时会自动回退到官方地址） */
 function mirrorOptions(source: DownloadSource): Options {
@@ -20,9 +29,13 @@ function mirrorOptions(source: DownloadSource): Options {
     assetsHost: `${BMCLAPI}/assets`,
     libraryHost: (library) => {
       const url = library.download.url
-      return url.startsWith('https://libraries.minecraft.net/')
-        ? url.replace('https://libraries.minecraft.net', `${BMCLAPI}/maven`)
-        : undefined
+      if (url.startsWith('https://libraries.minecraft.net/')) {
+        return url.replace('https://libraries.minecraft.net', `${BMCLAPI}/maven`)
+      }
+      if (url.startsWith(FABRIC_MAVEN)) {
+        return url.replace(FABRIC_MAVEN, `${BMCLAPI}/maven/`)
+      }
+      return undefined
     }
   }
 }
@@ -32,7 +45,7 @@ function phaseOf(path: string): InstallPhase {
   return path.includes('dependencies') ? 'dependencies' : 'version'
 }
 
-type AnyInstallTask = ReturnType<typeof installTask> | ReturnType<typeof installDependenciesTask>
+type AnyInstallTask = Task<unknown>
 
 let status: InstallStatus | null = null
 let currentTask: AnyInstallTask | null = null
@@ -151,6 +164,62 @@ export async function startRepair(versionId: string): Promise<void> {
     throw new Error(`无法解析 ${versionId} 的版本文件，请删除后重新安装`)
   }
   runTask(versionId, 'repair', installDependenciesTask(resolved, options))
+}
+
+/** 带超时与状态码检查的 fetch */
+async function fetchChecked(url: string, init?: RequestInit): Promise<Response> {
+  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(15000) })
+  if (!response.ok) throw new Error(`HTTP ${response.status}：${url}`)
+  return response
+}
+
+/** Fabric 元数据请求：选择 BMCLAPI 时优先走镜像，失败再回退到官方地址 */
+async function fabricFetch(url: string, init?: RequestInit): Promise<Response> {
+  const { downloadSource } = await getSettings()
+  if (downloadSource === 'bmclapi' && url.startsWith(FABRIC_META)) {
+    try {
+      return await fetchChecked(url.replace(FABRIC_META, `${BMCLAPI}/fabric-meta`), init)
+    } catch {
+      // 镜像失败，回退到官方地址
+    }
+  }
+  return fetchChecked(url, init)
+}
+
+/** 获取某个 Minecraft 版本可用的 Fabric 加载器版本（新版本在前） */
+export async function getFabricLoaders(minecraftVersion: string): Promise<FabricLoaderVersion[]> {
+  const list = await getLoaderArtifactListFor(minecraftVersion, { fetch: fabricFetch })
+  if (!Array.isArray(list)) return []
+  return list.map((item) => ({ version: item.loader.version, stable: item.loader.stable }))
+}
+
+/**
+ * 安装 Fabric：先安装（或校验）原版，再写入 Fabric 版本配置，最后下载 Fabric 的依赖库。
+ * 三步合并为一个任务，进度与取消都和普通安装一样。
+ */
+export async function startFabricInstall(minecraftVersion: string, loaderVersion: string): Promise<void> {
+  assertIdle()
+  const settings = await getSettings()
+  const manifest = await getVersionManifest(settings.downloadSource)
+  const meta = manifest.versions.find((v) => v.id === minecraftVersion)
+  if (!meta) {
+    throw new Error(`版本列表中找不到 ${minecraftVersion}`)
+  }
+  const options = await downloadOptions()
+  const versionId = `${minecraftVersion}-fabric${loaderVersion}`
+
+  const fabricTask = createTask('fabric', async function () {
+    await this.yield(installTask(meta, settings.gameDir, options))
+    const id = await installFabric({
+      minecraftVersion,
+      version: loaderVersion,
+      minecraft: settings.gameDir,
+      fetch: fabricFetch
+    })
+    const resolved = await Version.parse(settings.gameDir, id)
+    await this.yield(installDependenciesTask(resolved, options))
+  })
+  runTask(versionId, 'install', fabricTask)
 }
 
 /** 取消当前安装 */

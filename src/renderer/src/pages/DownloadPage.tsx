@@ -6,6 +6,7 @@ import {
   Download,
   FlaskConical,
   FolderOpen,
+  Layers,
   Loader2,
   RefreshCw,
   Search,
@@ -13,6 +14,7 @@ import {
   Trash2,
   Wrench
 } from 'lucide-react'
+import FabricDialog from '../components/FabricDialog'
 import InstallProgressCard from '../components/InstallProgressCard'
 import type {
   InstalledVersion,
@@ -39,6 +41,13 @@ const TYPE_LABELS: Record<VersionType, { label: string; className: string }> = {
 }
 
 const OTHER_TYPE = { label: '其他', className: 'bg-sky-500/20 text-sky-300' }
+const FABRIC_TYPE = { label: 'Fabric', className: 'bg-amber-500/20 text-amber-300' }
+
+/** 已安装版本的类型标签：Fabric 版本单独标记 */
+function installedTypeInfo(version: InstalledVersion): { label: string; className: string } {
+  if (/-fabric|fabric-loader/i.test(version.id)) return FABRIC_TYPE
+  return TYPE_LABELS[version.type as VersionType] ?? OTHER_TYPE
+}
 
 const SOURCE_LABELS = { bmclapi: 'BMCLAPI 镜像', mojang: '官方源' }
 
@@ -67,6 +76,7 @@ function DownloadPage(): JSX.Element {
   const [keyword, setKeyword] = useState('')
   const [install, setInstall] = useState<InstallStatus | null>(null)
   const [actionError, setActionError] = useState('')
+  const [fabricFor, setFabricFor] = useState<string | null>(null)
   const lastState = useRef<string | undefined>(undefined)
 
   const loadInstalled = useCallback(async (): Promise<void> => {
@@ -111,6 +121,11 @@ function DownloadPage(): JSX.Element {
 
   const startInstall = (versionId: string): Promise<void> => run(() => window.api.startInstall(versionId))
   const repair = (versionId: string): Promise<void> => run(() => window.api.repairVersion(versionId))
+  const installFabric = async (minecraftVersion: string, loaderVersion: string): Promise<void> => {
+    // 出错时由弹窗自己显示错误；成功后关闭弹窗，进度显示在页面顶部
+    await window.api.installFabric(minecraftVersion, loaderVersion)
+    setFabricFor(null)
+  }
   const remove = (versionId: string): Promise<void> =>
     run(async () => {
       if (await window.api.deleteVersion(versionId)) await loadInstalled()
@@ -241,7 +256,7 @@ function DownloadPage(): JSX.Element {
               )}
               <div className="flex flex-col gap-1.5">
                 {visibleInstalled.map((version) => {
-                  const typeInfo = TYPE_LABELS[version.type as VersionType] ?? OTHER_TYPE
+                  const typeInfo = installedTypeInfo(version)
                   const repairing = busy && install?.versionId === version.id
                   return (
                     <div
@@ -316,6 +331,17 @@ function DownloadPage(): JSX.Element {
                         </span>
                       )}
                       <span className="flex-1 text-xs text-white/40">{formatDate(version.releaseTime)}</span>
+                      {version.type === 'release' && (
+                        <button
+                          onClick={() => setFabricFor(version.id)}
+                          disabled={busy}
+                          title="安装 Fabric 模组加载器"
+                          className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs opacity-0 transition-opacity hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-0 group-hover:opacity-100 group-hover:disabled:opacity-40"
+                        >
+                          <Layers className="h-3.5 w-3.5" />
+                          Fabric
+                        </button>
+                      )}
                       {!isInstalled && (
                         <button
                           onClick={() => startInstall(version.id)}
@@ -334,6 +360,16 @@ function DownloadPage(): JSX.Element {
           )}
         </div>
       </section>
+
+      <AnimatePresence>
+        {fabricFor && (
+          <FabricDialog
+            minecraftVersion={fabricFor}
+            onClose={() => setFabricFor(null)}
+            onInstall={(loader) => installFabric(fabricFor, loader)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

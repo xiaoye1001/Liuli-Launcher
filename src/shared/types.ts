@@ -138,3 +138,10 @@ export interface GameDirInfo {
   /** 官方启动器目录是否存在 */
   officialExists: boolean
 }
+
+/** 一个 Fabric 加载器版本 */
+export interface FabricLoaderVersion {
+  version: string
+  /** 是否为稳定版 */
+  stable: boolean
+}

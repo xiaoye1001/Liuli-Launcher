@@ -1,6 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
   AppSettings,
+  FabricLoaderVersion,
   GameDirInfo,
   GameLogEvent,
   GameStatus,
@@ -28,6 +29,8 @@ declare global {
       startInstall: (versionId: string) => Promise<void>
       cancelInstall: () => Promise<void>
       getInstallStatus: () => Promise<InstallStatus | null>
+      getFabricLoaders: (minecraftVersion: string) => Promise<FabricLoaderVersion[]>
+      installFabric: (minecraftVersion: string, loaderVersion: string) => Promise<void>
       onInstallStatus: (callback: (status: InstallStatus | null) => void) => () => void
       getInstalledVersions: () => Promise<InstalledVersion[]>
       repairVersion: (versionId: string) => Promise<void>
