@@ -24,6 +24,11 @@ win:
   target:
     - target: nsis
       arch: [x64]
+    - target: portable
+      arch: [x64]
+# 免安装版：单个 exe，双击直接运行，数据保存在 exe 旁边的 LiuliLauncher-Data 文件夹
+portable:
+  artifactName: LiuliLauncher-Portable-${version}.${ext}
 nsis:
   artifactName: LiuliLauncher-Setup-${version}.${ext}
   # 安装向导：可以选择安装位置，而不是一键静默安装

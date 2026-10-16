@@ -1,4 +1,4 @@
-import './paths'
+import { portableDir } from './paths'
 import { clearBackground, pickBackground, registerBackgroundProtocol } from './appearance'
 import { setMainWindow } from './windows'
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
@@ -149,7 +149,7 @@ function registerIpc(): void {
   })
   ipcMain.handle(
     'system:info',
-    (): SystemInfo => ({ totalMemory: Math.floor(totalmem() / 1024 / 1024) })
+    (): SystemInfo => ({ totalMemory: Math.floor(totalmem() / 1024 / 1024), portableDir })
   )
 }
 

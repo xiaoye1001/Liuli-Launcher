@@ -70,6 +70,8 @@ export type SkinModel = 'default' | 'slim'
 export interface SystemInfo {
   /** 物理内存总量（MB） */
   totalMemory: number
+  /** 免安装版的数据文件夹（exe 旁边），安装版为 null */
+  portableDir: string | null
 }
 
 /** 版本类型：正式版 / 快照 / 远古 Beta / 远古 Alpha */

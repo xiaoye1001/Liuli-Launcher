@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { existsSync } from 'fs'
 import { mkdir, readFile, rename, writeFile } from 'fs/promises'
 import { totalmem } from 'os'
 import { dirname, join } from 'path'
@@ -43,6 +44,11 @@ async function load(): Promise<AppSettings> {
   const defaults = defaultSettings()
   try {
     const saved = JSON.parse(await readFile(SETTINGS_FILE, 'utf-8')) as Partial<AppSettings>
+    // 保存的游戏目录已不存在、而默认目录存在时，改用默认目录。
+    // 常见于免安装版：U 盘换了电脑后盘符变化（E: → F:），旧的绝对路径失效
+    if (saved.gameDir && !existsSync(saved.gameDir) && existsSync(defaults.gameDir)) {
+      saved.gameDir = defaults.gameDir
+    }
     return { ...defaults, ...saved }
   } catch {
     return defaults

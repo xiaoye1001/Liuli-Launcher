@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Boxes, Download, House, Settings, UserRound, type LucideIcon } from 'lucide-react'
 
@@ -22,6 +23,12 @@ interface SidebarProps {
 }
 
 function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
+  const [portableDir, setPortableDir] = useState<string | null>(null)
+
+  useEffect(() => {
+    window.api.getSystemInfo().then((info) => setPortableDir(info.portableDir))
+  }, [])
+
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r border-white/10 bg-white/5 p-4 backdrop-blur-xl">
       <div className="mb-8 flex items-center gap-3 px-2 pt-2">
@@ -60,7 +67,10 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
         })}
       </nav>
 
-      <div className="mt-auto px-2 text-xs text-white/30">v{__APP_VERSION__}</div>
+      <div className="mt-auto px-2 text-xs text-white/30" title={portableDir ? `数据保存在 ${portableDir}` : undefined}>
+        v{__APP_VERSION__}
+        {portableDir && ' · 免安装版'}
+      </div>
     </aside>
   )
 }
