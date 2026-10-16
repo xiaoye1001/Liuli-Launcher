@@ -293,6 +293,14 @@ function DownloadPage(): JSX.Element {
                           {version.id}
                         </span>
                         <span className={`rounded-md px-2 py-0.5 text-xs ${typeInfo.className}`}>{typeInfo.label}</span>
+                        {version.isolated && (
+                          <span
+                            title="模组、存档、配置放在该版本自己的文件夹里（点右侧「打开文件夹」查看）"
+                            className="rounded-md bg-white/10 px-2 py-0.5 text-xs text-white/60"
+                          >
+                            版本隔离
+                          </span>
+                        )}
                         <span className="flex-1 text-xs text-white/40">{formatDate(version.releaseTime)}</span>
                         <button
                           onClick={() => window.api.openVersionDir(version.id)}

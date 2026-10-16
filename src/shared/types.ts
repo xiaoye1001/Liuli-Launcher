@@ -31,7 +31,12 @@ export interface AppSettings {
   skinModel: SkinModel
   /** 界面主题 */
   theme: ThemeMode
+  /** 版本隔离：开启后版本使用 versions/<版本名> 作为游戏目录，模组、存档、配置互不影响 */
+  versionIsolation: VersionIsolation
 }
+
+/** 版本隔离：关闭 / 只隔离装了模组加载器的版本 / 隔离所有版本 */
+export type VersionIsolation = 'off' | 'modded' | 'all'
 
 /** 界面主题：跟随系统 / 深色 / 浅色 */
 export type ThemeMode = 'system' | 'dark' | 'light'
@@ -105,6 +110,8 @@ export interface InstalledVersion {
   releaseTime: string
   /** 检测到的模组加载器，原版为 undefined */
   loader?: ModLoader
+  /** 是否使用独立的游戏目录（版本隔离） */
+  isolated: boolean
 }
 
 /** 游戏运行状态：空闲 / 启动中 / 窗口已出现 / 正常退出 / 崩溃或启动失败 */

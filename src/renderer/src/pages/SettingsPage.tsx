@@ -7,6 +7,7 @@ import {
   ExternalLink,
   FolderOpen,
   FolderSearch,
+  Layers,
   Globe,
   Loader2,
   MemoryStick,
@@ -18,11 +19,24 @@ import {
   Sun,
   type LucideIcon
 } from 'lucide-react'
-import type { AppSettings, DownloadSource, GameDirInfo, JavaInfo, ThemeMode } from '../../../shared/types'
+import type {
+  AppSettings,
+  DownloadSource,
+  GameDirInfo,
+  JavaInfo,
+  ThemeMode,
+  VersionIsolation
+} from '../../../shared/types'
 
 const SOURCES: { key: DownloadSource; label: string; desc: string }[] = [
   { key: 'bmclapi', label: 'BMCLAPI 镜像', desc: '国内高速镜像，推荐' },
   { key: 'mojang', label: '官方源', desc: 'Mojang 官方服务器' }
+]
+
+const ISOLATIONS: { key: VersionIsolation; label: string; desc: string }[] = [
+  { key: 'modded', label: '隔离模组版本（推荐）', desc: 'Forge、Fabric 等版本互不干扰' },
+  { key: 'all', label: '隔离所有版本', desc: '每个版本都有独立的存档与设置' },
+  { key: 'off', label: '关闭', desc: '所有版本共用游戏目录' }
 ]
 
 const THEMES: { key: ThemeMode; label: string; icon: LucideIcon }[] = [
@@ -338,6 +352,42 @@ function SettingsPage(): JSX.Element {
           <span>{formatMemory(MEMORY_MIN)}</span>
           <span>{formatMemory(memoryMax)}</span>
         </div>
+      </section>
+
+      {/* 版本隔离 */}
+      <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <Layers className="h-5 w-5 text-violet-300" />
+          <div>
+            <h2 className="text-lg font-semibold">版本隔离</h2>
+            <p className="text-xs text-white/50">
+              隔离的版本把模组、存档、配置放在 versions/版本名 文件夹里，不同版本的模组互不干扰
+            </p>
+          </div>
+        </div>
+        <div className="mt-5 grid grid-cols-3 gap-3">
+          {ISOLATIONS.map((option) => {
+            const active = settings.versionIsolation === option.key
+            return (
+              <button
+                key={option.key}
+                onClick={() => update({ versionIsolation: option.key })}
+                className={`flex items-center justify-between gap-2 rounded-xl border px-4 py-3 text-left transition-colors ${
+                  active ? 'border-emerald-400/50 bg-emerald-500/15' : 'border-white/5 bg-black/20 hover:bg-black/30'
+                }`}
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">{option.label}</div>
+                  <div className="text-xs text-white/50">{option.desc}</div>
+                </div>
+                {active && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
+              </button>
+            )
+          })}
+        </div>
+        <p className="mt-3 text-xs leading-5 text-white/40">
+          修改后从下次启动开始生效。开启前放在游戏目录 mods 文件夹里的模组，需要手动移到对应版本的文件夹中。
+        </p>
       </section>
 
       {/* 下载源 */}
