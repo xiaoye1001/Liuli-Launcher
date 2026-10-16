@@ -6,6 +6,8 @@
 
 玻璃质感界面 · 深浅色主题 · 国内镜像高速下载 · 模组加载器一键安装 · 微软正版登录
 
+**简体中文** | [English](README.en.md)
+
 </div>
 
 ![主页](docs/screenshots/home.png)
@@ -56,8 +58,8 @@
 
 ### 运行
 ```bash
-git clone https://github.com/xiaoye1001/mc_launcher.git
-cd mc_launcher
+git clone https://github.com/xiaoye1001/Liuli-Launcher.git
+cd Liuli-Launcher
 npm install
 npm run dev
 ```
