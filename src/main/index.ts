@@ -1,6 +1,25 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { totalmem } from 'os'
+import { scanJava } from './java'
+import { getSettings, updateSettings } from './config'
+import { getVersionManifest } from './versions'
+import { getForgeVersions } from './forge'
+import { getNeoForgeVersions } from './neoforge'
+import {
+  cancelInstall,
+  getFabricLoaders,
+  getInstallStatus,
+  retryLastInstall,
+  startCustomInstall,
+  startRepair
+} from './install'
+import { getGameLogs, getGameStatus, launchGame, listInstalledVersions } from './launch'
+import { closeLogWindow, openLogWindow } from './logWindow'
+import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
+import { deleteVersion, openVersionDir } from './versionManage'
+import type { AppSettings, InstallRequest, SystemInfo } from '../shared/types'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -10,7 +29,7 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#0f172a',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0f172a' : '#e0f2fe',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
@@ -19,6 +38,10 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+  })
+
+  mainWindow.on('closed', () => {
+    closeLogWindow()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -33,13 +56,59 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+function registerIpc(): void {
+  ipcMain.handle('java:scan', () => scanJava())
+  ipcMain.handle('settings:get', () => getSettings())
+  ipcMain.handle('settings:update', (_, patch: Partial<AppSettings>) => {
+    // 修改主题时同步给 Electron，所有窗口的 prefers-color-scheme 会随之变化
+    if (patch.theme) nativeTheme.themeSource = patch.theme
+    return updateSettings(patch)
+  })
+  ipcMain.handle('versions:list', async (_, force: boolean) => {
+    const settings = await getSettings()
+    return getVersionManifest(settings.downloadSource, force)
+  })
+  ipcMain.handle('install:start', (_, request: InstallRequest) => startCustomInstall(request))
+  ipcMain.handle('install:retry', () => retryLastInstall())
+  ipcMain.handle('install:cancel', () => cancelInstall())
+  ipcMain.handle('install:status', () => getInstallStatus())
+  ipcMain.handle('fabric:loaders', (_, minecraftVersion: string) => getFabricLoaders(minecraftVersion))
+  ipcMain.handle('forge:versions', (_, minecraftVersion: string) => getForgeVersions(minecraftVersion))
+  ipcMain.handle('neoforge:versions', (_, minecraftVersion: string) => getNeoForgeVersions(minecraftVersion))
+  ipcMain.handle('versions:installed', () => listInstalledVersions())
+  ipcMain.handle('versions:repair', (_, versionId: string) => startRepair(versionId))
+  ipcMain.handle('versions:delete', (event, versionId: string) =>
+    deleteVersion(BrowserWindow.fromWebContents(event.sender), versionId)
+  )
+  ipcMain.handle('versions:open', (_, versionId: string) => openVersionDir(versionId))
+  ipcMain.handle('game:launch', (_, versionId: string) => launchGame(versionId))
+  ipcMain.handle('game:status', () => getGameStatus())
+  ipcMain.handle('game:logs', () => getGameLogs())
+  ipcMain.handle('logs:open', () => openLogWindow())
+  ipcMain.handle('gamedir:info', () => getGameDirInfo())
+  ipcMain.handle('gamedir:set', (_, dir: string) => setGameDir(dir))
+  ipcMain.handle('gamedir:open', () => openGameDir())
+  // 弹出文件夹选择框并切换；用户取消时返回 null
+  ipcMain.handle('gamedir:pick', async (event) => {
+    const dir = await pickGameDir(BrowserWindow.fromWebContents(event.sender))
+    return dir ? setGameDir(dir) : null
+  })
+  ipcMain.handle(
+    'system:info',
+    (): SystemInfo => ({ totalMemory: Math.floor(totalmem() / 1024 / 1024) })
+  )
+}
+
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.mclauncher.app')
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  registerIpc()
+  // 先应用保存的主题，再创建窗口，避免启动时闪烁
+  nativeTheme.themeSource = (await getSettings()).theme
   createWindow()
 
   app.on('activate', () => {

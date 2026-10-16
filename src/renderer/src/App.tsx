@@ -1,26 +1,41 @@
+import { useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import Sidebar, { NAV_ITEMS, type PageKey } from './components/Sidebar'
+import AccountPage from './pages/AccountPage'
+import DownloadPage from './pages/DownloadPage'
+import HomePage from './pages/HomePage'
+import PlaceholderPage from './pages/PlaceholderPage'
+import SettingsPage from './pages/SettingsPage'
+
+function renderPage(key: PageKey): JSX.Element {
+  if (key === 'home') return <HomePage />
+  if (key === 'account') return <AccountPage />
+  if (key === 'download') return <DownloadPage />
+  if (key === 'settings') return <SettingsPage />
+  const item = NAV_ITEMS.find((nav) => nav.key === key)!
+  return <PlaceholderPage title={item.label} icon={item.icon} />
+}
+
 function App(): JSX.Element {
-  const { electron, chrome, node } = window.api.versions
+  const [page, setPage] = useState<PageKey>('home')
 
   return (
-    <div className="flex h-full items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-emerald-900 text-white">
-      <div className="w-[420px] rounded-2xl border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
-        <h1 className="text-3xl font-bold tracking-tight">MC Launcher</h1>
-        <p className="mt-2 text-sm text-white/60">阶段 1：项目骨架运行成功 🎉</p>
-        <div className="mt-6 space-y-2 text-sm">
-          <div className="flex justify-between rounded-lg bg-black/20 px-4 py-2">
-            <span className="text-white/60">Electron</span>
-            <span className="font-mono">{electron}</span>
-          </div>
-          <div className="flex justify-between rounded-lg bg-black/20 px-4 py-2">
-            <span className="text-white/60">Chromium</span>
-            <span className="font-mono">{chrome}</span>
-          </div>
-          <div className="flex justify-between rounded-lg bg-black/20 px-4 py-2">
-            <span className="text-white/60">Node.js</span>
-            <span className="font-mono">{node}</span>
-          </div>
-        </div>
-      </div>
+    <div className="flex h-full overflow-hidden app-background text-white">
+      <Sidebar current={page} onChange={setPage} />
+      <main className="relative flex-1 overflow-hidden p-8">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={page}
+            className="h-full"
+            initial={{ opacity: 0, y: 16, filter: 'blur(6px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, y: -16, filter: 'blur(6px)' }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+            {renderPage(page)}
+          </motion.div>
+        </AnimatePresence>
+      </main>
     </div>
   )
 }
