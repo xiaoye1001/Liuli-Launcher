@@ -29,7 +29,12 @@ export interface AppSettings {
   skinDataUrl: string
   /** 皮肤模型：经典（4 像素宽手臂）或纤细（3 像素宽手臂） */
   skinModel: SkinModel
+  /** 界面主题 */
+  theme: ThemeMode
 }
+
+/** 界面主题：跟随系统 / 深色 / 浅色 */
+export type ThemeMode = 'system' | 'dark' | 'light'
 
 /** 皮肤模型 */
 export type SkinModel = 'default' | 'slim'

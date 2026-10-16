@@ -16,7 +16,8 @@ function defaultSettings(): AppSettings {
     offlineName: 'Steve',
     selectedVersion: '',
     skinDataUrl: '',
-    skinModel: 'default'
+    skinModel: 'default',
+    theme: 'system'
   }
 }
 

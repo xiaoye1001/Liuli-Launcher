@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { totalmem } from 'os'
@@ -18,7 +18,7 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#0f172a',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0f172a' : '#e0f2fe',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
@@ -48,7 +48,11 @@ function createWindow(): void {
 function registerIpc(): void {
   ipcMain.handle('java:scan', () => scanJava())
   ipcMain.handle('settings:get', () => getSettings())
-  ipcMain.handle('settings:update', (_, patch: Partial<AppSettings>) => updateSettings(patch))
+  ipcMain.handle('settings:update', (_, patch: Partial<AppSettings>) => {
+    // 修改主题时同步给 Electron，所有窗口的 prefers-color-scheme 会随之变化
+    if (patch.theme) nativeTheme.themeSource = patch.theme
+    return updateSettings(patch)
+  })
   ipcMain.handle('versions:list', async (_, force: boolean) => {
     const settings = await getSettings()
     return getVersionManifest(settings.downloadSource, force)
@@ -67,7 +71,7 @@ function registerIpc(): void {
   )
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.mclauncher.app')
 
   app.on('browser-window-created', (_, window) => {
@@ -75,6 +79,8 @@ app.whenReady().then(() => {
   })
 
   registerIpc()
+  // 先应用保存的主题，再创建窗口，避免启动时闪烁
+  nativeTheme.themeSource = (await getSettings()).theme
   createWindow()
 
   app.on('activate', () => {

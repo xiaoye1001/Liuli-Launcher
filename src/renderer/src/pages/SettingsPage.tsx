@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, Coffee, Globe, Loader2, MemoryStick, RefreshCw } from 'lucide-react'
-import type { AppSettings, DownloadSource, JavaInfo } from '../../../shared/types'
+import { CheckCircle2, Coffee, Globe, Loader2, MemoryStick, Monitor, Moon, Palette, RefreshCw, Sun, type LucideIcon } from 'lucide-react'
+import type { AppSettings, DownloadSource, JavaInfo, ThemeMode } from '../../../shared/types'
 
 const SOURCES: { key: DownloadSource; label: string; desc: string }[] = [
   { key: 'bmclapi', label: 'BMCLAPI 镜像', desc: '国内高速镜像，推荐' },
   { key: 'mojang', label: '官方源', desc: 'Mojang 官方服务器' }
+]
+
+const THEMES: { key: ThemeMode; label: string; icon: LucideIcon }[] = [
+  { key: 'system', label: '跟随系统', icon: Monitor },
+  { key: 'dark', label: '深色', icon: Moon },
+  { key: 'light', label: '浅色', icon: Sun }
 ]
 
 const MEMORY_STEP = 256
@@ -80,6 +86,42 @@ function SettingsPage(): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-6 overflow-y-auto pb-4 pr-1">
       <h1 className="text-3xl font-bold tracking-tight">设置</h1>
+
+      {/* 外观 */}
+      <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <Palette className="h-5 w-5 text-fuchsia-300" />
+          <div>
+            <h2 className="text-lg font-semibold">外观</h2>
+            <p className="text-xs text-white/50">选择界面的深色或浅色主题</p>
+          </div>
+        </div>
+        <div className="mt-5 grid grid-cols-3 gap-3">
+          {THEMES.map((theme) => {
+            const active = settings.theme === theme.key
+            const Icon = theme.icon
+            return (
+              <button
+                key={theme.key}
+                onClick={() => update({ theme: theme.key })}
+                className={`relative flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm transition-colors ${
+                  active ? 'border-emerald-400/50' : 'border-white/5 bg-black/20 hover:bg-black/30'
+                }`}
+              >
+                {active && (
+                  <motion.div
+                    layoutId="theme-active"
+                    className="absolute inset-0 rounded-xl bg-emerald-500/15"
+                    transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                  />
+                )}
+                <Icon className="relative z-10 h-4 w-4" />
+                <span className="relative z-10 font-medium">{theme.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </section>
 
       {/* Java 运行环境 */}
       <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">

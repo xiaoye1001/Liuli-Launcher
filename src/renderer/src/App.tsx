@@ -20,7 +20,7 @@ function App(): JSX.Element {
   const [page, setPage] = useState<PageKey>('home')
 
   return (
-    <div className="flex h-full overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-emerald-900 text-white">
+    <div className="flex h-full overflow-hidden app-background text-white">
       <Sidebar current={page} onChange={setPage} />
       <main className="relative flex-1 overflow-hidden p-8">
         <AnimatePresence mode="wait">

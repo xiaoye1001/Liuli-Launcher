@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 深色主题（默认） */
+:root {
+  --c-ink: 255 255 255;
+  --c-shade: 0 0 0;
+  --bg-app: linear-gradient(to bottom right, #0f172a, #1e1b4b, #064e3b);
+  --bg-log: linear-gradient(to bottom right, #020617, #0f172a, #1e1b4b);
+  --c-popover: 15 23 42;
+  color-scheme: dark;
+}
+
+/* 浅色主题 */
+html.light {
+  --c-ink: 15 23 42;
+  --c-shade: 255 255 255;
+  --bg-app: linear-gradient(to bottom right, #e0f2fe, #ede9fe, #d1fae5);
+  --bg-log: linear-gradient(to bottom right, #f8fafc, #f1f5f9, #e0e7ff);
+  --c-popover: 255 255 255;
+  color-scheme: light;
+}
+
 html,
 body,
 #root {
@@ -12,4 +32,55 @@ body,
 body {
   font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
   user-select: none;
+}
+
+.app-background {
+  background: var(--bg-app);
+}
+
+.log-background {
+  background: var(--bg-log);
+}
+
+.popover-background {
+  background-color: rgb(var(--c-popover) / 0.95);
+}
+
+/* 主题切换时颜色平滑过渡 */
+.app-background,
+.log-background {
+  transition: background 0.3s ease;
+}
+
+/* 浅色模式下，把深色背景用的浅色强调文字（xxx-200/300）换成更深的颜色，保证可读性 */
+html.light .text-emerald-300,
+html.light .text-emerald-400 {
+  color: rgb(5 150 105);
+}
+html.light .text-sky-300 {
+  color: rgb(2 132 199);
+}
+html.light .text-amber-300 {
+  color: rgb(217 119 6);
+}
+html.light .text-fuchsia-300 {
+  color: rgb(192 38 211);
+}
+html.light .text-rose-300 {
+  color: rgb(225 29 72);
+}
+html.light .text-red-100,
+html.light .text-red-200,
+html.light .text-red-200\/90,
+html.light .text-red-300,
+html.light .text-red-400 {
+  color: rgb(185 28 28);
+}
+
+/* 浅色模式下，绿色强调按钮上的文字和图标保持白色 */
+html.light .from-emerald-500,
+html.light .from-emerald-400 .text-white,
+html.light .bg-emerald-500,
+html.light .bg-emerald-500\/80:not(:disabled) {
+  color: rgb(255 255 255);
 }

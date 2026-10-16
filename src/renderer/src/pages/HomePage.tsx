@@ -25,7 +25,7 @@ function VersionSelect({ versions, value, onChange }: VersionSelectProps): JSX.E
   }, [])
 
   return (
-    <div ref={ref} className="relative w-60">
+    <div ref={ref} className="relative w-52">
       <button
         onClick={() => setOpen((o) => !o)}
         disabled={versions.length === 0}
@@ -42,7 +42,7 @@ function VersionSelect({ versions, value, onChange }: VersionSelectProps): JSX.E
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute bottom-full z-20 mb-2 max-h-64 w-full overflow-y-auto rounded-xl border border-white/10 bg-slate-900/95 p-1 shadow-2xl backdrop-blur-xl"
+            className="absolute bottom-full z-20 mb-2 max-h-64 w-full overflow-y-auto rounded-xl border border-white/10 popover-background p-1 shadow-2xl backdrop-blur-xl"
           >
             {versions.map((v) => (
               <button
@@ -140,7 +140,7 @@ function HomePage(): JSX.Element {
           <label className="flex flex-col gap-1.5">
             <span className="text-xs text-white/50">离线玩家名</span>
             <div
-              className={`flex w-52 items-center gap-2 rounded-xl border bg-black/20 px-4 py-3 ${
+              className={`flex w-44 items-center gap-2 rounded-xl border bg-black/20 px-4 py-3 ${
                 nameValid ? 'border-white/10' : 'border-red-400/60'
               }`}
             >

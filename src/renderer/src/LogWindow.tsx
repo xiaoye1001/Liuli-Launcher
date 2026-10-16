@@ -82,7 +82,7 @@ function LogWindow(): JSX.Element {
   const badge = STATE_BADGES[status.state]
 
   return (
-    <div className="flex h-full flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white">
+    <div className="flex h-full flex-col log-background text-white">
       <header className="flex items-center gap-3 border-b border-white/10 bg-white/5 px-4 py-3 backdrop-blur-xl">
         <Terminal className="h-5 w-5 text-emerald-300" />
         <div className="font-semibold">游戏日志</div>

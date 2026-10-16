@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, nativeTheme } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 
@@ -20,7 +20,7 @@ export function openLogWindow(): void {
     title: '游戏日志 - MC Launcher',
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#0b1120',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0b1120' : '#f8fafc',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
