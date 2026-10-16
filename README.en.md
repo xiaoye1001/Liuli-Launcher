@@ -76,6 +76,19 @@ The project ships with an `.npmrc` that downloads Electron from a mirror in Chin
 | `npm run dev` | Run in development mode (reloads on code changes) |
 | `npm run build` | Build into the `out/` directory |
 | `npm run typecheck` | Run TypeScript type checking |
+| `npm run build:win` | Build the Windows installer |
+| `npm run build:unpack` | Build an unpacked app folder (no installer, for quick testing) |
+
+### Building the Windows installer
+On Windows, run:
+```bash
+npm run build:win
+```
+The installer `LiuliLauncher-Setup-<version>.exe` is written to `dist/`. It lets you choose the install location and creates desktop and Start menu shortcuts. Uninstalling keeps your settings, accounts and game files.
+
+> The installer is not code-signed, so Windows SmartScreen may show "Windows protected your PC" on first run. Click **More info** → **Run anyway**.
+
+`build:mac` / `build:linux` build a macOS dmg and a Linux AppImage respectively, and must be run on those systems.
 
 ## Microsoft login
 

@@ -60,7 +60,7 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
         })}
       </nav>
 
-      <div className="mt-auto px-2 text-xs text-white/30">v0.1.0</div>
+      <div className="mt-auto px-2 text-xs text-white/30">v{__APP_VERSION__}</div>
     </aside>
   )
 }

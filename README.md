@@ -72,6 +72,19 @@ npm run dev
 | `npm run dev` | 开发模式运行（修改代码后自动刷新） |
 | `npm run build` | 构建到 `out/` 目录 |
 | `npm run typecheck` | TypeScript 类型检查 |
+| `npm run build:win` | 打包 Windows 安装包 |
+| `npm run build:unpack` | 打包成免安装文件夹（不生成安装程序，用于快速测试） |
+
+### 打包 Windows 安装包
+在 Windows 上运行：
+```bash
+npm run build:win
+```
+完成后在 `dist/` 目录得到 `LiuliLauncher-Setup-<版本号>.exe`，双击即可安装（可以选择安装位置，会创建桌面和开始菜单快捷方式）。卸载时不会删除你的设置、账号和游戏文件。
+
+> 安装包没有代码签名证书，第一次运行时 Windows 可能提示「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」即可。
+
+`build:mac` / `build:linux` 分别用于打包 macOS（dmg）和 Linux（AppImage），需要在对应系统上运行。
 
 ## 微软正版登录
 

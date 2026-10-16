@@ -1,0 +1,49 @@
+# 打包配置（electron-builder）
+appId: io.github.xiaoye1001.liuli-launcher
+productName: 琉璃启动器
+copyright: Copyright © 2026 xiaoye1001
+directories:
+  buildResources: build
+  output: dist
+# 只打包构建产物与运行时依赖，源码、配置与文档不放进安装包
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!docs/*'
+  - '!dist/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md,README.en.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,*.tsbuildinfo}'
+  - '!{tailwind.config.js,postcss.config.js}'
+asarUnpack:
+  - resources/**
+win:
+  # 可执行文件用英文名，避免部分环境下中文路径出问题
+  executableName: LiuliLauncher
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  artifactName: LiuliLauncher-Setup-${version}.${ext}
+  # 安装向导：可以选择安装位置，而不是一键静默安装
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: 琉璃启动器
+  uninstallDisplayName: 琉璃启动器
+  installerLanguages: [zh_CN]
+  language: '2052'
+  # 卸载时保留用户数据（设置、账号、游戏目录）
+  deleteAppDataOnUninstall: false
+mac:
+  target: [dmg]
+  artifactName: LiuliLauncher-${version}.${ext}
+linux:
+  target: [AppImage]
+  executableName: liuli-launcher
+  artifactName: LiuliLauncher-${version}.${ext}
+  category: Game
+npmRebuild: false

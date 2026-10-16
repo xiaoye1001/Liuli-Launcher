@@ -3,6 +3,7 @@ import { clearBackground, pickBackground, registerBackgroundProtocol } from './a
 import { setMainWindow } from './windows'
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
 import { join } from 'path'
+import icon from '../../resources/icon.png?asset'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { totalmem } from 'os'
 import { scanJava } from './java'
@@ -51,6 +52,8 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0f172a' : '#e0f2fe',
+    // Windows 使用安装包里 exe 的图标；Linux 与开发模式需要单独指定
+    ...(process.platform === 'linux' || is.dev ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false

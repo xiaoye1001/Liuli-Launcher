@@ -10,7 +10,11 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "build:win": "npm run build && electron-builder --win",
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:linux": "npm run build && electron-builder --linux",
+    "build:unpack": "npm run build && electron-builder --dir"
   },
   "dependencies": {
     "@electron-toolkit/preload": "3.0.2",
@@ -21,10 +25,7 @@
     "@xmcl/mod-parser": "3.4.2",
     "@xmcl/system": "2.2.9",
     "@xmcl/task": "4.1.1",
-    "@xmcl/user": "4.3.0",
-    "framer-motion": "11.18.2",
-    "lucide-react": "0.460.0",
-    "skinview3d": "3.4.2"
+    "@xmcl/user": "4.3.0"
   },
   "devDependencies": {
     "@types/node": "22.18.0",
@@ -33,10 +34,14 @@
     "@vitejs/plugin-react": "4.7.0",
     "autoprefixer": "10.4.21",
     "electron": "37.10.3",
+    "electron-builder": "26.15.3",
     "electron-vite": "4.0.1",
+    "framer-motion": "11.18.2",
+    "lucide-react": "0.460.0",
     "postcss": "8.5.6",
     "react": "18.3.1",
     "react-dom": "18.3.1",
+    "skinview3d": "3.4.2",
     "tailwindcss": "3.4.19",
     "typescript": "5.9.3",
     "vite": "6.4.4"
