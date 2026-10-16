@@ -58,8 +58,8 @@
 
 ### 运行
 ```bash
-git clone https://github.com/xiaoye1001/mc_launcher.git
-cd mc_launcher
+git clone https://github.com/xiaoye1001/Liuli-Launcher.git
+cd Liuli-Launcher
 npm install
 npm run dev
 ```
