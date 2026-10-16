@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { totalmem } from 'os'
 import { scanJava } from './java'
 import { getSettings, updateSettings } from './config'
+import { getVersionManifest } from './versions'
 import type { AppSettings, SystemInfo } from '../shared/types'
 
 function createWindow(): void {
@@ -41,6 +42,10 @@ function registerIpc(): void {
   ipcMain.handle('java:scan', () => scanJava())
   ipcMain.handle('settings:get', () => getSettings())
   ipcMain.handle('settings:update', (_, patch: Partial<AppSettings>) => updateSettings(patch))
+  ipcMain.handle('versions:list', async (_, force: boolean) => {
+    const settings = await getSettings()
+    return getVersionManifest(settings.downloadSource, force)
+  })
   ipcMain.handle(
     'system:info',
     (): SystemInfo => ({ totalMemory: Math.floor(totalmem() / 1024 / 1024) })

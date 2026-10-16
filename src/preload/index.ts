@@ -11,7 +11,8 @@ const api = {
   scanJava: () => ipcRenderer.invoke('java:scan'),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch: Partial<AppSettings>) => ipcRenderer.invoke('settings:update', patch),
-  getSystemInfo: () => ipcRenderer.invoke('system:info')
+  getSystemInfo: () => ipcRenderer.invoke('system:info'),
+  getVersionList: (force = false) => ipcRenderer.invoke('versions:list', force)
 }
 
 if (process.contextIsolated) {

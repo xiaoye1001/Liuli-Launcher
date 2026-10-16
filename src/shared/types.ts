@@ -26,3 +26,24 @@ export interface SystemInfo {
   /** 物理内存总量（MB） */
   totalMemory: number
 }
+
+/** 版本类型：正式版 / 快照 / 远古 Beta / 远古 Alpha */
+export type VersionType = 'release' | 'snapshot' | 'old_beta' | 'old_alpha'
+
+/** 版本清单中的一个 Minecraft 版本 */
+export interface VersionEntry {
+  id: string
+  type: VersionType
+  releaseTime: string
+}
+
+/** 版本清单 */
+export interface VersionManifest {
+  latest: {
+    release: string
+    snapshot: string
+  }
+  versions: VersionEntry[]
+  /** 实际使用的下载源（首选源失败时会自动切换到另一个） */
+  source: DownloadSource
+}

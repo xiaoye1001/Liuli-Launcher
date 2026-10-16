@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { AppSettings, JavaInfo, SystemInfo } from '../shared/types'
+import type { AppSettings, JavaInfo, SystemInfo, VersionManifest } from '../shared/types'
 
 declare global {
   interface Window {
@@ -14,6 +14,7 @@ declare global {
       getSettings: () => Promise<AppSettings>
       updateSettings: (patch: Partial<AppSettings>) => Promise<AppSettings>
       getSystemInfo: () => Promise<SystemInfo>
+      getVersionList: (force?: boolean) => Promise<VersionManifest>
     }
   }
 }

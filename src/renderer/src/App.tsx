@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Sidebar, { NAV_ITEMS, type PageKey } from './components/Sidebar'
+import DownloadPage from './pages/DownloadPage'
 import HomePage from './pages/HomePage'
 import PlaceholderPage from './pages/PlaceholderPage'
 import SettingsPage from './pages/SettingsPage'
 
 function renderPage(key: PageKey): JSX.Element {
   if (key === 'home') return <HomePage />
+  if (key === 'download') return <DownloadPage />
   if (key === 'settings') return <SettingsPage />
   const item = NAV_ITEMS.find((nav) => nav.key === key)!
   return <PlaceholderPage title={item.label} icon={item.icon} />
