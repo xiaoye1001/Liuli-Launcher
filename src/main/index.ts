@@ -1,7 +1,10 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { totalmem } from 'os'
 import { scanJava } from './java'
+import { getSettings, updateSettings } from './config'
+import type { AppSettings, SystemInfo } from '../shared/types'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -36,6 +39,12 @@ function createWindow(): void {
 
 function registerIpc(): void {
   ipcMain.handle('java:scan', () => scanJava())
+  ipcMain.handle('settings:get', () => getSettings())
+  ipcMain.handle('settings:update', (_, patch: Partial<AppSettings>) => updateSettings(patch))
+  ipcMain.handle(
+    'system:info',
+    (): SystemInfo => ({ totalMemory: Math.floor(totalmem() / 1024 / 1024) })
+  )
 }
 
 app.whenReady().then(() => {

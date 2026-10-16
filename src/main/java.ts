@@ -3,15 +3,7 @@ import { readdir, realpath } from 'fs/promises'
 import { homedir } from 'os'
 import { join } from 'path'
 import { getPotentialJavaLocations, parseJavaVersion } from '@xmcl/installer'
-
-export interface JavaInfo {
-  /** java 可执行文件的完整路径 */
-  path: string
-  /** 完整版本号，例如 21.0.4 */
-  version: string
-  /** 主版本号，例如 21 */
-  majorVersion: number
-}
+import type { JavaInfo } from '../shared/types'
 
 const JAVA_EXE = process.platform === 'win32' ? 'java.exe' : 'java'
 

@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import type { AppSettings } from '../shared/types'
 
 const api = {
   versions: {
@@ -7,7 +8,10 @@ const api = {
     chrome: process.versions.chrome,
     node: process.versions.node
   },
-  scanJava: () => ipcRenderer.invoke('java:scan')
+  scanJava: () => ipcRenderer.invoke('java:scan'),
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  updateSettings: (patch: Partial<AppSettings>) => ipcRenderer.invoke('settings:update', patch),
+  getSystemInfo: () => ipcRenderer.invoke('system:info')
 }
 
 if (process.contextIsolated) {
