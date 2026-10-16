@@ -236,5 +236,38 @@ export interface ModList {
   dir: string
   /** 是否为该版本独立的 mods 文件夹（版本隔离） */
   isolated: boolean
+  /** 原版 Minecraft 版本号 */
+  minecraftVersion: string
+  /** 版本的模组加载器 */
+  loader?: ModLoader
   mods: ModInfo[]
+}
+
+/** Modrinth 搜索结果中的一个模组 */
+export interface ModrinthProject {
+  projectId: string
+  slug: string
+  title: string
+  description: string
+  author: string
+  iconUrl?: string
+  downloads: number
+  /** 当前版本的 mods 文件夹中是否已经有这个模组 */
+  installed: boolean
+}
+
+export interface ModrinthSearchResult {
+  hits: ModrinthProject[]
+  total: number
+  /** 搜索时使用的 Minecraft 版本与加载器 */
+  minecraftVersion: string
+  loader: string
+}
+
+/** 从 Modrinth 安装模组的结果 */
+export interface ModrinthInstallResult {
+  /** 实际下载的模组（含自动安装的前置模组） */
+  installed: { projectId: string; title: string; fileName: string; dependency: boolean }[]
+  /** 找不到适用版本的前置模组名称 */
+  missingDependencies: string[]
 }

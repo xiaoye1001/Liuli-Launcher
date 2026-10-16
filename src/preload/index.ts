@@ -39,6 +39,10 @@ const api = {
   deleteMod: (versionId: string, fileName: string) => ipcRenderer.invoke('mods:delete', versionId, fileName),
   addMods: (versionId: string) => ipcRenderer.invoke('mods:add', versionId),
   openModsDir: (versionId: string) => ipcRenderer.invoke('mods:open', versionId),
+  searchModrinth: (versionId: string, query: string, offset: number) =>
+    ipcRenderer.invoke('modrinth:search', versionId, query, offset),
+  installFromModrinth: (versionId: string, projectId: string) =>
+    ipcRenderer.invoke('modrinth:install', versionId, projectId),
   launchGame: (versionId: string) => ipcRenderer.invoke('game:launch', versionId),
   getGameStatus: () => ipcRenderer.invoke('game:status'),
   /** 订阅游戏运行状态，返回取消订阅函数 */

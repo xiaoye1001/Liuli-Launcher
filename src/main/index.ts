@@ -21,6 +21,7 @@ import { closeLogWindow, openLogWindow } from './logWindow'
 import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
 import { deleteVersion, openVersionDir } from './versionManage'
 import { addMods, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
+import { installFromModrinth, searchModrinth } from './modrinth'
 import type { AppSettings, InstallRequest, SystemInfo } from '../shared/types'
 
 function createWindow(): void {
@@ -93,6 +94,12 @@ function registerIpc(): void {
     addMods(versionId, BrowserWindow.fromWebContents(event.sender))
   )
   ipcMain.handle('mods:open', (_, versionId: string) => openModsDir(versionId))
+  ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>
+    searchModrinth(versionId, query, offset)
+  )
+  ipcMain.handle('modrinth:install', (_, versionId: string, projectId: string) =>
+    installFromModrinth(versionId, projectId)
+  )
   ipcMain.handle('game:launch', (_, versionId: string) => launchGame(versionId))
   ipcMain.handle('game:status', () => getGameStatus())
   ipcMain.handle('game:logs', () => getGameLogs())

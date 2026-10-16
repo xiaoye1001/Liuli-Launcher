@@ -13,6 +13,8 @@ import type {
   NeoForgeVersionInfo,
   OptiFineVersionInfo,
   ModList,
+  ModrinthInstallResult,
+  ModrinthSearchResult,
   SystemInfo,
   VersionManifest
 } from '../shared/types'
@@ -51,6 +53,8 @@ declare global {
       /** 返回添加的数量，取消时为 0 */
       addMods: (versionId: string) => Promise<number>
       openModsDir: (versionId: string) => Promise<void>
+      searchModrinth: (versionId: string, query: string, offset: number) => Promise<ModrinthSearchResult>
+      installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>
       launchGame: (versionId: string) => Promise<void>
       getGameStatus: () => Promise<GameStatus>
       onGameStatus: (callback: (status: GameStatus) => void) => () => void

@@ -2,13 +2,14 @@ import { BrowserWindow, dialog, shell } from 'electron'
 import { Version } from '@xmcl/core'
 import { readFabricMod, readForgeModJson, readForgeModManifest, readForgeModToml, readQuiltMod } from '@xmcl/mod-parser'
 import { openFileSystem, type FileSystem } from '@xmcl/system'
+import { createHash } from 'crypto'
 import { copyFile, mkdir, readdir, readFile, rename, stat } from 'fs/promises'
 import { basename, join } from 'path'
 import { getSettings } from './config'
 import { isIsolated, versionGameDir } from './isolation'
 import { detectLoader, getGameStatus } from './launch'
 import { assertSafeId } from './versionManage'
-import type { ModInfo, ModKind, ModList } from '../shared/types'
+import type { ModInfo, ModKind, ModList, ModLoader } from '../shared/types'
 
 const DISABLED_SUFFIX = '.disabled'
 /** 图标超过这个大小就不显示，避免列表过大 */
@@ -17,20 +18,51 @@ const MAX_ICON_BYTES = 256 * 1024
 /** 解析结果缓存：文件路径 → 修改时间 + 大小 + 解析结果，刷新列表时不用重新解压 */
 const cache = new Map<string, { key: string; meta: Omit<ModInfo, 'fileName' | 'enabled'> }>()
 
-/** 某个版本实际使用的 mods 文件夹（遵循版本隔离设置） */
-async function modsDirOf(versionId: string): Promise<{ dir: string; isolated: boolean }> {
+export interface ModsContext {
+  /** mods 文件夹 */
+  dir: string
+  isolated: boolean
+  /** 原版 Minecraft 版本号 */
+  minecraftVersion: string
+  loader?: ModLoader
+}
+
+/** 某个版本实际使用的 mods 文件夹（遵循版本隔离设置），以及它的 Minecraft 版本与加载器 */
+export async function modsContextOf(versionId: string): Promise<ModsContext> {
   assertSafeId(versionId)
   const { gameDir, versionIsolation } = await getSettings()
-  let loader
+  let loader: ModLoader | undefined
+  let minecraftVersion = ''
   try {
-    loader = detectLoader(await Version.parse(gameDir, versionId))
+    const version = await Version.parse(gameDir, versionId)
+    loader = detectLoader(version)
+    minecraftVersion = version.minecraftVersion
   } catch {
     // 版本文件损坏时按原始 json 判断
     const json = JSON.parse(await readFile(join(gameDir, 'versions', versionId, `${versionId}.json`), 'utf-8'))
     loader = detectLoader(json)
+    minecraftVersion = json.inheritsFrom ?? json.id ?? ''
   }
   const isolated = isIsolated(versionIsolation, loader)
-  return { dir: join(versionGameDir(gameDir, versionId, isolated), 'mods'), isolated }
+  return { dir: join(versionGameDir(gameDir, versionId, isolated), 'mods'), isolated, minecraftVersion, loader }
+}
+
+/** 列出 mods 文件夹中的模组文件（含已禁用的） */
+export async function listModFiles(dir: string): Promise<string[]> {
+  return (await readdir(dir).catch(() => [] as string[])).filter(isModFile)
+}
+
+const sha1Cache = new Map<string, { key: string; sha1: string }>()
+
+/** 计算文件的 SHA1（按修改时间与大小缓存），用于在 Modrinth 上识别模组 */
+export async function fileSha1(path: string): Promise<string> {
+  const info = await stat(path)
+  const key = `${info.mtimeMs}:${info.size}`
+  const cached = sha1Cache.get(path)
+  if (cached?.key === key) return cached.sha1
+  const sha1 = createHash('sha1').update(await readFile(path)).digest('hex')
+  sha1Cache.set(path, { key, sha1 })
+  return sha1
 }
 
 function isModFile(name: string): boolean {
@@ -137,8 +169,8 @@ function resolveJarVersion(version: string, manifest: Record<string, string>): s
 
 /** 列出某个版本的模组（按名称排序） */
 export async function listMods(versionId: string): Promise<ModList> {
-  const { dir, isolated } = await modsDirOf(versionId)
-  const names = (await readdir(dir).catch(() => [] as string[])).filter(isModFile)
+  const { dir, isolated, minecraftVersion, loader } = await modsContextOf(versionId)
+  const names = await listModFiles(dir)
 
   const mods: ModInfo[] = []
   // 每次最多同时解析 8 个，避免模组很多时一次打开太多文件
@@ -162,11 +194,11 @@ export async function listMods(versionId: string): Promise<ModList> {
     mods.push(...(batch.filter(Boolean) as ModInfo[]))
   }
   mods.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
-  return { versionId, dir, isolated, mods }
+  return { versionId, dir, isolated, minecraftVersion, loader, mods }
 }
 
 /** 游戏运行时模组文件被占用，且改动要重启游戏才生效，所以不允许修改 */
-function assertGameStopped(versionId: string): void {
+export function assertGameStopped(versionId: string): void {
   const game = getGameStatus()
   if ((game.state === 'launching' || game.state === 'running') && game.versionId === versionId) {
     throw new Error('游戏正在运行，请退出游戏后再修改模组')
@@ -184,7 +216,7 @@ function assertModFile(fileName: string): void {
 export async function setModEnabled(versionId: string, fileName: string, enabled: boolean): Promise<string> {
   assertModFile(fileName)
   assertGameStopped(versionId)
-  const { dir } = await modsDirOf(versionId)
+  const { dir } = await modsContextOf(versionId)
   const base = fileName.replace(/\.disabled$/, '')
   const target = enabled ? base : base + DISABLED_SUFFIX
   if (target !== fileName) await rename(join(dir, fileName), join(dir, target))
@@ -195,14 +227,14 @@ export async function setModEnabled(versionId: string, fileName: string, enabled
 export async function deleteMod(versionId: string, fileName: string): Promise<void> {
   assertModFile(fileName)
   assertGameStopped(versionId)
-  const { dir } = await modsDirOf(versionId)
+  const { dir } = await modsContextOf(versionId)
   await shell.trashItem(join(dir, fileName))
 }
 
 /** 选择 jar 文件复制到 mods 文件夹，返回添加的数量 */
 export async function addMods(versionId: string, win: BrowserWindow | null): Promise<number> {
   assertGameStopped(versionId)
-  const { dir } = await modsDirOf(versionId)
+  const { dir } = await modsContextOf(versionId)
   const options: Electron.OpenDialogOptions = {
     title: `添加模组到 ${versionId}`,
     filters: [{ name: '模组文件', extensions: ['jar'] }],
@@ -219,7 +251,7 @@ export async function addMods(versionId: string, win: BrowserWindow | null): Pro
 
 /** 在文件管理器中打开 mods 文件夹（不存在时先创建） */
 export async function openModsDir(versionId: string): Promise<void> {
-  const { dir } = await modsDirOf(versionId)
+  const { dir } = await modsContextOf(versionId)
   await mkdir(dir, { recursive: true })
   const error = await shell.openPath(dir)
   if (error) throw new Error(error)
