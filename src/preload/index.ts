@@ -33,6 +33,12 @@ const api = {
   repairVersion: (versionId: string) => ipcRenderer.invoke('versions:repair', versionId),
   deleteVersion: (versionId: string) => ipcRenderer.invoke('versions:delete', versionId),
   openVersionDir: (versionId: string) => ipcRenderer.invoke('versions:open', versionId),
+  listMods: (versionId: string) => ipcRenderer.invoke('mods:list', versionId),
+  setModEnabled: (versionId: string, fileName: string, enabled: boolean) =>
+    ipcRenderer.invoke('mods:setEnabled', versionId, fileName, enabled),
+  deleteMod: (versionId: string, fileName: string) => ipcRenderer.invoke('mods:delete', versionId, fileName),
+  addMods: (versionId: string) => ipcRenderer.invoke('mods:add', versionId),
+  openModsDir: (versionId: string) => ipcRenderer.invoke('mods:open', versionId),
   launchGame: (versionId: string) => ipcRenderer.invoke('game:launch', versionId),
   getGameStatus: () => ipcRenderer.invoke('game:status'),
   /** 订阅游戏运行状态，返回取消订阅函数 */

@@ -7,6 +7,7 @@ import {
   FlaskConical,
   FolderOpen,
   Loader2,
+  Puzzle,
   RefreshCw,
   Search,
   Sparkles,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react'
 import InstallProgressCard from '../components/InstallProgressCard'
 import InstallSetupPage from './InstallSetupPage'
+import ModsPage from './ModsPage'
 import type {
   InstalledVersion,
   InstallStatus,
@@ -48,6 +50,9 @@ const LOADER_LABELS: Record<ModLoader, { label: string; className: string }> = {
   neoforge: { label: 'NeoForge', className: 'bg-rose-500/20 text-rose-300' },
   optifine: { label: 'OptiFine', className: 'bg-violet-500/20 text-violet-300' }
 }
+
+/** 可以加载模组的版本才显示「模组」按钮 */
+const MOD_LOADERS: ModLoader[] = ['fabric', 'quilt', 'forge', 'neoforge']
 
 /** 已安装版本的类型标签：装了模组加载器的版本显示加载器名称 */
 function installedTypeInfo(version: InstalledVersion): { label: string; className: string } {
@@ -83,6 +88,7 @@ function DownloadPage(): JSX.Element {
   const [install, setInstall] = useState<InstallStatus | null>(null)
   const [actionError, setActionError] = useState('')
   const [setupFor, setSetupFor] = useState<VersionEntry | null>(null)
+  const [modsFor, setModsFor] = useState<InstalledVersion | null>(null)
   const lastState = useRef<string | undefined>(undefined)
   const tabRefs = useRef<Partial<Record<Filter, HTMLButtonElement | null>>>({})
   const [tabIndicator, setTabIndicator] = useState<{ left: number; width: number } | null>(null)
@@ -159,6 +165,11 @@ function DownloadPage(): JSX.Element {
   // 列表里的 layoutId 动画元素如果中途卸载，framer-motion 会卡住 App 的页面退场动画，导致切换页面后空白
   return (
     <>
+      {modsFor && (
+        <div key={modsFor.id} className="h-full animate-slide-in">
+          <ModsPage version={modsFor} onBack={() => setModsFor(null)} />
+        </div>
+      )}
       {setupFor && (
         <div key={setupFor.id} className="h-full animate-slide-in">
           <InstallSetupPage
@@ -170,7 +181,7 @@ function DownloadPage(): JSX.Element {
           />
         </div>
       )}
-      <div className={`flex h-full flex-col gap-5 ${setupFor ? 'hidden' : ''}`}>
+      <div className={`flex h-full flex-col gap-5 ${setupFor || modsFor ? 'hidden' : ''}`}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">下载游戏</h1>
@@ -302,6 +313,16 @@ function DownloadPage(): JSX.Element {
                           </span>
                         )}
                         <span className="flex-1 text-xs text-white/40">{formatDate(version.releaseTime)}</span>
+                        {version.loader && MOD_LOADERS.includes(version.loader) && (
+                          <button
+                            onClick={() => setModsFor(version)}
+                            title="管理该版本的模组"
+                            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                          >
+                            <Puzzle className="h-3.5 w-3.5" />
+                            模组
+                          </button>
+                        )}
                         <button
                           onClick={() => window.api.openVersionDir(version.id)}
                           title="打开版本文件夹"

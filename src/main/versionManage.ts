@@ -6,7 +6,7 @@ import { getInstallStatus } from './install'
 import { getGameStatus } from './launch'
 
 /** 防止版本名里带有 ../ 之类的路径，误删其他目录 */
-function assertSafeId(versionId: string): void {
+export function assertSafeId(versionId: string): void {
   if (!versionId || versionId !== basename(versionId) || versionId === '.' || versionId === '..') {
     throw new Error(`无效的版本名：${versionId}`)
   }

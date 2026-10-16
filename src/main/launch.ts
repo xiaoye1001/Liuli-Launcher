@@ -10,7 +10,7 @@ import { openLogWindow } from './logWindow'
 import type { GameLogEvent, GameStatus, InstalledVersion, ModLoader } from '../shared/types'
 
 /** 根据版本 json 的启动类与依赖库判断模组加载器 */
-function detectLoader(json: { mainClass?: string; libraries?: { name?: string }[] }): ModLoader | undefined {
+export function detectLoader(json: { mainClass?: string; libraries?: { name?: string }[] }): ModLoader | undefined {
   const text = `${json.mainClass ?? ''} ${(json.libraries ?? []).map((l) => l.name ?? '').join(' ')}`
   if (/net\.fabricmc/.test(text)) return 'fabric'
   if (/org\.quiltmc/.test(text)) return 'quilt'

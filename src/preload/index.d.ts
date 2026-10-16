@@ -12,6 +12,7 @@ import type {
   JavaInfo,
   NeoForgeVersionInfo,
   OptiFineVersionInfo,
+  ModList,
   SystemInfo,
   VersionManifest
 } from '../shared/types'
@@ -43,6 +44,13 @@ declare global {
       repairVersion: (versionId: string) => Promise<void>
       deleteVersion: (versionId: string) => Promise<boolean>
       openVersionDir: (versionId: string) => Promise<void>
+      listMods: (versionId: string) => Promise<ModList>
+      /** 返回修改后的文件名 */
+      setModEnabled: (versionId: string, fileName: string, enabled: boolean) => Promise<string>
+      deleteMod: (versionId: string, fileName: string) => Promise<void>
+      /** 返回添加的数量，取消时为 0 */
+      addMods: (versionId: string) => Promise<number>
+      openModsDir: (versionId: string) => Promise<void>
       launchGame: (versionId: string) => Promise<void>
       getGameStatus: () => Promise<GameStatus>
       onGameStatus: (callback: (status: GameStatus) => void) => () => void

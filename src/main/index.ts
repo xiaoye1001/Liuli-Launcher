@@ -20,6 +20,7 @@ import { getGameLogs, getGameStatus, launchGame, listInstalledVersions } from '.
 import { closeLogWindow, openLogWindow } from './logWindow'
 import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
 import { deleteVersion, openVersionDir } from './versionManage'
+import { addMods, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
 import type { AppSettings, InstallRequest, SystemInfo } from '../shared/types'
 
 function createWindow(): void {
@@ -83,6 +84,15 @@ function registerIpc(): void {
     deleteVersion(BrowserWindow.fromWebContents(event.sender), versionId)
   )
   ipcMain.handle('versions:open', (_, versionId: string) => openVersionDir(versionId))
+  ipcMain.handle('mods:list', (_, versionId: string) => listMods(versionId))
+  ipcMain.handle('mods:setEnabled', (_, versionId: string, fileName: string, enabled: boolean) =>
+    setModEnabled(versionId, fileName, enabled)
+  )
+  ipcMain.handle('mods:delete', (_, versionId: string, fileName: string) => deleteMod(versionId, fileName))
+  ipcMain.handle('mods:add', (event, versionId: string) =>
+    addMods(versionId, BrowserWindow.fromWebContents(event.sender))
+  )
+  ipcMain.handle('mods:open', (_, versionId: string) => openModsDir(versionId))
   ipcMain.handle('game:launch', (_, versionId: string) => launchGame(versionId))
   ipcMain.handle('game:status', () => getGameStatus())
   ipcMain.handle('game:logs', () => getGameLogs())

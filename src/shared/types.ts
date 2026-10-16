@@ -208,3 +208,33 @@ export interface ForgeVersionInfo {
   /** 发布时间（可能为空） */
   date: string
 }
+
+/** 模组文件对应的加载器（从模组自带的描述文件判断） */
+export type ModKind = 'fabric' | 'quilt' | 'forge' | 'neoforge' | 'unknown'
+
+/** mods 文件夹中的一个模组 */
+export interface ModInfo {
+  /** 磁盘上的文件名，禁用的模组以 .disabled 结尾 */
+  fileName: string
+  enabled: boolean
+  /** 模组名称，读取不到时为文件名 */
+  name: string
+  modId: string
+  version: string
+  description: string
+  kind: ModKind
+  /** 模组图标（PNG 的 data URL） */
+  icon?: string
+  /** 文件大小（字节） */
+  size: number
+}
+
+/** 某个版本的模组列表 */
+export interface ModList {
+  versionId: string
+  /** mods 文件夹路径 */
+  dir: string
+  /** 是否为该版本独立的 mods 文件夹（版本隔离） */
+  isolated: boolean
+  mods: ModInfo[]
+}
