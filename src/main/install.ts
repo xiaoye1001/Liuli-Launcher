@@ -1,13 +1,14 @@
 import { BrowserWindow } from 'electron'
 import { Version } from '@xmcl/core'
 import { getDefaultAgent } from '@xmcl/file-transfer'
-import { access, mkdir, writeFile } from 'fs/promises'
+import { access, mkdir, readdir, readFile, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
 import {
   getFabricLoaderArtifact,
   getLoaderArtifactListFor,
   installDependenciesTask,
   installFabricByLoaderArtifact,
+  installForgeTask,
   installTask,
   type Options
 } from '@xmcl/installer'
@@ -26,6 +27,7 @@ import type {
 const BMCLAPI = 'https://bmclapi2.bangbang93.com'
 const FABRIC_META = 'https://meta.fabricmc.net'
 const FABRIC_MAVEN = 'https://maven.fabricmc.net/'
+const FORGE_MAVEN = 'https://maven.minecraftforge.net/'
 
 /** 根据下载源生成 @xmcl/installer 的镜像参数（镜像失败时会自动回退到官方地址） */
 function mirrorOptions(source: DownloadSource): Options {
@@ -45,14 +47,24 @@ function mirrorOptions(source: DownloadSource): Options {
       if (url.startsWith(FABRIC_MAVEN)) {
         return url.replace(FABRIC_MAVEN, `${BMCLAPI}/maven/`)
       }
+      if (url.startsWith(FORGE_MAVEN)) {
+        return url.replace(FORGE_MAVEN, `${BMCLAPI}/maven/`)
+      }
       return undefined
     }
   }
 }
 
+/** Forge 安装器的下载地址（按顺序尝试，xmcl 最后还会回退到 Forge 旧版地址） */
+function forgeMavenHosts(source: DownloadSource): string[] {
+  const official = FORGE_MAVEN.replace(/\/$/, '')
+  return source === 'bmclapi' ? [`${BMCLAPI}/maven`, official] : [official, `${BMCLAPI}/maven`]
+}
+
 /** 根据任务路径判断当前阶段，例如 install.version.jar、install.dependencies.assets.asset */
 function phaseOf(path: string): InstallPhase {
-  return path.includes('dependencies') ? 'dependencies' : 'version'
+  if (path.includes('postProcessing')) return 'processing'
+  return path.includes('dependencies') || path.includes('installForge') ? 'dependencies' : 'version'
 }
 
 type AnyInstallTask = Task<unknown>
@@ -212,18 +224,25 @@ async function exists(path: string): Promise<boolean> {
  * 按安装页的选择安装游戏：
  * 1. 安装（或校验）原版；
  * 2. 选择了 Fabric 时，写入 Fabric 版本配置并下载其依赖库；
- * 3. 只改了版本名时，创建一个继承原版的版本配置。
+ * 3. 选择了 Forge 时，下载 Forge 安装器，解包并用 Java 运行其中的处理程序；
+ * 4. 只改了版本名时，创建一个继承原版的版本配置。
  * 所有步骤合并为一个任务，进度与取消都和普通安装一样。
  * allowExisting 为 true 时（重试）允许覆盖上次失败留下的同名版本。
  */
 export async function startCustomInstall(request: InstallRequest, allowExisting = false): Promise<void> {
   assertIdle()
-  const { minecraftVersion, fabricLoader } = request
+  const { minecraftVersion, fabricLoader, forgeVersion } = request
   const name = request.name
   validateName(name)
+  if (fabricLoader && forgeVersion) {
+    throw new Error('Fabric 与 Forge 不能同时安装')
+  }
 
   const settings = await getSettings()
-  const isPlainVanilla = !fabricLoader && name === minecraftVersion
+  if (forgeVersion && !settings.javaPath) {
+    throw new Error('安装 Forge 需要运行 Java，请先到「设置」页选择 Java')
+  }
+  const isPlainVanilla = !fabricLoader && !forgeVersion && name === minecraftVersion
   if (!isPlainVanilla) {
     if (name === minecraftVersion) {
       throw new Error('安装模组加载器时，版本名不能与原版相同')
@@ -249,7 +268,29 @@ export async function startCustomInstall(request: InstallRequest, allowExisting 
     await this.yield(installTask(meta, settings.gameDir, options))
     if (isPlainVanilla) return
 
-    if (fabricArtifact) {
+    if (forgeVersion) {
+      // Forge 安装器会自己下载依赖库并运行处理程序。它内部按默认版本名读取版本配置，
+      // 所以先用默认名安装，完成后再复制成用户指定的名字
+      const versionsDir = join(settings.gameDir, 'versions')
+      const before = new Set(await readdir(versionsDir).catch(() => [] as string[]))
+      const forgeId = await this.yield(
+        installForgeTask({ mcversion: minecraftVersion, version: forgeVersion }, settings.gameDir, {
+          ...options,
+          mavenHost: forgeMavenHosts(settings.downloadSource),
+          java: settings.javaPath
+        })
+      )
+      if (forgeId !== name) {
+        const json = JSON.parse(await readFile(join(versionsDir, forgeId, `${forgeId}.json`), 'utf-8'))
+        json.id = name
+        await mkdir(join(versionsDir, name), { recursive: true })
+        await writeFile(join(versionsDir, name, `${name}.json`), JSON.stringify(json, null, 2))
+        // 默认名的版本是这次安装临时产生的，删除以免列表里出现两个相同的版本
+        if (!before.has(forgeId)) {
+          await rm(join(versionsDir, forgeId), { recursive: true, force: true })
+        }
+      }
+    } else if (fabricArtifact) {
       await installFabricByLoaderArtifact(fabricArtifact, settings.gameDir, { versionId: name })
     } else {
       // 只改名：写一个继承原版的版本配置，游戏文件与原版共用

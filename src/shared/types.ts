@@ -74,8 +74,8 @@ export type InstallKind = 'install' | 'repair'
 /** 安装状态 */
 export type InstallState = 'running' | 'success' | 'failed' | 'cancelled'
 
-/** 安装阶段：游戏本体（版本 json 与客户端 jar） → 依赖库与资源文件（并行下载） */
-export type InstallPhase = 'version' | 'dependencies'
+/** 安装阶段：游戏本体（版本 json 与客户端 jar） → 依赖库与资源文件（并行下载） → 运行模组加载器安装程序 */
+export type InstallPhase = 'version' | 'dependencies' | 'processing'
 
 /** 安装进度，由主进程实时推送到界面 */
 export interface InstallStatus {
@@ -159,4 +159,20 @@ export interface InstallRequest {
   name: string
   /** 要附加的 Fabric 加载器版本，不安装时为空 */
   fabricLoader?: string
+  /** 要附加的 Forge 版本（例如 47.3.0），不安装时为空；与 Fabric 互斥 */
+  forgeVersion?: string
+}
+
+/** 一个 Forge 版本 */
+export interface ForgeVersionInfo {
+  /** Forge 版本号，例如 47.3.0 */
+  version: string
+  /** 对应的 Minecraft 版本 */
+  mcversion: string
+  /** 是否为官方推荐版本 */
+  recommended: boolean
+  /** 是否为该 Minecraft 版本的最新版本 */
+  latest: boolean
+  /** 发布时间（可能为空） */
+  date: string
 }

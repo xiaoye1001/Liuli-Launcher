@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, ArrowLeft, Check, ChevronRight, Download, Loader2, X } from 'lucide-react'
 import GrassBlockIcon from '../components/GrassBlockIcon'
-import type { FabricLoaderVersion, VersionEntry } from '../../../shared/types'
+import type { FabricLoaderVersion, ForgeVersionInfo, VersionEntry } from '../../../shared/types'
 
 /** 去掉 Electron IPC 错误前缀，只保留真正的错误信息 */
 function cleanError(e: unknown): string {
@@ -96,7 +96,10 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
   const [fabricLoaders, setFabricLoaders] = useState<FabricLoaderVersion[] | null>(null)
   const [fabric, setFabric] = useState<string | null>(null)
   const [showUnstable, setShowUnstable] = useState(false)
-  const [expanded, setExpanded] = useState<'fabric' | null>(null)
+  const [forgeVersions, setForgeVersions] = useState<ForgeVersionInfo[] | null>(null)
+  const [forgeError, setForgeError] = useState('')
+  const [forge, setForge] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<'fabric' | 'forge' | null>(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -105,14 +108,34 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
       .getFabricLoaders(mc)
       .then(setFabricLoaders)
       .catch(() => setFabricLoaders([]))
+    window.api
+      .getForgeVersions(mc)
+      .then(setForgeVersions)
+      .catch((e) => {
+        setForgeVersions([])
+        setForgeError(cleanError(e))
+      })
   }, [mc])
+
+  // Fabric 与 Forge 只能二选一
+  const chooseFabric = (version: string | null): void => {
+    setFabric(version)
+    if (version) setForge(null)
+  }
+  const chooseForge = (version: string | null): void => {
+    setForge(version)
+    if (version) setFabric(null)
+  }
 
   // 用户没有手动改过版本名时，名字跟随所选的加载器自动变化
   useEffect(() => {
-    if (!nameEdited) setName(fabric ? `${mc}-Fabric ${fabric}` : mc)
-  }, [fabric, mc, nameEdited])
+    if (nameEdited) return
+    if (forge) setName(`${mc}-Forge ${forge}`)
+    else if (fabric) setName(`${mc}-Fabric ${fabric}`)
+    else setName(mc)
+  }, [fabric, forge, mc, nameEdited])
 
-  const nameError = validateName(name, mc, !!fabric, installedIds)
+  const nameError = validateName(name, mc, !!fabric || !!forge, installedIds)
 
   const fabricStatus =
     fabricLoaders === null
@@ -121,13 +144,33 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
         ? '无'
         : fabric
           ? fabric
-          : '可以添加'
+          : forge
+            ? '与 Forge 不兼容'
+            : '可以添加'
+
+  const forgeStatus =
+    forgeVersions === null
+      ? '正在获取…'
+      : forgeVersions.length === 0
+        ? forgeError
+          ? '获取失败'
+          : '无'
+        : forge
+          ? forge
+          : fabric
+            ? '与 Fabric 不兼容'
+            : '可以添加'
 
   const start = async (): Promise<void> => {
     setSubmitting(true)
     setError('')
     try {
-      await window.api.startInstall({ minecraftVersion: mc, name, fabricLoader: fabric ?? undefined })
+      await window.api.startInstall({
+        minecraftVersion: mc,
+        name,
+        fabricLoader: fabric ?? undefined,
+        forgeVersion: forge ?? undefined
+      })
       onStarted()
     } catch (e) {
       setError(cleanError(e))
@@ -170,7 +213,40 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
         <div className="h-2" />
 
         {/* 模组加载器 */}
-        <LoaderRow title="Forge" status="即将支持" disabled />
+        <LoaderRow
+          title="Forge"
+          status={forgeStatus}
+          highlight={!!forge}
+          disabled={!forgeVersions || forgeVersions.length === 0}
+          expanded={expanded === 'forge'}
+          onToggle={() => setExpanded((e) => (e === 'forge' ? null : 'forge'))}
+          onClear={forge ? () => chooseForge(null) : undefined}
+        >
+          <div className="max-h-56 overflow-y-auto">
+            {(forgeVersions ?? []).map((item) => (
+              <button
+                key={item.version}
+                onClick={() => {
+                  chooseForge(item.version)
+                  setExpanded(null)
+                }}
+                className={`flex w-full items-center gap-2 rounded-lg px-4 py-2 text-left text-sm ${
+                  forge === item.version ? 'bg-emerald-500/15' : 'hover:bg-white/10'
+                }`}
+              >
+                <span className="font-mono">{item.version}</span>
+                {item.recommended && (
+                  <span className="rounded bg-emerald-500/20 px-1.5 text-xs text-emerald-300">推荐</span>
+                )}
+                {item.latest && <span className="rounded bg-sky-500/20 px-1.5 text-xs text-sky-300">最新</span>}
+                <span className="flex-1 text-right text-xs text-white/40">
+                  {item.date ? new Date(item.date).toLocaleDateString('zh-CN') : ''}
+                </span>
+                {forge === item.version && <Check className="h-4 w-4 text-emerald-400" />}
+              </button>
+            ))}
+          </div>
+        </LoaderRow>
         <LoaderRow title="NeoForge" status="即将支持" disabled />
         <LoaderRow
           title="Fabric"
@@ -179,7 +255,7 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
           disabled={!fabricLoaders || fabricLoaders.length === 0}
           expanded={expanded === 'fabric'}
           onToggle={() => setExpanded((e) => (e === 'fabric' ? null : 'fabric'))}
-          onClear={fabric ? () => setFabric(null) : undefined}
+          onClear={fabric ? () => chooseFabric(null) : undefined}
         >
           <div className="mb-1 flex justify-end px-2 pt-1">
             <label className="flex cursor-pointer items-center gap-1.5 text-xs text-white/50">
@@ -197,7 +273,7 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
               <button
                 key={loader.version}
                 onClick={() => {
-                  setFabric(loader.version)
+                  chooseFabric(loader.version)
                   setExpanded(null)
                 }}
                 className={`flex w-full items-center gap-2 rounded-lg px-4 py-2 text-left text-sm ${
@@ -212,6 +288,12 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
           </div>
         </LoaderRow>
         <LoaderRow title="OptiFine" status="即将支持" disabled />
+
+        {forge && (
+          <p className="px-2 text-xs leading-5 text-white/45">
+            安装 Forge 时需要用 Java 运行 Forge 安装程序，会比普通安装多花几分钟。模组放入游戏目录下的 mods 文件夹即可。
+          </p>
+        )}
 
         {error && (
           <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">

@@ -4,7 +4,8 @@ import type { InstallStatus } from '../../../shared/types'
 
 const PHASE_LABELS = {
   version: '正在下载游戏本体',
-  dependencies: '正在下载依赖库与资源文件'
+  dependencies: '正在下载依赖库与资源文件',
+  processing: '正在运行模组加载器安装程序，可能需要几分钟'
 }
 
 function formatBytes(bytes: number): string {
@@ -61,7 +62,9 @@ function InstallProgressCard({ status, onCancel, onRetry, onDismiss }: InstallPr
         {running && (
           <div className="text-right">
             <div className="font-mono text-lg font-bold text-emerald-300">{percent.toFixed(1)}%</div>
-            <div className="font-mono text-xs text-white/50">{formatBytes(status.speed)}/s</div>
+            {status.phase !== 'processing' && (
+              <div className="font-mono text-xs text-white/50">{formatBytes(status.speed)}/s</div>
+            )}
           </div>
         )}
 

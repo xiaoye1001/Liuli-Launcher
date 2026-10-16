@@ -18,6 +18,7 @@ const api = {
   cancelInstall: () => ipcRenderer.invoke('install:cancel'),
   getInstallStatus: () => ipcRenderer.invoke('install:status'),
   getFabricLoaders: (minecraftVersion: string) => ipcRenderer.invoke('fabric:loaders', minecraftVersion),
+  getForgeVersions: (minecraftVersion: string) => ipcRenderer.invoke('forge:versions', minecraftVersion),
   /** 订阅安装进度，返回取消订阅函数 */
   onInstallStatus: (callback: (status: InstallStatus | null) => void) => {
     const listener = (_: Electron.IpcRendererEvent, status: InstallStatus | null): void => callback(status)
