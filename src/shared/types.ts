@@ -25,7 +25,14 @@ export interface AppSettings {
   offlineName: string
   /** 上次选择启动的版本 */
   selectedVersion: string
+  /** 自定义皮肤（PNG 的 data URL），空字符串表示使用默认皮肤 */
+  skinDataUrl: string
+  /** 皮肤模型：经典（4 像素宽手臂）或纤细（3 像素宽手臂） */
+  skinModel: SkinModel
 }
+
+/** 皮肤模型 */
+export type SkinModel = 'default' | 'slim'
 
 /** 系统信息 */
 export interface SystemInfo {

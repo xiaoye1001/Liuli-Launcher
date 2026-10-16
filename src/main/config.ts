@@ -14,7 +14,9 @@ function defaultSettings(): AppSettings {
     downloadSource: 'bmclapi',
     gameDir: join(app.getPath('userData'), '.minecraft'),
     offlineName: 'Steve',
-    selectedVersion: ''
+    selectedVersion: '',
+    skinDataUrl: '',
+    skinModel: 'default'
   }
 }
 

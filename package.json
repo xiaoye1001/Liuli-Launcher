@@ -19,7 +19,8 @@
     "@xmcl/file-transfer": "2.0.3",
     "@xmcl/installer": "6.1.2",
     "framer-motion": "11.18.2",
-    "lucide-react": "0.460.0"
+    "lucide-react": "0.460.0",
+    "skinview3d": "3.4.2"
   },
   "devDependencies": {
     "@types/node": "22.18.0",
