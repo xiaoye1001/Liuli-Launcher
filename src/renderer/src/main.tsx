@@ -1,10 +1,12 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import LogWindow from './LogWindow'
 import './index.css'
 
+// 日志窗口与主窗口共用同一个页面，通过地址中的 #logs 区分
+const isLogWindow = window.location.hash === '#logs'
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
+  <React.StrictMode>{isLogWindow ? <LogWindow /> : <App />}</React.StrictMode>
 )

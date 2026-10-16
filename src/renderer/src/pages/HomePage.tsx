@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertTriangle, Box, Check, ChevronDown, Gamepad2, Loader2, Play, UserRound } from 'lucide-react'
+import { AlertTriangle, Box, Check, ChevronDown, Gamepad2, Loader2, Play, Terminal, UserRound } from 'lucide-react'
 import type { AppSettings, GameStatus, InstalledVersion } from '../../../shared/types'
 
 const NAME_PATTERN = /^[A-Za-z0-9_]{3,16}$/
@@ -161,12 +161,21 @@ function HomePage(): JSX.Element {
             <VersionSelect versions={versions} value={selected} onChange={selectVersion} />
           </div>
 
+          <button
+            onClick={() => window.api.openLogWindow()}
+            title="打开游戏日志窗口"
+            className="ml-auto flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/80 hover:bg-black/30 hover:text-white"
+          >
+            <Terminal className="h-4 w-4" />
+            日志
+          </button>
+
           <motion.button
             whileHover={!busy && selected && nameValid ? { scale: 1.04 } : undefined}
             whileTap={!busy && selected && nameValid ? { scale: 0.96 } : undefined}
             onClick={onLaunch}
             disabled={busy || !selected || !nameValid}
-            className="ml-auto flex min-w-44 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-8 py-3 font-semibold shadow-lg shadow-emerald-500/30 disabled:cursor-not-allowed disabled:from-slate-600 disabled:to-slate-500 disabled:shadow-none"
+            className="flex min-w-44 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-8 py-3 font-semibold shadow-lg shadow-emerald-500/30 disabled:cursor-not-allowed disabled:from-slate-600 disabled:to-slate-500 disabled:shadow-none"
           >
             {game.state === 'launching' && <Loader2 className="h-5 w-5 animate-spin" />}
             {game.state === 'running' && <Gamepad2 className="h-5 w-5" />}

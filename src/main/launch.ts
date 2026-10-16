@@ -5,7 +5,8 @@ import { BrowserWindow } from 'electron'
 import { createMinecraftProcessWatcher, launch, Version } from '@xmcl/core'
 import { getSettings } from './config'
 import { resolveJava } from './java'
-import type { GameStatus, InstalledVersion } from '../shared/types'
+import { openLogWindow } from './logWindow'
+import type { GameLogEvent, GameStatus, InstalledVersion } from '../shared/types'
 
 /** 读取游戏目录下所有已安装的版本（versions/<id>/<id>.json 存在即视为已安装） */
 export async function listInstalledVersions(): Promise<InstalledVersion[]> {
@@ -38,24 +39,73 @@ function offlineUuid(name: string): string {
   return hash.toString('hex')
 }
 
-const MAX_LOG_LINES = 2000
+const MAX_LOG_LINES = 5000
 let status: GameStatus = { state: 'idle', versionId: '' }
 let logs: string[] = []
+/** 等待推送到界面的新日志（每 100ms 合并发送一次，避免消息过多） */
+let pendingLines: string[] = []
+let flushTimer: ReturnType<typeof setTimeout> | null = null
+
+function send(channel: string, payload: unknown): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send(channel, payload)
+  }
+}
 
 function broadcast(): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send('game:status', status)
-  }
+  send('game:status', status)
+}
+
+function flushLogs(): void {
+  flushTimer = null
+  if (pendingLines.length === 0) return
+  const event: GameLogEvent = { reset: false, lines: pendingLines }
+  pendingLines = []
+  send('game:log', event)
+}
+
+function pushLines(lines: string[]): void {
+  if (lines.length === 0) return
+  logs.push(...lines)
+  if (logs.length > MAX_LOG_LINES) logs = logs.slice(-MAX_LOG_LINES)
+  pendingLines.push(...lines)
+  if (!flushTimer) flushTimer = setTimeout(flushLogs, 100)
+}
+
+function resetLogs(): void {
+  logs = []
+  pendingLines = []
+  const event: GameLogEvent = { reset: true, lines: [] }
+  send('game:log', event)
+}
+
+/** 启动器自己输出的提示信息 */
+function launcherLog(message: string): void {
+  pushLines([`[启动器] ${message}`])
+}
+
+/**
+ * 把输出流按行切分。数据块可能在一行中间断开，
+ * 所以把最后不完整的一行留到下一个数据块再处理。
+ */
+function pipeLines(stream: NodeJS.ReadableStream | null): void {
+  if (!stream) return
+  let rest = ''
+  stream.setEncoding('utf8')
+  stream.on('data', (chunk: string) => {
+    const parts = (rest + chunk).split(/\r?\n/)
+    rest = parts.pop() ?? ''
+    pushLines(parts.filter((line) => line.length > 0))
+  })
+  stream.on('end', () => {
+    if (rest) pushLines([rest])
+    rest = ''
+  })
 }
 
 function setStatus(next: GameStatus): void {
   status = next
   broadcast()
-}
-
-function appendLog(chunk: string): void {
-  logs.push(...chunk.split(/\r?\n/).filter((line) => line.length > 0))
-  if (logs.length > MAX_LOG_LINES) logs = logs.slice(-MAX_LOG_LINES)
 }
 
 export function getGameStatus(): GameStatus {
@@ -85,8 +135,10 @@ export async function launchGame(versionId: string): Promise<void> {
   }
 
   const settings = await getSettings()
-  logs = []
+  resetLogs()
   setStatus({ state: 'launching', versionId })
+  openLogWindow()
+  launcherLog(`正在启动 ${versionId}`)
 
   try {
     if (!settings.javaPath) {
@@ -106,6 +158,8 @@ export async function launchGame(versionId: string): Promise<void> {
     if (java.majorVersion < required) {
       throw new Error(`${versionId} 需要 Java ${required} 或更高版本，当前选择的是 Java ${java.majorVersion}`)
     }
+    launcherLog(`Java ${java.version}：${java.path}`)
+    launcherLog(`玩家名 ${settings.offlineName}，最大内存 ${settings.maxMemory} MB`)
 
     const proc = await launch({
       gamePath: settings.gameDir,
@@ -119,24 +173,34 @@ export async function launchGame(versionId: string): Promise<void> {
       launcherName: 'mc_launcher',
       launcherBrand: 'mc_launcher',
       versionType: 'MC Launcher',
+      // 强制游戏以 UTF-8 输出日志，避免中文 Windows 下日志乱码
+      extraJVMArgs: ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8'],
       extraExecOption: { windowsHide: false }
     })
+    launcherLog(`游戏进程已创建（PID ${proc.pid}）`)
 
-    proc.stdout?.on('data', (data: Buffer) => appendLog(data.toString()))
-    proc.stderr?.on('data', (data: Buffer) => appendLog(data.toString()))
+    pipeLines(proc.stdout)
+    pipeLines(proc.stderr)
 
     const watcher = createMinecraftProcessWatcher(proc)
     watcher.on('minecraft-window-ready', () => {
-      if (status.state === 'launching') setStatus({ state: 'running', versionId })
+      if (status.state === 'launching') {
+        launcherLog('游戏窗口已出现')
+        setStatus({ state: 'running', versionId })
+      }
     })
     watcher.on('error', (e) => {
       setStatus({ state: 'crashed', versionId, error: describeLaunchError(e) })
     })
     watcher.on('minecraft-exit', ({ code, crashReportLocation }) => {
+      launcherLog(`游戏进程已退出，退出码 ${code}`)
       if (code === 0) {
         setStatus({ state: 'exited', versionId, exitCode: code })
       } else {
-        const lastLines = logs.slice(-5).join('\n')
+        const lastLines = logs
+          .filter((line) => !line.startsWith('[启动器]'))
+          .slice(-5)
+          .join('\n')
         setStatus({
           state: 'crashed',
           versionId,
@@ -149,6 +213,7 @@ export async function launchGame(versionId: string): Promise<void> {
     })
   } catch (e) {
     // 启动失败的原因通过状态推送给界面显示
+    launcherLog(`启动失败：${describeLaunchError(e)}`)
     setStatus({ state: 'crashed', versionId, error: describeLaunchError(e) })
   }
 }

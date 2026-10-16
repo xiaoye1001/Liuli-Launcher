@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { AppSettings, GameStatus, InstallStatus } from '../shared/types'
+import type { AppSettings, GameLogEvent, GameStatus, InstallStatus } from '../shared/types'
 
 const api = {
   versions: {
@@ -33,6 +33,16 @@ const api = {
     ipcRenderer.on('game:status', listener)
     return () => {
       ipcRenderer.removeListener('game:status', listener)
+    }
+  },
+  getGameLogs: () => ipcRenderer.invoke('game:logs'),
+  openLogWindow: () => ipcRenderer.invoke('logs:open'),
+  /** 订阅游戏日志，返回取消订阅函数 */
+  onGameLog: (callback: (event: GameLogEvent) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, event: GameLogEvent): void => callback(event)
+    ipcRenderer.on('game:log', listener)
+    return () => {
+      ipcRenderer.removeListener('game:log', listener)
     }
   }
 }

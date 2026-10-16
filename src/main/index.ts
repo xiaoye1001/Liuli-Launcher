@@ -6,7 +6,8 @@ import { scanJava } from './java'
 import { getSettings, updateSettings } from './config'
 import { getVersionManifest } from './versions'
 import { cancelInstall, getInstallStatus, startInstall } from './install'
-import { getGameStatus, launchGame, listInstalledVersions } from './launch'
+import { getGameLogs, getGameStatus, launchGame, listInstalledVersions } from './launch'
+import { closeLogWindow, openLogWindow } from './logWindow'
 import type { AppSettings, SystemInfo } from '../shared/types'
 
 function createWindow(): void {
@@ -26,6 +27,10 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+  })
+
+  mainWindow.on('closed', () => {
+    closeLogWindow()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -54,6 +59,8 @@ function registerIpc(): void {
   ipcMain.handle('versions:installed', () => listInstalledVersions())
   ipcMain.handle('game:launch', (_, versionId: string) => launchGame(versionId))
   ipcMain.handle('game:status', () => getGameStatus())
+  ipcMain.handle('game:logs', () => getGameLogs())
+  ipcMain.handle('logs:open', () => openLogWindow())
   ipcMain.handle(
     'system:info',
     (): SystemInfo => ({ totalMemory: Math.floor(totalmem() / 1024 / 1024) })

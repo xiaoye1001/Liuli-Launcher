@@ -97,3 +97,10 @@ export interface GameStatus {
   /** 启动失败或崩溃的原因 */
   error?: string
 }
+
+/** 推送到日志窗口的一批日志 */
+export interface GameLogEvent {
+  /** 为 true 时表示新一次启动，界面应先清空旧日志 */
+  reset: boolean
+  lines: string[]
+}
