@@ -8,6 +8,7 @@ import { getVersionManifest } from './versions'
 import { cancelInstall, getInstallStatus, startInstall } from './install'
 import { getGameLogs, getGameStatus, launchGame, listInstalledVersions } from './launch'
 import { closeLogWindow, openLogWindow } from './logWindow'
+import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
 import type { AppSettings, SystemInfo } from '../shared/types'
 
 function createWindow(): void {
@@ -65,6 +66,14 @@ function registerIpc(): void {
   ipcMain.handle('game:status', () => getGameStatus())
   ipcMain.handle('game:logs', () => getGameLogs())
   ipcMain.handle('logs:open', () => openLogWindow())
+  ipcMain.handle('gamedir:info', () => getGameDirInfo())
+  ipcMain.handle('gamedir:set', (_, dir: string) => setGameDir(dir))
+  ipcMain.handle('gamedir:open', () => openGameDir())
+  // 弹出文件夹选择框并切换；用户取消时返回 null
+  ipcMain.handle('gamedir:pick', async (event) => {
+    const dir = await pickGameDir(BrowserWindow.fromWebContents(event.sender))
+    return dir ? setGameDir(dir) : null
+  })
   ipcMain.handle(
     'system:info',
     (): SystemInfo => ({ totalMemory: Math.floor(totalmem() / 1024 / 1024) })

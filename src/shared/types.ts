@@ -116,3 +116,21 @@ export interface GameLogEvent {
   reset: boolean
   lines: string[]
 }
+
+/** 游戏目录信息 */
+export interface GameDirInfo {
+  /** 当前使用的游戏目录 */
+  path: string
+  /** 目录中已安装的版本数量 */
+  versionCount: number
+  /** 是否为启动器默认目录 */
+  isDefault: boolean
+  /** 是否为官方启动器的目录 */
+  isOfficial: boolean
+  /** 启动器默认目录 */
+  defaultDir: string
+  /** 官方启动器的 .minecraft 目录 */
+  officialDir: string
+  /** 官方启动器目录是否存在 */
+  officialExists: boolean
+}

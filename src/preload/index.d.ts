@@ -1,6 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
   AppSettings,
+  GameDirInfo,
   GameLogEvent,
   GameStatus,
   InstalledVersion,
@@ -32,6 +33,10 @@ declare global {
       launchGame: (versionId: string) => Promise<void>
       getGameStatus: () => Promise<GameStatus>
       onGameStatus: (callback: (status: GameStatus) => void) => () => void
+      getGameDirInfo: () => Promise<GameDirInfo>
+      setGameDir: (dir: string) => Promise<GameDirInfo>
+      pickGameDir: () => Promise<GameDirInfo | null>
+      openGameDir: () => Promise<void>
       getGameLogs: () => Promise<string[]>
       openLogWindow: () => Promise<void>
       onGameLog: (callback: (event: GameLogEvent) => void) => () => void

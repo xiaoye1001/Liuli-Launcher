@@ -6,13 +6,18 @@ import type { AppSettings } from '../shared/types'
 
 const SETTINGS_FILE = join(app.getPath('userData'), 'settings.json')
 
+/** 启动器默认的游戏目录：<用户数据目录>/.minecraft */
+export function defaultGameDir(): string {
+  return join(app.getPath('userData'), '.minecraft')
+}
+
 function defaultSettings(): AppSettings {
   const totalMB = Math.floor(totalmem() / 1024 / 1024)
   return {
     javaPath: '',
     maxMemory: Math.min(4096, Math.floor(totalMB / 2 / 256) * 256),
     downloadSource: 'bmclapi',
-    gameDir: join(app.getPath('userData'), '.minecraft'),
+    gameDir: defaultGameDir(),
     offlineName: 'Steve',
     selectedVersion: '',
     skinDataUrl: '',

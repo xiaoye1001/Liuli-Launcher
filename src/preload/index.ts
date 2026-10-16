@@ -35,6 +35,10 @@ const api = {
       ipcRenderer.removeListener('game:status', listener)
     }
   },
+  getGameDirInfo: () => ipcRenderer.invoke('gamedir:info'),
+  setGameDir: (dir: string) => ipcRenderer.invoke('gamedir:set', dir),
+  pickGameDir: () => ipcRenderer.invoke('gamedir:pick'),
+  openGameDir: () => ipcRenderer.invoke('gamedir:open'),
   getGameLogs: () => ipcRenderer.invoke('game:logs'),
   openLogWindow: () => ipcRenderer.invoke('logs:open'),
   /** 订阅游戏日志，返回取消订阅函数 */
