@@ -6,6 +6,7 @@ import type {
   GameLogEvent,
   GameStatus,
   InstalledVersion,
+  InstallRequest,
   InstallStatus,
   JavaInfo,
   SystemInfo,
@@ -26,11 +27,11 @@ declare global {
       updateSettings: (patch: Partial<AppSettings>) => Promise<AppSettings>
       getSystemInfo: () => Promise<SystemInfo>
       getVersionList: (force?: boolean) => Promise<VersionManifest>
-      startInstall: (versionId: string) => Promise<void>
+      startInstall: (request: InstallRequest) => Promise<void>
+      retryInstall: () => Promise<void>
       cancelInstall: () => Promise<void>
       getInstallStatus: () => Promise<InstallStatus | null>
       getFabricLoaders: (minecraftVersion: string) => Promise<FabricLoaderVersion[]>
-      installFabric: (minecraftVersion: string, loaderVersion: string) => Promise<void>
       onInstallStatus: (callback: (status: InstallStatus | null) => void) => () => void
       getInstalledVersions: () => Promise<InstalledVersion[]>
       repairVersion: (versionId: string) => Promise<void>

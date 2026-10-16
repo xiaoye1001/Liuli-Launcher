@@ -6,7 +6,17 @@ import { createMinecraftProcessWatcher, launch, Version } from '@xmcl/core'
 import { getSettings } from './config'
 import { resolveJava } from './java'
 import { openLogWindow } from './logWindow'
-import type { GameLogEvent, GameStatus, InstalledVersion } from '../shared/types'
+import type { GameLogEvent, GameStatus, InstalledVersion, ModLoader } from '../shared/types'
+
+/** 根据版本 json 的启动类与依赖库判断模组加载器 */
+function detectLoader(json: { mainClass?: string; libraries?: { name?: string }[] }): ModLoader | undefined {
+  const text = `${json.mainClass ?? ''} ${(json.libraries ?? []).map((l) => l.name ?? '').join(' ')}`
+  if (/net\.fabricmc/.test(text)) return 'fabric'
+  if (/org\.quiltmc/.test(text)) return 'quilt'
+  if (/net\.neoforged/.test(text)) return 'neoforge'
+  if (/net\.minecraftforge|cpw\.mods/.test(text)) return 'forge'
+  return undefined
+}
 
 /** 读取游戏目录下所有已安装的版本（versions/<id>/<id>.json 存在即视为已安装） */
 export async function listInstalledVersions(): Promise<InstalledVersion[]> {
@@ -23,7 +33,7 @@ export async function listInstalledVersions(): Promise<InstalledVersion[]> {
   for (const id of names) {
     try {
       const json = JSON.parse(await readFile(join(versionsDir, id, `${id}.json`), 'utf-8'))
-      result.push({ id, type: json.type ?? '', releaseTime: json.releaseTime ?? '' })
+      result.push({ id, type: json.type ?? '', releaseTime: json.releaseTime ?? '', loader: detectLoader(json) })
     } catch {
       // 没有 json 或 json 损坏的目录不是有效版本
     }

@@ -94,12 +94,17 @@ export interface InstallStatus {
   error?: string
 }
 
+/** 模组加载器 */
+export type ModLoader = 'fabric' | 'forge' | 'neoforge' | 'quilt'
+
 /** 本地已安装的版本 */
 export interface InstalledVersion {
   id: string
   /** 版本类型（来自版本 json 的 type 字段，可能为空） */
   type: string
   releaseTime: string
+  /** 检测到的模组加载器，原版为 undefined */
+  loader?: ModLoader
 }
 
 /** 游戏运行状态：空闲 / 启动中 / 窗口已出现 / 正常退出 / 崩溃或启动失败 */
@@ -144,4 +149,14 @@ export interface FabricLoaderVersion {
   version: string
   /** 是否为稳定版 */
   stable: boolean
+}
+
+/** 安装请求：在原版基础上可选附加模组加载器，并可自定义版本名 */
+export interface InstallRequest {
+  /** Minecraft 原版版本号 */
+  minecraftVersion: string
+  /** 安装后的版本名（versions 下的文件夹名） */
+  name: string
+  /** 要附加的 Fabric 加载器版本，不安装时为空 */
+  fabricLoader?: string
 }

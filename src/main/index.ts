@@ -9,15 +9,15 @@ import {
   cancelInstall,
   getFabricLoaders,
   getInstallStatus,
-  startFabricInstall,
-  startInstall,
+  retryLastInstall,
+  startCustomInstall,
   startRepair
 } from './install'
 import { getGameLogs, getGameStatus, launchGame, listInstalledVersions } from './launch'
 import { closeLogWindow, openLogWindow } from './logWindow'
 import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
 import { deleteVersion, openVersionDir } from './versionManage'
-import type { AppSettings, SystemInfo } from '../shared/types'
+import type { AppSettings, InstallRequest, SystemInfo } from '../shared/types'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -66,13 +66,11 @@ function registerIpc(): void {
     const settings = await getSettings()
     return getVersionManifest(settings.downloadSource, force)
   })
-  ipcMain.handle('install:start', (_, versionId: string) => startInstall(versionId))
+  ipcMain.handle('install:start', (_, request: InstallRequest) => startCustomInstall(request))
+  ipcMain.handle('install:retry', () => retryLastInstall())
   ipcMain.handle('install:cancel', () => cancelInstall())
   ipcMain.handle('install:status', () => getInstallStatus())
   ipcMain.handle('fabric:loaders', (_, minecraftVersion: string) => getFabricLoaders(minecraftVersion))
-  ipcMain.handle('fabric:install', (_, minecraftVersion: string, loaderVersion: string) =>
-    startFabricInstall(minecraftVersion, loaderVersion)
-  )
   ipcMain.handle('versions:installed', () => listInstalledVersions())
   ipcMain.handle('versions:repair', (_, versionId: string) => startRepair(versionId))
   ipcMain.handle('versions:delete', (event, versionId: string) =>

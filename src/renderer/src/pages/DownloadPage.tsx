@@ -6,7 +6,6 @@ import {
   Download,
   FlaskConical,
   FolderOpen,
-  Layers,
   Loader2,
   RefreshCw,
   Search,
@@ -14,11 +13,12 @@ import {
   Trash2,
   Wrench
 } from 'lucide-react'
-import FabricDialog from '../components/FabricDialog'
 import InstallProgressCard from '../components/InstallProgressCard'
+import InstallSetupPage from './InstallSetupPage'
 import type {
   InstalledVersion,
   InstallStatus,
+  ModLoader,
   VersionEntry,
   VersionManifest,
   VersionType
@@ -41,11 +41,16 @@ const TYPE_LABELS: Record<VersionType, { label: string; className: string }> = {
 }
 
 const OTHER_TYPE = { label: '其他', className: 'bg-sky-500/20 text-sky-300' }
-const FABRIC_TYPE = { label: 'Fabric', className: 'bg-amber-500/20 text-amber-300' }
+const LOADER_LABELS: Record<ModLoader, { label: string; className: string }> = {
+  fabric: { label: 'Fabric', className: 'bg-amber-500/20 text-amber-300' },
+  quilt: { label: 'Quilt', className: 'bg-fuchsia-500/20 text-fuchsia-300' },
+  forge: { label: 'Forge', className: 'bg-sky-500/20 text-sky-300' },
+  neoforge: { label: 'NeoForge', className: 'bg-rose-500/20 text-rose-300' }
+}
 
-/** 已安装版本的类型标签：Fabric 版本单独标记 */
+/** 已安装版本的类型标签：装了模组加载器的版本显示加载器名称 */
 function installedTypeInfo(version: InstalledVersion): { label: string; className: string } {
-  if (/-fabric|fabric-loader/i.test(version.id)) return FABRIC_TYPE
+  if (version.loader) return LOADER_LABELS[version.loader]
   return TYPE_LABELS[version.type as VersionType] ?? OTHER_TYPE
 }
 
@@ -76,7 +81,7 @@ function DownloadPage(): JSX.Element {
   const [keyword, setKeyword] = useState('')
   const [install, setInstall] = useState<InstallStatus | null>(null)
   const [actionError, setActionError] = useState('')
-  const [fabricFor, setFabricFor] = useState<string | null>(null)
+  const [setupFor, setSetupFor] = useState<VersionEntry | null>(null)
   const lastState = useRef<string | undefined>(undefined)
 
   const loadInstalled = useCallback(async (): Promise<void> => {
@@ -119,13 +124,8 @@ function DownloadPage(): JSX.Element {
     }
   }
 
-  const startInstall = (versionId: string): Promise<void> => run(() => window.api.startInstall(versionId))
+  const retryInstall = (): Promise<void> => run(() => window.api.retryInstall())
   const repair = (versionId: string): Promise<void> => run(() => window.api.repairVersion(versionId))
-  const installFabric = async (minecraftVersion: string, loaderVersion: string): Promise<void> => {
-    // 出错时由弹窗自己显示错误；成功后关闭弹窗，进度显示在页面顶部
-    await window.api.installFabric(minecraftVersion, loaderVersion)
-    setFabricFor(null)
-  }
   const remove = (versionId: string): Promise<void> =>
     run(async () => {
       if (await window.api.deleteVersion(versionId)) await loadInstalled()
@@ -144,6 +144,26 @@ function DownloadPage(): JSX.Element {
     () => installed.filter((v) => !kw || v.id.toLowerCase().includes(kw)),
     [installed, kw]
   )
+
+  if (setupFor) {
+    return (
+      <motion.div
+        key={setupFor.id}
+        className="h-full"
+        initial={{ opacity: 0, x: 24 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+      >
+        <InstallSetupPage
+          version={setupFor}
+          installedIds={installedIds}
+          busy={busy}
+          onBack={() => setSetupFor(null)}
+          onStarted={() => setSetupFor(null)}
+        />
+      </motion.div>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col gap-5">
@@ -176,7 +196,7 @@ function DownloadPage(): JSX.Element {
           <InstallProgressCard
             status={install}
             onCancel={() => window.api.cancelInstall()}
-            onRetry={() => (install.kind === 'repair' ? repair(install.versionId) : startInstall(install.versionId))}
+            onRetry={() => (install.kind === 'repair' ? repair(install.versionId) : retryInstall())}
             onDismiss={() => setInstall(null)}
           />
         )}
@@ -320,7 +340,10 @@ function DownloadPage(): JSX.Element {
                   return (
                     <div
                       key={version.id}
-                      className="group flex h-12 items-center gap-4 rounded-xl bg-black/20 px-4 transition-colors hover:bg-black/30"
+                      role="button"
+                      onClick={() => setSetupFor(version)}
+                      title="点击进入安装设置"
+                      className="group flex h-12 cursor-pointer items-center gap-4 rounded-xl bg-black/20 px-4 transition-colors hover:bg-black/30"
                     >
                       <span className="w-40 truncate font-mono text-sm font-semibold">{version.id}</span>
                       <span className={`rounded-md px-2 py-0.5 text-xs ${typeInfo.className}`}>{typeInfo.label}</span>
@@ -331,27 +354,10 @@ function DownloadPage(): JSX.Element {
                         </span>
                       )}
                       <span className="flex-1 text-xs text-white/40">{formatDate(version.releaseTime)}</span>
-                      {version.type === 'release' && (
-                        <button
-                          onClick={() => setFabricFor(version.id)}
-                          disabled={busy}
-                          title="安装 Fabric 模组加载器"
-                          className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs opacity-0 transition-opacity hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-0 group-hover:opacity-100 group-hover:disabled:opacity-40"
-                        >
-                          <Layers className="h-3.5 w-3.5" />
-                          Fabric
-                        </button>
-                      )}
-                      {!isInstalled && (
-                        <button
-                          onClick={() => startInstall(version.id)}
-                          disabled={busy}
-                          className="flex items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium opacity-0 transition-opacity hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40 group-hover:opacity-100"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          安装
-                        </button>
-                      )}
+                      <span className="flex items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100">
+                        <Download className="h-3.5 w-3.5" />
+                        安装
+                      </span>
                     </div>
                   )
                 })}
@@ -361,15 +367,6 @@ function DownloadPage(): JSX.Element {
         </div>
       </section>
 
-      <AnimatePresence>
-        {fabricFor && (
-          <FabricDialog
-            minecraftVersion={fabricFor}
-            onClose={() => setFabricFor(null)}
-            onInstall={(loader) => installFabric(fabricFor, loader)}
-          />
-        )}
-      </AnimatePresence>
     </div>
   )
 }

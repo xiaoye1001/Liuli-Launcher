@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { AppSettings, GameLogEvent, GameStatus, InstallStatus } from '../shared/types'
+import type { AppSettings, GameLogEvent, GameStatus, InstallRequest, InstallStatus } from '../shared/types'
 
 const api = {
   versions: {
@@ -13,12 +13,11 @@ const api = {
   updateSettings: (patch: Partial<AppSettings>) => ipcRenderer.invoke('settings:update', patch),
   getSystemInfo: () => ipcRenderer.invoke('system:info'),
   getVersionList: (force = false) => ipcRenderer.invoke('versions:list', force),
-  startInstall: (versionId: string) => ipcRenderer.invoke('install:start', versionId),
+  startInstall: (request: InstallRequest) => ipcRenderer.invoke('install:start', request),
+  retryInstall: () => ipcRenderer.invoke('install:retry'),
   cancelInstall: () => ipcRenderer.invoke('install:cancel'),
   getInstallStatus: () => ipcRenderer.invoke('install:status'),
   getFabricLoaders: (minecraftVersion: string) => ipcRenderer.invoke('fabric:loaders', minecraftVersion),
-  installFabric: (minecraftVersion: string, loaderVersion: string) =>
-    ipcRenderer.invoke('fabric:install', minecraftVersion, loaderVersion),
   /** 订阅安装进度，返回取消订阅函数 */
   onInstallStatus: (callback: (status: InstallStatus | null) => void) => {
     const listener = (_: Electron.IpcRendererEvent, status: InstallStatus | null): void => callback(status)

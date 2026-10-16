@@ -1,17 +1,27 @@
 import { BrowserWindow } from 'electron'
 import { Version } from '@xmcl/core'
 import { getDefaultAgent } from '@xmcl/file-transfer'
+import { access, mkdir, writeFile } from 'fs/promises'
+import { join } from 'path'
 import {
+  getFabricLoaderArtifact,
   getLoaderArtifactListFor,
   installDependenciesTask,
-  installFabric,
+  installFabricByLoaderArtifact,
   installTask,
   type Options
 } from '@xmcl/installer'
 import { task as createTask, type Task } from '@xmcl/task'
 import { getSettings } from './config'
 import { getVersionManifest } from './versions'
-import type { DownloadSource, FabricLoaderVersion, InstallKind, InstallPhase, InstallStatus } from '../shared/types'
+import type {
+  DownloadSource,
+  FabricLoaderVersion,
+  InstallKind,
+  InstallPhase,
+  InstallRequest,
+  InstallStatus
+} from '../shared/types'
 
 const BMCLAPI = 'https://bmclapi2.bangbang93.com'
 const FABRIC_META = 'https://meta.fabricmc.net'
@@ -50,6 +60,8 @@ type AnyInstallTask = Task<unknown>
 let status: InstallStatus | null = null
 let currentTask: AnyInstallTask | null = null
 let cancelRequested = false
+/** 上一次的安装请求，用于「重试」 */
+let lastRequest: InstallRequest | null = null
 
 function broadcast(): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -128,18 +140,6 @@ function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): vo
     })
 }
 
-/** 开始安装指定版本（同一时间只允许一个安装任务） */
-export async function startInstall(versionId: string): Promise<void> {
-  assertIdle()
-  const settings = await getSettings()
-  const manifest = await getVersionManifest(settings.downloadSource)
-  const meta = manifest.versions.find((v) => v.id === versionId)
-  if (!meta) {
-    throw new Error(`版本列表中找不到 ${versionId}`)
-  }
-  runTask(versionId, 'install', installTask(meta, settings.gameDir, await downloadOptions()))
-}
-
 /**
  * 检查并修复已安装的版本。下载前会先校验本地文件，完好的文件会直接跳过，
  * 只重新下载缺失或损坏的文件。
@@ -193,33 +193,88 @@ export async function getFabricLoaders(minecraftVersion: string): Promise<Fabric
   return list.map((item) => ({ version: item.loader.version, stable: item.loader.stable }))
 }
 
+/** 检查版本名是否可用作 versions 下的文件夹名 */
+function validateName(name: string): void {
+  if (!name) throw new Error('版本名不能为空')
+  if (name.length > 64) throw new Error('版本名不能超过 64 个字符')
+  if (/[\\/:*?"<>|]/.test(name) || name === '.' || name === '..' || name !== name.trim()) {
+    throw new Error('版本名不能包含 \\ / : * ? " < > | 等字符，且首尾不能有空格')
+  }
+}
+
+async function exists(path: string): Promise<boolean> {
+  return access(path)
+    .then(() => true)
+    .catch(() => false)
+}
+
 /**
- * 安装 Fabric：先安装（或校验）原版，再写入 Fabric 版本配置，最后下载 Fabric 的依赖库。
- * 三步合并为一个任务，进度与取消都和普通安装一样。
+ * 按安装页的选择安装游戏：
+ * 1. 安装（或校验）原版；
+ * 2. 选择了 Fabric 时，写入 Fabric 版本配置并下载其依赖库；
+ * 3. 只改了版本名时，创建一个继承原版的版本配置。
+ * 所有步骤合并为一个任务，进度与取消都和普通安装一样。
+ * allowExisting 为 true 时（重试）允许覆盖上次失败留下的同名版本。
  */
-export async function startFabricInstall(minecraftVersion: string, loaderVersion: string): Promise<void> {
+export async function startCustomInstall(request: InstallRequest, allowExisting = false): Promise<void> {
   assertIdle()
+  const { minecraftVersion, fabricLoader } = request
+  const name = request.name
+  validateName(name)
+
   const settings = await getSettings()
+  const isPlainVanilla = !fabricLoader && name === minecraftVersion
+  if (!isPlainVanilla) {
+    if (name === minecraftVersion) {
+      throw new Error('安装模组加载器时，版本名不能与原版相同')
+    }
+    if (!allowExisting && (await exists(join(settings.gameDir, 'versions', name)))) {
+      throw new Error(`已存在名为「${name}」的版本，请换一个名字`)
+    }
+  }
+
   const manifest = await getVersionManifest(settings.downloadSource)
   const meta = manifest.versions.find((v) => v.id === minecraftVersion)
   if (!meta) {
     throw new Error(`版本列表中找不到 ${minecraftVersion}`)
   }
   const options = await downloadOptions()
-  const versionId = `${minecraftVersion}-fabric${loaderVersion}`
+  // 提前获取 Fabric 信息，网络有问题时在开始下载前就能报错
+  const fabricArtifact = fabricLoader
+    ? await getFabricLoaderArtifact(minecraftVersion, fabricLoader, { fetch: fabricFetch })
+    : null
 
-  const fabricTask = createTask('fabric', async function () {
+  lastRequest = request
+  const installAll = createTask('custom', async function () {
     await this.yield(installTask(meta, settings.gameDir, options))
-    const id = await installFabric({
-      minecraftVersion,
-      version: loaderVersion,
-      minecraft: settings.gameDir,
-      fetch: fabricFetch
-    })
-    const resolved = await Version.parse(settings.gameDir, id)
+    if (isPlainVanilla) return
+
+    if (fabricArtifact) {
+      await installFabricByLoaderArtifact(fabricArtifact, settings.gameDir, { versionId: name })
+    } else {
+      // 只改名：写一个继承原版的版本配置，游戏文件与原版共用
+      const now = new Date().toJSON()
+      const dir = join(settings.gameDir, 'versions', name)
+      await mkdir(dir, { recursive: true })
+      await writeFile(
+        join(dir, `${name}.json`),
+        JSON.stringify(
+          { id: name, inheritsFrom: minecraftVersion, type: meta.type, releaseTime: now, time: now, libraries: [] },
+          null,
+          2
+        )
+      )
+    }
+    const resolved = await Version.parse(settings.gameDir, name)
     await this.yield(installDependenciesTask(resolved, options))
   })
-  runTask(versionId, 'install', fabricTask)
+  runTask(name, 'install', installAll)
+}
+
+/** 重试上一次的安装请求 */
+export async function retryLastInstall(): Promise<void> {
+  if (!lastRequest) throw new Error('没有可以重试的安装')
+  await startCustomInstall(lastRequest, true)
 }
 
 /** 取消当前安装 */
