@@ -30,6 +30,9 @@ declare global {
       getInstallStatus: () => Promise<InstallStatus | null>
       onInstallStatus: (callback: (status: InstallStatus | null) => void) => () => void
       getInstalledVersions: () => Promise<InstalledVersion[]>
+      repairVersion: (versionId: string) => Promise<void>
+      deleteVersion: (versionId: string) => Promise<boolean>
+      openVersionDir: (versionId: string) => Promise<void>
       launchGame: (versionId: string) => Promise<void>
       getGameStatus: () => Promise<GameStatus>
       onGameStatus: (callback: (status: GameStatus) => void) => () => void

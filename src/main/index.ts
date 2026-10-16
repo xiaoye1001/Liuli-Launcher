@@ -5,10 +5,11 @@ import { totalmem } from 'os'
 import { scanJava } from './java'
 import { getSettings, updateSettings } from './config'
 import { getVersionManifest } from './versions'
-import { cancelInstall, getInstallStatus, startInstall } from './install'
+import { cancelInstall, getInstallStatus, startInstall, startRepair } from './install'
 import { getGameLogs, getGameStatus, launchGame, listInstalledVersions } from './launch'
 import { closeLogWindow, openLogWindow } from './logWindow'
 import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
+import { deleteVersion, openVersionDir } from './versionManage'
 import type { AppSettings, SystemInfo } from '../shared/types'
 
 function createWindow(): void {
@@ -62,6 +63,11 @@ function registerIpc(): void {
   ipcMain.handle('install:cancel', () => cancelInstall())
   ipcMain.handle('install:status', () => getInstallStatus())
   ipcMain.handle('versions:installed', () => listInstalledVersions())
+  ipcMain.handle('versions:repair', (_, versionId: string) => startRepair(versionId))
+  ipcMain.handle('versions:delete', (event, versionId: string) =>
+    deleteVersion(BrowserWindow.fromWebContents(event.sender), versionId)
+  )
+  ipcMain.handle('versions:open', (_, versionId: string) => openVersionDir(versionId))
   ipcMain.handle('game:launch', (_, versionId: string) => launchGame(versionId))
   ipcMain.handle('game:status', () => getGameStatus())
   ipcMain.handle('game:logs', () => getGameLogs())

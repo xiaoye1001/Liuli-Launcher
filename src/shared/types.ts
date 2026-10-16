@@ -68,6 +68,9 @@ export interface VersionManifest {
   source: DownloadSource
 }
 
+/** 任务类型：安装新版本 / 检查并修复已安装版本 */
+export type InstallKind = 'install' | 'repair'
+
 /** 安装状态 */
 export type InstallState = 'running' | 'success' | 'failed' | 'cancelled'
 
@@ -77,6 +80,7 @@ export type InstallPhase = 'version' | 'dependencies'
 /** 安装进度，由主进程实时推送到界面 */
 export interface InstallStatus {
   versionId: string
+  kind: InstallKind
   state: InstallState
   /** 当前正在下载的阶段 */
   phase: InstallPhase

@@ -1,12 +1,31 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertTriangle, Download, Loader2, RefreshCw, Search, Sparkles, FlaskConical } from 'lucide-react'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Download,
+  FlaskConical,
+  FolderOpen,
+  Loader2,
+  RefreshCw,
+  Search,
+  Sparkles,
+  Trash2,
+  Wrench
+} from 'lucide-react'
 import InstallProgressCard from '../components/InstallProgressCard'
-import type { InstallStatus, VersionEntry, VersionManifest, VersionType } from '../../../shared/types'
+import type {
+  InstalledVersion,
+  InstallStatus,
+  VersionEntry,
+  VersionManifest,
+  VersionType
+} from '../../../shared/types'
 
-type Filter = 'release' | 'snapshot' | 'old'
+type Filter = 'installed' | 'release' | 'snapshot' | 'old'
 
 const FILTERS: { key: Filter; label: string }[] = [
+  { key: 'installed', label: '已安装' },
   { key: 'release', label: '正式版' },
   { key: 'snapshot', label: '快照版' },
   { key: 'old', label: '远古版' }
@@ -19,6 +38,8 @@ const TYPE_LABELS: Record<VersionType, { label: string; className: string }> = {
   old_alpha: { label: 'Alpha', className: 'bg-rose-500/20 text-rose-300' }
 }
 
+const OTHER_TYPE = { label: '其他', className: 'bg-sky-500/20 text-sky-300' }
+
 const SOURCE_LABELS = { bmclapi: 'BMCLAPI 镜像', mojang: '官方源' }
 
 function matchFilter(version: VersionEntry, filter: Filter): boolean {
@@ -27,6 +48,7 @@ function matchFilter(version: VersionEntry, filter: Filter): boolean {
 }
 
 function formatDate(iso: string): string {
+  if (!iso) return ''
   const date = new Date(iso)
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleDateString('zh-CN')
 }
@@ -38,12 +60,18 @@ function cleanError(e: unknown): string {
 
 function DownloadPage(): JSX.Element {
   const [manifest, setManifest] = useState<VersionManifest | null>(null)
+  const [installed, setInstalled] = useState<InstalledVersion[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState<Filter>('release')
   const [keyword, setKeyword] = useState('')
   const [install, setInstall] = useState<InstallStatus | null>(null)
-  const [installError, setInstallError] = useState('')
+  const [actionError, setActionError] = useState('')
+  const lastState = useRef<string | undefined>(undefined)
+
+  const loadInstalled = useCallback(async (): Promise<void> => {
+    setInstalled(await window.api.getInstalledVersions())
+  }, [])
 
   const load = async (force: boolean): Promise<void> => {
     setLoading(true)
@@ -59,25 +87,48 @@ function DownloadPage(): JSX.Element {
 
   useEffect(() => {
     load(false)
+    loadInstalled()
     // 进入页面时获取当前安装状态，并订阅主进程推送的实时进度
     window.api.getInstallStatus().then(setInstall)
     return window.api.onInstallStatus(setInstall)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const startInstall = async (versionId: string): Promise<void> => {
-    setInstallError('')
+  // 安装或修复结束后刷新已安装列表
+  useEffect(() => {
+    if (lastState.current === 'running' && install?.state !== 'running') loadInstalled()
+    lastState.current = install?.state
+  }, [install, loadInstalled])
+
+  const run = async (action: () => Promise<unknown>): Promise<void> => {
+    setActionError('')
     try {
-      await window.api.startInstall(versionId)
+      await action()
     } catch (e) {
-      setInstallError(cleanError(e))
+      setActionError(cleanError(e))
     }
   }
 
-  const visible = useMemo(() => {
-    if (!manifest) return []
-    const kw = keyword.trim().toLowerCase()
+  const startInstall = (versionId: string): Promise<void> => run(() => window.api.startInstall(versionId))
+  const repair = (versionId: string): Promise<void> => run(() => window.api.repairVersion(versionId))
+  const remove = (versionId: string): Promise<void> =>
+    run(async () => {
+      if (await window.api.deleteVersion(versionId)) await loadInstalled()
+    })
+
+  const installedIds = useMemo(() => new Set(installed.map((v) => v.id)), [installed])
+  const busy = install?.state === 'running'
+  const kw = keyword.trim().toLowerCase()
+
+  const visibleRemote = useMemo(() => {
+    if (!manifest || filter === 'installed') return []
     return manifest.versions.filter((v) => matchFilter(v, filter) && (!kw || v.id.toLowerCase().includes(kw)))
-  }, [manifest, filter, keyword])
+  }, [manifest, filter, kw])
+
+  const visibleInstalled = useMemo(
+    () => installed.filter((v) => !kw || v.id.toLowerCase().includes(kw)),
+    [installed, kw]
+  )
 
   return (
     <div className="flex h-full flex-col gap-5">
@@ -86,12 +137,16 @@ function DownloadPage(): JSX.Element {
           <h1 className="text-3xl font-bold tracking-tight">下载游戏</h1>
           <p className="mt-1 text-xs text-white/50">
             {manifest ? `当前下载源：${SOURCE_LABELS[manifest.source]} · 共 ${manifest.versions.length} 个版本` : '正在获取版本列表'}
+            {` · 已安装 ${installed.length} 个`}
           </p>
         </div>
         <motion.button
           whileHover={{ scale: 1.04 }}
           whileTap={{ scale: 0.96 }}
-          onClick={() => load(true)}
+          onClick={() => {
+            load(true)
+            loadInstalled()
+          }}
           disabled={loading}
           className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-60"
         >
@@ -106,15 +161,15 @@ function DownloadPage(): JSX.Element {
           <InstallProgressCard
             status={install}
             onCancel={() => window.api.cancelInstall()}
-            onRetry={() => startInstall(install.versionId)}
+            onRetry={() => (install.kind === 'repair' ? repair(install.versionId) : startInstall(install.versionId))}
             onDismiss={() => setInstall(null)}
           />
         )}
       </AnimatePresence>
-      {installError && (
+      {actionError && (
         <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span className="break-all">{installError}</span>
+          <span className="break-all">{actionError}</span>
         </div>
       )}
 
@@ -177,43 +232,106 @@ function DownloadPage(): JSX.Element {
         </div>
 
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
-          {loading && !manifest && (
-            <div className="flex h-full items-center justify-center text-white/50">
-              <Loader2 className="h-6 w-6 animate-spin" />
-            </div>
-          )}
-          {error && (
-            <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span className="break-all">{error}</span>
-            </div>
-          )}
-          {manifest && visible.length === 0 && (
-            <div className="py-10 text-center text-sm text-white/40">没有匹配的版本</div>
-          )}
-          <div className="flex flex-col gap-1.5">
-            {visible.map((version) => {
-              const typeInfo = TYPE_LABELS[version.type] ?? TYPE_LABELS.release
-              return (
-                <div
-                  key={version.id}
-                  className="group flex items-center gap-4 rounded-xl bg-black/20 px-4 py-2.5 transition-colors hover:bg-black/30"
-                >
-                  <span className="w-40 truncate font-mono text-sm font-semibold">{version.id}</span>
-                  <span className={`rounded-md px-2 py-0.5 text-xs ${typeInfo.className}`}>{typeInfo.label}</span>
-                  <span className="flex-1 text-xs text-white/40">{formatDate(version.releaseTime)}</span>
-                  <button
-                    onClick={() => startInstall(version.id)}
-                    disabled={install?.state === 'running'}
-                    className="flex items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium opacity-0 transition-opacity hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40 group-hover:opacity-100"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    安装
-                  </button>
+          {filter === 'installed' ? (
+            <>
+              {visibleInstalled.length === 0 && (
+                <div className="py-10 text-center text-sm text-white/40">
+                  {installed.length === 0 ? '还没有安装任何版本' : '没有匹配的版本'}
                 </div>
-              )
-            })}
-          </div>
+              )}
+              <div className="flex flex-col gap-1.5">
+                {visibleInstalled.map((version) => {
+                  const typeInfo = TYPE_LABELS[version.type as VersionType] ?? OTHER_TYPE
+                  const repairing = busy && install?.versionId === version.id
+                  return (
+                    <div
+                      key={version.id}
+                      className="flex items-center gap-4 rounded-xl bg-black/20 px-4 py-2.5 transition-colors hover:bg-black/30"
+                    >
+                      <span className="w-40 truncate font-mono text-sm font-semibold" title={version.id}>
+                        {version.id}
+                      </span>
+                      <span className={`rounded-md px-2 py-0.5 text-xs ${typeInfo.className}`}>{typeInfo.label}</span>
+                      <span className="flex-1 text-xs text-white/40">{formatDate(version.releaseTime)}</span>
+                      <button
+                        onClick={() => window.api.openVersionDir(version.id)}
+                        title="打开版本文件夹"
+                        className="rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
+                      >
+                        <FolderOpen className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => repair(version.id)}
+                        disabled={busy}
+                        title="校验文件，重新下载缺失或损坏的部分"
+                        className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {repairing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wrench className="h-3.5 w-3.5" />}
+                        检查并修复
+                      </button>
+                      <button
+                        onClick={() => remove(version.id)}
+                        disabled={busy}
+                        title="删除该版本"
+                        className="rounded-lg p-2 text-white/60 hover:bg-red-500/30 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          ) : (
+            <>
+              {loading && !manifest && (
+                <div className="flex h-full items-center justify-center text-white/50">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              )}
+              {error && (
+                <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span className="break-all">{error}</span>
+                </div>
+              )}
+              {manifest && visibleRemote.length === 0 && (
+                <div className="py-10 text-center text-sm text-white/40">没有匹配的版本</div>
+              )}
+              <div className="flex flex-col gap-1.5">
+                {visibleRemote.map((version) => {
+                  const typeInfo = TYPE_LABELS[version.type] ?? TYPE_LABELS.release
+                  const isInstalled = installedIds.has(version.id)
+                  return (
+                    <div
+                      key={version.id}
+                      className="group flex h-12 items-center gap-4 rounded-xl bg-black/20 px-4 transition-colors hover:bg-black/30"
+                    >
+                      <span className="w-40 truncate font-mono text-sm font-semibold">{version.id}</span>
+                      <span className={`rounded-md px-2 py-0.5 text-xs ${typeInfo.className}`}>{typeInfo.label}</span>
+                      {isInstalled && (
+                        <span className="flex items-center gap-1 text-xs text-emerald-300">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          已安装
+                        </span>
+                      )}
+                      <span className="flex-1 text-xs text-white/40">{formatDate(version.releaseTime)}</span>
+                      {!isInstalled && (
+                        <button
+                          onClick={() => startInstall(version.id)}
+                          disabled={busy}
+                          className="flex items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium opacity-0 transition-opacity hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/40 group-hover:opacity-100"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          安装
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </div>
       </section>
     </div>

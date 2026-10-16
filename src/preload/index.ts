@@ -25,6 +25,9 @@ const api = {
     }
   },
   getInstalledVersions: () => ipcRenderer.invoke('versions:installed'),
+  repairVersion: (versionId: string) => ipcRenderer.invoke('versions:repair', versionId),
+  deleteVersion: (versionId: string) => ipcRenderer.invoke('versions:delete', versionId),
+  openVersionDir: (versionId: string) => ipcRenderer.invoke('versions:open', versionId),
   launchGame: (versionId: string) => ipcRenderer.invoke('game:launch', versionId),
   getGameStatus: () => ipcRenderer.invoke('game:status'),
   /** 订阅游戏运行状态，返回取消订阅函数 */

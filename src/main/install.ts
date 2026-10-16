@@ -1,9 +1,10 @@
 import { BrowserWindow } from 'electron'
+import { Version } from '@xmcl/core'
 import { getDefaultAgent } from '@xmcl/file-transfer'
-import { installTask, type Options } from '@xmcl/installer'
+import { installDependenciesTask, installTask, type Options } from '@xmcl/installer'
 import { getSettings } from './config'
 import { getVersionManifest } from './versions'
-import type { DownloadSource, InstallPhase, InstallStatus } from '../shared/types'
+import type { DownloadSource, InstallKind, InstallPhase, InstallStatus } from '../shared/types'
 
 const BMCLAPI = 'https://bmclapi2.bangbang93.com'
 
@@ -31,8 +32,10 @@ function phaseOf(path: string): InstallPhase {
   return path.includes('dependencies') ? 'dependencies' : 'version'
 }
 
+type AnyInstallTask = ReturnType<typeof installTask> | ReturnType<typeof installDependenciesTask>
+
 let status: InstallStatus | null = null
-let currentTask: ReturnType<typeof installTask> | null = null
+let currentTask: AnyInstallTask | null = null
 let cancelRequested = false
 
 function broadcast(): void {
@@ -45,29 +48,28 @@ export function getInstallStatus(): InstallStatus | null {
   return status
 }
 
-/** 开始安装指定版本（同一时间只允许一个安装任务） */
-export async function startInstall(versionId: string): Promise<void> {
+function assertIdle(): void {
   if (status?.state === 'running') {
-    throw new Error(`正在安装 ${status.versionId}，请等待完成`)
+    throw new Error(`正在${status.kind === 'repair' ? '修复' : '安装'} ${status.versionId}，请等待完成`)
   }
+}
 
+/** 公共下载参数：镜像 + 共享连接池（每个服务器最多 16 个并发连接，失败自动重试） */
+async function downloadOptions(): Promise<Options> {
   const settings = await getSettings()
-  const manifest = await getVersionManifest(settings.downloadSource)
-  const meta = manifest.versions.find((v) => v.id === versionId)
-  if (!meta) {
-    throw new Error(`版本列表中找不到 ${versionId}`)
-  }
-
-  const task = installTask(meta, settings.gameDir, {
+  return {
     ...mirrorOptions(settings.downloadSource),
-    // 所有文件共用一个连接池：每个服务器最多 16 个并发连接，失败自动重试
     dispatcher: getDefaultAgent({ maxRetries: 3 }),
     headers: { 'User-Agent': 'mc_launcher/0.1.0' },
     throwErrorImmediately: false
-  })
+  }
+}
+
+/** 运行一个安装任务，并把进度与速度推送到界面 */
+function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): void {
   currentTask = task
   cancelRequested = false
-  status = { versionId, state: 'running', phase: 'version', progress: 0, total: 0, speed: 0 }
+  status = { versionId, kind, state: 'running', phase: 'version', progress: 0, total: 0, speed: 0 }
   broadcast()
 
   // 每 250ms 计算一次速度并推送进度，避免过于频繁地发送消息
@@ -104,13 +106,51 @@ export async function startInstall(versionId: string): Promise<void> {
         speed: 0,
         error: cancelled ? undefined : describeError(e)
       }
-      if (!cancelled) console.error('安装失败：', e)
+      if (!cancelled) console.error(`${kind === 'repair' ? '修复' : '安装'}失败：`, e)
     })
     .finally(() => {
       clearInterval(timer)
       currentTask = null
       broadcast()
     })
+}
+
+/** 开始安装指定版本（同一时间只允许一个安装任务） */
+export async function startInstall(versionId: string): Promise<void> {
+  assertIdle()
+  const settings = await getSettings()
+  const manifest = await getVersionManifest(settings.downloadSource)
+  const meta = manifest.versions.find((v) => v.id === versionId)
+  if (!meta) {
+    throw new Error(`版本列表中找不到 ${versionId}`)
+  }
+  runTask(versionId, 'install', installTask(meta, settings.gameDir, await downloadOptions()))
+}
+
+/**
+ * 检查并修复已安装的版本。下载前会先校验本地文件，完好的文件会直接跳过，
+ * 只重新下载缺失或损坏的文件。
+ * 官方版本会连同版本 json 和游戏本体一起检查；不在官方列表中的版本（如模组加载器）只检查依赖库与资源文件。
+ */
+export async function startRepair(versionId: string): Promise<void> {
+  assertIdle()
+  const settings = await getSettings()
+  const options = await downloadOptions()
+
+  const manifest = await getVersionManifest(settings.downloadSource).catch(() => null)
+  const meta = manifest?.versions.find((v) => v.id === versionId)
+  if (meta) {
+    runTask(versionId, 'repair', installTask(meta, settings.gameDir, options))
+    return
+  }
+
+  let resolved: Awaited<ReturnType<typeof Version.parse>>
+  try {
+    resolved = await Version.parse(settings.gameDir, versionId)
+  } catch {
+    throw new Error(`无法解析 ${versionId} 的版本文件，请删除后重新安装`)
+  }
+  runTask(versionId, 'repair', installDependenciesTask(resolved, options))
 }
 
 /** 取消当前安装 */

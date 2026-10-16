@@ -22,6 +22,7 @@ interface InstallProgressCardProps {
 }
 
 function InstallProgressCard({ status, onCancel, onRetry, onDismiss }: InstallProgressCardProps): JSX.Element {
+  const action = status.kind === 'repair' ? '修复' : '安装'
   const percent = status.total > 0 ? Math.min(100, (status.progress / status.total) * 100) : 0
   const running = status.state === 'running'
 
@@ -47,10 +48,10 @@ function InstallProgressCard({ status, onCancel, onRetry, onDismiss }: InstallPr
 
         <div className="min-w-0 flex-1">
           <div className="font-semibold">
-            {running && `正在安装 ${status.versionId}`}
-            {status.state === 'success' && `${status.versionId} 安装完成`}
-            {status.state === 'failed' && `${status.versionId} 安装失败`}
-            {status.state === 'cancelled' && `已取消安装 ${status.versionId}`}
+            {running && `正在${status.kind === 'repair' ? '检查并修复' : '安装'} ${status.versionId}`}
+            {status.state === 'success' && `${status.versionId} ${action}完成`}
+            {status.state === 'failed' && `${status.versionId} ${action}失败`}
+            {status.state === 'cancelled' && `已取消${action} ${status.versionId}`}
           </div>
           <div className="text-xs text-white/50">
             {running ? PHASE_LABELS[status.phase] : `${formatBytes(status.progress)} / ${formatBytes(status.total)}`}
