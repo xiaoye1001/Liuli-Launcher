@@ -97,6 +97,14 @@ interface InstallSetupPageProps {
 
 type LoaderKind = 'forge' | 'neoforge' | 'fabric' | 'optifine'
 
+/** 界面上的排列顺序，也是自动生成版本名时的顺序 */
+const LOADER_ORDER: LoaderKind[] = ['forge', 'neoforge', 'fabric', 'optifine']
+
+/** 能同时安装的组合：只有 Forge + OptiFine（OptiFine 作为 Forge 模组） */
+function compatible(a: LoaderKind, b: LoaderKind): boolean {
+  return (a === 'forge' && b === 'optifine') || (a === 'optifine' && b === 'forge')
+}
+
 const LOADER_NAMES: Record<LoaderKind, string> = {
   forge: 'Forge',
   neoforge: 'NeoForge',
@@ -111,6 +119,8 @@ interface LoaderOption {
   label?: string
   /** OptiFine 下载时需要的 type 与 patch */
   optifine?: OptiFineVersionRef
+  /** OptiFine 测试时使用的 Forge 版本，例如「Forge 47.1.0」 */
+  forgeHint?: string
   /** 版本旁的标签，例如「推荐」「测试版」 */
   tags: { text: string; className: string }[]
   /** 测试版默认隐藏 */
@@ -130,7 +140,7 @@ const TAG_STYLES = {
   beta: 'bg-amber-500/20 text-amber-300'
 }
 
-/** 安装设置页：自定义版本名，并选择要附加的模组加载器（Forge / NeoForge / Fabric 三选一） */
+/** 安装设置页：自定义版本名，并选择要附加的模组加载器（Forge / NeoForge / Fabric 三选一，OptiFine 可单独装或配合 Forge） */
 function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: InstallSetupPageProps): JSX.Element {
   const mc = version.id
   const [name, setName] = useState(mc)
@@ -141,7 +151,8 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
     fabric: { options: null, error: '' },
     optifine: { options: null, error: '' }
   })
-  const [selected, setSelected] = useState<{ kind: LoaderKind; version: string } | null>(null)
+  /** 已选择的加载器及版本 */
+  const [selected, setSelected] = useState<Partial<Record<LoaderKind, string>>>({})
   const [expanded, setExpanded] = useState<LoaderKind | null>(null)
   const [showUnstable, setShowUnstable] = useState(false)
   const [error, setError] = useState('')
@@ -185,6 +196,7 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
         version: `${v.type}_${v.patch}`,
         label: `${v.type} ${v.patch}`.replace(/_/g, ' '),
         optifine: { type: v.type, patch: v.patch },
+        forgeHint: v.forge,
         unstable: v.preview,
         tags: [
           ...(v === recommended ? [{ text: '推荐', className: TAG_STYLES.recommended }] : []),
@@ -195,28 +207,51 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
     })
   }, [mc])
 
-  /** 选中项对应的版本信息 */
-  const selectedOption = selected
-    ? loaders[selected.kind].options?.find((o) => o.version === selected.version)
-    : undefined
-  const selectedLabel = selectedOption?.label ?? selected?.version ?? ''
+  const selectedKinds = LOADER_ORDER.filter((kind) => selected[kind])
+  /** 某个加载器选中的版本信息 */
+  const optionOf = (kind: LoaderKind): LoaderOption | undefined =>
+    loaders[kind].options?.find((o) => o.version === selected[kind])
+  const labelOf = (kind: LoaderKind): string => optionOf(kind)?.label ?? selected[kind] ?? ''
+  const autoName = [mc, ...selectedKinds.map((kind) => `${LOADER_NAMES[kind]} ${labelOf(kind)}`)].join('-')
 
   // 用户没有手动改过版本名时，名字跟随所选的加载器自动变化
   useEffect(() => {
-    if (nameEdited) return
-    setName(selected ? `${mc}-${LOADER_NAMES[selected.kind]} ${selectedLabel}` : mc)
-  }, [selected, selectedLabel, mc, nameEdited])
+    if (!nameEdited) setName(autoName)
+  }, [autoName, nameEdited])
 
-  const nameError = validateName(name, mc, !!selected, installedIds)
+  const nameError = validateName(name, mc, selectedKinds.length > 0, installedIds)
+
+  /** 选择某个版本：保留能与它共存的其他选择 */
+  const select = (kind: LoaderKind, version: string): void => {
+    setSelected((prev) => {
+      const next: Partial<Record<LoaderKind, string>> = { [kind]: version }
+      for (const other of LOADER_ORDER) {
+        if (other !== kind && prev[other] && compatible(kind, other)) next[other] = prev[other]
+      }
+      return next
+    })
+  }
+
+  const clear = (kind: LoaderKind): void => {
+    setSelected((prev) => {
+      const next = { ...prev }
+      delete next[kind]
+      return next
+    })
+  }
 
   const statusOf = (kind: LoaderKind): string => {
     const { options, error: loadError } = loaders[kind]
     if (options === null) return '正在获取…'
     if (options.length === 0) return loadError ? '获取失败' : '无'
-    if (selected?.kind === kind) return selectedLabel
-    if (selected) return `与 ${LOADER_NAMES[selected.kind]} 不兼容`
+    if (selected[kind]) return labelOf(kind)
+    const conflict = selectedKinds.find((other) => !compatible(kind, other))
+    if (conflict) return `与 ${LOADER_NAMES[conflict]} 不兼容`
     return '可以添加'
   }
+
+  // OptiFine 与 Forge 一起安装时，提示 OptiFine 测试时使用的 Forge 版本
+  const optiFineForgeHint = selected.forge && selected.optifine ? optionOf('optifine')?.forgeHint : undefined
 
   const start = async (): Promise<void> => {
     setSubmitting(true)
@@ -225,10 +260,10 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
       await window.api.startInstall({
         minecraftVersion: mc,
         name,
-        forgeVersion: selected?.kind === 'forge' ? selected.version : undefined,
-        neoforgeVersion: selected?.kind === 'neoforge' ? selected.version : undefined,
-        fabricLoader: selected?.kind === 'fabric' ? selected.version : undefined,
-        optifine: selected?.kind === 'optifine' ? selectedOption?.optifine : undefined
+        forgeVersion: selected.forge,
+        neoforgeVersion: selected.neoforge,
+        fabricLoader: selected.fabric,
+        optifine: optionOf('optifine')?.optifine
       })
       onStarted()
     } catch (e) {
@@ -246,11 +281,11 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
         key={kind}
         title={LOADER_NAMES[kind]}
         status={statusOf(kind)}
-        highlight={selected?.kind === kind}
+        highlight={!!selected[kind]}
         disabled={!options || options.length === 0}
         expanded={expanded === kind}
         onToggle={() => setExpanded((e) => (e === kind ? null : kind))}
-        onClear={selected?.kind === kind ? () => setSelected(null) : undefined}
+        onClear={selected[kind] ? () => clear(kind) : undefined}
       >
         {hasUnstable && (
           <div className="mb-1 flex justify-end px-2 pt-1">
@@ -270,12 +305,12 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
             <div className="px-4 py-3 text-sm text-white/40">{loadError || '只有测试版，勾选「显示测试版」查看'}</div>
           )}
           {visible.map((option) => {
-            const active = selected?.kind === kind && selected.version === option.version
+            const active = selected[kind] === option.version
             return (
               <button
                 key={option.version}
                 onClick={() => {
-                  setSelected({ kind, version: option.version })
+                  select(kind, option.version)
                   setExpanded(null)
                 }}
                 className={`flex w-full items-center gap-2 rounded-lg px-4 py-2 text-left text-sm ${
@@ -333,20 +368,24 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
         <div className="h-2" />
 
         {/* 模组加载器 */}
-        {renderLoaderRow('forge')}
-        {renderLoaderRow('neoforge')}
-        {renderLoaderRow('fabric')}
-        {renderLoaderRow('optifine')}
+        {LOADER_ORDER.map(renderLoaderRow)}
 
-        {(selected?.kind === 'forge' || selected?.kind === 'neoforge') && (
+        {(selected.forge || selected.neoforge) && (
           <p className="px-2 text-xs leading-5 text-white/45">
-            安装 {LOADER_NAMES[selected.kind]} 时需要用 Java 运行它的安装程序，会比普通安装多花几分钟。模组放入游戏目录下的
-            mods 文件夹即可。
+            安装 {selected.forge ? 'Forge' : 'NeoForge'} 时需要用 Java 运行它的安装程序，会比普通安装多花几分钟。装好后在下载页点该版本的
+            「打开文件夹」，把模组放进 mods 文件夹即可（未开启版本隔离时为游戏目录下的 mods）。
           </p>
         )}
-        {selected?.kind === 'optifine' && (
+        {selected.optifine && !selected.forge && (
           <p className="px-2 text-xs leading-5 text-white/45">
-            OptiFine 从 BMCLAPI 镜像下载，安装时需要用 Java 给游戏本体打补丁。暂不支持与 Forge 同时安装。
+            OptiFine 从 BMCLAPI 镜像下载，安装时需要用 Java 给游戏本体打补丁。
+          </p>
+        )}
+        {selected.optifine && selected.forge && (
+          <p className="px-2 text-xs leading-5 text-white/45">
+            OptiFine 会作为模组放进该版本的 mods 文件夹。
+            {optiFineForgeHint &&
+              `这个 OptiFine 版本是在 ${optiFineForgeHint} 上测试的，Forge 版本相差太大时可能无法启动。`}
           </p>
         )}
 

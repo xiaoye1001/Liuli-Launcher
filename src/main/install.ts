@@ -1,8 +1,8 @@
 import { app, BrowserWindow } from 'electron'
 import { Version } from '@xmcl/core'
 import { getDefaultAgent } from '@xmcl/file-transfer'
-import { access, mkdir, readdir, readFile, rm, writeFile } from 'fs/promises'
-import { dirname, join } from 'path'
+import { access, copyFile, mkdir, readdir, readFile, rm, writeFile } from 'fs/promises'
+import { basename, dirname, join } from 'path'
 import {
   DownloadTask,
   getFabricLoaderArtifact,
@@ -20,13 +20,15 @@ import { getSettings } from './config'
 import { getVersionManifest } from './versions'
 import { neoforgeProject } from './neoforge'
 import { optiFineInstallerUrl } from './optifine'
+import { isIsolated, versionGameDir } from './isolation'
 import type {
   DownloadSource,
   FabricLoaderVersion,
   InstallKind,
   InstallPhase,
   InstallRequest,
-  InstallStatus
+  InstallStatus,
+  OptiFineVersionRef
 } from '../shared/types'
 
 const BMCLAPI = 'https://bmclapi2.bangbang93.com'
@@ -240,7 +242,8 @@ async function exists(path: string): Promise<boolean> {
  * 1. 安装（或校验）原版；
  * 2. 选择了 Fabric 时，写入 Fabric 版本配置并下载其依赖库；
  * 3. 选择了 Forge / NeoForge 时，下载安装器，解包并用 Java 运行其中的处理程序；
- * 4. 选择了 OptiFine 时，从 BMCLAPI 下载安装器，用 Java 运行它的补丁程序生成 OptiFine 库；
+ * 4. 单独选择 OptiFine 时，从 BMCLAPI 下载安装器，用 Java 运行它的补丁程序生成 OptiFine 库；
+ *    与 Forge 一起选择时，安装完 Forge 后把 OptiFine 作为模组放进该版本的 mods 文件夹；
  * 5. 只改了版本名时，创建一个继承原版的版本配置。
  * 所有步骤合并为一个任务，进度与取消都和普通安装一样。
  * allowExisting 为 true 时（重试）允许覆盖上次失败留下的同名版本。
@@ -250,8 +253,11 @@ export async function startCustomInstall(request: InstallRequest, allowExisting 
   const { minecraftVersion, fabricLoader, forgeVersion, neoforgeVersion, optifine } = request
   const name = request.name
   validateName(name)
-  if ([fabricLoader, forgeVersion, neoforgeVersion, optifine].filter(Boolean).length > 1) {
-    throw new Error('Fabric、Forge、NeoForge、OptiFine 只能选择其中一个')
+  if ([fabricLoader, forgeVersion, neoforgeVersion].filter(Boolean).length > 1) {
+    throw new Error('Fabric、Forge、NeoForge 只能选择其中一个')
+  }
+  if (optifine && (fabricLoader || neoforgeVersion)) {
+    throw new Error('OptiFine 只能单独安装或与 Forge 一起安装')
   }
 
   const settings = await getSettings()
@@ -279,6 +285,23 @@ export async function startCustomInstall(request: InstallRequest, allowExisting 
   const fabricArtifact = fabricLoader
     ? await getFabricLoaderArtifact(minecraftVersion, fabricLoader, { fetch: fabricFetch })
     : null
+
+  /** 下载 OptiFine 安装器（缓存在启动器数据目录），返回文件路径与下载任务 */
+  const optiFineDownload = (ref: OptiFineVersionRef): { path: string; task: AnyInstallTask } => {
+    const path = join(
+      app.getPath('userData'),
+      'cache',
+      'optifine',
+      `OptiFine_${minecraftVersion}_${ref.type}_${ref.patch}.jar`
+    )
+    const task = new DownloadTask({
+      url: optiFineInstallerUrl(minecraftVersion, ref.type, ref.patch),
+      destination: path,
+      dispatcher: options.dispatcher,
+      headers: options.headers
+    }).setName('downloadOptifine')
+    return { path, task }
+  }
 
   lastRequest = request
   const installAll = createTask('custom', async function () {
@@ -311,25 +334,25 @@ export async function startCustomInstall(request: InstallRequest, allowExisting 
           await rm(join(versionsDir, loaderId), { recursive: true, force: true })
         }
       }
+      if (optifine) {
+        // OptiFine 的安装器本身就是一个 Forge 模组，直接放进该版本使用的 mods 文件夹
+        const download = optiFineDownload(optifine)
+        await mkdir(dirname(download.path), { recursive: true })
+        await this.yield(download.task)
+        const modsDir = join(
+          versionGameDir(settings.gameDir, name, isIsolated(settings.versionIsolation, 'forge')),
+          'mods'
+        )
+        await mkdir(modsDir, { recursive: true })
+        await copyFile(download.path, join(modsDir, basename(download.path)))
+      }
     } else if (optifine) {
-      // OptiFine 安装器缓存在启动器数据目录，用它的补丁程序把原版本体打成 OptiFine 库
-      const installer = join(
-        app.getPath('userData'),
-        'cache',
-        'optifine',
-        `OptiFine_${minecraftVersion}_${optifine.type}_${optifine.patch}.jar`
-      )
-      await mkdir(dirname(installer), { recursive: true })
+      // 用 OptiFine 安装器的补丁程序把原版本体打成 OptiFine 库
+      const download = optiFineDownload(optifine)
+      await mkdir(dirname(download.path), { recursive: true })
+      await this.yield(download.task)
       await this.yield(
-        new DownloadTask({
-          url: optiFineInstallerUrl(minecraftVersion, optifine.type, optifine.patch),
-          destination: installer,
-          dispatcher: options.dispatcher,
-          headers: options.headers
-        }).setName('downloadOptifine')
-      )
-      await this.yield(
-        installOptifineTask(installer, settings.gameDir, {
+        installOptifineTask(download.path, settings.gameDir, {
           versionId: name,
           inheritsFrom: minecraftVersion,
           java: settings.javaPath
