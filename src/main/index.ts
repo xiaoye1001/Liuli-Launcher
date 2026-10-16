@@ -6,6 +6,7 @@ import { scanJava } from './java'
 import { getSettings, updateSettings } from './config'
 import { getVersionManifest } from './versions'
 import { getForgeVersions } from './forge'
+import { getNeoForgeVersions } from './neoforge'
 import {
   cancelInstall,
   getFabricLoaders,
@@ -73,6 +74,7 @@ function registerIpc(): void {
   ipcMain.handle('install:status', () => getInstallStatus())
   ipcMain.handle('fabric:loaders', (_, minecraftVersion: string) => getFabricLoaders(minecraftVersion))
   ipcMain.handle('forge:versions', (_, minecraftVersion: string) => getForgeVersions(minecraftVersion))
+  ipcMain.handle('neoforge:versions', (_, minecraftVersion: string) => getNeoForgeVersions(minecraftVersion))
   ipcMain.handle('versions:installed', () => listInstalledVersions())
   ipcMain.handle('versions:repair', (_, versionId: string) => startRepair(versionId))
   ipcMain.handle('versions:delete', (event, versionId: string) =>

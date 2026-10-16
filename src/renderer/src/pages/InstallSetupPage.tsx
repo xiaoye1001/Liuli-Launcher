@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, ArrowLeft, Check, ChevronRight, Download, Loader2, X } from 'lucide-react'
 import GrassBlockIcon from '../components/GrassBlockIcon'
-import type { FabricLoaderVersion, ForgeVersionInfo, VersionEntry } from '../../../shared/types'
+import type { FabricLoaderVersion, ForgeVersionInfo, NeoForgeVersionInfo, VersionEntry } from '../../../shared/types'
 
 /** 去掉 Electron IPC 错误前缀，只保留真正的错误信息 */
 function cleanError(e: unknown): string {
@@ -88,78 +88,97 @@ interface InstallSetupPageProps {
   onStarted: () => void
 }
 
-/** 安装设置页：自定义版本名，并选择要附加的模组加载器 */
+type LoaderKind = 'forge' | 'neoforge' | 'fabric'
+
+const LOADER_NAMES: Record<LoaderKind, string> = { forge: 'Forge', neoforge: 'NeoForge', fabric: 'Fabric' }
+
+/** 加载器版本列表的统一格式 */
+interface LoaderOption {
+  version: string
+  /** 版本旁的标签，例如「推荐」「测试版」 */
+  tags: { text: string; className: string }[]
+  /** 测试版默认隐藏 */
+  unstable: boolean
+  date?: string
+}
+
+/** 某个加载器的版本列表加载状态 */
+interface LoaderState {
+  options: LoaderOption[] | null
+  error: string
+}
+
+const TAG_STYLES = {
+  recommended: 'bg-emerald-500/20 text-emerald-300',
+  latest: 'bg-sky-500/20 text-sky-300',
+  beta: 'bg-amber-500/20 text-amber-300'
+}
+
+/** 安装设置页：自定义版本名，并选择要附加的模组加载器（Forge / NeoForge / Fabric 三选一） */
 function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: InstallSetupPageProps): JSX.Element {
   const mc = version.id
   const [name, setName] = useState(mc)
   const [nameEdited, setNameEdited] = useState(false)
-  const [fabricLoaders, setFabricLoaders] = useState<FabricLoaderVersion[] | null>(null)
-  const [fabric, setFabric] = useState<string | null>(null)
+  const [loaders, setLoaders] = useState<Record<LoaderKind, LoaderState>>({
+    forge: { options: null, error: '' },
+    neoforge: { options: null, error: '' },
+    fabric: { options: null, error: '' }
+  })
+  const [selected, setSelected] = useState<{ kind: LoaderKind; version: string } | null>(null)
+  const [expanded, setExpanded] = useState<LoaderKind | null>(null)
   const [showUnstable, setShowUnstable] = useState(false)
-  const [forgeVersions, setForgeVersions] = useState<ForgeVersionInfo[] | null>(null)
-  const [forgeError, setForgeError] = useState('')
-  const [forge, setForge] = useState<string | null>(null)
-  const [expanded, setExpanded] = useState<'fabric' | 'forge' | null>(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    window.api
-      .getFabricLoaders(mc)
-      .then(setFabricLoaders)
-      .catch(() => setFabricLoaders([]))
-    window.api
-      .getForgeVersions(mc)
-      .then(setForgeVersions)
-      .catch((e) => {
-        setForgeVersions([])
-        setForgeError(cleanError(e))
-      })
+    const load = (kind: LoaderKind, fetcher: () => Promise<LoaderOption[]>): void => {
+      fetcher()
+        .then((options) => setLoaders((prev) => ({ ...prev, [kind]: { options, error: '' } })))
+        .catch((e) => setLoaders((prev) => ({ ...prev, [kind]: { options: [], error: cleanError(e) } })))
+    }
+    load('forge', async () =>
+      (await window.api.getForgeVersions(mc)).map((v: ForgeVersionInfo) => ({
+        version: v.version,
+        unstable: false,
+        date: v.date,
+        tags: [
+          ...(v.recommended ? [{ text: '推荐', className: TAG_STYLES.recommended }] : []),
+          ...(v.latest ? [{ text: '最新', className: TAG_STYLES.latest }] : [])
+        ]
+      }))
+    )
+    load('neoforge', async () =>
+      (await window.api.getNeoForgeVersions(mc)).map((v: NeoForgeVersionInfo) => ({
+        version: v.version,
+        unstable: v.beta,
+        tags: v.beta ? [{ text: '测试版', className: TAG_STYLES.beta }] : []
+      }))
+    )
+    load('fabric', async () =>
+      (await window.api.getFabricLoaders(mc)).map((v: FabricLoaderVersion) => ({
+        version: v.version,
+        unstable: !v.stable,
+        tags: v.stable ? [] : [{ text: '测试版', className: TAG_STYLES.beta }]
+      }))
+    )
   }, [mc])
-
-  // Fabric 与 Forge 只能二选一
-  const chooseFabric = (version: string | null): void => {
-    setFabric(version)
-    if (version) setForge(null)
-  }
-  const chooseForge = (version: string | null): void => {
-    setForge(version)
-    if (version) setFabric(null)
-  }
 
   // 用户没有手动改过版本名时，名字跟随所选的加载器自动变化
   useEffect(() => {
     if (nameEdited) return
-    if (forge) setName(`${mc}-Forge ${forge}`)
-    else if (fabric) setName(`${mc}-Fabric ${fabric}`)
-    else setName(mc)
-  }, [fabric, forge, mc, nameEdited])
+    setName(selected ? `${mc}-${LOADER_NAMES[selected.kind]} ${selected.version}` : mc)
+  }, [selected, mc, nameEdited])
 
-  const nameError = validateName(name, mc, !!fabric || !!forge, installedIds)
+  const nameError = validateName(name, mc, !!selected, installedIds)
 
-  const fabricStatus =
-    fabricLoaders === null
-      ? '正在获取…'
-      : fabricLoaders.length === 0
-        ? '无'
-        : fabric
-          ? fabric
-          : forge
-            ? '与 Forge 不兼容'
-            : '可以添加'
-
-  const forgeStatus =
-    forgeVersions === null
-      ? '正在获取…'
-      : forgeVersions.length === 0
-        ? forgeError
-          ? '获取失败'
-          : '无'
-        : forge
-          ? forge
-          : fabric
-            ? '与 Fabric 不兼容'
-            : '可以添加'
+  const statusOf = (kind: LoaderKind): string => {
+    const { options, error: loadError } = loaders[kind]
+    if (options === null) return '正在获取…'
+    if (options.length === 0) return loadError ? '获取失败' : '无'
+    if (selected?.kind === kind) return selected.version
+    if (selected) return `与 ${LOADER_NAMES[selected.kind]} 不兼容`
+    return '可以添加'
+  }
 
   const start = async (): Promise<void> => {
     setSubmitting(true)
@@ -168,8 +187,9 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
       await window.api.startInstall({
         minecraftVersion: mc,
         name,
-        fabricLoader: fabric ?? undefined,
-        forgeVersion: forge ?? undefined
+        forgeVersion: selected?.kind === 'forge' ? selected.version : undefined,
+        neoforgeVersion: selected?.kind === 'neoforge' ? selected.version : undefined,
+        fabricLoader: selected?.kind === 'fabric' ? selected.version : undefined
       })
       onStarted()
     } catch (e) {
@@ -178,7 +198,68 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
     }
   }
 
-  const visibleLoaders = (fabricLoaders ?? []).filter((l) => showUnstable || l.stable)
+  const renderLoaderRow = (kind: LoaderKind): JSX.Element => {
+    const { options, error: loadError } = loaders[kind]
+    const hasUnstable = (options ?? []).some((o) => o.unstable)
+    const visible = (options ?? []).filter((o) => showUnstable || !o.unstable)
+    return (
+      <LoaderRow
+        key={kind}
+        title={LOADER_NAMES[kind]}
+        status={statusOf(kind)}
+        highlight={selected?.kind === kind}
+        disabled={!options || options.length === 0}
+        expanded={expanded === kind}
+        onToggle={() => setExpanded((e) => (e === kind ? null : kind))}
+        onClear={selected?.kind === kind ? () => setSelected(null) : undefined}
+      >
+        {hasUnstable && (
+          <div className="mb-1 flex justify-end px-2 pt-1">
+            <label className="flex cursor-pointer items-center gap-1.5 text-xs text-white/50">
+              <input
+                type="checkbox"
+                checked={showUnstable}
+                onChange={(e) => setShowUnstable(e.target.checked)}
+                className="accent-emerald-500"
+              />
+              显示测试版
+            </label>
+          </div>
+        )}
+        <div className="max-h-56 overflow-y-auto">
+          {visible.length === 0 && (
+            <div className="px-4 py-3 text-sm text-white/40">{loadError || '只有测试版，勾选「显示测试版」查看'}</div>
+          )}
+          {visible.map((option) => {
+            const active = selected?.kind === kind && selected.version === option.version
+            return (
+              <button
+                key={option.version}
+                onClick={() => {
+                  setSelected({ kind, version: option.version })
+                  setExpanded(null)
+                }}
+                className={`flex w-full items-center gap-2 rounded-lg px-4 py-2 text-left text-sm ${
+                  active ? 'bg-emerald-500/15' : 'hover:bg-white/10'
+                }`}
+              >
+                <span className="font-mono">{option.version}</span>
+                {option.tags.map((tag) => (
+                  <span key={tag.text} className={`rounded px-1.5 text-xs ${tag.className}`}>
+                    {tag.text}
+                  </span>
+                ))}
+                <span className="flex-1 text-right text-xs text-white/40">
+                  {option.date ? new Date(option.date).toLocaleDateString('zh-CN') : ''}
+                </span>
+                {active && <Check className="h-4 w-4 text-emerald-400" />}
+              </button>
+            )
+          })}
+        </div>
+      </LoaderRow>
+    )
+  }
 
   return (
     <div className="relative flex h-full flex-col">
@@ -213,85 +294,15 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
         <div className="h-2" />
 
         {/* 模组加载器 */}
-        <LoaderRow
-          title="Forge"
-          status={forgeStatus}
-          highlight={!!forge}
-          disabled={!forgeVersions || forgeVersions.length === 0}
-          expanded={expanded === 'forge'}
-          onToggle={() => setExpanded((e) => (e === 'forge' ? null : 'forge'))}
-          onClear={forge ? () => chooseForge(null) : undefined}
-        >
-          <div className="max-h-56 overflow-y-auto">
-            {(forgeVersions ?? []).map((item) => (
-              <button
-                key={item.version}
-                onClick={() => {
-                  chooseForge(item.version)
-                  setExpanded(null)
-                }}
-                className={`flex w-full items-center gap-2 rounded-lg px-4 py-2 text-left text-sm ${
-                  forge === item.version ? 'bg-emerald-500/15' : 'hover:bg-white/10'
-                }`}
-              >
-                <span className="font-mono">{item.version}</span>
-                {item.recommended && (
-                  <span className="rounded bg-emerald-500/20 px-1.5 text-xs text-emerald-300">推荐</span>
-                )}
-                {item.latest && <span className="rounded bg-sky-500/20 px-1.5 text-xs text-sky-300">最新</span>}
-                <span className="flex-1 text-right text-xs text-white/40">
-                  {item.date ? new Date(item.date).toLocaleDateString('zh-CN') : ''}
-                </span>
-                {forge === item.version && <Check className="h-4 w-4 text-emerald-400" />}
-              </button>
-            ))}
-          </div>
-        </LoaderRow>
-        <LoaderRow title="NeoForge" status="即将支持" disabled />
-        <LoaderRow
-          title="Fabric"
-          status={fabricStatus}
-          highlight={!!fabric}
-          disabled={!fabricLoaders || fabricLoaders.length === 0}
-          expanded={expanded === 'fabric'}
-          onToggle={() => setExpanded((e) => (e === 'fabric' ? null : 'fabric'))}
-          onClear={fabric ? () => chooseFabric(null) : undefined}
-        >
-          <div className="mb-1 flex justify-end px-2 pt-1">
-            <label className="flex cursor-pointer items-center gap-1.5 text-xs text-white/50">
-              <input
-                type="checkbox"
-                checked={showUnstable}
-                onChange={(e) => setShowUnstable(e.target.checked)}
-                className="accent-emerald-500"
-              />
-              显示测试版
-            </label>
-          </div>
-          <div className="max-h-56 overflow-y-auto">
-            {visibleLoaders.map((loader) => (
-              <button
-                key={loader.version}
-                onClick={() => {
-                  chooseFabric(loader.version)
-                  setExpanded(null)
-                }}
-                className={`flex w-full items-center gap-2 rounded-lg px-4 py-2 text-left text-sm ${
-                  fabric === loader.version ? 'bg-emerald-500/15' : 'hover:bg-white/10'
-                }`}
-              >
-                <span className="flex-1 font-mono">{loader.version}</span>
-                {!loader.stable && <span className="rounded bg-amber-500/20 px-1.5 text-xs text-amber-300">测试版</span>}
-                {fabric === loader.version && <Check className="h-4 w-4 text-emerald-400" />}
-              </button>
-            ))}
-          </div>
-        </LoaderRow>
+        {renderLoaderRow('forge')}
+        {renderLoaderRow('neoforge')}
+        {renderLoaderRow('fabric')}
         <LoaderRow title="OptiFine" status="即将支持" disabled />
 
-        {forge && (
+        {(selected?.kind === 'forge' || selected?.kind === 'neoforge') && (
           <p className="px-2 text-xs leading-5 text-white/45">
-            安装 Forge 时需要用 Java 运行 Forge 安装程序，会比普通安装多花几分钟。模组放入游戏目录下的 mods 文件夹即可。
+            安装 {LOADER_NAMES[selected.kind]} 时需要用 Java 运行它的安装程序，会比普通安装多花几分钟。模组放入游戏目录下的
+            mods 文件夹即可。
           </p>
         )}
 

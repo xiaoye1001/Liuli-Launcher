@@ -159,8 +159,18 @@ export interface InstallRequest {
   name: string
   /** 要附加的 Fabric 加载器版本，不安装时为空 */
   fabricLoader?: string
-  /** 要附加的 Forge 版本（例如 47.3.0），不安装时为空；与 Fabric 互斥 */
+  /** 要附加的 Forge 版本（例如 47.3.0），不安装时为空 */
   forgeVersion?: string
+  /** 要附加的 NeoForge 版本（例如 21.1.65，1.20.1 为 1.20.1-47.1.106），不安装时为空 */
+  neoforgeVersion?: string
+}
+
+/** 一个 NeoForge 版本 */
+export interface NeoForgeVersionInfo {
+  /** 版本号，例如 21.1.65；1.20.1 时形如 1.20.1-47.1.106 */
+  version: string
+  /** 是否为测试版 */
+  beta: boolean
 }
 
 /** 一个 Forge 版本 */

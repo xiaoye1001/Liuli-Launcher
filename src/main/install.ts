@@ -9,12 +9,14 @@ import {
   installDependenciesTask,
   installFabricByLoaderArtifact,
   installForgeTask,
+  installNeoForgedTask,
   installTask,
   type Options
 } from '@xmcl/installer'
 import { task as createTask, type Task } from '@xmcl/task'
 import { getSettings } from './config'
 import { getVersionManifest } from './versions'
+import { neoforgeProject } from './neoforge'
 import type {
   DownloadSource,
   FabricLoaderVersion,
@@ -28,6 +30,7 @@ const BMCLAPI = 'https://bmclapi2.bangbang93.com'
 const FABRIC_META = 'https://meta.fabricmc.net'
 const FABRIC_MAVEN = 'https://maven.fabricmc.net/'
 const FORGE_MAVEN = 'https://maven.minecraftforge.net/'
+const NEOFORGE_MAVEN = 'https://maven.neoforged.net/releases/'
 
 /** 根据下载源生成 @xmcl/installer 的镜像参数（镜像失败时会自动回退到官方地址） */
 function mirrorOptions(source: DownloadSource): Options {
@@ -49,6 +52,9 @@ function mirrorOptions(source: DownloadSource): Options {
       }
       if (url.startsWith(FORGE_MAVEN)) {
         return url.replace(FORGE_MAVEN, `${BMCLAPI}/maven/`)
+      }
+      if (url.startsWith(NEOFORGE_MAVEN)) {
+        return url.replace(NEOFORGE_MAVEN, `${BMCLAPI}/maven/`)
       }
       return undefined
     }
@@ -224,25 +230,25 @@ async function exists(path: string): Promise<boolean> {
  * 按安装页的选择安装游戏：
  * 1. 安装（或校验）原版；
  * 2. 选择了 Fabric 时，写入 Fabric 版本配置并下载其依赖库；
- * 3. 选择了 Forge 时，下载 Forge 安装器，解包并用 Java 运行其中的处理程序；
+ * 3. 选择了 Forge / NeoForge 时，下载安装器，解包并用 Java 运行其中的处理程序；
  * 4. 只改了版本名时，创建一个继承原版的版本配置。
  * 所有步骤合并为一个任务，进度与取消都和普通安装一样。
  * allowExisting 为 true 时（重试）允许覆盖上次失败留下的同名版本。
  */
 export async function startCustomInstall(request: InstallRequest, allowExisting = false): Promise<void> {
   assertIdle()
-  const { minecraftVersion, fabricLoader, forgeVersion } = request
+  const { minecraftVersion, fabricLoader, forgeVersion, neoforgeVersion } = request
   const name = request.name
   validateName(name)
-  if (fabricLoader && forgeVersion) {
-    throw new Error('Fabric 与 Forge 不能同时安装')
+  if ([fabricLoader, forgeVersion, neoforgeVersion].filter(Boolean).length > 1) {
+    throw new Error('Fabric、Forge、NeoForge 只能选择其中一个')
   }
 
   const settings = await getSettings()
-  if (forgeVersion && !settings.javaPath) {
-    throw new Error('安装 Forge 需要运行 Java，请先到「设置」页选择 Java')
+  if ((forgeVersion || neoforgeVersion) && !settings.javaPath) {
+    throw new Error(`安装 ${forgeVersion ? 'Forge' : 'NeoForge'} 需要运行 Java，请先到「设置」页选择 Java`)
   }
-  const isPlainVanilla = !fabricLoader && !forgeVersion && name === minecraftVersion
+  const isPlainVanilla = !fabricLoader && !forgeVersion && !neoforgeVersion && name === minecraftVersion
   if (!isPlainVanilla) {
     if (name === minecraftVersion) {
       throw new Error('安装模组加载器时，版本名不能与原版相同')
@@ -268,26 +274,30 @@ export async function startCustomInstall(request: InstallRequest, allowExisting 
     await this.yield(installTask(meta, settings.gameDir, options))
     if (isPlainVanilla) return
 
-    if (forgeVersion) {
-      // Forge 安装器会自己下载依赖库并运行处理程序。它内部按默认版本名读取版本配置，
+    if (forgeVersion || neoforgeVersion) {
+      // 安装器会自己下载依赖库并运行处理程序。它内部按默认版本名读取版本配置，
       // 所以先用默认名安装，完成后再复制成用户指定的名字
       const versionsDir = join(settings.gameDir, 'versions')
       const before = new Set(await readdir(versionsDir).catch(() => [] as string[]))
-      const forgeId = await this.yield(
-        installForgeTask({ mcversion: minecraftVersion, version: forgeVersion }, settings.gameDir, {
-          ...options,
-          mavenHost: forgeMavenHosts(settings.downloadSource),
-          java: settings.javaPath
-        })
-      )
-      if (forgeId !== name) {
-        const json = JSON.parse(await readFile(join(versionsDir, forgeId, `${forgeId}.json`), 'utf-8'))
+      const installerOptions = { ...options, java: settings.javaPath }
+      const loaderTask = forgeVersion
+        ? installForgeTask({ mcversion: minecraftVersion, version: forgeVersion }, settings.gameDir, {
+            ...installerOptions,
+            mavenHost: forgeMavenHosts(settings.downloadSource)
+          })
+        : installNeoForgedTask(neoforgeProject(neoforgeVersion!), neoforgeVersion!, settings.gameDir, {
+            ...installerOptions,
+            mavenHost: settings.downloadSource === 'bmclapi' ? [`${BMCLAPI}/maven`] : []
+          })
+      const loaderId = await this.yield(loaderTask)
+      if (loaderId !== name) {
+        const json = JSON.parse(await readFile(join(versionsDir, loaderId, `${loaderId}.json`), 'utf-8'))
         json.id = name
         await mkdir(join(versionsDir, name), { recursive: true })
         await writeFile(join(versionsDir, name, `${name}.json`), JSON.stringify(json, null, 2))
         // 默认名的版本是这次安装临时产生的，删除以免列表里出现两个相同的版本
-        if (!before.has(forgeId)) {
-          await rm(join(versionsDir, forgeId), { recursive: true, force: true })
+        if (!before.has(loaderId)) {
+          await rm(join(versionsDir, loaderId), { recursive: true, force: true })
         }
       }
     } else if (fabricArtifact) {

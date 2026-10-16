@@ -10,6 +10,7 @@ import type {
   InstallRequest,
   InstallStatus,
   JavaInfo,
+  NeoForgeVersionInfo,
   SystemInfo,
   VersionManifest
 } from '../shared/types'
@@ -34,6 +35,7 @@ declare global {
       getInstallStatus: () => Promise<InstallStatus | null>
       getFabricLoaders: (minecraftVersion: string) => Promise<FabricLoaderVersion[]>
       getForgeVersions: (minecraftVersion: string) => Promise<ForgeVersionInfo[]>
+      getNeoForgeVersions: (minecraftVersion: string) => Promise<NeoForgeVersionInfo[]>
       onInstallStatus: (callback: (status: InstallStatus | null) => void) => () => void
       getInstalledVersions: () => Promise<InstalledVersion[]>
       repairVersion: (versionId: string) => Promise<void>
