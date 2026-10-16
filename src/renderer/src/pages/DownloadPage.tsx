@@ -45,7 +45,8 @@ const LOADER_LABELS: Record<ModLoader, { label: string; className: string }> = {
   fabric: { label: 'Fabric', className: 'bg-amber-500/20 text-amber-300' },
   quilt: { label: 'Quilt', className: 'bg-fuchsia-500/20 text-fuchsia-300' },
   forge: { label: 'Forge', className: 'bg-sky-500/20 text-sky-300' },
-  neoforge: { label: 'NeoForge', className: 'bg-rose-500/20 text-rose-300' }
+  neoforge: { label: 'NeoForge', className: 'bg-rose-500/20 text-rose-300' },
+  optifine: { label: 'OptiFine', className: 'bg-violet-500/20 text-violet-300' }
 }
 
 /** 已安装版本的类型标签：装了模组加载器的版本显示加载器名称 */

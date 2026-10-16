@@ -95,7 +95,7 @@ export interface InstallStatus {
 }
 
 /** 模组加载器 */
-export type ModLoader = 'fabric' | 'forge' | 'neoforge' | 'quilt'
+export type ModLoader = 'fabric' | 'forge' | 'neoforge' | 'quilt' | 'optifine'
 
 /** 本地已安装的版本 */
 export interface InstalledVersion {
@@ -163,6 +163,21 @@ export interface InstallRequest {
   forgeVersion?: string
   /** 要附加的 NeoForge 版本（例如 21.1.65，1.20.1 为 1.20.1-47.1.106），不安装时为空 */
   neoforgeVersion?: string
+  /** 要附加的 OptiFine 版本，不安装时为空 */
+  optifine?: OptiFineVersionRef
+}
+
+/** 指定一个 OptiFine 版本，例如 { type: 'HD_U', patch: 'I6' } */
+export interface OptiFineVersionRef {
+  type: string
+  patch: string
+}
+
+export interface OptiFineVersionInfo extends OptiFineVersionRef {
+  /** 是否为预览版（patch 形如 I7_pre1） */
+  preview: boolean
+  /** 兼容的 Forge 版本说明，例如「Forge 47.1.0」，可能为空 */
+  forge?: string
 }
 
 /** 一个 NeoForge 版本 */

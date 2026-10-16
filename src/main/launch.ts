@@ -15,6 +15,7 @@ function detectLoader(json: { mainClass?: string; libraries?: { name?: string }[
   if (/org\.quiltmc/.test(text)) return 'quilt'
   if (/net\.neoforged/.test(text)) return 'neoforge'
   if (/net\.minecraftforge|cpw\.mods/.test(text)) return 'forge'
+  if (/(^|\s)optifine:/i.test(text)) return 'optifine'
   return undefined
 }
 

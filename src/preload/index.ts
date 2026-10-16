@@ -20,6 +20,7 @@ const api = {
   getFabricLoaders: (minecraftVersion: string) => ipcRenderer.invoke('fabric:loaders', minecraftVersion),
   getForgeVersions: (minecraftVersion: string) => ipcRenderer.invoke('forge:versions', minecraftVersion),
   getNeoForgeVersions: (minecraftVersion: string) => ipcRenderer.invoke('neoforge:versions', minecraftVersion),
+  getOptiFineVersions: (minecraftVersion: string) => ipcRenderer.invoke('optifine:versions', minecraftVersion),
   /** 订阅安装进度，返回取消订阅函数 */
   onInstallStatus: (callback: (status: InstallStatus | null) => void) => {
     const listener = (_: Electron.IpcRendererEvent, status: InstallStatus | null): void => callback(status)

@@ -2,7 +2,14 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, ArrowLeft, Check, ChevronRight, Download, Loader2, X } from 'lucide-react'
 import GrassBlockIcon from '../components/GrassBlockIcon'
-import type { FabricLoaderVersion, ForgeVersionInfo, NeoForgeVersionInfo, VersionEntry } from '../../../shared/types'
+import type {
+  FabricLoaderVersion,
+  ForgeVersionInfo,
+  NeoForgeVersionInfo,
+  OptiFineVersionInfo,
+  OptiFineVersionRef,
+  VersionEntry
+} from '../../../shared/types'
 
 /** 去掉 Electron IPC 错误前缀，只保留真正的错误信息 */
 function cleanError(e: unknown): string {
@@ -88,13 +95,22 @@ interface InstallSetupPageProps {
   onStarted: () => void
 }
 
-type LoaderKind = 'forge' | 'neoforge' | 'fabric'
+type LoaderKind = 'forge' | 'neoforge' | 'fabric' | 'optifine'
 
-const LOADER_NAMES: Record<LoaderKind, string> = { forge: 'Forge', neoforge: 'NeoForge', fabric: 'Fabric' }
+const LOADER_NAMES: Record<LoaderKind, string> = {
+  forge: 'Forge',
+  neoforge: 'NeoForge',
+  fabric: 'Fabric',
+  optifine: 'OptiFine'
+}
 
 /** 加载器版本列表的统一格式 */
 interface LoaderOption {
   version: string
+  /** 显示用的版本名，不填时显示 version */
+  label?: string
+  /** OptiFine 下载时需要的 type 与 patch */
+  optifine?: OptiFineVersionRef
   /** 版本旁的标签，例如「推荐」「测试版」 */
   tags: { text: string; className: string }[]
   /** 测试版默认隐藏 */
@@ -122,7 +138,8 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
   const [loaders, setLoaders] = useState<Record<LoaderKind, LoaderState>>({
     forge: { options: null, error: '' },
     neoforge: { options: null, error: '' },
-    fabric: { options: null, error: '' }
+    fabric: { options: null, error: '' },
+    optifine: { options: null, error: '' }
   })
   const [selected, setSelected] = useState<{ kind: LoaderKind; version: string } | null>(null)
   const [expanded, setExpanded] = useState<LoaderKind | null>(null)
@@ -161,13 +178,34 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
         tags: v.stable ? [] : [{ text: '测试版', className: TAG_STYLES.beta }]
       }))
     )
+    load('optifine', async () => {
+      const list = await window.api.getOptiFineVersions(mc)
+      const recommended = list.find((v) => !v.preview)
+      return list.map((v: OptiFineVersionInfo) => ({
+        version: `${v.type}_${v.patch}`,
+        label: `${v.type} ${v.patch}`.replace(/_/g, ' '),
+        optifine: { type: v.type, patch: v.patch },
+        unstable: v.preview,
+        tags: [
+          ...(v === recommended ? [{ text: '推荐', className: TAG_STYLES.recommended }] : []),
+          ...(v.preview ? [{ text: '预览版', className: TAG_STYLES.beta }] : []),
+          ...(v.forge ? [{ text: `兼容 ${v.forge}`, className: 'bg-white/10 text-white/50' }] : [])
+        ]
+      }))
+    })
   }, [mc])
+
+  /** 选中项对应的版本信息 */
+  const selectedOption = selected
+    ? loaders[selected.kind].options?.find((o) => o.version === selected.version)
+    : undefined
+  const selectedLabel = selectedOption?.label ?? selected?.version ?? ''
 
   // 用户没有手动改过版本名时，名字跟随所选的加载器自动变化
   useEffect(() => {
     if (nameEdited) return
-    setName(selected ? `${mc}-${LOADER_NAMES[selected.kind]} ${selected.version}` : mc)
-  }, [selected, mc, nameEdited])
+    setName(selected ? `${mc}-${LOADER_NAMES[selected.kind]} ${selectedLabel}` : mc)
+  }, [selected, selectedLabel, mc, nameEdited])
 
   const nameError = validateName(name, mc, !!selected, installedIds)
 
@@ -175,7 +213,7 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
     const { options, error: loadError } = loaders[kind]
     if (options === null) return '正在获取…'
     if (options.length === 0) return loadError ? '获取失败' : '无'
-    if (selected?.kind === kind) return selected.version
+    if (selected?.kind === kind) return selectedLabel
     if (selected) return `与 ${LOADER_NAMES[selected.kind]} 不兼容`
     return '可以添加'
   }
@@ -189,7 +227,8 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
         name,
         forgeVersion: selected?.kind === 'forge' ? selected.version : undefined,
         neoforgeVersion: selected?.kind === 'neoforge' ? selected.version : undefined,
-        fabricLoader: selected?.kind === 'fabric' ? selected.version : undefined
+        fabricLoader: selected?.kind === 'fabric' ? selected.version : undefined,
+        optifine: selected?.kind === 'optifine' ? selectedOption?.optifine : undefined
       })
       onStarted()
     } catch (e) {
@@ -243,7 +282,7 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
                   active ? 'bg-emerald-500/15' : 'hover:bg-white/10'
                 }`}
               >
-                <span className="font-mono">{option.version}</span>
+                <span className="font-mono">{option.label ?? option.version}</span>
                 {option.tags.map((tag) => (
                   <span key={tag.text} className={`rounded px-1.5 text-xs ${tag.className}`}>
                     {tag.text}
@@ -297,12 +336,17 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
         {renderLoaderRow('forge')}
         {renderLoaderRow('neoforge')}
         {renderLoaderRow('fabric')}
-        <LoaderRow title="OptiFine" status="即将支持" disabled />
+        {renderLoaderRow('optifine')}
 
         {(selected?.kind === 'forge' || selected?.kind === 'neoforge') && (
           <p className="px-2 text-xs leading-5 text-white/45">
             安装 {LOADER_NAMES[selected.kind]} 时需要用 Java 运行它的安装程序，会比普通安装多花几分钟。模组放入游戏目录下的
             mods 文件夹即可。
+          </p>
+        )}
+        {selected?.kind === 'optifine' && (
+          <p className="px-2 text-xs leading-5 text-white/45">
+            OptiFine 从 BMCLAPI 镜像下载，安装时需要用 Java 给游戏本体打补丁。暂不支持与 Forge 同时安装。
           </p>
         )}
 
