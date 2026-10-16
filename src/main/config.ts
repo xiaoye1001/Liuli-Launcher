@@ -12,7 +12,9 @@ function defaultSettings(): AppSettings {
     javaPath: '',
     maxMemory: Math.min(4096, Math.floor(totalMB / 2 / 256) * 256),
     downloadSource: 'bmclapi',
-    gameDir: join(app.getPath('userData'), '.minecraft')
+    gameDir: join(app.getPath('userData'), '.minecraft'),
+    offlineName: 'Steve',
+    selectedVersion: ''
   }
 }
 

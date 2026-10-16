@@ -6,6 +6,7 @@ import { scanJava } from './java'
 import { getSettings, updateSettings } from './config'
 import { getVersionManifest } from './versions'
 import { cancelInstall, getInstallStatus, startInstall } from './install'
+import { getGameStatus, launchGame, listInstalledVersions } from './launch'
 import type { AppSettings, SystemInfo } from '../shared/types'
 
 function createWindow(): void {
@@ -50,6 +51,9 @@ function registerIpc(): void {
   ipcMain.handle('install:start', (_, versionId: string) => startInstall(versionId))
   ipcMain.handle('install:cancel', () => cancelInstall())
   ipcMain.handle('install:status', () => getInstallStatus())
+  ipcMain.handle('versions:installed', () => listInstalledVersions())
+  ipcMain.handle('game:launch', (_, versionId: string) => launchGame(versionId))
+  ipcMain.handle('game:status', () => getGameStatus())
   ipcMain.handle(
     'system:info',
     (): SystemInfo => ({ totalMemory: Math.floor(totalmem() / 1024 / 1024) })

@@ -1,5 +1,13 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { AppSettings, InstallStatus, JavaInfo, SystemInfo, VersionManifest } from '../shared/types'
+import type {
+  AppSettings,
+  GameStatus,
+  InstalledVersion,
+  InstallStatus,
+  JavaInfo,
+  SystemInfo,
+  VersionManifest
+} from '../shared/types'
 
 declare global {
   interface Window {
@@ -19,6 +27,10 @@ declare global {
       cancelInstall: () => Promise<void>
       getInstallStatus: () => Promise<InstallStatus | null>
       onInstallStatus: (callback: (status: InstallStatus | null) => void) => () => void
+      getInstalledVersions: () => Promise<InstalledVersion[]>
+      launchGame: (versionId: string) => Promise<void>
+      getGameStatus: () => Promise<GameStatus>
+      onGameStatus: (callback: (status: GameStatus) => void) => () => void
     }
   }
 }

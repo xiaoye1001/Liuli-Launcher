@@ -21,6 +21,10 @@ export interface AppSettings {
   downloadSource: DownloadSource
   /** 游戏目录（.minecraft） */
   gameDir: string
+  /** 离线模式玩家名 */
+  offlineName: string
+  /** 上次选择启动的版本 */
+  selectedVersion: string
 }
 
 /** 系统信息 */
@@ -71,5 +75,25 @@ export interface InstallStatus {
   /** 下载速度（字节/秒） */
   speed: number
   /** 失败原因 */
+  error?: string
+}
+
+/** 本地已安装的版本 */
+export interface InstalledVersion {
+  id: string
+  /** 版本类型（来自版本 json 的 type 字段，可能为空） */
+  type: string
+  releaseTime: string
+}
+
+/** 游戏运行状态：空闲 / 启动中 / 窗口已出现 / 正常退出 / 崩溃或启动失败 */
+export type GameState = 'idle' | 'launching' | 'running' | 'exited' | 'crashed'
+
+export interface GameStatus {
+  state: GameState
+  versionId: string
+  /** 进程退出码 */
+  exitCode?: number | null
+  /** 启动失败或崩溃的原因 */
   error?: string
 }

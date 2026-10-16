@@ -80,7 +80,7 @@ async function collectJavaHomes(): Promise<string[]> {
  * 执行 `java -version` 并解析版本号。
  * 去掉 JAVA_TOOL_OPTIONS 等环境变量，避免 "Picked up ..." 输出干扰版本解析。
  */
-function resolveJava(path: string): Promise<JavaInfo | undefined> {
+export function resolveJava(path: string): Promise<JavaInfo | undefined> {
   const env = { ...process.env }
   delete env['JAVA_TOOL_OPTIONS']
   delete env['_JAVA_OPTIONS']

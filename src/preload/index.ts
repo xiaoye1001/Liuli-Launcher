@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { AppSettings, InstallStatus } from '../shared/types'
+import type { AppSettings, GameStatus, InstallStatus } from '../shared/types'
 
 const api = {
   versions: {
@@ -22,6 +22,17 @@ const api = {
     ipcRenderer.on('install:status', listener)
     return () => {
       ipcRenderer.removeListener('install:status', listener)
+    }
+  },
+  getInstalledVersions: () => ipcRenderer.invoke('versions:installed'),
+  launchGame: (versionId: string) => ipcRenderer.invoke('game:launch', versionId),
+  getGameStatus: () => ipcRenderer.invoke('game:status'),
+  /** 订阅游戏运行状态，返回取消订阅函数 */
+  onGameStatus: (callback: (status: GameStatus) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, status: GameStatus): void => callback(status)
+    ipcRenderer.on('game:status', listener)
+    return () => {
+      ipcRenderer.removeListener('game:status', listener)
     }
   }
 }
