@@ -20,6 +20,7 @@ const api = {
   getFabricLoaders: (minecraftVersion: string) => ipcRenderer.invoke('fabric:loaders', minecraftVersion),
   getForgeVersions: (minecraftVersion: string) => ipcRenderer.invoke('forge:versions', minecraftVersion),
   getNeoForgeVersions: (minecraftVersion: string) => ipcRenderer.invoke('neoforge:versions', minecraftVersion),
+  getOptiFineVersions: (minecraftVersion: string) => ipcRenderer.invoke('optifine:versions', minecraftVersion),
   /** 订阅安装进度，返回取消订阅函数 */
   onInstallStatus: (callback: (status: InstallStatus | null) => void) => {
     const listener = (_: Electron.IpcRendererEvent, status: InstallStatus | null): void => callback(status)
@@ -32,6 +33,16 @@ const api = {
   repairVersion: (versionId: string) => ipcRenderer.invoke('versions:repair', versionId),
   deleteVersion: (versionId: string) => ipcRenderer.invoke('versions:delete', versionId),
   openVersionDir: (versionId: string) => ipcRenderer.invoke('versions:open', versionId),
+  listMods: (versionId: string) => ipcRenderer.invoke('mods:list', versionId),
+  setModEnabled: (versionId: string, fileName: string, enabled: boolean) =>
+    ipcRenderer.invoke('mods:setEnabled', versionId, fileName, enabled),
+  deleteMod: (versionId: string, fileName: string) => ipcRenderer.invoke('mods:delete', versionId, fileName),
+  addMods: (versionId: string) => ipcRenderer.invoke('mods:add', versionId),
+  openModsDir: (versionId: string) => ipcRenderer.invoke('mods:open', versionId),
+  searchModrinth: (versionId: string, query: string, offset: number) =>
+    ipcRenderer.invoke('modrinth:search', versionId, query, offset),
+  installFromModrinth: (versionId: string, projectId: string) =>
+    ipcRenderer.invoke('modrinth:install', versionId, projectId),
   launchGame: (versionId: string) => ipcRenderer.invoke('game:launch', versionId),
   getGameStatus: () => ipcRenderer.invoke('game:status'),
   /** 订阅游戏运行状态，返回取消订阅函数 */

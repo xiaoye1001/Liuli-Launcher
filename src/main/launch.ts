@@ -4,23 +4,25 @@ import { join } from 'path'
 import { BrowserWindow } from 'electron'
 import { createMinecraftProcessWatcher, launch, Version } from '@xmcl/core'
 import { getSettings } from './config'
+import { isIsolated, versionGameDir } from './isolation'
 import { resolveJava } from './java'
 import { openLogWindow } from './logWindow'
 import type { GameLogEvent, GameStatus, InstalledVersion, ModLoader } from '../shared/types'
 
 /** 根据版本 json 的启动类与依赖库判断模组加载器 */
-function detectLoader(json: { mainClass?: string; libraries?: { name?: string }[] }): ModLoader | undefined {
+export function detectLoader(json: { mainClass?: string; libraries?: { name?: string }[] }): ModLoader | undefined {
   const text = `${json.mainClass ?? ''} ${(json.libraries ?? []).map((l) => l.name ?? '').join(' ')}`
   if (/net\.fabricmc/.test(text)) return 'fabric'
   if (/org\.quiltmc/.test(text)) return 'quilt'
   if (/net\.neoforged/.test(text)) return 'neoforge'
   if (/net\.minecraftforge|cpw\.mods/.test(text)) return 'forge'
+  if (/(^|\s)optifine:/i.test(text)) return 'optifine'
   return undefined
 }
 
 /** 读取游戏目录下所有已安装的版本（versions/<id>/<id>.json 存在即视为已安装） */
 export async function listInstalledVersions(): Promise<InstalledVersion[]> {
-  const { gameDir } = await getSettings()
+  const { gameDir, versionIsolation } = await getSettings()
   const versionsDir = join(gameDir, 'versions')
   let names: string[] = []
   try {
@@ -33,7 +35,14 @@ export async function listInstalledVersions(): Promise<InstalledVersion[]> {
   for (const id of names) {
     try {
       const json = JSON.parse(await readFile(join(versionsDir, id, `${id}.json`), 'utf-8'))
-      result.push({ id, type: json.type ?? '', releaseTime: json.releaseTime ?? '', loader: detectLoader(json) })
+      const loader = detectLoader(json)
+      result.push({
+        id,
+        type: json.type ?? '',
+        releaseTime: json.releaseTime ?? '',
+        loader,
+        isolated: isIsolated(versionIsolation, loader)
+      })
     } catch {
       // 没有 json 或 json 损坏的目录不是有效版本
     }
@@ -170,9 +179,14 @@ export async function launchGame(versionId: string): Promise<void> {
     }
     launcherLog(`Java ${java.version}：${java.path}`)
     launcherLog(`玩家名 ${settings.offlineName}，最大内存 ${settings.maxMemory} MB`)
+    // 版本隔离：模组、存档、配置放在版本自己的文件夹里，依赖库与资源文件仍从游戏目录读取
+    const isolated = isIsolated(settings.versionIsolation, detectLoader(version))
+    const gamePath = versionGameDir(settings.gameDir, versionId, isolated)
+    launcherLog(`游戏目录：${gamePath}${isolated ? '（版本隔离）' : ''}`)
 
     const proc = await launch({
-      gamePath: settings.gameDir,
+      gamePath,
+      resourcePath: settings.gameDir,
       javaPath: settings.javaPath,
       version,
       maxMemory: settings.maxMemory,

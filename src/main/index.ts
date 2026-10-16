@@ -7,6 +7,7 @@ import { getSettings, updateSettings } from './config'
 import { getVersionManifest } from './versions'
 import { getForgeVersions } from './forge'
 import { getNeoForgeVersions } from './neoforge'
+import { getOptiFineVersions } from './optifine'
 import {
   cancelInstall,
   getFabricLoaders,
@@ -19,6 +20,8 @@ import { getGameLogs, getGameStatus, launchGame, listInstalledVersions } from '.
 import { closeLogWindow, openLogWindow } from './logWindow'
 import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
 import { deleteVersion, openVersionDir } from './versionManage'
+import { addMods, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
+import { installFromModrinth, searchModrinth } from './modrinth'
 import type { AppSettings, InstallRequest, SystemInfo } from '../shared/types'
 
 function createWindow(): void {
@@ -75,12 +78,28 @@ function registerIpc(): void {
   ipcMain.handle('fabric:loaders', (_, minecraftVersion: string) => getFabricLoaders(minecraftVersion))
   ipcMain.handle('forge:versions', (_, minecraftVersion: string) => getForgeVersions(minecraftVersion))
   ipcMain.handle('neoforge:versions', (_, minecraftVersion: string) => getNeoForgeVersions(minecraftVersion))
+  ipcMain.handle('optifine:versions', (_, minecraftVersion: string) => getOptiFineVersions(minecraftVersion))
   ipcMain.handle('versions:installed', () => listInstalledVersions())
   ipcMain.handle('versions:repair', (_, versionId: string) => startRepair(versionId))
   ipcMain.handle('versions:delete', (event, versionId: string) =>
     deleteVersion(BrowserWindow.fromWebContents(event.sender), versionId)
   )
   ipcMain.handle('versions:open', (_, versionId: string) => openVersionDir(versionId))
+  ipcMain.handle('mods:list', (_, versionId: string) => listMods(versionId))
+  ipcMain.handle('mods:setEnabled', (_, versionId: string, fileName: string, enabled: boolean) =>
+    setModEnabled(versionId, fileName, enabled)
+  )
+  ipcMain.handle('mods:delete', (_, versionId: string, fileName: string) => deleteMod(versionId, fileName))
+  ipcMain.handle('mods:add', (event, versionId: string) =>
+    addMods(versionId, BrowserWindow.fromWebContents(event.sender))
+  )
+  ipcMain.handle('mods:open', (_, versionId: string) => openModsDir(versionId))
+  ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>
+    searchModrinth(versionId, query, offset)
+  )
+  ipcMain.handle('modrinth:install', (_, versionId: string, projectId: string) =>
+    installFromModrinth(versionId, projectId)
+  )
   ipcMain.handle('game:launch', (_, versionId: string) => launchGame(versionId))
   ipcMain.handle('game:status', () => getGameStatus())
   ipcMain.handle('game:logs', () => getGameLogs())

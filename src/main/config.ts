@@ -22,7 +22,8 @@ function defaultSettings(): AppSettings {
     selectedVersion: '',
     skinDataUrl: '',
     skinModel: 'default',
-    theme: 'system'
+    theme: 'system',
+    versionIsolation: 'modded'
   }
 }
 

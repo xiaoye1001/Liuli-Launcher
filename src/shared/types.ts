@@ -31,7 +31,12 @@ export interface AppSettings {
   skinModel: SkinModel
   /** 界面主题 */
   theme: ThemeMode
+  /** 版本隔离：开启后版本使用 versions/<版本名> 作为游戏目录，模组、存档、配置互不影响 */
+  versionIsolation: VersionIsolation
 }
+
+/** 版本隔离：关闭 / 只隔离装了模组加载器的版本 / 隔离所有版本 */
+export type VersionIsolation = 'off' | 'modded' | 'all'
 
 /** 界面主题：跟随系统 / 深色 / 浅色 */
 export type ThemeMode = 'system' | 'dark' | 'light'
@@ -95,7 +100,7 @@ export interface InstallStatus {
 }
 
 /** 模组加载器 */
-export type ModLoader = 'fabric' | 'forge' | 'neoforge' | 'quilt'
+export type ModLoader = 'fabric' | 'forge' | 'neoforge' | 'quilt' | 'optifine'
 
 /** 本地已安装的版本 */
 export interface InstalledVersion {
@@ -105,6 +110,8 @@ export interface InstalledVersion {
   releaseTime: string
   /** 检测到的模组加载器，原版为 undefined */
   loader?: ModLoader
+  /** 是否使用独立的游戏目录（版本隔离） */
+  isolated: boolean
 }
 
 /** 游戏运行状态：空闲 / 启动中 / 窗口已出现 / 正常退出 / 崩溃或启动失败 */
@@ -163,6 +170,21 @@ export interface InstallRequest {
   forgeVersion?: string
   /** 要附加的 NeoForge 版本（例如 21.1.65，1.20.1 为 1.20.1-47.1.106），不安装时为空 */
   neoforgeVersion?: string
+  /** 要附加的 OptiFine 版本，不安装时为空 */
+  optifine?: OptiFineVersionRef
+}
+
+/** 指定一个 OptiFine 版本，例如 { type: 'HD_U', patch: 'I6' } */
+export interface OptiFineVersionRef {
+  type: string
+  patch: string
+}
+
+export interface OptiFineVersionInfo extends OptiFineVersionRef {
+  /** 是否为预览版（patch 形如 I7_pre1） */
+  preview: boolean
+  /** 兼容的 Forge 版本说明，例如「Forge 47.1.0」，可能为空 */
+  forge?: string
 }
 
 /** 一个 NeoForge 版本 */
@@ -185,4 +207,67 @@ export interface ForgeVersionInfo {
   latest: boolean
   /** 发布时间（可能为空） */
   date: string
+}
+
+/** 模组文件对应的加载器（从模组自带的描述文件判断） */
+export type ModKind = 'fabric' | 'quilt' | 'forge' | 'neoforge' | 'unknown'
+
+/** mods 文件夹中的一个模组 */
+export interface ModInfo {
+  /** 磁盘上的文件名，禁用的模组以 .disabled 结尾 */
+  fileName: string
+  enabled: boolean
+  /** 模组名称，读取不到时为文件名 */
+  name: string
+  modId: string
+  version: string
+  description: string
+  kind: ModKind
+  /** 模组图标（PNG 的 data URL） */
+  icon?: string
+  /** 文件大小（字节） */
+  size: number
+}
+
+/** 某个版本的模组列表 */
+export interface ModList {
+  versionId: string
+  /** mods 文件夹路径 */
+  dir: string
+  /** 是否为该版本独立的 mods 文件夹（版本隔离） */
+  isolated: boolean
+  /** 原版 Minecraft 版本号 */
+  minecraftVersion: string
+  /** 版本的模组加载器 */
+  loader?: ModLoader
+  mods: ModInfo[]
+}
+
+/** Modrinth 搜索结果中的一个模组 */
+export interface ModrinthProject {
+  projectId: string
+  slug: string
+  title: string
+  description: string
+  author: string
+  iconUrl?: string
+  downloads: number
+  /** 当前版本的 mods 文件夹中是否已经有这个模组 */
+  installed: boolean
+}
+
+export interface ModrinthSearchResult {
+  hits: ModrinthProject[]
+  total: number
+  /** 搜索时使用的 Minecraft 版本与加载器 */
+  minecraftVersion: string
+  loader: string
+}
+
+/** 从 Modrinth 安装模组的结果 */
+export interface ModrinthInstallResult {
+  /** 实际下载的模组（含自动安装的前置模组） */
+  installed: { projectId: string; title: string; fileName: string; dependency: boolean }[]
+  /** 找不到适用版本的前置模组名称 */
+  missingDependencies: string[]
 }

@@ -1,15 +1,17 @@
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { Version } from '@xmcl/core'
 import { getDefaultAgent } from '@xmcl/file-transfer'
-import { access, mkdir, readdir, readFile, rm, writeFile } from 'fs/promises'
-import { join } from 'path'
+import { access, copyFile, mkdir, readdir, readFile, rm, writeFile } from 'fs/promises'
+import { basename, dirname, join } from 'path'
 import {
+  DownloadTask,
   getFabricLoaderArtifact,
   getLoaderArtifactListFor,
   installDependenciesTask,
   installFabricByLoaderArtifact,
   installForgeTask,
   installNeoForgedTask,
+  installOptifineTask,
   installTask,
   type Options
 } from '@xmcl/installer'
@@ -17,13 +19,16 @@ import { task as createTask, type Task } from '@xmcl/task'
 import { getSettings } from './config'
 import { getVersionManifest } from './versions'
 import { neoforgeProject } from './neoforge'
+import { optiFineInstallerUrl } from './optifine'
+import { isIsolated, versionGameDir } from './isolation'
 import type {
   DownloadSource,
   FabricLoaderVersion,
   InstallKind,
   InstallPhase,
   InstallRequest,
-  InstallStatus
+  InstallStatus,
+  OptiFineVersionRef
 } from '../shared/types'
 
 const BMCLAPI = 'https://bmclapi2.bangbang93.com'
@@ -69,8 +74,10 @@ function forgeMavenHosts(source: DownloadSource): string[] {
 
 /** 根据任务路径判断当前阶段，例如 install.version.jar、install.dependencies.assets.asset */
 function phaseOf(path: string): InstallPhase {
-  if (path.includes('postProcessing')) return 'processing'
-  return path.includes('dependencies') || path.includes('installForge') ? 'dependencies' : 'version'
+  if (path.includes('postProcessing') || path.includes('installOptifine')) return 'processing'
+  return path.includes('dependencies') || path.includes('installForge') || path.includes('downloadOptifine')
+    ? 'dependencies'
+    : 'version'
 }
 
 type AnyInstallTask = Task<unknown>
@@ -133,6 +140,10 @@ function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): vo
 
   task
     .startAndWait({
+      // 补丁、处理程序等步骤没有下载进度，开始时就切换阶段
+      onStart(child) {
+        if (status) status.phase = phaseOf(child.path)
+      },
       onUpdate(child, chunkSize) {
         bytesInWindow += chunkSize
         if (status) status.phase = phaseOf(child.path)
@@ -231,24 +242,30 @@ async function exists(path: string): Promise<boolean> {
  * 1. 安装（或校验）原版；
  * 2. 选择了 Fabric 时，写入 Fabric 版本配置并下载其依赖库；
  * 3. 选择了 Forge / NeoForge 时，下载安装器，解包并用 Java 运行其中的处理程序；
- * 4. 只改了版本名时，创建一个继承原版的版本配置。
+ * 4. 单独选择 OptiFine 时，从 BMCLAPI 下载安装器，用 Java 运行它的补丁程序生成 OptiFine 库；
+ *    与 Forge 一起选择时，安装完 Forge 后把 OptiFine 作为模组放进该版本的 mods 文件夹；
+ * 5. 只改了版本名时，创建一个继承原版的版本配置。
  * 所有步骤合并为一个任务，进度与取消都和普通安装一样。
  * allowExisting 为 true 时（重试）允许覆盖上次失败留下的同名版本。
  */
 export async function startCustomInstall(request: InstallRequest, allowExisting = false): Promise<void> {
   assertIdle()
-  const { minecraftVersion, fabricLoader, forgeVersion, neoforgeVersion } = request
+  const { minecraftVersion, fabricLoader, forgeVersion, neoforgeVersion, optifine } = request
   const name = request.name
   validateName(name)
   if ([fabricLoader, forgeVersion, neoforgeVersion].filter(Boolean).length > 1) {
     throw new Error('Fabric、Forge、NeoForge 只能选择其中一个')
   }
+  if (optifine && (fabricLoader || neoforgeVersion)) {
+    throw new Error('OptiFine 只能单独安装或与 Forge 一起安装')
+  }
 
   const settings = await getSettings()
-  if ((forgeVersion || neoforgeVersion) && !settings.javaPath) {
-    throw new Error(`安装 ${forgeVersion ? 'Forge' : 'NeoForge'} 需要运行 Java，请先到「设置」页选择 Java`)
+  const javaUser = forgeVersion ? 'Forge' : neoforgeVersion ? 'NeoForge' : optifine ? 'OptiFine' : ''
+  if (javaUser && !settings.javaPath) {
+    throw new Error(`安装 ${javaUser} 需要运行 Java，请先到「设置」页选择 Java`)
   }
-  const isPlainVanilla = !fabricLoader && !forgeVersion && !neoforgeVersion && name === minecraftVersion
+  const isPlainVanilla = !fabricLoader && !forgeVersion && !neoforgeVersion && !optifine && name === minecraftVersion
   if (!isPlainVanilla) {
     if (name === minecraftVersion) {
       throw new Error('安装模组加载器时，版本名不能与原版相同')
@@ -268,6 +285,23 @@ export async function startCustomInstall(request: InstallRequest, allowExisting 
   const fabricArtifact = fabricLoader
     ? await getFabricLoaderArtifact(minecraftVersion, fabricLoader, { fetch: fabricFetch })
     : null
+
+  /** 下载 OptiFine 安装器（缓存在启动器数据目录），返回文件路径与下载任务 */
+  const optiFineDownload = (ref: OptiFineVersionRef): { path: string; task: AnyInstallTask } => {
+    const path = join(
+      app.getPath('userData'),
+      'cache',
+      'optifine',
+      `OptiFine_${minecraftVersion}_${ref.type}_${ref.patch}.jar`
+    )
+    const task = new DownloadTask({
+      url: optiFineInstallerUrl(minecraftVersion, ref.type, ref.patch),
+      destination: path,
+      dispatcher: options.dispatcher,
+      headers: options.headers
+    }).setName('downloadOptifine')
+    return { path, task }
+  }
 
   lastRequest = request
   const installAll = createTask('custom', async function () {
@@ -300,6 +334,30 @@ export async function startCustomInstall(request: InstallRequest, allowExisting 
           await rm(join(versionsDir, loaderId), { recursive: true, force: true })
         }
       }
+      if (optifine) {
+        // OptiFine 的安装器本身就是一个 Forge 模组，直接放进该版本使用的 mods 文件夹
+        const download = optiFineDownload(optifine)
+        await mkdir(dirname(download.path), { recursive: true })
+        await this.yield(download.task)
+        const modsDir = join(
+          versionGameDir(settings.gameDir, name, isIsolated(settings.versionIsolation, 'forge')),
+          'mods'
+        )
+        await mkdir(modsDir, { recursive: true })
+        await copyFile(download.path, join(modsDir, basename(download.path)))
+      }
+    } else if (optifine) {
+      // 用 OptiFine 安装器的补丁程序把原版本体打成 OptiFine 库
+      const download = optiFineDownload(optifine)
+      await mkdir(dirname(download.path), { recursive: true })
+      await this.yield(download.task)
+      await this.yield(
+        installOptifineTask(download.path, settings.gameDir, {
+          versionId: name,
+          inheritsFrom: minecraftVersion,
+          java: settings.javaPath
+        })
+      )
     } else if (fabricArtifact) {
       await installFabricByLoaderArtifact(fabricArtifact, settings.gameDir, { versionId: name })
     } else {

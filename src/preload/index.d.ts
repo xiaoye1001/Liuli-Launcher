@@ -11,6 +11,10 @@ import type {
   InstallStatus,
   JavaInfo,
   NeoForgeVersionInfo,
+  OptiFineVersionInfo,
+  ModList,
+  ModrinthInstallResult,
+  ModrinthSearchResult,
   SystemInfo,
   VersionManifest
 } from '../shared/types'
@@ -36,11 +40,21 @@ declare global {
       getFabricLoaders: (minecraftVersion: string) => Promise<FabricLoaderVersion[]>
       getForgeVersions: (minecraftVersion: string) => Promise<ForgeVersionInfo[]>
       getNeoForgeVersions: (minecraftVersion: string) => Promise<NeoForgeVersionInfo[]>
+      getOptiFineVersions: (minecraftVersion: string) => Promise<OptiFineVersionInfo[]>
       onInstallStatus: (callback: (status: InstallStatus | null) => void) => () => void
       getInstalledVersions: () => Promise<InstalledVersion[]>
       repairVersion: (versionId: string) => Promise<void>
       deleteVersion: (versionId: string) => Promise<boolean>
       openVersionDir: (versionId: string) => Promise<void>
+      listMods: (versionId: string) => Promise<ModList>
+      /** 返回修改后的文件名 */
+      setModEnabled: (versionId: string, fileName: string, enabled: boolean) => Promise<string>
+      deleteMod: (versionId: string, fileName: string) => Promise<void>
+      /** 返回添加的数量，取消时为 0 */
+      addMods: (versionId: string) => Promise<number>
+      openModsDir: (versionId: string) => Promise<void>
+      searchModrinth: (versionId: string, query: string, offset: number) => Promise<ModrinthSearchResult>
+      installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>
       launchGame: (versionId: string) => Promise<void>
       getGameStatus: () => Promise<GameStatus>
       onGameStatus: (callback: (status: GameStatus) => void) => () => void
