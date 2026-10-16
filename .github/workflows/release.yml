@@ -1,0 +1,58 @@
+# 发布流程：推送 v 开头的标签（例如 v0.1.0）时，自动打包 Linux 免安装版（AppImage）并发布到 GitHub Releases
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    name: Linux AppImage
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # .npmrc 里的下载镜像是给国内网络用的，GitHub 的服务器直接用官方源更快
+      - name: Use official download sources
+        run: sed -i '/mirror/d' .npmrc
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build AppImage
+        run: npm run build && npx electron-builder --linux AppImage --publish never
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: 琉璃启动器 ${{ github.ref_name }}
+          files: dist/*.AppImage
+          fail_on_unmatched_files: true
+          body: |
+            ## 琉璃启动器 ${{ github.ref_name }}
+
+            ### Linux 免安装版（AppImage）
+            下载 `LiuliLauncher-*.AppImage`，添加执行权限后直接运行：
+            ```bash
+            chmod +x LiuliLauncher-*.AppImage
+            ./LiuliLauncher-*.AppImage
+            ```
+
+            - 需要 FUSE 2。Ubuntu 22.04 及以上如果无法启动，请先安装：`sudo apt install libfuse2`（Ubuntu 24.04 为 `libfuse2t64`）
+            - Ubuntu 24.04 等系统如果提示沙盒（sandbox）相关错误，可以加参数运行：`./LiuliLauncher-*.AppImage --no-sandbox`
+            - 数据保存在 `~/.config/mc_launcher`
+            - 运行游戏需要安装 Java（1.20.5 及以上需要 Java 21）
+
+            功能介绍与使用说明见 [README](https://github.com/${{ github.repository }}#readme)。
