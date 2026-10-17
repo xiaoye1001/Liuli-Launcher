@@ -10,12 +10,17 @@ import type {
   InstallRequest,
   InstallStatus,
   JavaInfo,
+  JavaRuntimeInfo,
   NeoForgeVersionInfo,
   OptiFineVersionInfo,
   ModList,
   AccountsInfo,
   MsLoginStatus,
   ModrinthInstallResult,
+  ModpackInfo,
+  ModrinthModpack,
+  ModpackSearchFilters,
+  ModrinthModpackVersion,
   ModrinthSearchResult,
   SystemInfo,
   VersionManifest
@@ -31,6 +36,10 @@ declare global {
         node: string
       }
       scanJava: () => Promise<JavaInfo[]>
+      /** 可下载的 Java 运行时及是否已下载 */
+      getJavaRuntimes: () => Promise<JavaRuntimeInfo[]>
+      /** 下载 Java 运行时，下载完成后返回 java 路径（进度通过 onInstallStatus 推送） */
+      downloadJava: (component: string) => Promise<string>
       getSettings: () => Promise<AppSettings>
       updateSettings: (patch: Partial<AppSettings>) => Promise<AppSettings>
       getSystemInfo: () => Promise<SystemInfo>
@@ -56,6 +65,22 @@ declare global {
       addMods: (versionId: string) => Promise<number>
       openModsDir: (versionId: string) => Promise<void>
       searchModrinth: (versionId: string, query: string, offset: number) => Promise<ModrinthSearchResult>
+      /** 选择 .mrpack 整合包并读取信息，取消时返回 null */
+      pickModpack: () => Promise<ModpackInfo | null>
+      /** 安装最近选择的整合包（进度通过 onInstallStatus 推送） */
+      installModpack: (name: string) => Promise<void>
+      /** 读取拖入窗口的 .mrpack 文件 */
+      loadModpackFile: (path: string) => Promise<ModpackInfo>
+      searchModpacks: (
+        query: string,
+        offset: number,
+        filters: ModpackSearchFilters
+      ) => Promise<{ hits: ModrinthModpack[]; total: number }>
+      getModpackVersions: (projectId: string) => Promise<ModrinthModpackVersion[]>
+      /** 从 Modrinth 下载整合包的某个版本并读取信息 */
+      downloadModpack: (versionId: string) => Promise<ModpackInfo>
+      /** 拖入窗口的文件在本机的路径 */
+      getPathForFile: (file: File) => string
       installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>
       launchGame: (versionId: string) => Promise<void>
       getGameStatus: () => Promise<GameStatus>

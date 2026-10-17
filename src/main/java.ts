@@ -102,10 +102,11 @@ export function resolveJava(path: string): Promise<JavaInfo | undefined> {
   })
 }
 
-/** 扫描本机所有可用的 Java，按主版本号从高到低排序 */
-export async function scanJava(): Promise<JavaInfo[]> {
+/** 扫描本机所有可用的 Java，按主版本号从高到低排序。extra 为额外要检查的 java 路径（例如启动器下载的 Java） */
+export async function scanJava(extra: string[] = []): Promise<JavaInfo[]> {
   const homes = await collectJavaHomes()
   const candidates = [
+    ...extra,
     ...homes.map((home) => join(home, 'bin', JAVA_EXE)),
     ...(await getPotentialJavaLocations().catch(() => [] as string[]))
   ]

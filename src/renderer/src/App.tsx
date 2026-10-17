@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import Sidebar, { NAV_ITEMS, type PageKey } from './components/Sidebar'
 import AccountPage from './pages/AccountPage'
@@ -6,12 +6,21 @@ import DownloadPage from './pages/DownloadPage'
 import HomePage from './pages/HomePage'
 import PlaceholderPage from './pages/PlaceholderPage'
 import SettingsPage from './pages/SettingsPage'
+import DropOverlay from './components/DropOverlay'
+import type { ModpackInfo } from '../../shared/types'
 import { backgroundUrl, useAppearance } from './utils/appearance'
 
-function renderPage(key: PageKey): JSX.Element {
+interface PageContext {
+  droppedModpack: ModpackInfo | null
+  clearDroppedModpack: () => void
+}
+
+function renderPage(key: PageKey, ctx: PageContext): JSX.Element {
   if (key === 'home') return <HomePage />
   if (key === 'account') return <AccountPage />
-  if (key === 'download') return <DownloadPage />
+  if (key === 'download') {
+    return <DownloadPage incomingModpack={ctx.droppedModpack} onModpackConsumed={ctx.clearDroppedModpack} />
+  }
   if (key === 'settings') return <SettingsPage />
   const item = NAV_ITEMS.find((nav) => nav.key === key)!
   return <PlaceholderPage title={item.label} icon={item.icon} />
@@ -19,6 +28,9 @@ function renderPage(key: PageKey): JSX.Element {
 
 function App(): JSX.Element {
   const [page, setPage] = useState<PageKey>('home')
+  /** 拖入窗口的整合包，交给下载页打开安装确认页 */
+  const [droppedModpack, setDroppedModpack] = useState<ModpackInfo | null>(null)
+  const clearDroppedModpack = useCallback(() => setDroppedModpack(null), [])
   const appearance = useAppearance()
   const { backgroundImage, backgroundBlur, backgroundDim } = appearance
 
@@ -45,6 +57,12 @@ function App(): JSX.Element {
           </>
         )}
         <Sidebar current={page} onChange={setPage} />
+        <DropOverlay
+          onModpack={(info) => {
+            setDroppedModpack(info)
+            setPage('download')
+          }}
+        />
         <main className="relative flex-1 overflow-hidden p-8">
           <AnimatePresence mode="wait">
             <motion.div
@@ -55,7 +73,7 @@ function App(): JSX.Element {
               exit={{ opacity: 0, y: -16, filter: 'blur(6px)' }}
               transition={{ duration: appearance.animations ? 0.25 : 0, ease: 'easeOut' }}
             >
-              {renderPage(page)}
+              {renderPage(page, { droppedModpack, clearDroppedModpack })}
             </motion.div>
           </AnimatePresence>
         </main>

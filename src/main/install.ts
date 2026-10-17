@@ -20,6 +20,7 @@ import { getSettings } from './config'
 import { getVersionManifest } from './versions'
 import { neoforgeProject } from './neoforge'
 import { optiFineInstallerUrl } from './optifine'
+import { createJavaInstallTask, javaExecutable, pickJava, requirementOf } from './javaRuntime'
 import { isIsolated, versionGameDir } from './isolation'
 import type {
   DownloadSource,
@@ -74,6 +75,8 @@ function forgeMavenHosts(source: DownloadSource): string[] {
 
 /** 根据任务路径判断当前阶段，例如 install.version.jar、install.dependencies.assets.asset */
 function phaseOf(path: string): InstallPhase {
+  if (path.includes('installJava')) return 'java'
+  if (path.includes('modpack')) return 'modpack'
   if (path.includes('postProcessing') || path.includes('installOptifine')) return 'processing'
   return path.includes('dependencies') || path.includes('installForge') || path.includes('downloadOptifine')
     ? 'dependencies'
@@ -87,6 +90,10 @@ let currentTask: AnyInstallTask | null = null
 let cancelRequested = false
 /** 上一次的安装请求，用于「重试」 */
 let lastRequest: InstallRequest | null = null
+/** 上一次下载的 Java 组件；最近一次任务是下载 Java 时，「重试」重新下载它 */
+let lastJavaComponent: string | null = null
+/** 上一次安装的附加步骤（整合包），重试时一并执行 */
+let lastExtra: InstallExtraStep | null = null
 
 function broadcast(): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -115,8 +122,8 @@ async function downloadOptions(): Promise<Options> {
   }
 }
 
-/** 运行一个安装任务，并把进度与速度推送到界面 */
-function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): void {
+/** 运行一个安装任务，并把进度与速度推送到界面。返回的 Promise 在任务结束时完成（成功为 true，不会抛出） */
+function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): Promise<boolean> {
   currentTask = task
   cancelRequested = false
   status = { versionId, kind, state: 'running', phase: 'version', progress: 0, total: 0, speed: 0 }
@@ -138,7 +145,7 @@ function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): vo
     broadcast()
   }, 250)
 
-  task
+  return task
     .startAndWait({
       // 补丁、处理程序等步骤没有下载进度，开始时就切换阶段
       onStart(child) {
@@ -151,6 +158,7 @@ function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): vo
     })
     .then(() => {
       status = { ...status!, state: 'success', progress: task.total, total: task.total, speed: 0 }
+      return true
     })
     .catch((e: unknown) => {
       const cancelled = cancelRequested
@@ -161,6 +169,7 @@ function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): vo
         error: cancelled ? undefined : describeError(e)
       }
       if (!cancelled) console.error(`${kind === 'repair' ? '修复' : '安装'}失败：`, e)
+      return false
     })
     .finally(() => {
       clearInterval(timer)
@@ -248,7 +257,22 @@ async function exists(path: string): Promise<boolean> {
  * 所有步骤合并为一个任务，进度与取消都和普通安装一样。
  * allowExisting 为 true 时（重试）允许覆盖上次失败留下的同名版本。
  */
-export async function startCustomInstall(request: InstallRequest, allowExisting = false): Promise<void> {
+/**
+ * 安装完成后的附加步骤（例如整合包：下载模组、解压配置），在同一个任务中运行，进度与取消一并处理。
+ * gameDir 为该版本实际使用的游戏目录（遵循版本隔离设置）
+ */
+export type InstallExtraStep = (context: TaskContext, gameDir: string) => Promise<void>
+
+/** 附加步骤中可以 yield 子任务，让进度计入总进度 */
+export interface TaskContext {
+  yield<T>(task: Task<T>): Promise<T>
+}
+
+export async function startCustomInstall(
+  request: InstallRequest,
+  allowExisting = false,
+  extra?: InstallExtraStep
+): Promise<void> {
   assertIdle()
   const { minecraftVersion, fabricLoader, forgeVersion, neoforgeVersion, optifine } = request
   const name = request.name
@@ -262,10 +286,11 @@ export async function startCustomInstall(request: InstallRequest, allowExisting 
 
   const settings = await getSettings()
   const javaUser = forgeVersion ? 'Forge' : neoforgeVersion ? 'NeoForge' : optifine ? 'OptiFine' : ''
-  if (javaUser && !settings.javaPath) {
-    throw new Error(`安装 ${javaUser} 需要运行 Java，请先到「设置」页选择 Java`)
+  if (javaUser && !settings.javaAuto && !settings.javaPath) {
+    throw new Error(`安装 ${javaUser} 需要运行 Java，请先到「设置」页选择 Java，或开启「自动选择 Java」`)
   }
-  const isPlainVanilla = !fabricLoader && !forgeVersion && !neoforgeVersion && !optifine && name === minecraftVersion
+  const isPlainVanilla =
+    !extra && !fabricLoader && !forgeVersion && !neoforgeVersion && !optifine && name === minecraftVersion
   if (!isPlainVanilla) {
     if (name === minecraftVersion) {
       throw new Error('安装模组加载器时，版本名不能与原版相同')
@@ -304,16 +329,31 @@ export async function startCustomInstall(request: InstallRequest, allowExisting 
   }
 
   lastRequest = request
+  lastExtra = extra ?? null
+  lastJavaComponent = null
   const installAll = createTask('custom', async function () {
     await this.yield(installTask(meta, settings.gameDir, options))
     if (isPlainVanilla) return
+
+    // 运行安装程序用的 Java：自动模式下按该 Minecraft 版本的要求挑选，没有合适的就先下载
+    let javaPath = settings.javaPath
+    if (javaUser && settings.javaAuto) {
+      const requirement = requirementOf(await Version.parse(settings.gameDir, minecraftVersion))
+      const found = await pickJava(requirement)
+      if (found) {
+        javaPath = found.path
+      } else {
+        await this.yield(await createJavaInstallTask(requirement.component))
+        javaPath = javaExecutable(requirement.component)
+      }
+    }
 
     if (forgeVersion || neoforgeVersion) {
       // 安装器会自己下载依赖库并运行处理程序。它内部按默认版本名读取版本配置，
       // 所以先用默认名安装，完成后再复制成用户指定的名字
       const versionsDir = join(settings.gameDir, 'versions')
       const before = new Set(await readdir(versionsDir).catch(() => [] as string[]))
-      const installerOptions = { ...options, java: settings.javaPath }
+      const installerOptions = { ...options, java: javaPath }
       const loaderTask = forgeVersion
         ? installForgeTask({ mcversion: minecraftVersion, version: forgeVersion }, settings.gameDir, {
             ...installerOptions,
@@ -355,7 +395,7 @@ export async function startCustomInstall(request: InstallRequest, allowExisting 
         installOptifineTask(download.path, settings.gameDir, {
           versionId: name,
           inheritsFrom: minecraftVersion,
-          java: settings.javaPath
+          java: javaPath
         })
       )
     } else if (fabricArtifact) {
@@ -376,14 +416,47 @@ export async function startCustomInstall(request: InstallRequest, allowExisting 
     }
     const resolved = await Version.parse(settings.gameDir, name)
     await this.yield(installDependenciesTask(resolved, options))
+
+    if (extra) {
+      const loader = forgeVersion ? 'forge' : neoforgeVersion ? 'neoforge' : fabricLoader ? 'fabric' : undefined
+      await extra(this, versionGameDir(settings.gameDir, name, isIsolated(settings.versionIsolation, loader)))
+    }
   })
   runTask(name, 'install', installAll)
 }
 
+/**
+ * 下载 Java 运行时（设置页手动下载，或启动、安装时自动下载）。
+ * 返回下载好的 java 路径；失败或取消时抛出错误。
+ */
+export async function startJavaInstall(component: string): Promise<string> {
+  assertIdle()
+  const label = `Java ${JAVA_MAJOR[component] ?? component}`
+  lastJavaComponent = component
+  const javaTask = await createJavaInstallTask(component)
+  const ok = await runTask(label, 'java', javaTask as AnyInstallTask)
+  if (!ok) throw new Error(status?.state === 'cancelled' ? `已取消下载 ${label}` : `${label} 下载失败：${status?.error ?? ''}`)
+  return javaExecutable(component)
+}
+
+const JAVA_MAJOR: Record<string, number> = {
+  'jre-legacy': 8,
+  'java-runtime-alpha': 16,
+  'java-runtime-beta': 17,
+  'java-runtime-gamma': 17,
+  'java-runtime-delta': 21,
+  'java-runtime-epsilon': 25
+}
+
 /** 重试上一次的安装请求 */
 export async function retryLastInstall(): Promise<void> {
+  if (lastJavaComponent) {
+    // 下载在后台进行，进度通过 install:status 推送，这里不等待完成
+    startJavaInstall(lastJavaComponent).catch(() => undefined)
+    return
+  }
   if (!lastRequest) throw new Error('没有可以重试的安装')
-  await startCustomInstall(lastRequest, true)
+  await startCustomInstall(lastRequest, true, lastExtra ?? undefined)
 }
 
 /** 取消当前安装 */

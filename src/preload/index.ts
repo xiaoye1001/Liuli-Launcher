@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
   AppSettings,
@@ -6,6 +6,7 @@ import type {
   GameStatus,
   InstallRequest,
   InstallStatus,
+  ModpackSearchFilters,
   MsLoginStatus
 } from '../shared/types'
 
@@ -16,6 +17,8 @@ const api = {
     node: process.versions.node
   },
   scanJava: () => ipcRenderer.invoke('java:scan'),
+  getJavaRuntimes: () => ipcRenderer.invoke('java:runtimes'),
+  downloadJava: (component: string) => ipcRenderer.invoke('java:download', component),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch: Partial<AppSettings>) => ipcRenderer.invoke('settings:update', patch),
   getSystemInfo: () => ipcRenderer.invoke('system:info'),
@@ -46,6 +49,15 @@ const api = {
   deleteMod: (versionId: string, fileName: string) => ipcRenderer.invoke('mods:delete', versionId, fileName),
   addMods: (versionId: string) => ipcRenderer.invoke('mods:add', versionId),
   openModsDir: (versionId: string) => ipcRenderer.invoke('mods:open', versionId),
+  pickModpack: () => ipcRenderer.invoke('modpack:pick'),
+  installModpack: (name: string) => ipcRenderer.invoke('modpack:install', name),
+  loadModpackFile: (path: string) => ipcRenderer.invoke('modpack:loadFile', path),
+  searchModpacks: (query: string, offset: number, filters: ModpackSearchFilters) =>
+    ipcRenderer.invoke('modpack:search', query, offset, filters),
+  getModpackVersions: (projectId: string) => ipcRenderer.invoke('modpack:versions', projectId),
+  downloadModpack: (versionId: string) => ipcRenderer.invoke('modpack:download', versionId),
+  /** 拖入窗口的文件在本机的路径 */
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
   searchModrinth: (versionId: string, query: string, offset: number) =>
     ipcRenderer.invoke('modrinth:search', versionId, query, offset),
   installFromModrinth: (versionId: string, projectId: string) =>

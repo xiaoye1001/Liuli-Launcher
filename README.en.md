@@ -25,11 +25,12 @@ Glass-style UI · Dark & light themes · Fast downloads via mirrors · One-click
 - Choose a custom version name and attach a mod loader before installing:
   - **Forge**, **NeoForge** or **Fabric** (pick one)
   - **OptiFine** (on its own, or together with Forge)
+- **Modpacks**: search, filter and download Modrinth modpacks inside the launcher, or import a local modpack (just drag it onto the window). Modrinth (`.mrpack`), CurseForge, MultiMC / Prism and MCBBS (`.zip`) formats are supported; the matching Minecraft version and mod loader, every mod, and the bundled config files are installed in one go
 - "Check & repair" installed versions: only missing or corrupted files are downloaded again
 - Before deleting a version, the launcher checks whether other versions depend on it, and warns you if its folder contains worlds
 
 ### Launching
-- Detects installed Java runtimes and checks that the Java version meets the game's requirement
+- **Automatic Java**: picks the right Java for each game version and downloads it automatically when missing (the same Java runtimes as the official launcher); Java 8 / 17 / 21 / 25 can also be downloaded from Settings with one click, or chosen manually
 - Configurable game memory
 - Live game log window with search filtering and one-click copy
 - **Version isolation**: modded versions (or all versions) each get their own `mods`, worlds and config, so they never interfere with each other

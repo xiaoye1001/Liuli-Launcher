@@ -7,6 +7,7 @@ import {
   ExternalLink,
   FolderOpen,
   FolderSearch,
+  Download,
   ImageIcon,
   Rocket,
   Sparkles,
@@ -29,7 +30,9 @@ import type {
   AppSettings,
   DownloadSource,
   GameDirInfo,
+  InstallStatus,
   JavaInfo,
+  JavaRuntimeInfo,
   ThemeMode,
   VersionIsolation
 } from '../../../shared/types'
@@ -88,6 +91,10 @@ function SettingsPage(): JSX.Element {
   const memoryTimer = useRef<ReturnType<typeof setTimeout>>()
   const sliderTimer = useRef<ReturnType<typeof setTimeout>>()
   const [backgroundError, setBackgroundError] = useState('')
+  const [runtimes, setRuntimes] = useState<JavaRuntimeInfo[] | null>(null)
+  const [runtimesError, setRuntimesError] = useState('')
+  /** 当前的下载任务（用于显示 Java 下载进度） */
+  const [task, setTask] = useState<InstallStatus | null>(null)
   const [gameDir, setGameDir] = useState<GameDirInfo | null>(null)
   const [gameDirBusy, setGameDirBusy] = useState(false)
   const [gameDirError, setGameDirError] = useState('')
@@ -131,14 +138,34 @@ function SettingsPage(): JSX.Element {
     }
   }
 
+  const loadRuntimes = async (): Promise<void> => {
+    setRuntimesError('')
+    try {
+      setRuntimes(await window.api.getJavaRuntimes())
+    } catch (e) {
+      setRuntimesError(cleanError(e))
+    }
+  }
+
+  const downloadJava = async (component: string): Promise<void> => {
+    setRuntimesError('')
+    try {
+      await window.api.downloadJava(component)
+      await loadRuntimes()
+      if (settings) await scan(settings)
+    } catch (e) {
+      setRuntimesError(cleanError(e))
+    }
+  }
+
   const scan = async (current: AppSettings): Promise<void> => {
     setScanning(true)
     setError('')
     try {
       const list = await window.api.scanJava()
       setJavaList(list)
-      // 已保存的 Java 不存在时，自动选择版本最高的一个
-      if (list.length > 0 && !list.some((j) => j.path === current.javaPath)) {
+      // 手动模式下已保存的 Java 不存在时，自动选择版本最高的一个
+      if (!current.javaAuto && list.length > 0 && !list.some((j) => j.path === current.javaPath)) {
         await update({ javaPath: list[0].path })
       }
     } catch (e) {
@@ -162,7 +189,13 @@ function SettingsPage(): JSX.Element {
       await scan(loaded)
     }
     init()
-    return () => clearTimeout(memoryTimer.current)
+    loadRuntimes()
+    window.api.getInstallStatus().then(setTask)
+    const offStatus = window.api.onInstallStatus(setTask)
+    return () => {
+      clearTimeout(memoryTimer.current)
+      offStatus()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -419,7 +452,7 @@ function SettingsPage(): JSX.Element {
             <Coffee className="h-5 w-5 text-amber-300" />
             <div>
               <h2 className="text-lg font-semibold">Java 运行环境</h2>
-              <p className="text-xs text-white/50">自动扫描本机已安装的 Java，点击选择用于启动游戏的版本</p>
+              <p className="text-xs text-white/50">不同的游戏版本需要不同的 Java，推荐让启动器自动选择</p>
             </div>
           </div>
           <motion.button
@@ -434,25 +467,55 @@ function SettingsPage(): JSX.Element {
           </motion.button>
         </div>
 
-        <div className="mt-5 flex flex-col gap-2">
+        {/* 自动选择 */}
+        <div className="mt-5 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+          <div>
+            <div className="text-sm font-medium">自动选择 Java（推荐）</div>
+            <div className="text-xs text-white/50">
+              启动和安装时按游戏版本挑选合适的 Java，本机没有时自动下载。关闭后始终使用下方选中的 Java
+            </div>
+          </div>
+          <button
+            role="switch"
+            aria-checked={settings.javaAuto}
+            onClick={() => update({ javaAuto: !settings.javaAuto })}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+              settings.javaAuto ? 'bg-emerald-500' : 'bg-white/20'
+            }`}
+          >
+            <span
+              className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                settings.javaAuto ? 'left-6' : 'left-1'
+              }`}
+            />
+          </button>
+        </div>
+
+        <div className="mt-4 text-sm font-medium">
+          本机的 Java
+          <span className="ml-2 text-xs font-normal text-white/40">
+            {settings.javaAuto ? '点击可以改为手动指定' : '点击选择启动游戏使用的 Java'}
+          </span>
+        </div>
+        <div className="mt-2 flex flex-col gap-2">
           {error && (
             <div className="rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">扫描失败：{error}</div>
           )}
           {!scanning && !error && javaList.length === 0 && (
             <div className="rounded-xl bg-black/20 px-4 py-6 text-center text-sm text-white/50">
-              未找到任何 Java，请先安装 Java 17 或 Java 21
+              未找到任何 Java，可以在下方一键下载
             </div>
           )}
           <AnimatePresence>
             {javaList.map((java, index) => {
-              const active = java.path === settings.javaPath
+              const active = !settings.javaAuto && java.path === settings.javaPath
               return (
                 <motion.button
                   key={java.path}
                   initial={{ opacity: 0, x: -12 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  onClick={() => update({ javaPath: java.path })}
+                  onClick={() => update({ javaPath: java.path, javaAuto: false })}
                   className={`flex items-center gap-4 rounded-xl border px-4 py-3 text-left transition-colors ${
                     active
                       ? 'border-emerald-400/50 bg-emerald-500/15'
@@ -474,6 +537,61 @@ function SettingsPage(): JSX.Element {
             })}
           </AnimatePresence>
         </div>
+
+        {/* 下载 Java */}
+        <div className="mt-5 text-sm font-medium">
+          下载 Java
+          <span className="ml-2 text-xs font-normal text-white/40">与官方启动器相同的 Java 运行环境，保存在启动器数据目录</span>
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {runtimes === null && !runtimesError && (
+            <div className="col-span-2 flex items-center gap-2 px-1 py-2 text-xs text-white/50">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              正在获取可下载的 Java…
+            </div>
+          )}
+          {runtimes?.map((runtime) => {
+            const label = `Java ${runtime.majorVersion}`
+            const current = task?.kind === 'java' && task.versionId === label ? task : null
+            const downloading = current?.state === 'running'
+            const percent = current && current.total > 0 ? Math.round((current.progress / current.total) * 100) : 0
+            const busy = task?.state === 'running'
+            return (
+              <div key={runtime.component} className="flex items-center gap-3 rounded-xl bg-black/20 px-4 py-3">
+                <div className="flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10 font-mono font-bold">
+                  {runtime.majorVersion}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium">{label}</div>
+                  <div className="text-xs text-white/50">
+                    {downloading ? `下载中 ${percent}%` : runtime.installed ? `已下载 · ${runtime.version}` : runtime.version}
+                  </div>
+                  {downloading && (
+                    <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10">
+                      <div className="h-full rounded-full bg-emerald-400" style={{ width: `${percent}%` }} />
+                    </div>
+                  )}
+                </div>
+                {runtime.installed && !downloading ? (
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
+                ) : (
+                  <button
+                    onClick={() => downloadJava(runtime.component)}
+                    disabled={busy}
+                    title={busy && !downloading ? '有下载任务正在进行' : undefined}
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500 disabled:opacity-40"
+                  >
+                    {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                    下载
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        {runtimesError && (
+          <div className="mt-2 rounded-xl bg-red-500/20 px-4 py-2.5 text-sm text-red-200">{runtimesError}</div>
+        )}
       </section>
 
       {/* 内存分配 */}

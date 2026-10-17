@@ -1,4 +1,16 @@
 /** 一个可用的 Java 运行环境 */
+/** 启动器可以下载的 Java 运行环境（来自 Mojang 官方的 Java 运行时） */
+export interface JavaRuntimeInfo {
+  /** 组件名，例如 java-runtime-delta */
+  component: string
+  /** 主版本号，例如 21 */
+  majorVersion: number
+  /** 完整版本号，例如 21.0.7 */
+  version: string
+  /** 是否已经下载 */
+  installed: boolean
+}
+
 export interface JavaInfo {
   /** java 可执行文件的完整路径 */
   path: string
@@ -15,6 +27,8 @@ export type DownloadSource = 'mojang' | 'bmclapi'
 export interface AppSettings {
   /** 选中的 java 可执行文件路径，空字符串表示未选择 */
   javaPath: string
+  /** 自动选择 Java：按游戏版本的要求挑选合适的 Java，没有时自动下载 */
+  javaAuto: boolean
   /** 游戏最大内存（MB） */
   maxMemory: number
   /** 下载源 */
@@ -96,13 +110,13 @@ export interface VersionManifest {
 }
 
 /** 任务类型：安装新版本 / 检查并修复已安装版本 */
-export type InstallKind = 'install' | 'repair'
+export type InstallKind = 'install' | 'repair' | 'java'
 
 /** 安装状态 */
 export type InstallState = 'running' | 'success' | 'failed' | 'cancelled'
 
 /** 安装阶段：游戏本体（版本 json 与客户端 jar） → 依赖库与资源文件（并行下载） → 运行模组加载器安装程序 */
-export type InstallPhase = 'version' | 'dependencies' | 'processing'
+export type InstallPhase = 'version' | 'dependencies' | 'processing' | 'java' | 'modpack'
 
 /** 安装进度，由主进程实时推送到界面 */
 export interface InstallStatus {
@@ -327,4 +341,67 @@ export interface MsLoginStatus {
   error?: string
   /** 登录成功的账号 */
   account?: MicrosoftAccount
+}
+
+/** 整合包信息（从 .mrpack 中读取） */
+/** 整合包格式 */
+export type ModpackFormat = 'modrinth' | 'curseforge' | 'multimc' | 'mcbbs'
+
+export interface ModpackInfo {
+  format: ModpackFormat
+  /** 文件名 */
+  fileName: string
+  name: string
+  /** 整合包自身的版本号 */
+  version: string
+  summary: string
+  minecraftVersion: string
+  /** 模组加载器，原版整合包为 null */
+  loader: 'fabric' | 'forge' | 'neoforge' | 'quilt' | null
+  loaderVersion: string
+  /** 需要下载的文件数（已排除客户端不支持的文件） */
+  fileCount: number
+  /** 下载文件的总大小（字节），CurseForge 整合包在安装时才知道，为 0 */
+  totalSize: number
+  /** overrides 中的文件数（配置文件等） */
+  overrideCount: number
+}
+
+/** 整合包搜索的筛选条件 */
+export interface ModpackSearchFilters {
+  /** Minecraft 版本，例如 1.20.1 */
+  gameVersion?: string
+  /** 模组加载器：fabric / forge / neoforge / quilt */
+  loader?: string
+  /** Modrinth 分类，例如 optimization */
+  category?: string
+  /** 排序：relevance / downloads / follows / newest / updated，不填时有关键字按相关度、否则按下载量 */
+  sort?: string
+}
+
+/** Modrinth 上的整合包（搜索结果） */
+export interface ModrinthModpack {
+  projectId: string
+  title: string
+  description: string
+  author: string
+  iconUrl?: string
+  downloads: number
+  /** 支持的模组加载器，例如 fabric、forge */
+  loaders: string[]
+  /** 支持的最新 Minecraft 版本 */
+  latestGameVersion: string
+}
+
+/** 整合包的一个版本 */
+export interface ModrinthModpackVersion {
+  id: string
+  name: string
+  versionNumber: string
+  versionType: 'release' | 'beta' | 'alpha'
+  gameVersions: string[]
+  loaders: string[]
+  datePublished: string
+  /** .mrpack 文件大小（字节） */
+  fileSize: number
 }

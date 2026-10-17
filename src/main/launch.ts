@@ -6,10 +6,12 @@ import { createMinecraftProcessWatcher, launch, Version } from '@xmcl/core'
 import { getSettings } from './config'
 import { isIsolated, versionGameDir } from './isolation'
 import { getMicrosoftLaunchAuth } from './microsoft'
+import { pickJava, requirementOf } from './javaRuntime'
+import { startJavaInstall } from './install'
 import { onGameEnded, onGameWindowReady } from './windows'
 import { resolveJava } from './java'
 import { openLogWindow } from './logWindow'
-import type { GameLogEvent, GameStatus, InstalledVersion, ModLoader } from '../shared/types'
+import type { GameLogEvent, GameStatus, InstalledVersion, JavaInfo, ModLoader } from '../shared/types'
 
 /** 根据版本 json 的启动类与依赖库判断模组加载器 */
 export function detectLoader(json: { mainClass?: string; libraries?: { name?: string }[] }): ModLoader | undefined {
@@ -166,8 +168,8 @@ export async function launchGame(versionId: string): Promise<void> {
   launcherLog(`正在启动 ${versionId}`)
 
   try {
-    if (!settings.javaPath) {
-      throw new Error('尚未选择 Java，请先到「设置」页选择')
+    if (!settings.javaAuto && !settings.javaPath) {
+      throw new Error('尚未选择 Java，请先到「设置」页选择，或开启「自动选择 Java」')
     }
     // 微软账号会在这里自动刷新过期的令牌；离线账号使用玩家名生成固定的 UUID
     const msAuth = await getMicrosoftLaunchAuth()
@@ -182,15 +184,31 @@ export async function launchGame(versionId: string): Promise<void> {
       microsoft: false
     }
 
-    // 检查 Java 版本是否满足该游戏版本的要求
     const version = await Version.parse(settings.gameDir, versionId)
-    const required = version.javaVersion?.majorVersion ?? 8
-    const java = await resolveJava(settings.javaPath)
-    if (!java) {
-      throw new Error(`无法运行所选的 Java：${settings.javaPath}`)
-    }
-    if (java.majorVersion < required) {
-      throw new Error(`${versionId} 需要 Java ${required} 或更高版本，当前选择的是 Java ${java.majorVersion}`)
+    const requirement = requirementOf(version)
+    const required = requirement.majorVersion
+    let java: JavaInfo | undefined
+    if (settings.javaAuto) {
+      // 自动选择：挑选该版本需要的 Java，本机没有就自动下载
+      java = (await pickJava(requirement)) ?? undefined
+      if (!java) {
+        launcherLog(`本机没有合适的 Java ${required}，正在自动下载（进度见「下载」页）`)
+        const path = await startJavaInstall(requirement.component)
+        java = await resolveJava(path)
+        if (!java) throw new Error(`下载的 Java ${required} 无法运行`)
+        launcherLog(`Java ${required} 下载完成`)
+      }
+    } else {
+      // 手动选择：检查所选 Java 是否满足该游戏版本的要求
+      java = await resolveJava(settings.javaPath)
+      if (!java) {
+        throw new Error(`无法运行所选的 Java：${settings.javaPath}`)
+      }
+      if (java.majorVersion < required) {
+        throw new Error(
+          `${versionId} 需要 Java ${required} 或更高版本，当前选择的是 Java ${java.majorVersion}。可以在「设置」中开启「自动选择 Java」`
+        )
+      }
     }
     launcherLog(`Java ${java.version}：${java.path}`)
     launcherLog(`${auth.microsoft ? '微软账号' : '离线账号'} ${auth.name}，最大内存 ${settings.maxMemory} MB`)
@@ -202,7 +220,7 @@ export async function launchGame(versionId: string): Promise<void> {
     const proc = await launch({
       gamePath,
       resourcePath: settings.gameDir,
-      javaPath: settings.javaPath,
+      javaPath: java.path,
       version,
       maxMemory: settings.maxMemory,
       minMemory: Math.min(512, settings.maxMemory),

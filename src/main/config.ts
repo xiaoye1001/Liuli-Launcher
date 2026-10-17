@@ -16,6 +16,7 @@ function defaultSettings(): AppSettings {
   const totalMB = Math.floor(totalmem() / 1024 / 1024)
   return {
     javaPath: '',
+    javaAuto: true,
     maxMemory: Math.min(4096, Math.floor(totalMB / 2 / 256) * 256),
     downloadSource: 'bmclapi',
     gameDir: defaultGameDir(),
