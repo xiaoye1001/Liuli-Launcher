@@ -6,7 +6,8 @@ const PHASE_LABELS = {
   version: '正在下载游戏本体',
   dependencies: '正在下载依赖库与资源文件',
   processing: '正在运行模组加载器安装程序，可能需要几分钟',
-  java: '正在下载 Java 运行环境'
+  java: '正在下载 Java 运行环境',
+  modpack: '正在下载整合包的模组与配置文件'
 }
 
 /** 任务类型对应的动词（标题用） */

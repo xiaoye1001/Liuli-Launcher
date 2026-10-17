@@ -7,6 +7,7 @@ import {
   FlaskConical,
   FolderOpen,
   Loader2,
+  Package,
   Puzzle,
   RefreshCw,
   Search,
@@ -17,10 +18,12 @@ import {
 import InstallProgressCard from '../components/InstallProgressCard'
 import InstallSetupPage from './InstallSetupPage'
 import ModsPage from './ModsPage'
+import ModpackSetupPage from './ModpackSetupPage'
 import type {
   InstalledVersion,
   InstallStatus,
   ModLoader,
+  ModpackInfo,
   VersionEntry,
   VersionManifest,
   VersionType
@@ -89,6 +92,7 @@ function DownloadPage(): JSX.Element {
   const [actionError, setActionError] = useState('')
   const [setupFor, setSetupFor] = useState<VersionEntry | null>(null)
   const [modsFor, setModsFor] = useState<InstalledVersion | null>(null)
+  const [modpack, setModpack] = useState<ModpackInfo | null>(null)
   const lastState = useRef<string | undefined>(undefined)
   const tabRefs = useRef<Partial<Record<Filter, HTMLButtonElement | null>>>({})
   const [tabIndicator, setTabIndicator] = useState<{ left: number; width: number } | null>(null)
@@ -165,6 +169,17 @@ function DownloadPage(): JSX.Element {
   // 列表里的 layoutId 动画元素如果中途卸载，framer-motion 会卡住 App 的页面退场动画，导致切换页面后空白
   return (
     <>
+      {modpack && (
+        <div className="h-full animate-slide-in">
+          <ModpackSetupPage
+            modpack={modpack}
+            installedIds={installedIds}
+            busy={busy}
+            onBack={() => setModpack(null)}
+            onStarted={() => setModpack(null)}
+          />
+        </div>
+      )}
       {modsFor && (
         <div key={modsFor.id} className="h-full animate-slide-in">
           <ModsPage version={modsFor} onBack={() => setModsFor(null)} />
@@ -181,28 +196,45 @@ function DownloadPage(): JSX.Element {
           />
         </div>
       )}
-      <div className={`flex h-full flex-col gap-5 ${setupFor || modsFor ? 'hidden' : ''}`}>
+      <div className={`flex h-full flex-col gap-5 ${setupFor || modsFor || modpack ? 'hidden' : ''}`}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">下载游戏</h1>
             <p className="mt-1 text-xs text-white/50">
-              {manifest ? `当前下载源：${SOURCE_LABELS[manifest.source]} · 共 ${manifest.versions.length} 个版本` : '正在获取版本列表'}
+              {manifest
+                ? `当前下载源：${SOURCE_LABELS[manifest.source]} · 共 ${manifest.versions.length} 个版本`
+                : '正在获取版本列表'}
               {` · 已安装 ${installed.length} 个`}
             </p>
           </div>
-          <motion.button
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.96 }}
-            onClick={() => {
-              load(true)
-              loadInstalled()
-            }}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-60"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            刷新
-          </motion.button>
+          <div className="flex gap-3">
+            <button
+              onClick={() =>
+                run(async () => {
+                  const info = await window.api.pickModpack()
+                  if (info) setModpack(info)
+                })
+              }
+              title="导入 Modrinth 整合包（.mrpack）"
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+            >
+              <Package className="h-4 w-4" />
+              导入整合包
+            </button>
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => {
+                load(true)
+                loadInstalled()
+              }}
+              disabled={loading}
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-60"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              刷新
+            </motion.button>
+          </div>
         </div>
 
         {/* 安装进度 */}
@@ -336,7 +368,11 @@ function DownloadPage(): JSX.Element {
                           title="校验文件，重新下载缺失或损坏的部分"
                           className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          {repairing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wrench className="h-3.5 w-3.5" />}
+                          {repairing ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Wrench className="h-3.5 w-3.5" />
+                          )}
                           检查并修复
                         </button>
                         <button

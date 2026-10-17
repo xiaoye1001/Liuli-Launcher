@@ -116,7 +116,7 @@ export type InstallKind = 'install' | 'repair' | 'java'
 export type InstallState = 'running' | 'success' | 'failed' | 'cancelled'
 
 /** 安装阶段：游戏本体（版本 json 与客户端 jar） → 依赖库与资源文件（并行下载） → 运行模组加载器安装程序 */
-export type InstallPhase = 'version' | 'dependencies' | 'processing' | 'java'
+export type InstallPhase = 'version' | 'dependencies' | 'processing' | 'java' | 'modpack'
 
 /** 安装进度，由主进程实时推送到界面 */
 export interface InstallStatus {
@@ -341,4 +341,24 @@ export interface MsLoginStatus {
   error?: string
   /** 登录成功的账号 */
   account?: MicrosoftAccount
+}
+
+/** 整合包信息（从 .mrpack 中读取） */
+export interface ModpackInfo {
+  /** 文件名 */
+  fileName: string
+  name: string
+  /** 整合包自身的版本号 */
+  version: string
+  summary: string
+  minecraftVersion: string
+  /** 模组加载器，原版整合包为 null */
+  loader: 'fabric' | 'forge' | 'neoforge' | 'quilt' | null
+  loaderVersion: string
+  /** 需要下载的文件数（已排除客户端不支持的文件） */
+  fileCount: number
+  /** 下载文件的总大小（字节） */
+  totalSize: number
+  /** overrides 中的文件数（配置文件等） */
+  overrideCount: number
 }

@@ -25,6 +25,7 @@ Glass-style UI · Dark & light themes · Fast downloads via mirrors · One-click
 - Choose a custom version name and attach a mod loader before installing:
   - **Forge**, **NeoForge** or **Fabric** (pick one)
   - **OptiFine** (on its own, or together with Forge)
+- **Modpack import**: Modrinth modpacks (`.mrpack`) are installed in one go: the matching Minecraft version and mod loader, every mod, and the bundled config files
 - "Check & repair" installed versions: only missing or corrupted files are downloaded again
 - Before deleting a version, the launcher checks whether other versions depend on it, and warns you if its folder contains worlds
 

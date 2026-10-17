@@ -17,6 +17,7 @@ import type {
   AccountsInfo,
   MsLoginStatus,
   ModrinthInstallResult,
+  ModpackInfo,
   ModrinthSearchResult,
   SystemInfo,
   VersionManifest
@@ -61,6 +62,10 @@ declare global {
       addMods: (versionId: string) => Promise<number>
       openModsDir: (versionId: string) => Promise<void>
       searchModrinth: (versionId: string, query: string, offset: number) => Promise<ModrinthSearchResult>
+      /** 选择 .mrpack 整合包并读取信息，取消时返回 null */
+      pickModpack: () => Promise<ModpackInfo | null>
+      /** 安装最近选择的整合包（进度通过 onInstallStatus 推送） */
+      installModpack: (name: string) => Promise<void>
       installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>
       launchGame: (versionId: string) => Promise<void>
       getGameStatus: () => Promise<GameStatus>

@@ -28,6 +28,7 @@ import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
 import { deleteVersion, openVersionDir } from './versionManage'
 import { addMods, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
 import { installFromModrinth, searchModrinth } from './modrinth'
+import { installModpack, pickModpack } from './modpack'
 import {
   cancelMicrosoftLogin,
   getAccounts,
@@ -133,6 +134,8 @@ function registerIpc(): void {
   ipcMain.handle('ms:cancel', () => cancelMicrosoftLogin())
   ipcMain.handle('ms:status', () => getLoginStatus())
   ipcMain.handle('ms:openLoginPage', () => openLoginPage())
+  ipcMain.handle('modpack:pick', (event) => pickModpack(BrowserWindow.fromWebContents(event.sender)))
+  ipcMain.handle('modpack:install', (_, name: string) => installModpack(name))
   ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>
     searchModrinth(versionId, query, offset)
   )

@@ -48,6 +48,8 @@ const api = {
   deleteMod: (versionId: string, fileName: string) => ipcRenderer.invoke('mods:delete', versionId, fileName),
   addMods: (versionId: string) => ipcRenderer.invoke('mods:add', versionId),
   openModsDir: (versionId: string) => ipcRenderer.invoke('mods:open', versionId),
+  pickModpack: () => ipcRenderer.invoke('modpack:pick'),
+  installModpack: (name: string) => ipcRenderer.invoke('modpack:install', name),
   searchModrinth: (versionId: string, query: string, offset: number) =>
     ipcRenderer.invoke('modrinth:search', versionId, query, offset),
   installFromModrinth: (versionId: string, projectId: string) =>

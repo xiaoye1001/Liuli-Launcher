@@ -76,6 +76,7 @@ function forgeMavenHosts(source: DownloadSource): string[] {
 /** 根据任务路径判断当前阶段，例如 install.version.jar、install.dependencies.assets.asset */
 function phaseOf(path: string): InstallPhase {
   if (path.includes('installJava')) return 'java'
+  if (path.includes('modpack')) return 'modpack'
   if (path.includes('postProcessing') || path.includes('installOptifine')) return 'processing'
   return path.includes('dependencies') || path.includes('installForge') || path.includes('downloadOptifine')
     ? 'dependencies'
@@ -91,6 +92,8 @@ let cancelRequested = false
 let lastRequest: InstallRequest | null = null
 /** 上一次下载的 Java 组件；最近一次任务是下载 Java 时，「重试」重新下载它 */
 let lastJavaComponent: string | null = null
+/** 上一次安装的附加步骤（整合包），重试时一并执行 */
+let lastExtra: InstallExtraStep | null = null
 
 function broadcast(): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -254,7 +257,22 @@ async function exists(path: string): Promise<boolean> {
  * 所有步骤合并为一个任务，进度与取消都和普通安装一样。
  * allowExisting 为 true 时（重试）允许覆盖上次失败留下的同名版本。
  */
-export async function startCustomInstall(request: InstallRequest, allowExisting = false): Promise<void> {
+/**
+ * 安装完成后的附加步骤（例如整合包：下载模组、解压配置），在同一个任务中运行，进度与取消一并处理。
+ * gameDir 为该版本实际使用的游戏目录（遵循版本隔离设置）
+ */
+export type InstallExtraStep = (context: TaskContext, gameDir: string) => Promise<void>
+
+/** 附加步骤中可以 yield 子任务，让进度计入总进度 */
+export interface TaskContext {
+  yield<T>(task: Task<T>): Promise<T>
+}
+
+export async function startCustomInstall(
+  request: InstallRequest,
+  allowExisting = false,
+  extra?: InstallExtraStep
+): Promise<void> {
   assertIdle()
   const { minecraftVersion, fabricLoader, forgeVersion, neoforgeVersion, optifine } = request
   const name = request.name
@@ -271,7 +289,8 @@ export async function startCustomInstall(request: InstallRequest, allowExisting 
   if (javaUser && !settings.javaAuto && !settings.javaPath) {
     throw new Error(`安装 ${javaUser} 需要运行 Java，请先到「设置」页选择 Java，或开启「自动选择 Java」`)
   }
-  const isPlainVanilla = !fabricLoader && !forgeVersion && !neoforgeVersion && !optifine && name === minecraftVersion
+  const isPlainVanilla =
+    !extra && !fabricLoader && !forgeVersion && !neoforgeVersion && !optifine && name === minecraftVersion
   if (!isPlainVanilla) {
     if (name === minecraftVersion) {
       throw new Error('安装模组加载器时，版本名不能与原版相同')
@@ -310,6 +329,7 @@ export async function startCustomInstall(request: InstallRequest, allowExisting 
   }
 
   lastRequest = request
+  lastExtra = extra ?? null
   lastJavaComponent = null
   const installAll = createTask('custom', async function () {
     await this.yield(installTask(meta, settings.gameDir, options))
@@ -396,6 +416,11 @@ export async function startCustomInstall(request: InstallRequest, allowExisting 
     }
     const resolved = await Version.parse(settings.gameDir, name)
     await this.yield(installDependenciesTask(resolved, options))
+
+    if (extra) {
+      const loader = forgeVersion ? 'forge' : neoforgeVersion ? 'neoforge' : fabricLoader ? 'fabric' : undefined
+      await extra(this, versionGameDir(settings.gameDir, name, isIsolated(settings.versionIsolation, loader)))
+    }
   })
   runTask(name, 'install', installAll)
 }
@@ -431,7 +456,7 @@ export async function retryLastInstall(): Promise<void> {
     return
   }
   if (!lastRequest) throw new Error('没有可以重试的安装')
-  await startCustomInstall(lastRequest, true)
+  await startCustomInstall(lastRequest, true, lastExtra ?? undefined)
 }
 
 /** 取消当前安装 */

@@ -142,15 +142,21 @@ async function pickVersion(projectId: string, ctx: ModsContext): Promise<Modrint
   return versions.find((v) => v.version_type === 'release') ?? versions[0]
 }
 
+/** Modrinth 文件的下载地址：选择 BMCLAPI 下载源时，cdn.modrinth.com 的文件先走镜像，失败再用原地址 */
+export async function modrinthFileUrls(urls: string[]): Promise<string[]> {
+  const { downloadSource } = await getSettings()
+  if (downloadSource !== 'bmclapi') return urls
+  const mirrored = urls.filter((u) => u.startsWith(OFFICIAL_CDN)).map((u) => u.replace(OFFICIAL_CDN, MIRROR_CDN))
+  return [...mirrored, ...urls]
+}
+
+export { USER_AGENT as MODRINTH_USER_AGENT }
+
 /** 下载版本的主文件到 mods 文件夹，校验 SHA1 */
 async function downloadVersionFile(version: ModrinthVersion, dir: string): Promise<string> {
   const file = version.files.find((f) => f.primary) ?? version.files[0]
   if (!file) throw new Error(`${version.name} 没有可下载的文件`)
-  const { downloadSource } = await getSettings()
-  const urls =
-    downloadSource === 'bmclapi' && file.url.startsWith(OFFICIAL_CDN)
-      ? [file.url.replace(OFFICIAL_CDN, MIRROR_CDN), file.url]
-      : [file.url]
+  const urls = await modrinthFileUrls([file.url])
   await download({
     url: urls,
     destination: join(dir, file.filename),
