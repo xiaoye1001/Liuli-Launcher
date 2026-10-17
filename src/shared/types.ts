@@ -29,8 +29,12 @@ export interface AppSettings {
   javaPath: string
   /** 自动选择 Java：按游戏版本的要求挑选合适的 Java，没有时自动下载 */
   javaAuto: boolean
-  /** 游戏最大内存（MB） */
+  /** 游戏最大内存（MB），手动分配时使用 */
   maxMemory: number
+  /** 自动分配内存：按可用内存和模组数量决定 */
+  memoryAuto: boolean
+  /** 启动前检查游戏文件，自动补全缺失或损坏的文件 */
+  checkFiles: boolean
   /** 下载源 */
   downloadSource: DownloadSource
   /** 游戏目录（.minecraft） */
@@ -598,6 +602,21 @@ export interface MicrosoftAccount {
   /** 正版皮肤（PNG 的 data URL），没有自定义皮肤时为空 */
   skin: string
   skinModel: SkinModel
+}
+
+/** 自动分配内存的结果（单位 MB） */
+export interface MemoryPlan {
+  /** 本次分配的最大内存 */
+  memory: number
+  /** 按版本和模组数量算出的建议值 */
+  recommended: number
+  total: number
+  /** 当前可用内存；macOS 上无法准确获取，为 null */
+  free: number | null
+  /** 启用的模组数量 */
+  mods: number
+  /** 是否因为可用内存不足而少分配了 */
+  limited: boolean
 }
 
 /** 正版账号拥有的披风 */

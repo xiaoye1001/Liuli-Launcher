@@ -1,5 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
+  MemoryPlan,
   MsSkinProfile,
   AppSettings,
   FabricLoaderVersion,
@@ -62,6 +63,8 @@ declare global {
       getSettings: () => Promise<AppSettings>
       updateSettings: (patch: Partial<AppSettings>) => Promise<AppSettings>
       getSystemInfo: () => Promise<SystemInfo>
+      /** 预览某个版本自动分配的内存；版本无法读取时返回 null */
+      previewMemory: (versionId: string) => Promise<MemoryPlan | null>
       getVersionList: (force?: boolean) => Promise<VersionManifest>
       startInstall: (request: InstallRequest) => Promise<void>
       retryInstall: () => Promise<void>

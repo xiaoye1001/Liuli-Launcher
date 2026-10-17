@@ -2,13 +2,15 @@ import { createHash } from 'crypto'
 import { readdir, readFile } from 'fs/promises'
 import { join } from 'path'
 import { BrowserWindow } from 'electron'
-import { createMinecraftProcessWatcher, launch, Version } from '@xmcl/core'
+import { createMinecraftProcessWatcher, launch, Version, type ResolvedVersion } from '@xmcl/core'
 import { getSettings } from './config'
 import { versionGameDir } from './isolation'
 import { getVersionConfig, isCustomized, isolatedWith, splitArgs } from './versionConfig'
 import { getMicrosoftLaunchAuth } from './microsoft'
 import { pickJava, requirementOf } from './javaRuntime'
-import { startJavaInstall } from './install'
+import { completeMissingFiles, startJavaInstall } from './install'
+import { countMissing, findMissingFiles, type MissingFiles } from './fileCheck'
+import { autoMemory } from './memory'
 import { onGameEnded, onGameWindowReady } from './windows'
 import { resolveJava } from './java'
 import { openLogWindow } from './logWindow'
@@ -16,7 +18,7 @@ import { collectCrash } from './crashReport'
 import { recordSession } from './playStats'
 import { parseAddress } from './serverPing'
 import { ensureAuthlibInjector } from './authlibInjector'
-import type { GameLogEvent, GameStatus, InstalledVersion, JavaInfo, ModLoader } from '../shared/types'
+import type { GameLogEvent, GameStatus, InstalledVersion, JavaInfo, MemoryPlan, ModLoader } from '../shared/types'
 
 /** 根据版本 json 的启动类与依赖库判断模组加载器 */
 export function detectLoader(json: { mainClass?: string; libraries?: { name?: string }[] }): ModLoader | undefined {
@@ -185,6 +187,55 @@ export function supportsQuickPlay(minecraftVersion: string): boolean {
   return false
 }
 
+function describePlan(plan: MemoryPlan): string {
+  const parts = [plan.mods > 0 ? `${plan.mods} 个模组，建议 ${plan.recommended} MB` : `建议 ${plan.recommended} MB`]
+  if (plan.free !== null) parts.push(`当前可用 ${plan.free} MB`)
+  return parts.join('，')
+}
+
+/** 启动前检查游戏文件，只下载缺失或损坏的文件 */
+async function ensureGameFiles(versionId: string, version: ResolvedVersion): Promise<void> {
+  launcherLog('正在检查游戏文件')
+  let missing: MissingFiles
+  try {
+    missing = await findMissingFiles(version)
+  } catch (e) {
+    launcherLog(`检查游戏文件时出错，已跳过：${e instanceof Error ? e.message : String(e)}`)
+    return
+  }
+  if (missing.unfixable.length > 0) {
+    launcherLog(
+      `缺少 ${missing.unfixable.length} 个无法自动下载的文件（${missing.unfixable.slice(0, 3).join('、')}），如果启动失败请重新安装该版本`
+    )
+  }
+  const count = countMissing(missing)
+  if (count === 0) {
+    launcherLog('游戏文件完整')
+    return
+  }
+  launcherLog(`发现 ${count} 个缺失或损坏的文件，正在自动补全（进度见「下载」页）`)
+  await completeMissingFiles(versionId, version, missing)
+  launcherLog('游戏文件已补全')
+}
+
+/** 预览某个版本自动分配的内存（用于设置页显示） */
+export async function previewMemory(versionId: string): Promise<MemoryPlan | null> {
+  const settings = await getSettings()
+  try {
+    const version = await Version.parse(settings.gameDir, versionId)
+    const config = await getVersionConfig(versionId, settings.gameDir)
+    const loader = detectLoader(version)
+    const gamePath = versionGameDir(
+      settings.gameDir,
+      versionId,
+      isolatedWith(config, settings.versionIsolation, loader)
+    )
+    return await autoMemory(loader, gamePath)
+  } catch {
+    return null
+  }
+}
+
 /** 启动游戏。server 不为空时，进入游戏后直接连接该服务器 */
 export async function launchGame(versionId: string, server?: string): Promise<void> {
   if (status.state === 'launching' || status.state === 'running') {
@@ -203,7 +254,6 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     const config = await getVersionConfig(versionId, settings.gameDir)
     const javaAuto = config.javaMode === 'global' ? settings.javaAuto : config.javaMode === 'auto'
     const javaPath = config.javaMode === 'custom' ? config.javaPath : settings.javaPath
-    const maxMemory = config.maxMemory || settings.maxMemory
     const jvmArgs = splitArgs(config.jvmArgs)
     const gameArgs = splitArgs(config.gameArgs)
     if (!javaAuto && !javaPath) {
@@ -262,7 +312,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       : 'yggdrasil' in auth && auth.yggdrasil
         ? `外置账号（${auth.yggdrasil.serverName}）`
         : '离线账号'
-    launcherLog(`${accountLabel} ${auth.name}，最大内存 ${maxMemory} MB`)
+    launcherLog(`${accountLabel} ${auth.name}`)
     // 外置登录：通过 authlib-injector 让游戏使用皮肤站的验证服务器
     const yggdrasilAgent =
       'yggdrasil' in auth && auth.yggdrasil
@@ -277,6 +327,21 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     const isolated = isolatedWith(config, settings.versionIsolation, detectLoader(version))
     const gamePath = versionGameDir(settings.gameDir, versionId, isolated)
     launcherLog(`游戏目录：${gamePath}${isolated ? '（版本隔离）' : ''}`)
+
+    if (settings.checkFiles) await ensureGameFiles(versionId, version)
+
+    // 版本单独设置了内存时优先使用；否则按全局设置自动或手动分配
+    let maxMemory = config.maxMemory || settings.maxMemory
+    if (!config.maxMemory && settings.memoryAuto) {
+      const plan = await autoMemory(detectLoader(version), gamePath)
+      maxMemory = plan.memory
+      launcherLog(`自动分配内存 ${maxMemory} MB（${describePlan(plan)}）`)
+      if (plan.limited) {
+        launcherLog('当前可用内存不足，已少分配一些；如果游戏卡顿或崩溃，请关闭其他程序后再启动')
+      }
+    } else {
+      launcherLog(`最大内存 ${maxMemory} MB`)
+    }
 
     const proc = await launch({
       gamePath,

@@ -22,7 +22,7 @@ import {
   startJavaInstall,
   startRepair
 } from './install'
-import { getGameLogs, getGameStatus, launchGame, listInstalledVersions } from './launch'
+import { getGameLogs, getGameStatus, launchGame, listInstalledVersions, previewMemory } from './launch'
 import { closeLogWindow, openLogWindow } from './logWindow'
 import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
 import { assertSafeId, deleteVersion, openVersionDir } from './versionManage'
@@ -307,6 +307,7 @@ function registerIpc(): void {
     const dir = await pickGameDir(BrowserWindow.fromWebContents(event.sender))
     return dir ? setGameDir(dir) : null
   })
+  ipcMain.handle('memory:preview', (_, versionId: string) => previewMemory(versionId))
   ipcMain.handle(
     'system:info',
     async (): Promise<SystemInfo> => ({

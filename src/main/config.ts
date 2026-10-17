@@ -18,6 +18,8 @@ function defaultSettings(): AppSettings {
     javaPath: '',
     javaAuto: true,
     maxMemory: Math.min(4096, Math.floor(totalMB / 2 / 256) * 256),
+    memoryAuto: true,
+    checkFiles: true,
     downloadSource: 'bmclapi',
     gameDir: defaultGameDir(),
     offlineName: 'Steve',

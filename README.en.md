@@ -39,7 +39,8 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 
 ### Launching
 - **Automatic Java**: picks the right Java for each game version and downloads it automatically when missing (the same Java runtimes as the official launcher); Java 8 / 17 / 21 / 25 can also be downloaded from Settings with one click, or chosen manually
-- Configurable game memory
+- **Automatic memory allocation** (on by default): decided at launch from available memory and the number of mods (2 GB for vanilla, from 3 GB for modded versions and more with more mods), or set it manually
+- **File check before launch**: missing or corrupted game jars, libraries and assets are downloaded automatically before the game starts; only the broken files are fetched (can be turned off in Settings)
 - Live game log window with search filtering and one-click copy
 - **Play stats**: tracks total playtime and launch count for each version; Home shows your recently played versions so you can launch them in one click, plus a timer for the current session
 - **Crash analysis**: after a crash, the launcher reads the game output, crash report and Java crash log and explains the cause and how to fix it: missing dependencies, mods that don't match the game version or conflict with each other, duplicate mods, Mixin failures, Java too old or too new, out of memory, invalid JVM arguments, graphics drivers, incompatible OptiFine, corrupted files and more. You can open the crash report directly, or export all related files as a zip to ask others for help

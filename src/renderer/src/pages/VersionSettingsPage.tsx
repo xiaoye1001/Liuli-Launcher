@@ -263,7 +263,7 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
           <Segmented
             value={memoryDraft ? 'custom' : 'global'}
             options={[
-              ['global', `跟随全局（${formatMemory(global.maxMemory)}）`],
+              ['global', `跟随全局（${global.memoryAuto ? '自动分配' : formatMemory(global.maxMemory)}）`],
               ['custom', '单独设置']
             ]}
             onChange={(mode) => setMemory(mode === 'global' ? 0 : memoryDraft || global.maxMemory)}
