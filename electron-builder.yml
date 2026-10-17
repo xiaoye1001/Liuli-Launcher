@@ -45,7 +45,14 @@ nsis:
   deleteAppDataOnUninstall: false
 mac:
   target: [dmg]
-  artifactName: LiuliLauncher-${version}.${ext}
+  artifactName: LiuliLauncher-${version}-${arch}.${ext}
+  category: public.app-category.games
+  # 没有 Apple 开发者证书：使用临时签名（ad-hoc），否则 Apple 芯片的 Mac 无法运行
+  identity: '-'
+  hardenedRuntime: false
+  gatekeeperAssess: false
+dmg:
+  title: 琉璃启动器 ${version}
 linux:
   target: [AppImage]
   executableName: liuli-launcher

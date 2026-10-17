@@ -117,6 +117,8 @@ The portable version unpacks itself on every start, so it launches a few seconds
 
 `build:mac` / `build:linux` build a macOS dmg and a Linux AppImage respectively, and must be run on those systems.
 
+To publish a new version, go to Actions → Release → Run workflow and enter the version (e.g. `0.2.0`). Windows, macOS (Apple silicon and Intel) and Linux builds are created and published to Releases automatically. The macOS build is not signed with an Apple developer certificate: right-click → **Open** the first time, and if macOS says the app is damaged, run `xattr -cr /Applications/琉璃启动器.app` in Terminal.
+
 ## Microsoft login
 
 Minecraft's login API only accepts **Azure apps approved by Mojang**. The Client ID is compiled into the app **at build time**: it is not shown in the UI and not stored in the source code (so others can't simply reuse it). To build with Microsoft login, first register your own Client ID:

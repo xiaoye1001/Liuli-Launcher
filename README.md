@@ -113,6 +113,8 @@ npm run build:win
 
 `build:mac` / `build:linux` 分别用于打包 macOS（dmg）和 Linux（AppImage），需要在对应系统上运行。
 
+发布新版本时，在仓库的 Actions → Release → Run workflow 中填写版本号（例如 `0.2.0`），会自动打包 Windows、macOS（Apple 芯片与 Intel）、Linux 三个平台并发布到 Releases。macOS 版本没有 Apple 开发者签名，第一次打开需要右键 →「打开」；提示「已损坏」时在终端运行 `xattr -cr /Applications/琉璃启动器.app`。
+
 ## 微软正版登录
 
 Minecraft 的登录接口只允许 **经过 Mojang 审核的 Azure 应用** 使用。Client ID 在**构建时**写入程序，界面中不会显示，也不保存在源码里（避免被他人直接复用）。自己构建时需要先申请一个 Client ID：

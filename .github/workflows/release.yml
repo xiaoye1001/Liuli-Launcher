@@ -1,6 +1,8 @@
-# 发布流程：在 GitHub 网页上发布 Release（Releases → Draft a new release → Publish release）后，
-# 同时打包 Linux 免安装版（AppImage）与 Windows 安装版 / 免安装版（exe），全部上传到这个 Release，
-# 并在说明末尾追加下载与运行方法。
+# 发布流程，两种触发方式：
+# 1. 在 GitHub 网页上发布 Release（Releases → Draft a new release → Publish release）
+# 2. 在 Actions → Release → Run workflow 中填写版本号（例如 0.2.0），自动创建 v0.2.0 标签与 Release
+# 同时打包 Windows（安装版 / 免安装版 exe）、macOS（dmg，Apple 芯片与 Intel）、Linux（AppImage），
+# 全部上传到 Release，并在说明末尾追加下载与运行方法。
 # 微软登录的 Client ID 来自仓库 Secret（Settings → Secrets and variables → Actions → MS_CLIENT_ID），
 # 没有设置时打包出的版本只能使用离线账号。
 name: Release
@@ -8,6 +10,15 @@ name: Release
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 版本号（不带 v，例如 0.2.0）
+        required: true
+
+env:
+  # 版本号：手动运行时取输入，发布 Release 时取标签（v0.2.0 → 0.2.0）
+  VERSION: ${{ inputs.version || github.event.release.tag_name }}
 
 permissions:
   contents: write
@@ -32,8 +43,8 @@ jobs:
         run: npm ci
 
       # 版本号以发布时的标签为准（例如 v0.1.2 → 0.1.2），不用每次手动修改 package.json
-      - name: Use version from tag
-        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+      - name: Set version
+        run: npm version "${VERSION#v}" --no-git-tag-version --allow-same-version
 
       - name: Type check
         run: npm run typecheck
@@ -70,8 +81,8 @@ jobs:
         run: npm ci
 
       # 版本号以发布时的标签为准（例如 v0.1.2 → 0.1.2），不用每次手动修改 package.json
-      - name: Use version from tag
-        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+      - name: Set version
+        run: npm version "${VERSION#v}" --no-git-tag-version --allow-same-version
 
       # 同时生成安装版（NSIS）与免安装版（portable），配置见 electron-builder.yml
       - name: Build installer and portable exe
@@ -88,10 +99,43 @@ jobs:
             dist/LiuliLauncher-Portable-*.exe
           if-no-files-found: error
 
-  # 两个平台都打包成功后，一次性上传，避免并行修改 Release 说明时互相覆盖
+  mac:
+    name: macOS dmg
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Use official download sources
+        run: sed -i '' '/mirror/d' .npmrc
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set version
+        run: npm version "${VERSION#v}" --no-git-tag-version --allow-same-version
+
+      # 分别打包 Apple 芯片（arm64）与 Intel（x64）版本；没有开发者证书，使用临时签名，配置见 electron-builder.yml
+      - name: Build dmg
+        env:
+          MAIN_VITE_MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npm run build && npx electron-builder --mac --arm64 --x64 --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: dist/*.dmg
+          if-no-files-found: error
+
+  # 所有平台都打包成功后，一次性上传，避免并行修改 Release 说明时互相覆盖
   publish:
     name: Upload to release
-    needs: [linux, windows]
+    needs: [linux, windows, mac]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/download-artifact@v4
@@ -103,6 +147,10 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          # 手动运行时创建新的标签与 Release（发布 Release 触发时这两项为空，沿用原来的 Release）
+          tag_name: ${{ inputs.version && format('v{0}', inputs.version) || '' }}
+          name: ${{ inputs.version && format('琉璃启动器 v{0}', inputs.version) || '' }}
+          target_commitish: ${{ inputs.version && github.sha || '' }}
           files: release/*
           fail_on_unmatched_files: true
           # 保留发布时填写的说明，在末尾追加下载与运行方法
@@ -114,11 +162,21 @@ jobs:
             |---|---|---|
             | Windows | `LiuliLauncher-Setup-*.exe` | 安装版：可以选择安装位置，创建桌面与开始菜单快捷方式 |
             | Windows | `LiuliLauncher-Portable-*.exe` | 免安装版：双击直接运行，数据保存在 exe 旁边的 `LiuliLauncher-Data` 文件夹 |
+            | macOS（Apple 芯片 M1 及以上） | `LiuliLauncher-*-arm64.dmg` | 打开后把「琉璃启动器」拖进「应用程序」 |
+            | macOS（Intel 芯片） | `LiuliLauncher-*-x64.dmg` | 同上 |
             | Linux | `LiuliLauncher-*.AppImage` | 免安装版：添加执行权限后直接运行 |
 
             ### Windows
             - 安装包没有代码签名，首次运行如果提示「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」
             - 安装版的数据保存在 `%APPDATA%\mc_launcher`，卸载时不会删除
+
+            ### macOS
+            - 没有 Apple 开发者签名，第一次打开如果提示「无法验证开发者」，在「应用程序」中右键点「琉璃启动器」→「打开」
+            - 如果提示「已损坏，无法打开」，在「终端」中运行下面的命令后再打开：
+              ```bash
+              xattr -cr /Applications/琉璃启动器.app
+              ```
+            - 数据保存在 `~/Library/Application Support/mc_launcher`
 
             ### Linux
             ```bash
