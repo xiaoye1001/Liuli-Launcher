@@ -439,6 +439,18 @@ export interface WorldInfo {
   damaged: boolean
 }
 
+/** 存档备份（游戏目录 backups 文件夹里的 zip） */
+export interface WorldBackup {
+  file: string
+  /** 备份的存档文件夹名 */
+  world: string
+  /** 备份时间（毫秒时间戳） */
+  createdAt: number
+  size: number
+  /** 原存档是否还在 */
+  worldExists: boolean
+}
+
 export interface WorldList {
   versionId: string
   /** saves 文件夹 */

@@ -1,5 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
+  WorldBackup,
   MemoryPlan,
   MsSkinProfile,
   AppSettings,
@@ -97,6 +98,16 @@ declare global {
       backupWorld: (versionId: string, folder: string) => Promise<{ path: string; size: number }>
       openWorldDir: (versionId: string, folder?: string) => Promise<void>
       openBackupsDir: (versionId: string) => Promise<void>
+      /** 列出存档备份（新的在前） */
+      listWorldBackups: (versionId: string) => Promise<WorldBackup[]>
+      /** 还原备份：asNew 为 true 时还原为新存档，否则覆盖原存档（会先自动备份当前存档） */
+      restoreWorldBackup: (
+        versionId: string,
+        file: string,
+        asNew: boolean
+      ) => Promise<{ folder: string; safetyBackup?: string }>
+      /** 删除备份（移到回收站） */
+      deleteWorldBackup: (versionId: string, file: string) => Promise<void>
       /** 从 zip 导入存档，返回文件夹名；取消时返回 null */
       importWorld: (versionId: string) => Promise<string | null>
       listWorldDatapacks: (versionId: string, folder: string) => Promise<WorldDatapack[]>

@@ -50,6 +50,9 @@ import {
 import {
   addWorldDatapacks,
   backupWorld,
+  deleteWorldBackup,
+  listWorldBackups,
+  restoreWorldBackup,
   deleteWorld,
   deleteWorldDatapack,
   importWorld,
@@ -216,6 +219,11 @@ function registerIpc(): void {
   ipcMain.handle('worlds:backup', (_, versionId: string, folder: string) => backupWorld(versionId, folder))
   ipcMain.handle('worlds:open', (_, versionId: string, folder?: string) => openWorldDir(versionId, folder))
   ipcMain.handle('worlds:openBackups', (_, versionId: string) => openBackupsDir(versionId))
+  ipcMain.handle('worlds:backups', (_, versionId: string) => listWorldBackups(versionId))
+  ipcMain.handle('worlds:restore', (_, versionId: string, file: string, asNew: boolean) =>
+    restoreWorldBackup(versionId, file, asNew === true)
+  )
+  ipcMain.handle('worlds:deleteBackup', (_, versionId: string, file: string) => deleteWorldBackup(versionId, file))
   ipcMain.handle('worlds:import', (event, versionId: string) =>
     importWorld(versionId, BrowserWindow.fromWebContents(event.sender))
   )
