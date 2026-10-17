@@ -35,8 +35,6 @@ export interface AppSettings {
   versionIsolation: VersionIsolation
   /** 当前使用的账号：'offline' 为离线账号，否则为微软账号的 UUID */
   activeAccount: string
-  /** 微软登录使用的 Azure 应用 Client ID（需经 Mojang 审核） */
-  msClientId: string
   /** 主题色 */
   accentColor: AccentColor
   /** 自定义背景图片（用户数据目录 backgrounds 下的文件名），空字符串表示使用默认渐变背景 */
@@ -311,6 +309,8 @@ export interface AccountsInfo {
   /** 当前使用的账号：'offline' 或微软账号的 UUID */
   active: string
   accounts: MicrosoftAccount[]
+  /** 当前构建是否开启了微软登录（构建时配置了 Client ID） */
+  loginAvailable: boolean
 }
 
 /** 微软登录进度 */

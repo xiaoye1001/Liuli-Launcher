@@ -97,7 +97,7 @@ npm run build:win
 
 ## 微软正版登录
 
-Minecraft 的登录接口只允许 **经过 Mojang 审核的 Azure 应用** 使用，所以你需要自己申请一个 Client ID：
+Minecraft 的登录接口只允许 **经过 Mojang 审核的 Azure 应用** 使用。Client ID 在**构建时**写入程序，界面中不会显示，也不保存在源码里（避免被他人直接复用）。自己构建时需要先申请一个 Client ID：
 
 1. 登录 [Azure 门户](https://portal.azure.com)，搜索「**应用注册**」→「**新注册**」：
    - 名称：例如 `Liuli Launcher`
@@ -105,9 +105,14 @@ Minecraft 的登录接口只允许 **经过 Mojang 审核的 Azure 应用** 使�
    - 重定向 URI：留空
 2. 在应用的「**身份验证**」中，把「**允许公共客户端流**」设为「是」并保存（不需要创建客户端密码）
 3. 在 [Mojang 审核表单](https://aka.ms/mce-reviewappid) 提交申请，选择 *New AppID for Approval*，并填写「概述」页中的应用程序(客户端) ID 和目录(租户) ID
-4. 审核通过后，打开启动器 →「账号」→「登录设置」，填入 Client ID 并保存，然后点「添加微软账号」
+4. 把项目根目录的 `.env.example` 复制为 `.env`，填入 Client ID：
+   ```
+   MAIN_VITE_MS_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   ```
+   `.env` 已加入 `.gitignore`，不会被提交。之后 `npm run dev` 与打包出的程序都会开启微软登录
+5. 用 GitHub Actions 发布时，在仓库的 Settings → Secrets and variables → Actions 中添加名为 `MS_CLIENT_ID` 的 Secret
 
-审核通过前，登录会在最后一步提示「未通过 Mojang 审核」，这是正常的。离线账号不受影响。
+没有配置 Client ID 时，「添加微软账号」按钮不可用，只能使用离线账号。审核通过前，登录会在最后一步提示「未通过 Mojang 审核」，这是正常的。
 
 ## 数据存放位置
 

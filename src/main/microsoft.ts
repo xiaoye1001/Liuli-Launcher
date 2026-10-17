@@ -70,7 +70,7 @@ function publicAccount(a: StoredAccount): MicrosoftAccount {
 export async function getAccounts(): Promise<AccountsInfo> {
   const [accounts, settings] = await Promise.all([loadAccounts(), getSettings()])
   const active = accounts.some((a) => a.uuid === settings.activeAccount) ? settings.activeAccount : 'offline'
-  return { active, accounts: accounts.map(publicAccount) }
+  return { active, accounts: accounts.map(publicAccount), loginAvailable: isMicrosoftLoginAvailable() }
 }
 
 export async function setActiveAccount(id: string): Promise<AccountsInfo> {
@@ -123,10 +123,20 @@ function describeOAuthError(result: { error?: string; error_description?: string
   }
 }
 
-function assertClientId(clientId: string): void {
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientId)) {
-    throw new Error('请先在账号页填写 Azure 应用的 Client ID（形如 xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx）')
-  }
+/**
+ * Azure 应用的 Client ID（需经 Mojang 审核）。构建时从环境变量 MAIN_VITE_MS_CLIENT_ID 读取：
+ * 本地开发写在项目根目录的 .env 文件中（不会提交到 Git），GitHub Actions 发布时来自仓库 Secret。
+ * 不写在源码里，避免别人直接复用你的 Client ID。
+ */
+const CLIENT_ID = (import.meta.env.MAIN_VITE_MS_CLIENT_ID ?? '').trim()
+
+/** 当前构建是否配置了微软登录 */
+export function isMicrosoftLoginAvailable(): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(CLIENT_ID)
+}
+
+function assertLoginAvailable(): void {
+  if (!isMicrosoftLoginAvailable()) throw new Error('当前版本没有开启微软登录，请使用离线账号')
 }
 
 // ---------- Xbox → Minecraft ----------
@@ -244,10 +254,9 @@ const sleep = (ms: number, signal: AbortSignal): Promise<void> =>
  */
 export async function startMicrosoftLogin(): Promise<MsLoginStatus> {
   if (loginStatus.state === 'waiting' || loginStatus.state === 'authorizing') return loginStatus
-  const { msClientId } = await getSettings()
-  assertClientId(msClientId)
+  assertLoginAvailable()
 
-  const device = await oauthPost('devicecode', { client_id: msClientId, scope: SCOPE })
+  const device = await oauthPost('devicecode', { client_id: CLIENT_ID, scope: SCOPE })
   if (!device.device_code) throw new Error(describeOAuthError(device))
 
   const abort = new AbortController()
@@ -266,7 +275,7 @@ export async function startMicrosoftLogin(): Promise<MsLoginStatus> {
           'token',
           {
             grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-            client_id: msClientId,
+            client_id: CLIENT_ID,
             device_code: device.device_code
           },
           abort.signal
@@ -313,12 +322,11 @@ async function ensureFresh(account: StoredAccount): Promise<StoredAccount> {
   const pending = refreshing.get(account.uuid)
   if (pending) return pending
   const task = (async () => {
-    const { msClientId } = await getSettings()
-    assertClientId(msClientId)
+    assertLoginAvailable()
     const refreshToken = unseal(account.refreshToken, account.encrypted)
     const result = await oauthPost('token', {
       grant_type: 'refresh_token',
-      client_id: msClientId,
+      client_id: CLIENT_ID,
       refresh_token: refreshToken,
       scope: SCOPE
     })

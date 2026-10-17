@@ -145,7 +145,6 @@ function AccountPage(): JSX.Element {
             settings={settings}
             accounts={accounts}
             onAccountsChange={setAccounts}
-            onSettingsChange={update}
           />
         </section>
 

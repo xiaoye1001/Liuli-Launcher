@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, ChevronDown, ExternalLink, KeyRound, Loader2, LogIn, Trash2, X } from 'lucide-react'
+import { CheckCircle2, ExternalLink, Loader2, LogIn, Trash2, X } from 'lucide-react'
 import SkinHead from './SkinHead'
 import type { AccountsInfo, AppSettings, MsLoginStatus } from '../../../shared/types'
-
-const CLIENT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function cleanError(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e)
@@ -14,15 +12,12 @@ interface AccountListProps {
   settings: AppSettings
   accounts: AccountsInfo
   onAccountsChange: (accounts: AccountsInfo) => void
-  onSettingsChange: (patch: Partial<AppSettings>) => Promise<void>
 }
 
-/** 账号列表：离线账号 + 微软账号，添加微软账号（设备代码登录），以及 Client ID 设置 */
-function AccountList({ settings, accounts, onAccountsChange, onSettingsChange }: AccountListProps): JSX.Element {
+/** 账号列表：离线账号 + 微软账号，添加微软账号（设备代码登录） */
+function AccountList({ settings, accounts, onAccountsChange }: AccountListProps): JSX.Element {
   const [login, setLogin] = useState<MsLoginStatus>({ state: 'idle' })
   const [error, setError] = useState('')
-  const [showConfig, setShowConfig] = useState(!settings.msClientId)
-  const [clientId, setClientId] = useState(settings.msClientId)
 
   useEffect(() => {
     window.api.getMicrosoftLoginStatus().then(setLogin)
@@ -44,20 +39,7 @@ function AccountList({ settings, accounts, onAccountsChange, onSettingsChange }:
 
   const startLogin = (): Promise<void> =>
     run(async () => {
-      if (!CLIENT_ID_PATTERN.test(settings.msClientId)) {
-        setShowConfig(true)
-        throw new Error('请先填写并保存 Azure 应用的 Client ID')
-      }
       setLogin(await window.api.startMicrosoftLogin())
-    })
-
-  const saveClientId = (): Promise<void> =>
-    run(async () => {
-      const value = clientId.trim()
-      if (value && !CLIENT_ID_PATTERN.test(value))
-        throw new Error('Client ID 格式不正确，应形如 xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
-      await onSettingsChange({ msClientId: value })
-      if (value) setShowConfig(false)
     })
 
   const loggingIn = login.state === 'waiting' || login.state === 'authorizing'
@@ -145,74 +127,17 @@ function AccountList({ settings, accounts, onAccountsChange, onSettingsChange }:
       )}
       {error && <div className="rounded-xl bg-red-500/20 px-4 py-2.5 text-sm text-red-200">{error}</div>}
 
-      <div className="flex gap-3">
-        <button
-          onClick={startLogin}
-          disabled={loggingIn}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 px-4 py-2.5 text-sm font-semibold shadow-lg shadow-sky-500/20 disabled:opacity-50"
-        >
-          <LogIn className="h-4 w-4" />
-          添加微软账号
-        </button>
-        <button
-          onClick={() => setShowConfig((v) => !v)}
-          className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 text-sm hover:bg-white/20"
-        >
-          <KeyRound className="h-4 w-4" />
-          登录设置
-          <ChevronDown className={`h-4 w-4 transition-transform ${showConfig ? 'rotate-180' : ''}`} />
-        </button>
-      </div>
-
-      {/* Client ID 设置 */}
-      {showConfig && (
-        <div className="rounded-xl bg-black/20 p-4">
-          <div className="text-sm font-medium">Azure 应用 Client ID</div>
-          <div className="mt-2 flex gap-2">
-            <input
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              spellCheck={false}
-              className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/20 px-3 py-2 font-mono text-sm outline-none focus:border-sky-400/70"
-            />
-            <button
-              onClick={saveClientId}
-              disabled={clientId.trim() === settings.msClientId}
-              className="rounded-lg bg-emerald-500/80 px-4 py-2 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
-            >
-              保存
-            </button>
-          </div>
-          <ol className="mt-3 list-decimal space-y-1 pl-5 text-xs leading-5 text-white/50">
-            <li>
-              在{' '}
-              <a
-                href="https://portal.azure.com"
-                target="_blank"
-                rel="noreferrer"
-                className="text-sky-300 hover:underline"
-              >
-                Azure 门户
-              </a>{' '}
-              注册应用，账户类型选「仅个人 Microsoft 帐户」；
-            </li>
-            <li>在应用的「身份验证」中开启「允许公共客户端流」；</li>
-            <li>
-              在{' '}
-              <a
-                href="https://aka.ms/mce-reviewappid"
-                target="_blank"
-                rel="noreferrer"
-                className="text-sky-300 hover:underline"
-              >
-                Mojang 审核表单
-              </a>{' '}
-              提交应用申请 Minecraft 接口权限（未通过审核时登录会在最后一步失败）；
-            </li>
-            <li>审核通过后，把「应用程序(客户端) ID」填到上面并保存。</li>
-          </ol>
-        </div>
+      <button
+        onClick={startLogin}
+        disabled={loggingIn || !accounts.loginAvailable}
+        title={accounts.loginAvailable ? undefined : '当前版本没有开启微软登录'}
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 px-4 py-2.5 text-sm font-semibold shadow-lg shadow-sky-500/20 disabled:opacity-50"
+      >
+        <LogIn className="h-4 w-4" />
+        添加微软账号
+      </button>
+      {!accounts.loginAvailable && (
+        <p className="text-xs text-white/40">当前版本没有开启微软登录，可以使用离线账号。</p>
       )}
     </div>
   )

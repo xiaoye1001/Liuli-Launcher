@@ -32,6 +32,10 @@ jobs:
         run: npm run typecheck
 
       - name: Build AppImage
+        # 微软登录的 Client ID 来自仓库 Secret（Settings → Secrets and variables → Actions → MS_CLIENT_ID），
+        # 没有设置时打包出的版本只能使用离线账号
+        env:
+          MAIN_VITE_MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
         run: npm run build && npx electron-builder --linux AppImage --publish never
 
       - name: Upload to release
