@@ -8,7 +8,15 @@ import { modsContextOf } from './mods'
 import { parseNbt, type NbtCompound } from './nbt'
 import { readPackMeta } from './resources'
 import { zipDirectory } from './zipWriter'
-import type { WorldBackup, WorldDatapack, WorldGameMode, WorldInfo, WorldList } from '../shared/types'
+import type {
+  WorldBackup,
+  WorldDatapack,
+  WorldDetails,
+  WorldDifficulty,
+  WorldGameMode,
+  WorldInfo,
+  WorldList
+} from '../shared/types'
 
 const GAME_MODES: WorldGameMode[] = ['survival', 'creative', 'adventure', 'spectator']
 const MAX_ICON_BYTES = 256 * 1024
@@ -82,6 +90,153 @@ export async function listWorldInfos(versionId: string): Promise<WorldList> {
   }
   worlds.sort((a, b) => b.lastPlayed - a.lastPlayed)
   return { versionId, dir, worlds }
+}
+
+const DIFFICULTIES: WorldDifficulty[] = ['peaceful', 'easy', 'normal', 'hard']
+/** 旧版本（1.16 之前）的世界类型名 */
+const LEGACY_WORLD_TYPES: Record<string, string> = {
+  default: 'normal',
+  default_1_1: 'normal',
+  flat: 'flat',
+  largebiomes: 'large_biomes',
+  amplified: 'amplified',
+  debug_all_block_states: 'debug',
+  customized: 'custom'
+}
+
+function compound(value: unknown): NbtCompound | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as NbtCompound) : undefined
+}
+
+function num(value: unknown): number | undefined {
+  if (typeof value === 'number') return value
+  if (typeof value === 'bigint') return Number(value)
+  return undefined
+}
+
+/** 世界类型：1.16 起在 WorldGenSettings 的主世界生成器里，之前是 generatorName */
+function worldTypeOf(data: NbtCompound): string | undefined {
+  const legacy = str(data.generatorName).toLowerCase()
+  if (legacy) return LEGACY_WORLD_TYPES[legacy] ?? legacy
+  const generator = compound(
+    compound(compound(compound(data.WorldGenSettings)?.dimensions)?.['minecraft:overworld'])?.generator
+  )
+  if (!generator) return undefined
+  const type = str(generator.type).replace(/^minecraft:/, '')
+  if (type === 'flat') return 'flat'
+  if (type === 'debug') return 'debug'
+  if (type === 'noise') {
+    const biomeSource = compound(generator.biome_source)
+    if (str(biomeSource?.type).replace(/^minecraft:/, '') === 'fixed') return 'single_biome'
+    const settings = typeof generator.settings === 'string' ? generator.settings.replace(/^minecraft:/, '') : 'custom'
+    return settings === 'overworld' ? 'normal' : settings
+  }
+  return type || undefined
+}
+
+/** 游戏规则：新版本的值是字符串，个别版本是数字或字节 */
+function gameRulesOf(data: NbtCompound): { key: string; value: string }[] {
+  const rules = compound(data.GameRules) ?? compound(data.game_rules) ?? {}
+  return Object.entries(rules).map(([key, value]) => ({
+    key,
+    value:
+      typeof value === 'string' ? value : typeof value === 'number' || typeof value === 'bigint' ? String(value) : ''
+  }))
+}
+
+/** 维度名：旧版本是数字 */
+function dimensionName(value: unknown): string {
+  if (typeof value === 'string') return value.replace(/^minecraft:/, '')
+  if (value === -1) return 'the_nether'
+  if (value === 1) return 'the_end'
+  return 'overworld'
+}
+
+/** 文件夹占用的空间 */
+async function folderSize(dir: string): Promise<number> {
+  let total = 0
+  const entries = await readdir(dir, { withFileTypes: true, recursive: true }).catch(() => [])
+  for (const entry of entries) {
+    if (!entry.isFile()) continue
+    total +=
+      (await stat(join(entry.parentPath ?? (entry as { path?: string }).path ?? dir, entry.name)).catch(() => null))
+        ?.size ?? 0
+  }
+  return total
+}
+
+/** 读取存档详情：种子、难度、世界类型、时间、天气、出生点、玩家位置、游戏规则等 */
+export async function getWorldDetails(versionId: string, folder: string): Promise<WorldDetails> {
+  const dir = await worldDir(versionId, folder)
+  let root: NbtCompound
+  try {
+    root = parseNbt(await readFile(join(dir, 'level.dat')), { exactLongs: true })
+  } catch {
+    throw new Error('level.dat 无法读取，存档可能已损坏')
+  }
+  const data = compound(root.Data)
+  if (!data) throw new Error('level.dat 无法读取，存档可能已损坏')
+
+  const seed = compound(data.WorldGenSettings)?.seed ?? data.RandomSeed
+  // 较新的版本把难度放进 difficulty_settings
+  const difficultySettings = compound(data.difficulty_settings)
+  const difficultyValue = difficultySettings?.difficulty ?? data.Difficulty
+  const difficulty =
+    typeof difficultyValue === 'string'
+      ? DIFFICULTIES.find((d) => d === difficultyValue.replace(/^minecraft:/, ''))
+      : DIFFICULTIES[num(difficultyValue) ?? -1]
+  const dayTime = num(data.DayTime) ?? num(data.Time)
+  let timeOfDay: string | undefined
+  if (dayTime !== undefined) {
+    // 第 0 刻是早上 6 点，1000 刻为 1 小时
+    const ticks = ((dayTime % 24000) + 24000) % 24000
+    const minutes = Math.floor(((ticks / 1000 + 6) % 24) * 60)
+    timeOfDay = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+  }
+
+  // 出生点：旧格式 SpawnX/Y/Z，较新的版本为 spawn.pos
+  let spawn: WorldDetails['spawn']
+  const spawnPos = compound(data.spawn)?.pos
+  if (Array.isArray(spawnPos) && spawnPos.length >= 3) {
+    spawn = { x: Number(spawnPos[0]), y: Number(spawnPos[1]), z: Number(spawnPos[2]) }
+  } else if (num(data.SpawnX) !== undefined) {
+    spawn = { x: num(data.SpawnX)!, y: num(data.SpawnY) ?? 0, z: num(data.SpawnZ)! }
+  }
+
+  let player: WorldDetails['player']
+  const playerData = compound(data.Player)
+  const pos = playerData?.Pos
+  if (playerData && Array.isArray(pos) && pos.length >= 3) {
+    player = {
+      x: Math.floor(Number(pos[0])),
+      y: Math.floor(Number(pos[1])),
+      z: Math.floor(Number(pos[2])),
+      dimension: dimensionName(playerData.Dimension),
+      health: num(playerData.Health),
+      food: num(playerData.foodLevel),
+      level: num(playerData.XpLevel)
+    }
+  }
+
+  const enabledPacks = compound(data.DataPacks)?.Enabled
+  return {
+    folder,
+    seed: typeof seed === 'bigint' || typeof seed === 'number' ? BigInt(seed).toString() : undefined,
+    difficulty,
+    difficultyLocked: (difficultySettings?.locked ?? data.DifficultyLocked) === 1,
+    worldType: worldTypeOf(data),
+    day: dayTime !== undefined ? Math.floor(dayTime / 24000) + 1 : undefined,
+    timeOfDay,
+    weather: data.thundering === 1 ? 'thunder' : data.raining === 1 ? 'rain' : 'clear',
+    spawn,
+    player,
+    gameRules: gameRulesOf(data),
+    size: await folderSize(dir),
+    // 只算存档 datapacks 文件夹里的（file/ 开头），不算原版和模组自带的
+    datapacks: Array.isArray(enabledPacks)
+      ? enabledPacks.filter((p) => typeof p === 'string' && p.startsWith('file/')).length
+      : 0
+  }
 }
 
 /** 删除存档：移到系统回收站 */

@@ -1,7 +1,7 @@
 import { gunzipSync, inflateSync } from 'zlib'
 
-/** NBT 解析结果：复合标签为对象，列表与数组为数组，long 转为 number */
-export type NbtValue = number | string | NbtValue[] | { [key: string]: NbtValue } | number[]
+/** NBT 解析结果：复合标签为对象，列表与数组为数组，long 转为 number（exactLongs 时为 bigint） */
+export type NbtValue = number | bigint | string | NbtValue[] | { [key: string]: NbtValue } | number[]
 export type NbtCompound = { [key: string]: NbtValue }
 
 const MAX_DEPTH = 64
@@ -10,7 +10,10 @@ const MAX_SIZE = 32 * 1024 * 1024
 
 class Reader {
   offset = 0
-  constructor(private readonly buf: Buffer) {}
+  constructor(
+    private readonly buf: Buffer,
+    private readonly exactLongs = false
+  ) {}
 
   private need(n: number): void {
     if (n < 0 || this.offset + n > this.buf.length) throw new Error('NBT 数据不完整')
@@ -31,11 +34,11 @@ class Reader {
     this.offset += 4
     return v
   }
-  long(): number {
+  long(): number | bigint {
     this.need(8)
     const v = this.buf.readBigInt64BE(this.offset)
     this.offset += 8
-    return Number(v)
+    return this.exactLongs ? v : Number(v)
   }
   float(): number {
     this.need(4)
@@ -107,7 +110,7 @@ class Reader {
       }
       case 12: {
         const n = this.length(8)
-        return Array.from({ length: n }, () => this.long())
+        return Array.from({ length: n }, () => Number(this.long()))
       }
       default:
         throw new Error(`未知的 NBT 类型：${type}`)
@@ -115,12 +118,15 @@ class Reader {
   }
 }
 
-/** 解析 NBT 文件（自动识别 gzip / zlib 压缩），返回根复合标签 */
-export function parseNbt(data: Buffer): NbtCompound {
+/**
+ * 解析 NBT 文件（自动识别 gzip / zlib 压缩），返回根复合标签。
+ * exactLongs 为 true 时 long 保留为 bigint（例如世界种子，转成 number 会丢失精度）
+ */
+export function parseNbt(data: Buffer, options: { exactLongs?: boolean } = {}): NbtCompound {
   let buf = data
   if (data[0] === 0x1f && data[1] === 0x8b) buf = gunzipSync(data, { maxOutputLength: MAX_SIZE })
   else if (data[0] === 0x78) buf = inflateSync(data, { maxOutputLength: MAX_SIZE })
-  const reader = new Reader(buf)
+  const reader = new Reader(buf, options.exactLongs)
   if (reader.byte() !== 10) throw new Error('不是有效的 NBT 文件')
   reader.string()
   return reader.payload(10, 0) as NbtCompound

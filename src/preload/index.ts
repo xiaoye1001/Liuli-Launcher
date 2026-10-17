@@ -69,6 +69,7 @@ const api = {
   openLocalResourceDir: (versionId: string, kind: LocalResourceKind) =>
     ipcRenderer.invoke('local:open', versionId, kind),
   listWorldInfos: (versionId: string) => ipcRenderer.invoke('worlds:list', versionId),
+  getWorldDetails: (versionId: string, folder: string) => ipcRenderer.invoke('worlds:details', versionId, folder),
   deleteWorld: (versionId: string, folder: string) => ipcRenderer.invoke('worlds:delete', versionId, folder),
   backupWorld: (versionId: string, folder: string) => ipcRenderer.invoke('worlds:backup', versionId, folder),
   openWorldDir: (versionId: string, folder?: string) => ipcRenderer.invoke('worlds:open', versionId, folder),

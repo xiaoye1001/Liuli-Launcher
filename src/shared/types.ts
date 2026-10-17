@@ -587,6 +587,33 @@ export interface WorldInfo {
   damaged: boolean
 }
 
+export type WorldDifficulty = 'peaceful' | 'easy' | 'normal' | 'hard'
+
+/** 存档详情（读取自 level.dat） */
+export interface WorldDetails {
+  folder: string
+  /** 世界种子（十进制字符串，64 位整数不能用普通数字表示） */
+  seed?: string
+  difficulty?: WorldDifficulty
+  difficultyLocked: boolean
+  /** 世界类型：normal / flat / large_biomes / amplified / single_biome / debug，或其他生成器的 ID */
+  worldType?: string
+  /** 游戏内第几天 */
+  day?: number
+  /** 游戏内时刻（例如 06:30） */
+  timeOfDay?: string
+  weather: 'clear' | 'rain' | 'thunder'
+  spawn?: { x: number; y: number; z: number }
+  /** 单人游戏的玩家信息 */
+  player?: { x: number; y: number; z: number; dimension: string; health?: number; food?: number; level?: number }
+  /** 游戏规则（按 level.dat 中的顺序） */
+  gameRules: { key: string; value: string }[]
+  /** 存档文件夹占用的空间（字节） */
+  size: number
+  /** 启用的数据包数量 */
+  datapacks: number
+}
+
 /** 存档备份（游戏目录 backups 文件夹里的 zip） */
 export interface WorldBackup {
   file: string

@@ -63,6 +63,7 @@ import {
   importWorld,
   listWorldDatapacks,
   listWorldInfos,
+  getWorldDetails,
   openBackupsDir,
   openWorldDatapacksDir,
   openWorldDir
@@ -269,6 +270,7 @@ function registerIpc(): void {
     addLocalResources(versionId, kind, BrowserWindow.fromWebContents(event.sender))
   )
   ipcMain.handle('worlds:list', (_, versionId: string) => listWorldInfos(versionId))
+  ipcMain.handle('worlds:details', (_, versionId: string, folder: string) => getWorldDetails(versionId, folder))
   ipcMain.handle('worlds:delete', (_, versionId: string, folder: string) => deleteWorld(versionId, folder))
   ipcMain.handle('worlds:backup', (_, versionId: string, folder: string) => backupWorld(versionId, folder))
   ipcMain.handle('worlds:open', (_, versionId: string, folder?: string) => openWorldDir(versionId, folder))

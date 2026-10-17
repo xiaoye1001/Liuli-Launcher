@@ -40,6 +40,7 @@ import type {
   LocalResourceList,
   WorldDatapack,
   WorldList,
+  WorldDetails,
   SavedServer,
   ServerStatus,
   UpdateInfo,
@@ -113,6 +114,8 @@ declare global {
       openLocalResourceDir: (versionId: string, kind: LocalResourceKind) => Promise<void>
       /** 版本的存档列表 */
       listWorldInfos: (versionId: string) => Promise<WorldList>
+      /** 存档详情：种子、难度、游戏规则等 */
+      getWorldDetails: (versionId: string, folder: string) => Promise<WorldDetails>
       /** 删除存档（移到回收站） */
       deleteWorld: (versionId: string, folder: string) => Promise<void>
       /** 备份存档为 zip，返回路径与大小 */
