@@ -92,6 +92,12 @@ function phaseOf(path: string): InstallPhase {
 
 type AnyInstallTask = Task<unknown>
 
+/** 没有子任务的任务（实际下载或解压文件的任务） */
+function isLeafTask(task: Task<unknown>): boolean {
+  const children = (task as { children?: unknown[] }).children
+  return !Array.isArray(children) || children.length === 0
+}
+
 let status: InstallStatus | null = null
 let currentTask: AnyInstallTask | null = null
 let cancelRequested = false
@@ -159,6 +165,9 @@ function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): Pr
         if (status) status.phase = phaseOf(child.path)
       },
       onUpdate(child, chunkSize) {
+        // 父任务会把子任务的进度再报告一遍（一直报告到最外层），只统计真正在下载的任务，
+        // 否则速度会按任务层数被重复计算，阶段也总是显示成最外层任务的「游戏本体」
+        if (!isLeafTask(child)) return
         bytesInWindow += chunkSize
         if (status) status.phase = phaseOf(child.path)
       }
