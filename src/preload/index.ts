@@ -100,6 +100,8 @@ const api = {
   installFromModrinth: (versionId: string, projectId: string) =>
     ipcRenderer.invoke('modrinth:install', versionId, projectId),
   launchGame: (versionId: string, server?: string) => ipcRenderer.invoke('game:launch', versionId, server),
+  checkUpdate: () => ipcRenderer.invoke('update:check'),
+  openUpdateLink: (kind: 'asset' | 'page') => ipcRenderer.invoke('update:open', kind),
   listServers: () => ipcRenderer.invoke('servers:list'),
   saveServer: (server: Omit<SavedServer, 'id'> & { id?: string }) => ipcRenderer.invoke('servers:save', server),
   deleteServer: (id: string) => ipcRenderer.invoke('servers:delete', id),

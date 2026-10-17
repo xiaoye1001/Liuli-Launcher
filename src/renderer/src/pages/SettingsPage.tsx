@@ -9,6 +9,7 @@ import {
   FolderSearch,
   Download,
   ImageIcon,
+  Info,
   Rocket,
   Sparkles,
   Layers,
@@ -24,6 +25,7 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import { backgroundUrl } from '../utils/appearance'
+import { downloadLabel, ReleaseNotes } from '../components/UpdateNotice'
 import type {
   AccentColor,
   AfterLaunch,
@@ -34,6 +36,7 @@ import type {
   JavaInfo,
   JavaRuntimeInfo,
   ThemeMode,
+  UpdateInfo,
   VersionIsolation
 } from '../../../shared/types'
 
@@ -285,7 +288,11 @@ function SettingsPage(): JSX.Element {
         <div className="mt-3 flex items-center gap-4">
           <div
             className="h-16 w-28 shrink-0 rounded-lg border border-white/10 bg-cover bg-center app-background"
-            style={settings.backgroundImage ? { backgroundImage: `url("${backgroundUrl(settings.backgroundImage)}")` } : undefined}
+            style={
+              settings.backgroundImage
+                ? { backgroundImage: `url("${backgroundUrl(settings.backgroundImage)}")` }
+                : undefined
+            }
           />
           <div className="flex flex-wrap gap-3">
             <button
@@ -498,9 +505,7 @@ function SettingsPage(): JSX.Element {
           </span>
         </div>
         <div className="mt-2 flex flex-col gap-2">
-          {error && (
-            <div className="rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">扫描失败：{error}</div>
-          )}
+          {error && <div className="rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">扫描失败：{error}</div>}
           {!scanning && !error && javaList.length === 0 && (
             <div className="rounded-xl bg-black/20 px-4 py-6 text-center text-sm text-white/50">
               未找到任何 Java，可以在下方一键下载
@@ -517,9 +522,7 @@ function SettingsPage(): JSX.Element {
                   transition={{ delay: index * 0.05 }}
                   onClick={() => update({ javaPath: java.path, javaAuto: false })}
                   className={`flex items-center gap-4 rounded-xl border px-4 py-3 text-left transition-colors ${
-                    active
-                      ? 'border-emerald-400/50 bg-emerald-500/15'
-                      : 'border-white/5 bg-black/20 hover:bg-black/30'
+                    active ? 'border-emerald-400/50 bg-emerald-500/15' : 'border-white/5 bg-black/20 hover:bg-black/30'
                   }`}
                 >
                   <div className="flex h-10 w-12 shrink-0 items-center justify-center rounded-lg bg-white/10 font-mono text-lg font-bold">
@@ -541,7 +544,9 @@ function SettingsPage(): JSX.Element {
         {/* 下载 Java */}
         <div className="mt-5 text-sm font-medium">
           下载 Java
-          <span className="ml-2 text-xs font-normal text-white/40">与官方启动器相同的 Java 运行环境，保存在启动器数据目录</span>
+          <span className="ml-2 text-xs font-normal text-white/40">
+            与官方启动器相同的 Java 运行环境，保存在启动器数据目录
+          </span>
         </div>
         <div className="mt-2 grid grid-cols-2 gap-2">
           {runtimes === null && !runtimesError && (
@@ -564,7 +569,11 @@ function SettingsPage(): JSX.Element {
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">{label}</div>
                   <div className="text-xs text-white/50">
-                    {downloading ? `下载中 ${percent}%` : runtime.installed ? `已下载 · ${runtime.version}` : runtime.version}
+                    {downloading
+                      ? `下载中 ${percent}%`
+                      : runtime.installed
+                        ? `已下载 · ${runtime.version}`
+                        : runtime.version}
                   </div>
                   {downloading && (
                     <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10">
@@ -581,7 +590,11 @@ function SettingsPage(): JSX.Element {
                     title={busy && !downloading ? '有下载任务正在进行' : undefined}
                     className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500 disabled:opacity-40"
                   >
-                    {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                    {downloading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Download className="h-3.5 w-3.5" />
+                    )}
                     下载
                   </button>
                 )}
@@ -729,7 +742,121 @@ function SettingsPage(): JSX.Element {
           })}
         </div>
       </section>
+
+      {/* 关于与更新 */}
+      <AboutSection
+        autoCheck={settings.autoCheckUpdate}
+        onAutoCheckChange={(value) => update({ autoCheckUpdate: value })}
+      />
     </div>
+  )
+}
+
+/** 关于：当前版本、检查更新 */
+function AboutSection({
+  autoCheck,
+  onAutoCheckChange
+}: {
+  autoCheck: boolean
+  onAutoCheckChange: (value: boolean) => void
+}): JSX.Element {
+  const [checking, setChecking] = useState(false)
+  const [info, setInfo] = useState<UpdateInfo | null>(null)
+  const [error, setError] = useState('')
+
+  const check = async (): Promise<void> => {
+    setChecking(true)
+    setError('')
+    try {
+      setInfo(await window.api.checkUpdate())
+    } catch (e) {
+      setError(cleanError(e))
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Info className="h-5 w-5 text-sky-300" />
+          <div>
+            <h2 className="text-lg font-semibold">关于</h2>
+            <p className="text-xs text-white/50">琉璃启动器 v{__APP_VERSION__}</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => window.api.openUpdateLink('page')}
+            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+          >
+            <ExternalLink className="h-4 w-4" />
+            GitHub
+          </button>
+          <button
+            onClick={check}
+            disabled={checking}
+            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-60"
+          >
+            {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            检查更新
+          </button>
+        </div>
+      </div>
+
+      {error && <div className="mt-4 rounded-xl bg-red-500/20 px-4 py-2.5 text-sm text-red-200">{error}</div>}
+      {info && !info.hasUpdate && (
+        <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-500/15 px-4 py-2.5 text-sm text-emerald-200">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          已经是最新版本（v{info.current}）
+        </div>
+      )}
+      {info?.hasUpdate && (
+        <div className="mt-4 rounded-xl bg-black/20 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="font-medium">发现新版本 v{info.latest}</div>
+              <div className="text-xs text-white/50">
+                当前版本 v{info.current}
+                {info.publishedAt && ` · 发布于 ${new Date(info.publishedAt).toLocaleDateString('zh-CN')}`}
+              </div>
+            </div>
+            <button
+              onClick={() => window.api.openUpdateLink('asset')}
+              title={downloadLabel(info)}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2 text-sm font-medium"
+            >
+              <Download className="h-4 w-4" />
+              下载新版本
+            </button>
+          </div>
+          <div className="mt-3">
+            <ReleaseNotes notes={info.notes} />
+          </div>
+          <p className="mt-2 text-xs text-white/40">
+            会用浏览器下载{info.assetName ? `「${info.assetName}」` : ''}。安装新版本后，设置、账号和游戏文件都会保留。
+          </p>
+        </div>
+      )}
+
+      <div className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+        <div>
+          <div className="text-sm font-medium">启动时自动检查更新</div>
+          <div className="text-xs text-white/50">发现新版本时在窗口右下角提示</div>
+        </div>
+        <button
+          role="switch"
+          aria-checked={autoCheck}
+          onClick={() => onAutoCheckChange(!autoCheck)}
+          className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${autoCheck ? 'bg-emerald-500' : 'bg-white/20'}`}
+        >
+          <span
+            className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${autoCheck ? 'left-6' : 'left-1'}`}
+          />
+        </button>
+      </div>
+    </section>
   )
 }
 

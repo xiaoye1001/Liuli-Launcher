@@ -60,6 +60,7 @@ import {
 import { exportCrashInfo, openCrashFile } from './crashReport'
 import { deleteServer, importGameServers, listServers, moveServer, saveServer } from './servers'
 import { pingServer } from './serverPing'
+import { checkUpdate, openUpdateLink } from './updater'
 import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
 import {
   cancelMicrosoftLogin,
@@ -235,6 +236,8 @@ function registerIpc(): void {
     installFromModrinth(versionId, projectId)
   )
   ipcMain.handle('game:launch', (_, versionId: string, server?: string) => launchGame(versionId, server))
+  ipcMain.handle('update:check', () => checkUpdate())
+  ipcMain.handle('update:open', (_, kind: 'asset' | 'page') => openUpdateLink(kind))
   ipcMain.handle('servers:list', () => listServers())
   ipcMain.handle('servers:save', (_, server: Omit<SavedServer, 'id'> & { id?: string }) => saveServer(server))
   ipcMain.handle('servers:delete', (_, id: string) => deleteServer(id))

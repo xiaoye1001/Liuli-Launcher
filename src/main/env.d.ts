@@ -8,3 +8,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+/** 启动器版本号（构建时写入） */
+declare const __APP_VERSION__: string

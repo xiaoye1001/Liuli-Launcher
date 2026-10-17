@@ -61,6 +61,28 @@ export interface AppSettings {
   animations: boolean
   /** 游戏窗口出现后启动器的行为 */
   afterLaunch: AfterLaunch
+  /** 启动时自动检查更新 */
+  autoCheckUpdate: boolean
+  /** 用户选择忽略的新版本（不再自动提示） */
+  skippedVersion: string
+}
+
+/** 检查更新的结果 */
+export interface UpdateInfo {
+  /** 当前版本 */
+  current: string
+  /** 最新版本（不带 v） */
+  latest: string
+  /** 是否有比当前更新的版本 */
+  hasUpdate: boolean
+  /** 发布名称 */
+  name: string
+  /** 更新说明（Markdown 原文） */
+  notes: string
+  publishedAt: string
+  /** 适合本机的安装包文件名，没有时为空 */
+  assetName: string
+  assetSize: number
 }
 
 /** 主题色 */

@@ -65,6 +65,7 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 ### Interface
 - Glass-style design with page transition animations
 - Dark / light / follow-system themes
+- **Update check**: checks GitHub for new versions at startup and shows a notice in the bottom-right corner, with the release notes and a download link for the right installer for your system; check manually or turn this off under Settings → About
 
 | Install setup | Mod management |
 |---|---|

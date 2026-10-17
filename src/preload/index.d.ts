@@ -32,7 +32,8 @@ import type {
   WorldDatapack,
   WorldList,
   SavedServer,
-  ServerStatus
+  ServerStatus,
+  UpdateInfo
 } from '../shared/types'
 
 declare global {
@@ -130,6 +131,10 @@ declare global {
       installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>
       /** 启动游戏；server 不为空时进入游戏后直接连接该服务器 */
       launchGame: (versionId: string, server?: string) => Promise<void>
+      /** 查询 GitHub 上的最新版本 */
+      checkUpdate: () => Promise<UpdateInfo>
+      /** 在浏览器中打开新版本的安装包或发布页面 */
+      openUpdateLink: (kind: 'asset' | 'page') => Promise<void>
       listServers: () => Promise<SavedServer[]>
       /** 添加（没有 id）或修改服务器，返回新的列表 */
       saveServer: (server: Omit<SavedServer, 'id'> & { id?: string }) => Promise<SavedServer[]>
