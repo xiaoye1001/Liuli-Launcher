@@ -1,5 +1,8 @@
 # 发布流程：在 GitHub 网页上发布 Release（Releases → Draft a new release → Publish release）后，
-# 自动打包 Linux 免安装版（AppImage），上传到这个 Release，并在说明末尾追加使用方法
+# 同时打包 Linux 免安装版（AppImage）与 Windows 安装版 / 免安装版（exe），全部上传到这个 Release，
+# 并在说明末尾追加下载与运行方法。
+# 微软登录的 Client ID 来自仓库 Secret（Settings → Secrets and variables → Actions → MS_CLIENT_ID），
+# 没有设置时打包出的版本只能使用离线账号。
 name: Release
 
 on:
@@ -32,32 +35,90 @@ jobs:
         run: npm run typecheck
 
       - name: Build AppImage
-        # 微软登录的 Client ID 来自仓库 Secret（Settings → Secrets and variables → Actions → MS_CLIENT_ID），
-        # 没有设置时打包出的版本只能使用离线账号
         env:
           MAIN_VITE_MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
         run: npm run build && npx electron-builder --linux AppImage --publish never
 
-      - name: Upload to release
-        uses: softprops/action-gh-release@v2
+      - uses: actions/upload-artifact@v4
         with:
-          files: dist/*.AppImage
+          name: linux
+          path: dist/*.AppImage
+          if-no-files-found: error
+
+  windows:
+    name: Windows exe
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Use official download sources
+        run: sed -i '/mirror/d' .npmrc
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 同时生成安装版（NSIS）与免安装版（portable），配置见 electron-builder.yml
+      - name: Build installer and portable exe
+        env:
+          MAIN_VITE_MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
+        run: npm run build && npx electron-builder --win --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          # 只取 dist 根目录下的安装版与免安装版，不包括 win-unpacked 里的程序文件
+          path: |
+            dist/LiuliLauncher-Setup-*.exe
+            dist/LiuliLauncher-Portable-*.exe
+          if-no-files-found: error
+
+  # 两个平台都打包成功后，一次性上传，避免并行修改 Release 说明时互相覆盖
+  publish:
+    name: Upload to release
+    needs: [linux, windows]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - run: ls -la release
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
           fail_on_unmatched_files: true
           # 保留发布时填写的说明，在末尾追加下载与运行方法
           append_body: true
           body: |
-            ## 琉璃启动器 ${{ github.ref_name }}
+            ## 下载
 
-            ### Linux 免安装版（AppImage）
-            下载 `LiuliLauncher-*.AppImage`，添加执行权限后直接运行：
+            | 系统 | 文件 | 说明 |
+            |---|---|---|
+            | Windows | `LiuliLauncher-Setup-*.exe` | 安装版：可以选择安装位置，创建桌面与开始菜单快捷方式 |
+            | Windows | `LiuliLauncher-Portable-*.exe` | 免安装版：双击直接运行，数据保存在 exe 旁边的 `LiuliLauncher-Data` 文件夹 |
+            | Linux | `LiuliLauncher-*.AppImage` | 免安装版：添加执行权限后直接运行 |
+
+            ### Windows
+            - 安装包没有代码签名，首次运行如果提示「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」
+            - 安装版的数据保存在 `%APPDATA%\mc_launcher`，卸载时不会删除
+
+            ### Linux
             ```bash
             chmod +x LiuliLauncher-*.AppImage
             ./LiuliLauncher-*.AppImage
             ```
-
             - 需要 FUSE 2。Ubuntu 22.04 及以上如果无法启动，请先安装：`sudo apt install libfuse2`（Ubuntu 24.04 为 `libfuse2t64`）
             - Ubuntu 24.04 等系统如果提示沙盒（sandbox）相关错误，可以加参数运行：`./LiuliLauncher-*.AppImage --no-sandbox`
             - 数据保存在 `~/.config/mc_launcher`
-            - 运行游戏需要安装 Java（1.20.5 及以上需要 Java 21）
 
-            功能介绍与使用说明见 [README](https://github.com/${{ github.repository }}#readme)。
+            运行游戏需要安装 Java（1.20.5 及以上需要 Java 21）。功能介绍与使用说明见 [README](https://github.com/${{ github.repository }}#readme)。
