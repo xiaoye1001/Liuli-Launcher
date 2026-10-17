@@ -63,6 +63,7 @@ import { exportCrashInfo, openCrashFile } from './crashReport'
 import { deleteServer, importGameServers, listServers, moveServer, saveServer } from './servers'
 import { pingServer } from './serverPing'
 import { checkUpdate, openUpdateLink } from './updater'
+import { copyScreenshot, deleteScreenshot, listScreenshots, openScreenshotsDir, showScreenshot } from './screenshots'
 import { copyVersion, createDesktopShortcut, launchArgOf, renameVersion } from './versionOps'
 import { loginExternal, removeExternalAccount, selectExternalProfile } from './yggdrasil'
 import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
@@ -220,6 +221,13 @@ function registerIpc(): void {
   ipcMain.handle('worlds:openDatapacks', (_, versionId: string, folder: string) =>
     openWorldDatapacksDir(versionId, folder)
   )
+  ipcMain.handle('screenshots:list', (_, versionId: string) => listScreenshots(versionId))
+  ipcMain.handle('screenshots:delete', (_, versionId: string, fileName: string) =>
+    deleteScreenshot(versionId, fileName)
+  )
+  ipcMain.handle('screenshots:copy', (_, versionId: string, fileName: string) => copyScreenshot(versionId, fileName))
+  ipcMain.handle('screenshots:show', (_, versionId: string, fileName: string) => showScreenshot(versionId, fileName))
+  ipcMain.handle('screenshots:open', (_, versionId: string) => openScreenshotsDir(versionId))
   ipcMain.handle('local:open', (_, versionId: string, kind: LocalResourceKind) => openLocalResourceDir(versionId, kind))
   ipcMain.handle('accounts:list', () => getAccounts())
   ipcMain.handle('accounts:setActive', (_, id: string) => setActiveAccount(id))

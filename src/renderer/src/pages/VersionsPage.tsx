@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence } from 'framer-motion'
 import {
   AlertTriangle,
@@ -176,7 +177,8 @@ function NameDialog({
     }
   }
 
-  return (
+  // 挂到 body 上，覆盖整个窗口
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div
         className="w-[28rem] rounded-2xl border border-white/15 popover-background p-5 shadow-2xl"
@@ -231,7 +233,8 @@ function NameDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

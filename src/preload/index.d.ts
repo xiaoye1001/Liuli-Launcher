@@ -36,7 +36,8 @@ import type {
   UpdateInfo,
   ExternalAccount,
   ExternalLoginResult,
-  ModUpdate
+  ModUpdate,
+  ScreenshotList
 } from '../shared/types'
 
 declare global {
@@ -107,6 +108,14 @@ declare global {
       copyVersion: (versionId: string, newId: string, includeSaves: boolean) => Promise<void>
       /** 在桌面创建直接启动该版本的快捷方式，返回快捷方式路径 */
       createDesktopShortcut: (versionId: string) => Promise<string>
+      /** 版本的游戏截图（图片通过 liuli://screenshot/<版本>/<文件名> 读取） */
+      listScreenshots: (versionId: string) => Promise<ScreenshotList>
+      /** 删除截图（移到回收站） */
+      deleteScreenshot: (versionId: string, fileName: string) => Promise<void>
+      /** 复制截图到剪贴板 */
+      copyScreenshot: (versionId: string, fileName: string) => Promise<void>
+      showScreenshot: (versionId: string, fileName: string) => Promise<void>
+      openScreenshotsDir: (versionId: string) => Promise<void>
       /** 版本设置（未设置的项跟随全局设置） */
       getVersionConfig: (versionId: string) => Promise<VersionConfig>
       setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) => Promise<VersionConfig>

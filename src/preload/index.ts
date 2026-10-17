@@ -80,6 +80,12 @@ const api = {
   copyVersion: (versionId: string, newId: string, includeSaves: boolean) =>
     ipcRenderer.invoke('versions:copy', versionId, newId, includeSaves),
   createDesktopShortcut: (versionId: string) => ipcRenderer.invoke('versions:shortcut', versionId),
+  listScreenshots: (versionId: string) => ipcRenderer.invoke('screenshots:list', versionId),
+  deleteScreenshot: (versionId: string, fileName: string) =>
+    ipcRenderer.invoke('screenshots:delete', versionId, fileName),
+  copyScreenshot: (versionId: string, fileName: string) => ipcRenderer.invoke('screenshots:copy', versionId, fileName),
+  showScreenshot: (versionId: string, fileName: string) => ipcRenderer.invoke('screenshots:show', versionId, fileName),
+  openScreenshotsDir: (versionId: string) => ipcRenderer.invoke('screenshots:open', versionId),
   getVersionConfig: (versionId: string) => ipcRenderer.invoke('versions:getConfig', versionId),
   setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) =>
     ipcRenderer.invoke('versions:setConfig', versionId, patch),

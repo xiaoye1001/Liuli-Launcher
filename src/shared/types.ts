@@ -473,6 +473,21 @@ export interface ServerStatus {
   favicon?: string
 }
 
+/** 游戏截图 */
+export interface Screenshot {
+  fileName: string
+  size: number
+  /** 修改时间（毫秒时间戳） */
+  time: number
+}
+
+export interface ScreenshotList {
+  versionId: string
+  /** screenshots 文件夹 */
+  dir: string
+  items: Screenshot[]
+}
+
 /** Modrinth 搜索结果中的一个模组 */
 export interface ModrinthProject {
   projectId: string
