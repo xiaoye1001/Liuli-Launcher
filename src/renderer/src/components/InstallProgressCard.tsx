@@ -1,14 +1,30 @@
 import { motion } from 'framer-motion'
-import { CheckCircle2, Loader2, RotateCcw, X, XCircle } from 'lucide-react'
-import type { InstallStatus } from '../../../shared/types'
+import { Check, CheckCircle2, Circle, Loader2, RotateCcw, X, XCircle } from 'lucide-react'
+import type { InstallPhase, InstallStatus, InstallStep } from '../../../shared/types'
 
-const PHASE_LABELS = {
+const PHASE_LABELS: Record<InstallPhase, string> = {
   version: '正在下载游戏本体',
+  assets: '正在下载游戏资源文件',
+  libraries: '正在下载依赖库',
+  loader: '正在下载模组加载器',
   dependencies: '正在下载依赖库与资源文件',
   processing: '正在运行模组加载器安装程序，可能需要几分钟',
   java: '正在下载 Java 运行环境',
   modpack: '正在下载整合包的模组',
   unpack: '正在解压整合包里的文件'
+}
+
+/** 步骤列表里的名称 */
+const STEP_LABELS: Record<InstallPhase, string> = {
+  version: '游戏本体',
+  assets: '游戏资源文件',
+  libraries: '依赖库',
+  loader: '模组加载器',
+  dependencies: '依赖库与资源文件',
+  processing: '安装模组加载器',
+  java: 'Java 运行环境',
+  modpack: '整合包的模组',
+  unpack: '解压整合包文件'
 }
 
 /** 任务类型对应的动词（标题用） */
@@ -19,6 +35,47 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
+}
+
+/** 一个步骤的进度：安装程序按「第几步」计数，其余按字节 */
+function stepDetail(step: InstallStep): string {
+  if (step.phase === 'processing') return step.total > 0 ? (step.done ? `${step.total} 步` : `${step.progress} / ${step.total} 步`) : ''
+  if (step.total <= 0) return ''
+  // 已完成的步骤只显示大小（文件已经存在、校验通过时不会有下载进度）
+  if (step.done) return formatBytes(step.total)
+  return `${formatBytes(step.progress)} / ${formatBytes(step.total)}`
+}
+
+/** 各个步骤的进度列表（同时进行的步骤会一起显示） */
+function StepList({ steps, running }: { steps: InstallStep[]; running: boolean }): JSX.Element {
+  return (
+    <div className="mt-3 space-y-1">
+      {steps.map((step) => {
+        const percent = step.total > 0 ? Math.min(100, (step.progress / step.total) * 100) : 0
+        return (
+          <div key={step.phase} className="flex items-center gap-2 text-xs">
+            {step.done ? (
+              <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+            ) : running ? (
+              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-sky-300" />
+            ) : (
+              <Circle className="h-3.5 w-3.5 shrink-0 text-white/30" />
+            )}
+            <span className={`w-28 shrink-0 ${step.done ? 'text-white/50' : 'text-white/80'}`}>
+              {STEP_LABELS[step.phase]}
+            </span>
+            <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-black/30">
+              <div
+                className={`h-full rounded-full ${step.done ? 'bg-emerald-400/60' : 'bg-sky-400'}`}
+                style={{ width: `${step.done ? 100 : percent}%` }}
+              />
+            </div>
+            <span className="w-36 shrink-0 text-right font-mono text-white/40">{stepDetail(step)}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 interface InstallProgressCardProps {
@@ -112,6 +169,8 @@ function InstallProgressCard({ status, onCancel, onRetry, onDismiss }: InstallPr
           {formatBytes(status.progress)} / {formatBytes(status.total)}
         </div>
       )}
+
+      {status.steps && status.steps.length > 1 && <StepList steps={status.steps} running={running} />}
 
       {status.state === 'failed' && status.error && (
         <div className="mt-3 max-h-20 overflow-y-auto break-all rounded-lg bg-red-500/15 px-3 py-2 text-xs text-red-200">

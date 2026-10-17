@@ -18,7 +18,7 @@ import {
   installTask,
   type Options
 } from '@xmcl/installer'
-import { task as createTask, type Task } from '@xmcl/task'
+import { task as createTask, TaskState, type Task } from '@xmcl/task'
 import { getSettings } from './config'
 import { getVersionManifest } from './versions'
 import { neoforgeProject } from './neoforge'
@@ -32,6 +32,7 @@ import type {
   FabricLoaderVersion,
   InstallKind,
   InstallPhase,
+  InstallStep,
   InstallRequest,
   InstallStatus,
   OptiFineVersionRef
@@ -81,21 +82,24 @@ function forgeMavenHosts(source: DownloadSource): string[] {
 
 /** 根据任务路径判断当前阶段，例如 install.version.jar、install.dependencies.assets.asset */
 function phaseOf(path: string): InstallPhase {
-  if (path.includes('installJava')) return 'java'
-  if (path.includes('modpackOverrides') || path.includes('modpackGameFiles')) return 'unpack'
-  if (path.includes('modpack')) return 'modpack'
-  if (path.includes('postProcessing') || path.includes('installOptifine')) return 'processing'
-  return path.includes('dependencies') || path.includes('installForge') || path.includes('downloadOptifine')
-    ? 'dependencies'
-    : 'version'
+  const leaf = path.split('.').pop() ?? ''
+  if (path.includes('installJava') || path.includes('installJre')) return 'java'
+  if (leaf === 'modpackOverrides' || leaf === 'modpackGameFiles') return 'unpack'
+  if (leaf === 'modpackFiles' || path.includes('modpack')) return 'modpack'
+  if (leaf === 'postProcessing' || path.includes('installOptifine')) return 'processing'
+  if (leaf === 'asset' || leaf === 'assets' || leaf === 'assetIndex') return 'assets'
+  if (leaf === 'library' || leaf === 'libraries') return 'libraries'
+  if (leaf === 'jar' || leaf === 'json') return 'version'
+  if (leaf === 'downloadInstaller' || path.includes('downloadOptifine') || path.includes('installForge'))
+    return 'loader'
+  return path.includes('dependencies') ? 'dependencies' : 'version'
 }
 
 type AnyInstallTask = Task<unknown>
 
-/** 没有子任务的任务（实际下载或解压文件的任务） */
+/** 实际下载或解压文件的任务（任务组有 children，即使刚开始时还没有子任务也不算） */
 function isLeafTask(task: Task<unknown>): boolean {
-  const children = (task as { children?: unknown[] }).children
-  return !Array.isArray(children) || children.length === 0
+  return !Array.isArray((task as { children?: unknown[] }).children)
 }
 
 let status: InstallStatus | null = null
@@ -142,6 +146,24 @@ function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): Pr
   status = { versionId, kind, state: 'running', phase: 'version', progress: 0, total: 0, speed: 0 }
   broadcast()
 
+  // 实际下载 / 解压文件的任务及其所属步骤，用于显示每个步骤的进度
+  const leaves = new Map<AnyInstallTask, InstallPhase>()
+  const track = (child: AnyInstallTask): void => {
+    if (isLeafTask(child) && !leaves.has(child)) leaves.set(child, phaseOf(child.path))
+  }
+  const steps = (finished: boolean): InstallStep[] => {
+    const result = new Map<InstallPhase, InstallStep>()
+    for (const [leaf, phase] of leaves) {
+      const step = result.get(phase) ?? { phase, progress: 0, total: 0, done: true }
+      const progress = Math.max(0, leaf.progress)
+      step.progress += progress
+      step.total += Math.max(leaf.total, progress, 0)
+      step.done = step.done && (finished || leaf.state === TaskState.Succeed)
+      result.set(phase, step)
+    }
+    return [...result.values()]
+  }
+
   // 每 250ms 计算一次速度并推送进度，避免过于频繁地发送消息
   let bytesInWindow = 0
   let lastTick = Date.now()
@@ -153,6 +175,7 @@ function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): Pr
     status.speed = status.speed === 0 ? instant : status.speed * 0.6 + instant * 0.4
     status.progress = task.progress
     status.total = task.total
+    status.steps = steps(false)
     bytesInWindow = 0
     lastTick = now
     broadcast()
@@ -162,22 +185,29 @@ function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): Pr
     .startAndWait({
       // 补丁、处理程序等步骤没有下载进度，开始时就切换阶段
       onStart(child) {
+        track(child)
         if (status) status.phase = phaseOf(child.path)
       },
       onUpdate(child, chunkSize) {
         // 父任务会把子任务的进度再报告一遍（一直报告到最外层），只统计真正在下载的任务，
         // 否则速度会按任务层数被重复计算，阶段也总是显示成最外层任务的「游戏本体」
         if (!isLeafTask(child)) return
+        track(child)
         bytesInWindow += chunkSize
         if (status) status.phase = phaseOf(child.path)
       }
     })
     .then(() => {
-      status = { ...status!, state: 'success', progress: task.total, total: task.total, speed: 0 }
+      status = { ...status!, state: 'success', progress: task.total, total: task.total, speed: 0, steps: steps(true) }
       return true
     })
     .catch((e: unknown) => {
       const cancelled = cancelRequested
+      // 同时进行的其他步骤（例如整合包的模组下载）也停下来
+      if (!cancelled) {
+        closeInstallDispatcher()
+        task.cancel().catch(() => undefined)
+      }
       status = {
         ...status!,
         state: cancelled ? 'cancelled' : 'failed',
@@ -431,118 +461,122 @@ export async function startCustomInstall(
   lastJavaComponent = null
   const installAll = createTask('custom', async function () {
     if (extra?.before) await extra.before(this)
-    await this.yield(installTask(meta, settings.gameDir, options))
-    if (isPlainVanilla) return
+    const loader = forgeVersion
+      ? 'forge'
+      : neoforgeVersion
+        ? 'neoforge'
+        : fabricLoader
+          ? 'fabric'
+          : quiltLoader
+            ? 'quilt'
+            : undefined
+    // 安装游戏本体与模组加载器（箭头函数里的 this 仍是这个任务）
+    const installGame = async (): Promise<void> => {
+      await this.yield(installTask(meta, settings.gameDir, options))
+      if (isPlainVanilla) return
 
-    // 运行安装程序用的 Java：自动模式下按该 Minecraft 版本的要求挑选，没有合适的就先下载
-    let javaPath = settings.javaPath
-    if (javaUser && settings.javaAuto) {
-      const requirement = requirementOf(await Version.parse(settings.gameDir, minecraftVersion))
-      const found = await pickJava(requirement)
-      if (found) {
-        javaPath = found.path
-      } else {
-        await this.yield(await createJavaInstallTask(requirement.component))
-        javaPath = javaExecutable(requirement.component)
-      }
-    }
-
-    if (forgeVersion || neoforgeVersion) {
-      // 安装器会自己下载依赖库并运行处理程序。它内部按默认版本名读取版本配置，
-      // 所以先用默认名安装，完成后再复制成用户指定的名字
-      const versionsDir = join(settings.gameDir, 'versions')
-      const before = new Set(await readdir(versionsDir).catch(() => [] as string[]))
-      const installerOptions = { ...options, java: javaPath }
-      const loaderTask = forgeVersion
-        ? installForgeTask({ mcversion: minecraftVersion, version: forgeVersion }, settings.gameDir, {
-            ...installerOptions,
-            mavenHost: forgeMavenHosts(settings.downloadSource)
-          })
-        : installNeoForgedTask(neoforgeProject(neoforgeVersion!), neoforgeVersion!, settings.gameDir, {
-            ...installerOptions,
-            mavenHost: settings.downloadSource === 'bmclapi' ? [`${BMCLAPI}/maven`] : []
-          })
-      const loaderId = await this.yield(loaderTask)
-      if (loaderId !== name) {
-        const json = JSON.parse(await readFile(join(versionsDir, loaderId, `${loaderId}.json`), 'utf-8'))
-        json.id = name
-        await mkdir(join(versionsDir, name), { recursive: true })
-        await writeFile(join(versionsDir, name, `${name}.json`), JSON.stringify(json, null, 2))
-        // 默认名的版本是这次安装临时产生的，删除以免列表里出现两个相同的版本
-        if (!before.has(loaderId)) {
-          await rm(join(versionsDir, loaderId), { recursive: true, force: true })
+      // 运行安装程序用的 Java：自动模式下按该 Minecraft 版本的要求挑选，没有合适的就先下载
+      let javaPath = settings.javaPath
+      if (javaUser && settings.javaAuto) {
+        const requirement = requirementOf(await Version.parse(settings.gameDir, minecraftVersion))
+        const found = await pickJava(requirement)
+        if (found) {
+          javaPath = found.path
+        } else {
+          await this.yield(await createJavaInstallTask(requirement.component))
+          javaPath = javaExecutable(requirement.component)
         }
       }
-      if (optifine) {
-        // OptiFine 的安装器本身就是一个 Forge 模组，直接放进该版本使用的 mods 文件夹
+
+      if (forgeVersion || neoforgeVersion) {
+        // 安装器会自己下载依赖库并运行处理程序。它内部按默认版本名读取版本配置，
+        // 所以先用默认名安装，完成后再复制成用户指定的名字
+        const versionsDir = join(settings.gameDir, 'versions')
+        const before = new Set(await readdir(versionsDir).catch(() => [] as string[]))
+        const installerOptions = { ...options, java: javaPath }
+        const loaderTask = forgeVersion
+          ? installForgeTask({ mcversion: minecraftVersion, version: forgeVersion }, settings.gameDir, {
+              ...installerOptions,
+              mavenHost: forgeMavenHosts(settings.downloadSource)
+            })
+          : installNeoForgedTask(neoforgeProject(neoforgeVersion!), neoforgeVersion!, settings.gameDir, {
+              ...installerOptions,
+              mavenHost: settings.downloadSource === 'bmclapi' ? [`${BMCLAPI}/maven`] : []
+            })
+        const loaderId = await this.yield(loaderTask)
+        if (loaderId !== name) {
+          const json = JSON.parse(await readFile(join(versionsDir, loaderId, `${loaderId}.json`), 'utf-8'))
+          json.id = name
+          await mkdir(join(versionsDir, name), { recursive: true })
+          await writeFile(join(versionsDir, name, `${name}.json`), JSON.stringify(json, null, 2))
+          // 默认名的版本是这次安装临时产生的，删除以免列表里出现两个相同的版本
+          if (!before.has(loaderId)) {
+            await rm(join(versionsDir, loaderId), { recursive: true, force: true })
+          }
+        }
+        if (optifine) {
+          // OptiFine 的安装器本身就是一个 Forge 模组，直接放进该版本使用的 mods 文件夹
+          const download = optiFineDownload(optifine)
+          await mkdir(dirname(download.path), { recursive: true })
+          await this.yield(download.task)
+          const modsDir = join(
+            versionGameDir(settings.gameDir, name, isIsolated(settings.versionIsolation, 'forge')),
+            'mods'
+          )
+          await mkdir(modsDir, { recursive: true })
+          await copyFile(download.path, join(modsDir, basename(download.path)))
+        }
+      } else if (optifine) {
+        // 用 OptiFine 安装器的补丁程序把原版本体打成 OptiFine 库
         const download = optiFineDownload(optifine)
         await mkdir(dirname(download.path), { recursive: true })
         await this.yield(download.task)
-        const modsDir = join(
-          versionGameDir(settings.gameDir, name, isIsolated(settings.versionIsolation, 'forge')),
-          'mods'
+        await this.yield(
+          installOptifineTask(download.path, settings.gameDir, {
+            versionId: name,
+            inheritsFrom: minecraftVersion,
+            java: javaPath
+          })
         )
-        await mkdir(modsDir, { recursive: true })
-        await copyFile(download.path, join(modsDir, basename(download.path)))
+      } else if (fabricArtifact) {
+        await installFabricByLoaderArtifact(fabricArtifact, settings.gameDir, { versionId: name })
+      } else if (quiltProfile) {
+        const dir = join(settings.gameDir, 'versions', name)
+        await mkdir(dir, { recursive: true })
+        await writeFile(join(dir, `${name}.json`), JSON.stringify({ ...quiltProfile, id: name }, null, 2))
+      } else {
+        // 只改名：写一个继承原版的版本配置，游戏文件与原版共用
+        const now = new Date().toJSON()
+        const dir = join(settings.gameDir, 'versions', name)
+        await mkdir(dir, { recursive: true })
+        await writeFile(
+          join(dir, `${name}.json`),
+          JSON.stringify(
+            { id: name, inheritsFrom: minecraftVersion, type: meta.type, releaseTime: now, time: now, libraries: [] },
+            null,
+            2
+          )
+        )
       }
-    } else if (optifine) {
-      // 用 OptiFine 安装器的补丁程序把原版本体打成 OptiFine 库
-      const download = optiFineDownload(optifine)
-      await mkdir(dirname(download.path), { recursive: true })
-      await this.yield(download.task)
-      await this.yield(
-        installOptifineTask(download.path, settings.gameDir, {
-          versionId: name,
-          inheritsFrom: minecraftVersion,
-          java: javaPath
-        })
-      )
-    } else if (fabricArtifact) {
-      await installFabricByLoaderArtifact(fabricArtifact, settings.gameDir, { versionId: name })
-    } else if (quiltProfile) {
-      const dir = join(settings.gameDir, 'versions', name)
-      await mkdir(dir, { recursive: true })
-      await writeFile(join(dir, `${name}.json`), JSON.stringify({ ...quiltProfile, id: name }, null, 2))
-    } else {
-      // 只改名：写一个继承原版的版本配置，游戏文件与原版共用
-      const now = new Date().toJSON()
-      const dir = join(settings.gameDir, 'versions', name)
-      await mkdir(dir, { recursive: true })
-      await writeFile(
-        join(dir, `${name}.json`),
-        JSON.stringify(
-          { id: name, inheritsFrom: minecraftVersion, type: meta.type, releaseTime: now, time: now, libraries: [] },
-          null,
-          2
-        )
-      )
-    }
-    const resolved = await Version.parse(settings.gameDir, name)
-    // 资源文件与原版相同，安装原版时已经下载并校验过；这里只补充加载器自己的依赖库。
-    // 如果再检查一遍全部依赖，几千个资源文件会被重复计算进总大小，也会再算一遍哈希
-    const vanilla = await Version.parse(settings.gameDir, minecraftVersion)
-    if (resolved.assets !== vanilla.assets) {
-      await this.yield(installDependenciesTask(resolved, options))
-    } else {
-      const vanillaLibs = new Set(vanilla.libraries.map((l) => l.download.path))
-      const loaderLibs = resolved.libraries.filter((l) => !vanillaLibs.has(l.download.path))
-      if (loaderLibs.length > 0) {
-        await this.yield(installResolvedLibrariesTask(loaderLibs, settings.gameDir, options))
+      const resolved = await Version.parse(settings.gameDir, name)
+      // 资源文件与原版相同，安装原版时已经下载并校验过；这里只补充加载器自己的依赖库。
+      // 如果再检查一遍全部依赖，几千个资源文件会被重复计算进总大小，也会再算一遍哈希
+      const vanilla = await Version.parse(settings.gameDir, minecraftVersion)
+      if (resolved.assets !== vanilla.assets) {
+        await this.yield(installDependenciesTask(resolved, options))
+      } else {
+        const vanillaLibs = new Set(vanilla.libraries.map((l) => l.download.path))
+        const loaderLibs = resolved.libraries.filter((l) => !vanillaLibs.has(l.download.path))
+        if (loaderLibs.length > 0) {
+          await this.yield(installResolvedLibrariesTask(loaderLibs, settings.gameDir, options))
+        }
       }
     }
-
-    if (extra) {
-      const loader = forgeVersion
-        ? 'forge'
-        : neoforgeVersion
-          ? 'neoforge'
-          : fabricLoader
-            ? 'fabric'
-            : quiltLoader
-              ? 'quilt'
-              : undefined
-      await extra(this, versionGameDir(settings.gameDir, name, isIsolated(settings.versionIsolation, loader)))
-    }
+    // 整合包的文件与游戏本体、模组加载器同时下载（与 PCL 等启动器相同），不用等前面全部装完
+    await Promise.all([
+      installGame(),
+      extra ? extra(this, versionGameDir(settings.gameDir, name, isIsolated(settings.versionIsolation, loader))) : null
+    ])
   })
   runTask(name, 'install', installAll)
 }

@@ -196,7 +196,24 @@ export type InstallKind = 'install' | 'repair' | 'java'
 export type InstallState = 'running' | 'success' | 'failed' | 'cancelled'
 
 /** 安装阶段：游戏本体（版本 json 与客户端 jar） → 依赖库与资源文件（并行下载） → 运行模组加载器安装程序 */
-export type InstallPhase = 'version' | 'dependencies' | 'processing' | 'java' | 'modpack' | 'unpack'
+export type InstallPhase =
+  | 'version'
+  | 'assets'
+  | 'libraries'
+  | 'loader'
+  | 'dependencies'
+  | 'processing'
+  | 'java'
+  | 'modpack'
+  | 'unpack'
+
+/** 安装过程中的一个步骤（同一类下载任务合在一起） */
+export interface InstallStep {
+  phase: InstallPhase
+  progress: number
+  total: number
+  done: boolean
+}
 
 /** 安装进度，由主进程实时推送到界面 */
 export interface InstallStatus {
@@ -211,6 +228,8 @@ export interface InstallStatus {
   total: number
   /** 下载速度（字节/秒） */
   speed: number
+  /** 各个步骤的进度（与 PCL 类似，按开始的先后排列） */
+  steps?: InstallStep[]
   /** 失败原因 */
   error?: string
 }

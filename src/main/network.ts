@@ -40,15 +40,23 @@ function withRetry(base: Dispatcher): Dispatcher {
   return base.compose(interceptors.retry({ maxRetries: 3 }), interceptors.redirect({ maxRedirections: 5 }))
 }
 
-let downloads: Dispatcher = withRetry(new Agent({ connections: DEFAULT_THREADS }))
+let downloads: Dispatcher = withRetry(new Agent({ connections: DEFAULT_THREADS, headersTimeout: 15_000, bodyTimeout: 20_000 }))
 /** 新建连接池用的设置（应用网络设置时更新） */
 let downloadConfig: { uri: string | null; connections: number } = { uri: null, connections: DEFAULT_THREADS }
 /** 当前安装任务专用的连接池；取消安装时整体关闭，正在进行的下载会立即停止 */
 let installPool: { base: Agent | ProxyAgent; dispatcher: Dispatcher } | null = null
 
+/**
+ * 下载连接的超时：服务器 15 秒没有响应、或者 20 秒没有传来任何数据，就算失败，
+ * 换下一个下载地址（例如镜像卡住时换官方地址）。默认要等 5 分钟，镜像限速时下载会长时间停在 0 B/s
+ */
+const DOWNLOAD_TIMEOUTS = { headersTimeout: 15_000, bodyTimeout: 20_000 }
+
 function newPool(): { base: Agent | ProxyAgent; dispatcher: Dispatcher } {
   const { uri, connections } = downloadConfig
-  const base = uri ? new ProxyAgent({ uri, connections }) : new Agent({ connections })
+  const base = uri
+    ? new ProxyAgent({ uri, connections, ...DOWNLOAD_TIMEOUTS })
+    : new Agent({ connections, ...DOWNLOAD_TIMEOUTS })
   return { base, dispatcher: withRetry(base) }
 }
 
