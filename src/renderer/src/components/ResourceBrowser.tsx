@@ -245,10 +245,28 @@ interface ResourceBrowserProps {
 }
 
 const SOURCE_KEY = 'resourceSource'
-const SOURCES: [ResourceSource, string][] = [
+/** 资源来源选项：全部（同时搜索两个来源）或单个来源 */
+type SourceChoice = ResourceSource | 'all'
+const SOURCES: [SourceChoice, string][] = [
+  ['all', '来源：全部'],
   ['modrinth', '来源：Modrinth'],
   ['curseforge', '来源：CurseForge']
 ]
+const SOURCE_NAMES: Record<ResourceSource, string> = { modrinth: 'Modrinth', curseforge: 'CurseForge' }
+
+/** 比较项目名用：忽略大小写、空格和符号（两个来源上的同一个项目名字写法可能略有不同） */
+function titleKey(title: string): string {
+  return title.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
+}
+
+/** 交替合并几个来源的结果（按相关度等排序时，两个来源的排名不能直接比较） */
+function interleave<T>(lists: T[][]): T[] {
+  const result: T[] = []
+  for (let i = 0; i < Math.max(0, ...lists.map((l) => l.length)); i++) {
+    for (const list of lists) if (i < list.length) result.push(list[i])
+  }
+  return result
+}
 
 /** 社区资源浏览：搜索、筛选 Modrinth / CurseForge 上的模组 / 整合包 / 数据包 / 资源包 / 光影，选择版本后安装 */
 function ResourceBrowser({
@@ -275,14 +293,20 @@ function ResourceBrowser({
   const [downloading, setDownloading] = useState<string | null>(null)
   const [filters, setFilters] = useState<ResourceSearchFilters>({})
   /** 资源来源：Modrinth 或 CurseForge（记住上次的选择） */
-  const [source, setSource] = useState<ResourceSource>(() => {
+  const [source, setSource] = useState<SourceChoice>(() => {
     try {
-      return localStorage.getItem(SOURCE_KEY) === 'curseforge' ? 'curseforge' : 'modrinth'
+      const saved = localStorage.getItem(SOURCE_KEY)
+      return saved === 'modrinth' || saved === 'curseforge' ? saved : 'all'
     } catch {
-      return 'modrinth'
+      return 'all'
     }
   })
-  const isCurse = source === 'curseforge'
+  /** 结果里可能有 CurseForge 的项目（分类、光影加载器筛选只适用于 Modrinth） */
+  const isCurse = source !== 'modrinth'
+  /** 每个来源已经取到第几条、一共有多少条（「全部」时两个来源分别翻页） */
+  const offsets = useRef<Record<ResourceSource, number>>({ modrinth: 0, curseforge: 0 })
+  const totals = useRef<Record<ResourceSource, number>>({ modrinth: 0, curseforge: 0 })
+  const [hasMore, setHasMore] = useState(false)
   /** 正式版 Minecraft 版本（筛选用） */
   const [gameVersions, setGameVersions] = useState<string[]>([])
   /** 安装到哪个版本（整合包不需要） */
@@ -347,7 +371,7 @@ function ResourceBrowser({
   const setFilter = (key: keyof ResourceSearchFilters, value: string): void =>
     setFilters((prev) => ({ ...prev, [key]: value || undefined }))
 
-  const changeSource = (next: ResourceSource): void => {
+  const changeSource = (next: SourceChoice): void => {
     if (next === source) return
     try {
       localStorage.setItem(SOURCE_KEY, next)
@@ -363,20 +387,66 @@ function ResourceBrowser({
     setFilters((prev) => ({
       ...prev,
       category: undefined,
-      loader: next === 'curseforge' && type === 'shader' ? undefined : prev.loader
+      loader: next !== 'modrinth' && type === 'shader' ? undefined : prev.loader
     }))
   }
 
+  /** 搜索；more 为 true 时加载下一页。「全部」时同时搜索两个来源，合并结果并去掉同名项目（优先 Modrinth） */
   const search = useCallback(
-    async (query: string, offset: number, current: ResourceSearchFilters) => {
+    async (query: string, more: boolean, current: ResourceSearchFilters, choice: SourceChoice) => {
       const id = ++requestId.current
       setLoading(true)
       setError('')
+      const sources: ResourceSource[] = choice === 'all' ? ['modrinth', 'curseforge'] : [choice]
+      const start = more ? { ...offsets.current } : { modrinth: 0, curseforge: 0 }
       try {
-        const result = await window.api.searchResources(type, query, offset, current)
+        const results = await Promise.allSettled(
+          sources.map((s) =>
+            more && start[s] >= totals.current[s]
+              ? Promise.resolve({ hits: [] as ModrinthProjectHit[], total: totals.current[s] })
+              : window.api.searchResources(type, query, start[s], { ...current, source: s })
+          )
+        )
         if (id !== requestId.current) return
-        setHits((prev) => (offset === 0 ? result.hits : [...prev, ...result.hits]))
-        setTotal(result.total)
+        const pages: ModrinthProjectHit[][] = []
+        const errors: string[] = []
+        if (!more) totals.current = { modrinth: 0, curseforge: 0 }
+        offsets.current = start
+        results.forEach((r, i) => {
+          const s = sources[i]
+          if (r.status === 'fulfilled') {
+            offsets.current[s] += r.value.hits.length
+            totals.current[s] = r.value.total
+            pages.push(r.value.hits)
+          } else {
+            errors.push(cleanError(r.reason))
+          }
+        })
+        if (pages.length === 0) throw new Error(errors.join('；'))
+        if (errors.length > 0) {
+          const failed = sources.filter((_, i) => results[i].status === 'rejected').map((s) => SOURCE_NAMES[s])
+          const ok = sources.filter((_, i) => results[i].status === 'fulfilled').map((s) => SOURCE_NAMES[s])
+          setError(`${failed.join('、')} 暂时无法搜索，只显示 ${ok.join('、')} 的结果（${errors.join('；')}）`)
+        }
+        const byDownloads = current.sort === 'downloads' || (!current.sort && !query.trim())
+        const page = byDownloads ? pages.flat().sort((a, b) => b.downloads - a.downloads) : interleave(pages)
+        setHits((prev) => {
+          const base = more ? prev : []
+          const keyOf = (h: ModrinthProjectHit): string => (choice === 'all' ? titleKey(h.title) : h.projectId)
+          const seen = new Set(base.map(keyOf))
+          // 两个来源都有的项目只保留 Modrinth 的（文件信息更完整）
+          for (const hit of page) if (!hit.projectId.startsWith('cf:')) seen.add(keyOf(hit))
+          const added = page.filter((hit) => {
+            if (!hit.projectId.startsWith('cf:')) return true
+            const key = keyOf(hit)
+            if (seen.has(key)) return false
+            seen.add(key)
+            return true
+          })
+          return [...base, ...added]
+        })
+        setTotal(sources.reduce((sum, s) => sum + totals.current[s], 0))
+        setHasMore(sources.some((s) => offsets.current[s] < totals.current[s]))
       } catch (e) {
         if (id === requestId.current) setError(cleanError(e))
       } finally {
@@ -387,7 +457,7 @@ function ResourceBrowser({
   )
 
   useEffect(() => {
-    const timer = setTimeout(() => search(keyword, 0, { ...filters, source }), keyword ? 400 : 0)
+    const timer = setTimeout(() => search(keyword, false, filters, source), keyword ? 400 : 0)
     return () => clearTimeout(timer)
   }, [keyword, filters, source, search])
 
@@ -460,7 +530,7 @@ function ResourceBrowser({
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">{meta.label}</h1>
           <p className="truncate text-xs text-white/50">
-            来自 {isCurse ? 'CurseForge' : 'Modrinth'} · {meta.desc}
+            来自 {source === 'all' ? 'Modrinth 和 CurseForge' : SOURCE_NAMES[source]} · {meta.desc}
           </p>
         </div>
         {needsTarget ? (
@@ -535,7 +605,7 @@ function ResourceBrowser({
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <FilterSelect
             value={source}
-            onChange={(v) => changeSource(v as ResourceSource)}
+            onChange={(v) => changeSource(v as SourceChoice)}
             options={SOURCES}
             title="资源来源"
           />
@@ -567,7 +637,9 @@ function ResourceBrowser({
               清除筛选
             </button>
           )}
-          <span className="ml-auto text-xs text-white/40">共 {total} 个</span>
+          <span className="ml-auto text-xs text-white/40">
+            {source === 'all' ? `约 ${total} 个` : `共 ${total} 个`}
+          </span>
         </div>
 
         {error && (
@@ -613,6 +685,17 @@ function ResourceBrowser({
                       {project.description}
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1.5">
+                      {source === 'all' && (
+                        <span
+                          className={`rounded px-1.5 text-xs ${
+                            project.projectId.startsWith('cf:')
+                              ? 'bg-orange-500/15 text-orange-300'
+                              : 'bg-sky-500/15 text-sky-300'
+                          }`}
+                        >
+                          {project.projectId.startsWith('cf:') ? 'CurseForge' : 'Modrinth'}
+                        </span>
+                      )}
                       {project.latestGameVersion && (
                         <span className="rounded bg-white/10 px-1.5 text-xs text-white/60">
                           {project.latestGameVersion}
@@ -709,13 +792,17 @@ function ResourceBrowser({
               </div>
             )
           })}
-          {hits.length > 0 && hits.length < total && (
+          {hits.length > 0 && hasMore && (
             <button
-              onClick={() => search(keyword, hits.length, { ...filters, source })}
+              onClick={() => search(keyword, true, filters, source)}
               disabled={loading}
               className="w-full rounded-xl py-2.5 text-sm text-white/60 hover:bg-white/5 disabled:opacity-50"
             >
-              {loading ? '加载中…' : `加载更多（${hits.length} / ${total}）`}
+              {loading
+                ? '加载中…'
+                : source === 'all'
+                  ? `加载更多（已显示 ${hits.length} 个）`
+                  : `加载更多（${hits.length} / ${total}）`}
             </button>
           )}
         </div>
