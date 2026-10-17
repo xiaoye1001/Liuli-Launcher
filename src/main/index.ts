@@ -28,7 +28,7 @@ import { closeLogWindow, openLogWindow } from './logWindow'
 import { shareCrashLogs, shareGameLog, shareLatestLog } from './logShare'
 import { getGameDirInfo, openGameDir, pickGameDir, removeGameDir, renameGameDir, setGameDir } from './gameDir'
 import { assertSafeId, deleteVersion, openVersionDir } from './versionManage'
-import { addMods, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
+import { addMods, checkModIssues, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
 import {
   checkModUpdates,
   getProjectVersions,
@@ -224,6 +224,7 @@ function registerIpc(): void {
     setVersionConfig(versionId, patch)
   )
   ipcMain.handle('mods:list', (_, versionId: string) => listMods(versionId))
+  ipcMain.handle('mods:issues', (_, versionId: string) => checkModIssues(versionId))
   ipcMain.handle('mods:setEnabled', (_, versionId: string, fileName: string, enabled: boolean) =>
     setModEnabled(versionId, fileName, enabled)
   )

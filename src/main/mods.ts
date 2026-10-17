@@ -10,14 +10,16 @@ import { getVersionConfig, isolatedWith } from './versionConfig'
 import { versionGameDir } from './isolation'
 import { detectLoader, getGameStatus } from './launch'
 import { assertSafeId } from './versionManage'
-import type { ModInfo, ModKind, ModList, ModLoader } from '../shared/types'
+import { findModIssues, readRelations, type ModRelations } from './modCheck'
+import type { ModInfo, ModIssue, ModKind, ModList, ModLoader } from '../shared/types'
 
 const DISABLED_SUFFIX = '.disabled'
 /** 图标超过这个大小就不显示，避免列表过大 */
 const MAX_ICON_BYTES = 256 * 1024
 
 /** 解析结果缓存：文件路径 → 修改时间 + 大小 + 解析结果，刷新列表时不用重新解压 */
-const cache = new Map<string, { key: string; meta: Omit<ModInfo, 'fileName' | 'enabled'> }>()
+type ParsedMod = Omit<ModInfo, 'fileName' | 'enabled'> & { relations: ModRelations }
+const cache = new Map<string, { key: string; meta: ParsedMod }>()
 
 export interface ModsContext {
   /** mods 文件夹 */
@@ -86,14 +88,32 @@ async function readIcon(fs: FileSystem, path: string | undefined): Promise<strin
 }
 
 /** 从模组 jar 中读取名称、版本、图标等信息，依次尝试 Fabric、Quilt、NeoForge、Forge 的描述文件 */
-async function parseMod(path: string, size: number): Promise<Omit<ModInfo, 'fileName' | 'enabled'>> {
+async function parseMod(path: string, size: number): Promise<ParsedMod> {
+  let fs: FileSystem | undefined
+  try {
+    fs = await openFileSystem(path)
+    const [info, relations] = await Promise.all([parseInfo(fs, path, size), readRelations(fs).catch(() => ({}))])
+    return { ...info, relations }
+  } catch {
+    // 不是有效的 jar，只显示文件名
+    return { ...(await parseInfo(undefined, path, size)), relations: {} }
+  } finally {
+    fs?.close()
+  }
+}
+
+/** 名称、版本、图标等显示用的信息 */
+async function parseInfo(
+  fs: FileSystem | undefined,
+  path: string,
+  size: number
+): Promise<Omit<ModInfo, 'fileName' | 'enabled'>> {
   const fallbackName = basename(path)
     .replace(/\.disabled$/, '')
     .replace(/\.jar$/, '')
   const base = { name: fallbackName, modId: '', version: '', description: '', kind: 'unknown' as ModKind, size }
-  let fs: FileSystem | undefined
+  if (!fs) return base
   try {
-    fs = await openFileSystem(path)
     if (await fs.existsFile('fabric.mod.json')) {
       const mod = await readFabricMod(fs)
       const icon = typeof mod.icon === 'string' ? mod.icon : largestIcon(mod.icon as unknown)
@@ -153,10 +173,8 @@ async function parseMod(path: string, size: number): Promise<Omit<ModInfo, 'file
     }
     return base
   } catch {
-    // 不是有效的 jar（或描述文件损坏），只显示文件名
+    // 描述文件损坏，只显示文件名
     return base
-  } finally {
-    fs?.close()
   }
 }
 
@@ -182,11 +200,11 @@ export async function listMods(versionId: string): Promise<ModList> {
   const { dir, isolated, minecraftVersion, loader } = await modsContextOf(versionId)
   const names = await listModFiles(dir)
 
-  const mods: ModInfo[] = []
+  const mods: (ModInfo & { relations: ModRelations })[] = []
   // 每次最多同时解析 8 个，避免模组很多时一次打开太多文件
   for (let i = 0; i < names.length; i += 8) {
     const batch = await Promise.all(
-      names.slice(i, i + 8).map(async (fileName): Promise<ModInfo | null> => {
+      names.slice(i, i + 8).map(async (fileName): Promise<(ModInfo & { relations: ModRelations }) | null> => {
         const path = join(dir, fileName)
         const info = await stat(path).catch(() => null)
         if (!info?.isFile()) return null
@@ -201,10 +219,25 @@ export async function listMods(versionId: string): Promise<ModList> {
         return { ...cached.meta, fileName, enabled: !fileName.endsWith(DISABLED_SUFFIX) }
       })
     )
-    mods.push(...(batch.filter(Boolean) as ModInfo[]))
+    mods.push(...(batch.filter(Boolean) as (ModInfo & { relations: ModRelations })[]))
   }
   mods.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
-  return { versionId, dir, isolated, minecraftVersion, loader, mods }
+  const issues = findModIssues(mods, loader)
+  // 依赖关系只在主进程里用，不发给界面
+  return {
+    versionId,
+    dir,
+    isolated,
+    minecraftVersion,
+    loader,
+    mods: mods.map(({ relations: _, ...mod }) => mod),
+    issues
+  }
+}
+
+/** 只检查模组问题（启用、禁用、删除模组后刷新提示用） */
+export async function checkModIssues(versionId: string): Promise<ModIssue[]> {
+  return (await listMods(versionId)).issues
 }
 
 /** 游戏运行时模组文件被占用，且改动要重启游戏才生效，所以不允许修改 */

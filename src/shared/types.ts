@@ -492,7 +492,30 @@ export interface ModList {
   /** 版本的模组加载器 */
   loader?: ModLoader
   mods: ModInfo[]
+  /** 模组之间的问题（缺少前置、重复模组） */
+  issues: ModIssue[]
 }
+
+/** 模组之间的问题 */
+export type ModIssue =
+  | {
+      /** 缺少前置模组 */
+      kind: 'missing'
+      /** 缺少的模组 ID */
+      dependency: string
+      /** 也可以用这些模组代替 */
+      alternatives: string[]
+      /** 需要它的模组 */
+      requiredBy: { fileName: string; name: string; range: string }[]
+      /** 已经装了但被禁用了 */
+      disabled?: { fileName: string; name: string }
+    }
+  | {
+      /** 同一个模组装了多个 */
+      kind: 'duplicate'
+      modId: string
+      mods: { fileName: string; name: string; version: string }[]
+    }
 
 /** 版本游戏目录里的本地资源：资源包或光影包 */
 export type LocalResourceKind = 'resourcepack' | 'shader'

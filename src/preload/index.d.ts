@@ -21,6 +21,7 @@ import type {
   NeoForgeVersionInfo,
   OptiFineVersionInfo,
   ModList,
+  ModIssue,
   AccountsInfo,
   MsLoginStatus,
   ModrinthInstallResult,
@@ -167,6 +168,8 @@ declare global {
       getVersionConfig: (versionId: string) => Promise<VersionConfig>
       setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) => Promise<VersionConfig>
       listMods: (versionId: string) => Promise<ModList>
+      /** 检查模组问题：缺少前置、重复模组 */
+      checkModIssues: (versionId: string) => Promise<ModIssue[]>
       /** 返回修改后的文件名 */
       setModEnabled: (versionId: string, fileName: string, enabled: boolean) => Promise<string>
       deleteMod: (versionId: string, fileName: string) => Promise<void>

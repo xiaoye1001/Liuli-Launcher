@@ -113,6 +113,7 @@ const api = {
   setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) =>
     ipcRenderer.invoke('versions:setConfig', versionId, patch),
   listMods: (versionId: string) => ipcRenderer.invoke('mods:list', versionId),
+  checkModIssues: (versionId: string) => ipcRenderer.invoke('mods:issues', versionId),
   setModEnabled: (versionId: string, fileName: string, enabled: boolean) =>
     ipcRenderer.invoke('mods:setEnabled', versionId, fileName, enabled),
   deleteMod: (versionId: string, fileName: string) => ipcRenderer.invoke('mods:delete', versionId, fileName),
