@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, ExternalLink, Loader2, LogIn, Trash2, X } from 'lucide-react'
+import { CheckCircle2, ExternalLink, Globe, Loader2, LogIn, Trash2, X } from 'lucide-react'
+import ExternalLoginForm from './ExternalLoginForm'
 import SkinHead from './SkinHead'
 import type { AccountsInfo, AppSettings, MsLoginStatus } from '../../../shared/types'
 
@@ -18,6 +19,7 @@ interface AccountListProps {
 function AccountList({ settings, accounts, onAccountsChange }: AccountListProps): JSX.Element {
   const [login, setLogin] = useState<MsLoginStatus>({ state: 'idle' })
   const [error, setError] = useState('')
+  const [addingExternal, setAddingExternal] = useState(false)
 
   useEffect(() => {
     window.api.getMicrosoftLoginStatus().then(setLogin)
@@ -87,6 +89,32 @@ function AccountList({ settings, accounts, onAccountsChange }: AccountListProps)
         </div>
       ))}
 
+      {/* 外置账号 */}
+      {accounts.external.map((account) => (
+        <div key={account.id} className="flex items-center gap-2">
+          <button
+            onClick={() => run(async () => onAccountsChange(await window.api.setActiveAccount(account.id)))}
+            className={rowClass(accounts.active === account.id)}
+          >
+            <SkinHead skin={account.skin} />
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-semibold">{account.name}</div>
+              <div className="truncate text-xs text-white/50" title={account.serverUrl}>
+                外置账号 · {account.serverName} · {account.username}
+              </div>
+            </div>
+            {accounts.active === account.id && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
+          </button>
+          <button
+            onClick={() => run(async () => onAccountsChange(await window.api.removeExternalAccount(account.id)))}
+            title="移除该账号（不会影响皮肤站上的账号）"
+            className="rounded-lg p-2.5 text-white/50 hover:bg-red-500/30 hover:text-red-200"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      ))}
+
       {/* 登录进度 */}
       {login.state === 'waiting' && (
         <div className="rounded-xl border border-sky-400/30 bg-sky-500/10 p-4">
@@ -136,6 +164,24 @@ function AccountList({ settings, accounts, onAccountsChange }: AccountListProps)
         <LogIn className="h-4 w-4" />
         添加微软账号
       </button>
+      {addingExternal ? (
+        <ExternalLoginForm
+          onCancel={() => setAddingExternal(false)}
+          onDone={(next) => {
+            setAddingExternal(false)
+            onAccountsChange(next)
+          }}
+        />
+      ) : (
+        <button
+          onClick={() => setAddingExternal(true)}
+          title="LittleSkin 等支持 authlib-injector 的皮肤站账号"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 text-sm font-medium hover:bg-white/20"
+        >
+          <Globe className="h-4 w-4" />
+          添加外置账号（皮肤站）
+        </button>
+      )}
       {!accounts.loginAvailable && (
         <p className="text-xs text-white/40">当前版本没有开启微软登录，可以使用离线账号。</p>
       )}

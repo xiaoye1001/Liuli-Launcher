@@ -73,6 +73,13 @@ const api = {
     ipcRenderer.invoke('worlds:openDatapacks', versionId, folder),
   openCrashFile: (kind: 'report' | 'native') => ipcRenderer.invoke('crash:open', kind),
   exportCrashInfo: () => ipcRenderer.invoke('crash:export'),
+  checkModUpdates: (versionId: string) => ipcRenderer.invoke('mods:checkUpdates', versionId),
+  updateMod: (versionId: string, fileName: string, modrinthVersionId: string) =>
+    ipcRenderer.invoke('mods:update', versionId, fileName, modrinthVersionId),
+  renameVersion: (versionId: string, newId: string) => ipcRenderer.invoke('versions:rename', versionId, newId),
+  copyVersion: (versionId: string, newId: string, includeSaves: boolean) =>
+    ipcRenderer.invoke('versions:copy', versionId, newId, includeSaves),
+  createDesktopShortcut: (versionId: string) => ipcRenderer.invoke('versions:shortcut', versionId),
   getVersionConfig: (versionId: string) => ipcRenderer.invoke('versions:getConfig', versionId),
   setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) =>
     ipcRenderer.invoke('versions:setConfig', versionId, patch),
@@ -100,6 +107,8 @@ const api = {
   installFromModrinth: (versionId: string, projectId: string) =>
     ipcRenderer.invoke('modrinth:install', versionId, projectId),
   launchGame: (versionId: string, server?: string) => ipcRenderer.invoke('game:launch', versionId, server),
+  checkUpdate: () => ipcRenderer.invoke('update:check'),
+  openUpdateLink: (kind: 'asset' | 'page') => ipcRenderer.invoke('update:open', kind),
   listServers: () => ipcRenderer.invoke('servers:list'),
   saveServer: (server: Omit<SavedServer, 'id'> & { id?: string }) => ipcRenderer.invoke('servers:save', server),
   deleteServer: (id: string) => ipcRenderer.invoke('servers:delete', id),
@@ -111,6 +120,11 @@ const api = {
   getAccounts: () => ipcRenderer.invoke('accounts:list'),
   setActiveAccount: (id: string) => ipcRenderer.invoke('accounts:setActive', id),
   removeAccount: (uuid: string) => ipcRenderer.invoke('accounts:remove', uuid),
+  loginExternal: (server: string, username: string, password: string) =>
+    ipcRenderer.invoke('external:login', server, username, password),
+  selectExternalProfile: (pendingId: string, profileId: string) =>
+    ipcRenderer.invoke('external:selectProfile', pendingId, profileId),
+  removeExternalAccount: (id: string) => ipcRenderer.invoke('external:remove', id),
   startMicrosoftLogin: () => ipcRenderer.invoke('ms:login'),
   cancelMicrosoftLogin: () => ipcRenderer.invoke('ms:cancel'),
   getMicrosoftLoginStatus: () => ipcRenderer.invoke('ms:status'),

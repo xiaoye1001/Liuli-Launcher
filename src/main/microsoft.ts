@@ -1,8 +1,10 @@
-import { app, BrowserWindow, clipboard, safeStorage, shell } from 'electron'
+import { app, BrowserWindow, clipboard, shell } from 'electron'
 import { MicrosoftAuthenticator, MojangClient, type MicrosoftMinecraftProfile } from '@xmcl/user'
 import { mkdir, readFile, rename, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { getSettings, updateSettings } from './config'
+import { seal, unseal } from './secure'
+import { getExternalLaunchAuth, hasExternalAccount, listExternalAccounts } from './yggdrasil'
 import type { AccountsInfo, MicrosoftAccount, MsLoginStatus, SkinModel } from '../shared/types'
 
 const ACCOUNTS_FILE = join(app.getPath('userData'), 'accounts.json')
@@ -52,30 +54,27 @@ function saveAccounts(): Promise<void> {
   return writeQueue
 }
 
-function seal(value: string): { value: string; encrypted: boolean } {
-  if (safeStorage.isEncryptionAvailable()) {
-    return { value: safeStorage.encryptString(value).toString('base64'), encrypted: true }
-  }
-  return { value, encrypted: false }
-}
-
-function unseal(value: string, encrypted: boolean): string {
-  return encrypted ? safeStorage.decryptString(Buffer.from(value, 'base64')) : value
-}
-
 function publicAccount(a: StoredAccount): MicrosoftAccount {
   return { uuid: a.uuid, name: a.name, skin: a.skin, skinModel: a.skinModel }
 }
 
 export async function getAccounts(): Promise<AccountsInfo> {
-  const [accounts, settings] = await Promise.all([loadAccounts(), getSettings()])
-  const active = accounts.some((a) => a.uuid === settings.activeAccount) ? settings.activeAccount : 'offline'
-  return { active, accounts: accounts.map(publicAccount), loginAvailable: isMicrosoftLoginAvailable() }
+  const [accounts, external, settings] = await Promise.all([loadAccounts(), listExternalAccounts(), getSettings()])
+  const exists =
+    accounts.some((a) => a.uuid === settings.activeAccount) || external.some((a) => a.id === settings.activeAccount)
+  return {
+    active: exists ? settings.activeAccount : 'offline',
+    accounts: accounts.map(publicAccount),
+    external,
+    loginAvailable: isMicrosoftLoginAvailable()
+  }
 }
 
 export async function setActiveAccount(id: string): Promise<AccountsInfo> {
   const accounts = await loadAccounts()
-  if (id !== 'offline' && !accounts.some((a) => a.uuid === id)) throw new Error('账号不存在')
+  if (id !== 'offline' && !accounts.some((a) => a.uuid === id) && !(await hasExternalAccount(id))) {
+    throw new Error('账号不存在')
+  }
   await updateSettings({ activeAccount: id })
   return getAccounts()
 }
@@ -350,14 +349,27 @@ export interface LaunchAuth {
   name: string
   uuid: string
   accessToken: string
-  userType: 'msa' | 'legacy'
+  userType: 'msa' | 'legacy' | 'mojang'
   microsoft: boolean
+  /** 外置登录：验证服务器信息（传给 authlib-injector） */
+  yggdrasil?: { server: string; serverName: string; prefetched: string }
 }
 
 /** 当前账号的启动参数；离线账号返回 null，由调用方生成离线身份 */
 export async function getMicrosoftLaunchAuth(): Promise<LaunchAuth | null> {
   const { activeAccount } = await getSettings()
   if (activeAccount === 'offline') return null
+  if (activeAccount.startsWith('ygg:')) {
+    const external = await getExternalLaunchAuth(activeAccount)
+    return {
+      name: external.name,
+      uuid: external.uuid,
+      accessToken: external.accessToken,
+      userType: 'mojang',
+      microsoft: false,
+      yggdrasil: { server: external.server, serverName: external.serverName, prefetched: external.prefetched }
+    }
+  }
   const account = (await loadAccounts()).find((a) => a.uuid === activeAccount)
   if (!account) return null
   const fresh = await ensureFresh(account)

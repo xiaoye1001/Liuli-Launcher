@@ -132,7 +132,7 @@ export async function exportCrashInfo(win: BrowserWindow | null): Promise<string
   try {
     await writeFile(join(tmp, '分析结果.txt'), analysisText(crash), 'utf-8')
     const env = [
-      `启动器版本：${app.getVersion()}`,
+      `启动器版本：${__APP_VERSION__}`,
       `系统：${platform()} ${release()} ${arch()}`,
       `物理内存：${Math.round(totalmem() / 1024 / 1024)} MB`,
       `游戏版本：${crash.versionId}`,

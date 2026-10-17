@@ -82,7 +82,10 @@ function AccountPage(): JSX.Element {
   if (!settings || !accounts) return <div />
 
   // 使用微软账号时预览正版皮肤
-  const msAccount = accounts.accounts.find((a) => a.uuid === accounts.active)
+  const microsoft = accounts.accounts.find((a) => a.uuid === accounts.active)
+  const external = accounts.external.find((a) => a.id === accounts.active)
+  /** 正版或外置账号：皮肤与名字来自服务器 */
+  const msAccount = microsoft ?? external
 
   return (
     <div className="flex h-full gap-6">
@@ -110,11 +113,7 @@ function AccountPage(): JSX.Element {
               }`}
             >
               {animation === a.key && (
-                <motion.div
-                  layoutId="skin-animation"
-                  className="absolute inset-0 rounded-lg bg-white/15"
-                  transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                />
+                <div className="absolute inset-0 rounded-lg bg-white/15" />
               )}
               <span className="relative z-10">{a.label}</span>
             </button>
@@ -154,12 +153,23 @@ function AccountPage(): JSX.Element {
             <div>
               <h2 className="text-lg font-semibold">皮肤</h2>
               <p className="text-xs text-white/50">
-                {msAccount ? '正在使用正版皮肤' : settings.skinDataUrl ? '正在使用自定义皮肤' : '正在使用默认皮肤'}
+                {external
+                  ? `正在使用 ${external.serverName} 的皮肤`
+                  : msAccount
+                    ? '正在使用正版皮肤'
+                    : settings.skinDataUrl
+                      ? '正在使用自定义皮肤'
+                      : '正在使用默认皮肤'}
               </p>
             </div>
           </div>
 
-          {msAccount ? (
+          {external ? (
+            <p className="mt-4 text-xs leading-5 text-white/40">
+              外置账号的皮肤由 {external.serverName} 提供，在使用同一皮肤站的服务器里，其他玩家都能看到。可以在皮肤站网站上修改，
+              修改后删除账号重新登录即可在这里看到。
+            </p>
+          ) : msAccount ? (
             <p className="mt-4 text-xs leading-5 text-white/40">
               正版账号的皮肤由 Minecraft 官方服务器提供，所有玩家都能看到。可以在 minecraft.net
               的个人资料中修改，修改后重新登录即可在这里看到。

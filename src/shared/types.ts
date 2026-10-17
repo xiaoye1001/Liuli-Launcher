@@ -61,6 +61,28 @@ export interface AppSettings {
   animations: boolean
   /** 游戏窗口出现后启动器的行为 */
   afterLaunch: AfterLaunch
+  /** 启动时自动检查更新 */
+  autoCheckUpdate: boolean
+  /** 用户选择忽略的新版本（不再自动提示） */
+  skippedVersion: string
+}
+
+/** 检查更新的结果 */
+export interface UpdateInfo {
+  /** 当前版本 */
+  current: string
+  /** 最新版本（不带 v） */
+  latest: string
+  /** 是否有比当前更新的版本 */
+  hasUpdate: boolean
+  /** 发布名称 */
+  name: string
+  /** 更新说明（Markdown 原文） */
+  notes: string
+  publishedAt: string
+  /** 适合本机的安装包文件名，没有时为空 */
+  assetName: string
+  assetSize: number
 }
 
 /** 主题色 */
@@ -315,6 +337,22 @@ export interface ModInfo {
   size: number
 }
 
+/** 可以更新的模组 */
+export interface ModUpdate {
+  /** 磁盘上的文件名 */
+  fileName: string
+  projectId: string
+  /** Modrinth 上的模组名称 */
+  title: string
+  currentVersion: string
+  newVersion: string
+  /** 新版本的 Modrinth 版本 ID */
+  newVersionId: string
+  newFileName: string
+  /** 新版本是否为测试版 */
+  prerelease: boolean
+}
+
 /** 某个版本的模组列表 */
 export interface ModList {
   versionId: string
@@ -475,10 +513,34 @@ export interface MicrosoftAccount {
   skinModel: SkinModel
 }
 
+/** 外置登录账号（authlib-injector，例如 LittleSkin 皮肤站） */
+export interface ExternalAccount {
+  /** 账号标识：ygg:<角色 UUID>@<验证服务器地址> */
+  id: string
+  uuid: string
+  /** 角色名 */
+  name: string
+  skin: string
+  skinModel: SkinModel
+  /** 验证服务器名称，例如 LittleSkin */
+  serverName: string
+  /** 验证服务器 API 地址 */
+  serverUrl: string
+  /** 登录用的邮箱或用户名（只用于显示） */
+  username: string
+}
+
+/** 外置登录的结果：直接成功，或需要从多个角色中选择一个 */
+export type ExternalLoginResult =
+  | { account: ExternalAccount }
+  | { pendingId: string; profiles: { id: string; name: string }[] }
+
 export interface AccountsInfo {
-  /** 当前使用的账号：'offline' 或微软账号的 UUID */
+  /** 当前使用的账号：'offline'、微软账号的 UUID 或外置账号的 id */
   active: string
   accounts: MicrosoftAccount[]
+  /** 外置登录账号 */
+  external: ExternalAccount[]
   /** 当前构建是否开启了微软登录（构建时配置了 Client ID） */
   loginAvailable: boolean
 }

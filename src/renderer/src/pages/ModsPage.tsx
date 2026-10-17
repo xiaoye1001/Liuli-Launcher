@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ArrowLeft, FolderOpen, Loader2, Plus, Puzzle, RefreshCw, Search, Trash2 } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowUpCircle,
+  FolderOpen,
+  Loader2,
+  Plus,
+  Puzzle,
+  RefreshCw,
+  Search,
+  Trash2
+} from 'lucide-react'
 import ModrinthBrowser from '../components/ModrinthBrowser'
-import type { InstalledVersion, ModInfo, ModKind, ModList } from '../../../shared/types'
+import type { InstalledVersion, ModInfo, ModKind, ModList, ModUpdate } from '../../../shared/types'
 
 const TABS: { key: 'installed' | 'modrinth'; label: string }[] = [
   { key: 'installed', label: '已安装' },
@@ -49,6 +60,9 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
   const [browserOpened, setBrowserOpened] = useState(false)
   /** 正在修改的模组文件名，避免重复点击 */
   const [pending, setPending] = useState<string | null>(null)
+  /** 检查更新的结果：文件名 → 新版本；null 表示还没有检查 */
+  const [updates, setUpdates] = useState<Record<string, ModUpdate> | null>(null)
+  const [checking, setChecking] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -107,6 +121,61 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
       }
     })
 
+  const checkUpdates = async (): Promise<void> => {
+    setChecking(true)
+    setError('')
+    setNotice('')
+    try {
+      const result = await window.api.checkModUpdates(version.id)
+      setUpdates(Object.fromEntries(result.map((u) => [u.fileName, u])))
+      setNotice(
+        result.length > 0
+          ? `有 ${result.length} 个模组可以更新`
+          : '所有模组都是最新的（只能检查 Modrinth 上发布的模组）'
+      )
+    } catch (e) {
+      setError(cleanError(e))
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  const updateOne = (mod: ModInfo, update: ModUpdate): Promise<void> =>
+    run(mod.fileName, async () => {
+      await window.api.updateMod(version.id, mod.fileName, update.newVersionId)
+      setUpdates((prev) => {
+        const next = { ...prev }
+        delete next[mod.fileName]
+        return next
+      })
+      setNotice(`已将 ${update.title || mod.name} 更新到 ${update.newVersion}，旧版本已移到回收站`)
+      await load()
+    })
+
+  const updateAll = (): Promise<void> =>
+    run('__all__', async () => {
+      const list = Object.values(updates ?? {})
+      const failed: string[] = []
+      let done = 0
+      for (const update of list) {
+        try {
+          await window.api.updateMod(version.id, update.fileName, update.newVersionId)
+          done++
+          setUpdates((prev) => {
+            const next = { ...prev }
+            delete next[update.fileName]
+            return next
+          })
+        } catch (e) {
+          failed.push(`${update.title || update.fileName}（${cleanError(e)}）`)
+        }
+      }
+      await load()
+      setNotice(`已更新 ${done} 个模组，旧版本已移到回收站`)
+      if (failed.length > 0) setError(`以下模组更新失败：${failed.join('、')}`)
+    })
+
+  const updateCount = Object.keys(updates ?? {}).length
   const kw = keyword.trim().toLowerCase()
   const visible = useMemo(
     () =>
@@ -218,6 +287,29 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
             <span className="shrink-0 text-xs text-white/50">
               共 {list?.mods.length ?? 0} 个 · 已启用 {enabledCount} 个
             </span>
+            {updateCount > 0 ? (
+              <button
+                onClick={updateAll}
+                disabled={pending !== null}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500 disabled:opacity-50"
+              >
+                {pending === '__all__' ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ArrowUpCircle className="h-3.5 w-3.5" />
+                )}
+                全部更新（{updateCount}）
+              </button>
+            ) : null}
+            <button
+              onClick={checkUpdates}
+              disabled={checking || pending !== null || !list?.mods.length}
+              title="在 Modrinth 上查找适用于当前版本的新版本"
+              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+            >
+              {checking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              检查更新
+            </button>
           </div>
 
           <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
@@ -275,6 +367,22 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
                       {mod.description || mod.fileName}
                     </div>
                   </div>
+                  {updates?.[mod.fileName] && (
+                    <button
+                      onClick={() => updateOne(mod, updates[mod.fileName])}
+                      disabled={pending !== null}
+                      title={`更新到 ${updates[mod.fileName].newFileName}`}
+                      className="flex shrink-0 items-center gap-1 rounded-lg bg-emerald-500/20 px-2.5 py-1 text-xs text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-50"
+                    >
+                      {pending === mod.fileName ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <ArrowUpCircle className="h-3.5 w-3.5" />
+                      )}
+                      更新到 {updates[mod.fileName].newVersion}
+                      {updates[mod.fileName].prerelease && '（测试版）'}
+                    </button>
+                  )}
                   <span className="shrink-0 text-xs text-white/30">{formatSize(mod.size)}</span>
                   {/* 启用开关 */}
                   <button

@@ -32,7 +32,11 @@ import type {
   WorldDatapack,
   WorldList,
   SavedServer,
-  ServerStatus
+  ServerStatus,
+  UpdateInfo,
+  ExternalAccount,
+  ExternalLoginResult,
+  ModUpdate
 } from '../shared/types'
 
 declare global {
@@ -94,6 +98,15 @@ declare global {
       openCrashFile: (kind: 'report' | 'native') => Promise<void>
       /** 导出崩溃信息 zip，返回保存路径；取消时返回 null */
       exportCrashInfo: () => Promise<string | null>
+      /** 检查模组更新（只能识别 Modrinth 上的模组） */
+      checkModUpdates: (versionId: string) => Promise<ModUpdate[]>
+      /** 更新模组，返回新的文件名 */
+      updateMod: (versionId: string, fileName: string, modrinthVersionId: string) => Promise<string>
+      renameVersion: (versionId: string, newId: string) => Promise<void>
+      /** 复制版本（includeSaves 为 false 时不复制存档） */
+      copyVersion: (versionId: string, newId: string, includeSaves: boolean) => Promise<void>
+      /** 在桌面创建直接启动该版本的快捷方式，返回快捷方式路径 */
+      createDesktopShortcut: (versionId: string) => Promise<string>
       /** 版本设置（未设置的项跟随全局设置） */
       getVersionConfig: (versionId: string) => Promise<VersionConfig>
       setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) => Promise<VersionConfig>
@@ -130,6 +143,10 @@ declare global {
       installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>
       /** 启动游戏；server 不为空时进入游戏后直接连接该服务器 */
       launchGame: (versionId: string, server?: string) => Promise<void>
+      /** 查询 GitHub 上的最新版本 */
+      checkUpdate: () => Promise<UpdateInfo>
+      /** 在浏览器中打开新版本的安装包或发布页面 */
+      openUpdateLink: (kind: 'asset' | 'page') => Promise<void>
       listServers: () => Promise<SavedServer[]>
       /** 添加（没有 id）或修改服务器，返回新的列表 */
       saveServer: (server: Omit<SavedServer, 'id'> & { id?: string }) => Promise<SavedServer[]>
@@ -150,6 +167,11 @@ declare global {
       /** id 为 'offline' 或微软账号 UUID */
       setActiveAccount: (id: string) => Promise<AccountsInfo>
       removeAccount: (uuid: string) => Promise<AccountsInfo>
+      /** 外置登录（authlib-injector 验证服务器，例如 LittleSkin） */
+      loginExternal: (server: string, username: string, password: string) => Promise<ExternalLoginResult>
+      /** 账号下有多个角色时选择一个 */
+      selectExternalProfile: (pendingId: string, profileId: string) => Promise<ExternalAccount>
+      removeExternalAccount: (id: string) => Promise<AccountsInfo>
       /** 获取设备代码后立即返回，之后的进度通过 onMicrosoftLogin 推送 */
       startMicrosoftLogin: () => Promise<MsLoginStatus>
       cancelMicrosoftLogin: () => Promise<void>

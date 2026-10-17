@@ -32,7 +32,9 @@ function defaultSettings(): AppSettings {
     backgroundBlur: 0,
     backgroundDim: 30,
     animations: true,
-    afterLaunch: 'keep'
+    afterLaunch: 'keep',
+    autoCheckUpdate: true,
+    skippedVersion: ''
   }
 }
 

@@ -5,7 +5,11 @@ import { version } from './package.json'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    // 启动器版本号（检查更新、崩溃信息使用），取自 package.json
+    define: {
+      __APP_VERSION__: JSON.stringify(version)
+    }
   },
   preload: {
     plugins: [externalizeDepsPlugin()]

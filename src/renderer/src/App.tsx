@@ -9,6 +9,7 @@ import VersionsPage from './pages/VersionsPage'
 import ServersPage from './pages/ServersPage'
 import SettingsPage from './pages/SettingsPage'
 import DropOverlay from './components/DropOverlay'
+import UpdateNotice from './components/UpdateNotice'
 import type { ModpackInfo, ResourceType } from '../../shared/types'
 import { backgroundUrl, useAppearance } from './utils/appearance'
 
@@ -102,6 +103,7 @@ function App(): JSX.Element {
           </>
         )}
         <Sidebar current={page} onChange={setPage} />
+        <UpdateNotice />
         <DropOverlay
           onModpack={(info) => {
             setDroppedModpack(info)

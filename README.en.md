@@ -42,7 +42,7 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 - Live game log window with search filtering and one-click copy
 - **Crash analysis**: after a crash, the launcher reads the game output, crash report and Java crash log and explains the cause and how to fix it: missing dependencies, mods that don't match the game version or conflict with each other, duplicate mods, Mixin failures, Java too old or too new, out of memory, invalid JVM arguments, graphics drivers, incompatible OptiFine, corrupted files and more. You can open the crash report directly, or export all related files as a zip to ask others for help
 - **Version isolation**: modded versions (or all versions) each get their own `mods`, worlds and config, so they never interfere with each other
-- **Version management**: the Versions page gathers everything for installed versions: choosing the version to launch, mods, worlds, resources, version settings, opening the folder, check & repair, and deleting
+- **Version management**: the Versions page gathers everything for installed versions: choosing the version to launch, mods, worlds, resources, version settings, opening the folder, check & repair, and deleting; you can also rename or copy a version (optionally with its worlds), or create a desktop shortcut that launches the version directly
 - **World management**: see each world's name, icon, game mode (hardcore / cheats), game version and last played time; back up a world to a zip in one click, import worlds from zip files, or move them to the recycle bin; manage each world's data packs (with their enabled state; add, download or delete)
 - **Resource pack & shader management**: see each version's resource packs (with icon and description) and shader packs; enable resource packs, switch or turn off shaders (Iris, Oculus and OptiFine supported) right from the launcher, add files, or move them to the recycle bin
 - **Per-version settings** (from the Versions page or the gear button next to the version on Home): set memory, Java, version isolation, game window size (or fullscreen) and extra JVM / game arguments for each version; anything not set follows the global settings. The settings are stored in `liuli-version.json` inside the version's folder
@@ -56,15 +56,18 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 - Shows each mod's name, version, description and icon; supports Fabric / Quilt / Forge / NeoForge
 - Enable or disable mods (using the `.disabled` suffix, compatible with other launchers); deleted mods go to the recycle bin
 - Flags mods that don't match the version's mod loader
+- **Mod updates**: finds newer versions of mods published on Modrinth that fit the game version and loader; update one at a time or all at once. Stable releases are never upgraded to betas, disabled mods stay disabled, and old files go to the recycle bin
 - **Search and install mods from Modrinth** right inside the launcher: only mods compatible with the current version are shown, and required dependencies are installed automatically
 
 ### Accounts
 - **Offline accounts**: upload a skin and preview it on an animated 3D model
 - **Microsoft login**: sign in by entering a code on Microsoft's website, so the launcher never sees your password; switch between multiple accounts, with sessions refreshed automatically at launch
+- **External login**: accounts from LittleSkin and other authlib-injector skin sites (just enter the site's address); authlib-injector is downloaded automatically at launch. Only encrypted login tokens are stored, never your password
 
 ### Interface
 - Glass-style design with page transition animations
 - Dark / light / follow-system themes
+- **Update check**: checks GitHub for new versions at startup and shows a notice in the bottom-right corner, with the release notes and a download link for the right installer for your system; check manually or turn this off under Settings → About
 
 | Install setup | Mod management |
 |---|---|
@@ -116,6 +119,8 @@ The portable version unpacks itself on every start, so it launches a few seconds
 > The installer is not code-signed, so Windows SmartScreen may show "Windows protected your PC" on first run. Click **More info** → **Run anyway**.
 
 `build:mac` / `build:linux` build a macOS dmg and a Linux AppImage respectively, and must be run on those systems.
+
+To publish a new version, go to Actions → Release → Run workflow and enter the version (e.g. `0.2.0`). Windows, macOS (Apple silicon and Intel) and Linux builds are created and published to Releases automatically. The macOS build is not signed with an Apple developer certificate: right-click → **Open** the first time, and if macOS says the app is damaged, run `xattr -cr /Applications/琉璃启动器.app` in Terminal.
 
 ## Microsoft login
 
