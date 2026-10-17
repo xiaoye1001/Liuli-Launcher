@@ -31,7 +31,14 @@ import ModsPage from './ModsPage'
 import VersionSettingsPage from './VersionSettingsPage'
 import WorldsPage from './WorldsPage'
 import ExportModpackPage from './ExportModpackPage'
-import type { InstalledVersion, InstallStatus, ModLoader, PlayStats, ResourceType } from '../../../shared/types'
+import type {
+  GameDirSummary,
+  InstalledVersion,
+  InstallStatus,
+  ModLoader,
+  PlayStats,
+  ResourceType
+} from '../../../shared/types'
 
 const LOADER_LABELS: Record<ModLoader, { label: string; className: string }> = {
   fabric: { label: 'Fabric', className: 'bg-amber-500/20 text-amber-300' },
@@ -265,6 +272,8 @@ function VersionsPage({
   const [stats, setStats] = useState<PlayStats | null>(null)
   const [selected, setSelected] = useState('')
   const [gameDir, setGameDir] = useState('')
+  /** 添加过的游戏目录（多于一个时显示切换框） */
+  const [dirs, setDirs] = useState<GameDirSummary[]>([])
   const [keyword, setKeyword] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [install, setInstall] = useState<InstallStatus | null>(null)
@@ -288,6 +297,10 @@ function VersionsPage({
       .then(setStats)
       .catch(() => undefined)
     setGameDir(settings.gameDir)
+    window.api
+      .getGameDirInfo()
+      .then((info) => setDirs(info.dirs))
+      .catch(() => undefined)
     return list
   }, [])
 
@@ -325,6 +338,15 @@ function VersionsPage({
       setActionError(cleanError(e))
     }
   }
+
+  /** 切换到另一个游戏目录，并刷新版本列表 */
+  const switchGameDir = (path: string): Promise<void> =>
+    run(async () => {
+      const info = await window.api.setGameDir(path)
+      setDirs(info.dirs)
+      await load()
+      setNotice(`已切换到「${info.dirs.find((d) => d.current)?.name ?? info.path}」`)
+    })
 
   const repair = (versionId: string): Promise<void> => run(() => window.api.repairVersion(versionId))
   const remove = (versionId: string): Promise<void> =>
@@ -401,9 +423,28 @@ function VersionsPage({
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <h1 className="text-3xl font-bold tracking-tight">版本</h1>
-            <p className="mt-1 truncate text-xs text-white/50" title={gameDir}>
-              已安装 {installed?.length ?? 0} 个版本 · 游戏目录：{gameDir}
-            </p>
+            <div className="mt-1 flex min-w-0 items-center gap-1 text-xs text-white/50">
+              <span className="shrink-0">已安装 {installed?.length ?? 0} 个版本 · 游戏目录：</span>
+              {dirs.length > 1 ? (
+                <select
+                  value={dirs.find((d) => d.current)?.path ?? gameDir}
+                  onChange={(e) => switchGameDir(e.target.value)}
+                  aria-label="切换游戏目录"
+                  title={`${gameDir}\n可以在设置中添加、重命名游戏目录`}
+                  className="min-w-0 max-w-xs cursor-pointer rounded-lg border border-white/10 bg-black/20 px-2 py-1 text-xs text-white/80 outline-none hover:bg-black/30"
+                >
+                  {dirs.map((d) => (
+                    <option key={d.path} value={d.path} className="bg-slate-800 text-white">
+                      {d.name}（{d.exists ? `${d.versionCount} 个版本` : '找不到文件夹'}）
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="truncate" title={gameDir}>
+                  {gameDir}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex shrink-0 gap-3">
             <button

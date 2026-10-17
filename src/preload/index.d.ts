@@ -259,7 +259,10 @@ declare global {
       getGameDirInfo: () => Promise<GameDirInfo>
       setGameDir: (dir: string) => Promise<GameDirInfo>
       pickGameDir: () => Promise<GameDirInfo | null>
-      openGameDir: () => Promise<void>
+      /** 打开游戏目录，不填时打开当前目录 */
+      openGameDir: (dir?: string) => Promise<void>
+      renameGameDir: (dir: string, name: string) => Promise<GameDirInfo>
+      removeGameDir: (dir: string) => Promise<GameDirInfo>
       getGameLogs: () => Promise<string[]>
       openLogWindow: () => Promise<void>
       onGameLog: (callback: (event: GameLogEvent) => void) => () => void

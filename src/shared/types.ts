@@ -87,6 +87,8 @@ export interface AppSettings {
   proxyUrl: string
   /** 游戏目录（.minecraft） */
   gameDir: string
+  /** 添加过的游戏目录（包含当前目录），可以在它们之间切换 */
+  gameDirs: GameDirEntry[]
   /** 当前离线账号的玩家名（与 offlineAccounts 中 activeOffline 对应的账号同步） */
   offlineName: string
   /** 所有离线账号 */
@@ -343,7 +345,29 @@ export interface GameLogEvent {
 }
 
 /** 游戏目录信息 */
+/** 保存的一个游戏目录 */
+export interface GameDirEntry {
+  path: string
+  /** 显示的名字 */
+  name: string
+  /** 切换走时该目录选中的版本，切换回来时恢复 */
+  selectedVersion?: string
+}
+
+/** 游戏目录列表中的一项（含统计信息） */
+export interface GameDirSummary {
+  path: string
+  name: string
+  current: boolean
+  exists: boolean
+  versionCount: number
+  isDefault: boolean
+  isOfficial: boolean
+}
+
 export interface GameDirInfo {
+  /** 添加过的所有游戏目录，当前目录在其中 */
+  dirs: GameDirSummary[]
   /** 当前使用的游戏目录 */
   path: string
   /** 目录中已安装的版本数量 */

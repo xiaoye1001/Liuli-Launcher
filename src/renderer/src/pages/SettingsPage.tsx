@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  Box,
   CheckCircle2,
   Coffee,
   ExternalLink,
-  FolderOpen,
-  FolderSearch,
   Download,
   ImageIcon,
   Info,
@@ -30,12 +27,12 @@ import {
 } from 'lucide-react'
 import { backgroundUrl } from '../utils/appearance'
 import { ReleaseNotes, UpdateActions } from '../components/UpdateNotice'
+import GameDirSection from '../components/GameDirSection'
 import type {
   AccentColor,
   AfterLaunch,
   AppSettings,
   DownloadSource,
-  GameDirInfo,
   InstallStatus,
   JavaInfo,
   JavaRuntimeInfo,
@@ -107,27 +104,6 @@ function SettingsPage(): JSX.Element {
   const [runtimesError, setRuntimesError] = useState('')
   /** 当前的下载任务（用于显示 Java 下载进度） */
   const [task, setTask] = useState<InstallStatus | null>(null)
-  const [gameDir, setGameDir] = useState<GameDirInfo | null>(null)
-  const [gameDirBusy, setGameDirBusy] = useState(false)
-  const [gameDirError, setGameDirError] = useState('')
-
-  /** 执行切换游戏目录的操作，统一处理加载状态与错误 */
-  const changeGameDir = async (action: () => Promise<GameDirInfo | null>): Promise<void> => {
-    setGameDirBusy(true)
-    setGameDirError('')
-    try {
-      const info = await action()
-      if (info) {
-        setGameDir(info)
-        setSettings((prev) => (prev ? { ...prev, gameDir: info.path } : prev))
-      }
-    } catch (e) {
-      setGameDirError(cleanError(e))
-    } finally {
-      setGameDirBusy(false)
-    }
-  }
-
   const update = async (patch: Partial<AppSettings>): Promise<void> => {
     setSettings((prev) => (prev ? { ...prev, ...patch } : prev))
     const saved = await window.api.updateSettings(patch)
@@ -189,13 +165,8 @@ function SettingsPage(): JSX.Element {
 
   useEffect(() => {
     const init = async (): Promise<void> => {
-      const [loaded, info, dirInfo] = await Promise.all([
-        window.api.getSettings(),
-        window.api.getSystemInfo(),
-        window.api.getGameDirInfo()
-      ])
+      const [loaded, info] = await Promise.all([window.api.getSettings(), window.api.getSystemInfo()])
       setSettings(loaded)
-      setGameDir(dirInfo)
       setTotalMemory(info.totalMemory)
       setMemoryDraft(loaded.maxMemory)
       if (loaded.selectedVersion) window.api.previewMemory(loaded.selectedVersion).then(setMemoryPlan)
@@ -405,81 +376,15 @@ function SettingsPage(): JSX.Element {
       </section>
 
       {/* 游戏目录 */}
-      <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <FolderOpen className="h-5 w-5 text-sky-300" />
-            <div>
-              <h2 className="text-lg font-semibold">游戏目录</h2>
-              <p className="text-xs text-white/50">游戏版本、存档、资源包等文件的存放位置（.minecraft 文件夹）</p>
-            </div>
-          </div>
-          <button
-            onClick={() => window.api.openGameDir()}
-            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
-          >
-            <ExternalLink className="h-4 w-4" />
-            打开文件夹
-          </button>
-        </div>
-
-        {gameDir && (
-          <div className="mt-5 rounded-xl bg-black/20 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate font-mono text-sm" title={gameDir.path}>
-                {gameDir.path}
-              </span>
-              {gameDir.isDefault && (
-                <span className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 text-xs text-white/60">默认目录</span>
-              )}
-              {gameDir.isOfficial && (
-                <span className="shrink-0 rounded-md bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">
-                  官方启动器目录
-                </span>
-              )}
-            </div>
-            <div className="mt-1 text-xs text-white/50">已安装 {gameDir.versionCount} 个版本</div>
-          </div>
-        )}
-
-        <div className="mt-4 flex flex-wrap gap-3">
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => changeGameDir(() => window.api.pickGameDir())}
-            disabled={gameDirBusy}
-            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-50"
-          >
-            {gameDirBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderSearch className="h-4 w-4" />}
-            选择文件夹...
-          </motion.button>
-          {gameDir?.officialExists && !gameDir.isOfficial && (
-            <button
-              onClick={() => changeGameDir(() => window.api.setGameDir(gameDir.officialDir))}
-              disabled={gameDirBusy}
-              title={gameDir.officialDir}
-              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-50"
-            >
-              <Box className="h-4 w-4" />
-              使用官方启动器目录
-            </button>
-          )}
-          {gameDir && !gameDir.isDefault && (
-            <button
-              onClick={() => changeGameDir(() => window.api.setGameDir(gameDir.defaultDir))}
-              disabled={gameDirBusy}
-              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-50"
-            >
-              <RotateCcw className="h-4 w-4" />
-              恢复默认
-            </button>
-          )}
-        </div>
-
-        {gameDirError && (
-          <div className="mt-3 rounded-xl bg-red-500/20 px-4 py-2.5 text-sm text-red-200">{gameDirError}</div>
-        )}
-      </section>
+      <GameDirSection
+        onChanged={() =>
+          window.api.getSettings().then((loaded) => {
+            setSettings(loaded)
+            if (loaded.selectedVersion) window.api.previewMemory(loaded.selectedVersion).then(setMemoryPlan)
+            else setMemoryPlan(null)
+          })
+        }
+      />
 
       {/* Java 运行环境 */}
       <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">

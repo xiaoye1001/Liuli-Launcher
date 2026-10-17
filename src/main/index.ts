@@ -25,7 +25,7 @@ import {
 } from './install'
 import { getGameLogs, getGameStatus, launchGame, listInstalledVersions, previewMemory } from './launch'
 import { closeLogWindow, openLogWindow } from './logWindow'
-import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
+import { getGameDirInfo, openGameDir, pickGameDir, removeGameDir, renameGameDir, setGameDir } from './gameDir'
 import { assertSafeId, deleteVersion, openVersionDir } from './versionManage'
 import { addMods, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
 import {
@@ -110,13 +110,20 @@ import type {
   VersionConfig,
   LocalResourceKind,
   SavedServer,
-  ModpackExportOptions
+  ModpackExportOptions,
+  GameDirInfo
 } from '../shared/types'
 
 /** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
 function broadcastSettings(settings: AppSettings): AppSettings {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('settings:changed', settings)
   return settings
+}
+
+/** 切换游戏目录后通知所有窗口（选中的版本也随之改变） */
+async function afterGameDirChange(info: GameDirInfo): Promise<GameDirInfo> {
+  broadcastSettings(await getSettings())
+  return info
 }
 
 function createWindow(): void {
@@ -360,12 +367,14 @@ function registerIpc(): void {
   ipcMain.handle('crash:open', (_, kind: 'report' | 'native') => openCrashFile(kind))
   ipcMain.handle('crash:export', (event) => exportCrashInfo(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('gamedir:info', () => getGameDirInfo())
-  ipcMain.handle('gamedir:set', (_, dir: string) => setGameDir(dir))
-  ipcMain.handle('gamedir:open', () => openGameDir())
-  // 弹出文件夹选择框并切换；用户取消时返回 null
+  ipcMain.handle('gamedir:set', (_, dir: string) => setGameDir(dir).then(afterGameDirChange))
+  ipcMain.handle('gamedir:rename', (_, dir: string, name: string) => renameGameDir(dir, name))
+  ipcMain.handle('gamedir:remove', (_, dir: string) => removeGameDir(dir))
+  ipcMain.handle('gamedir:open', (_, dir?: string) => openGameDir(typeof dir === 'string' ? dir : undefined))
+  // 弹出文件夹选择框，添加并切换到选中的目录；用户取消时返回 null
   ipcMain.handle('gamedir:pick', async (event) => {
     const dir = await pickGameDir(BrowserWindow.fromWebContents(event.sender))
-    return dir ? setGameDir(dir) : null
+    return dir ? setGameDir(dir).then(afterGameDirChange) : null
   })
   ipcMain.handle('memory:preview', (_, versionId: string) => previewMemory(versionId))
   ipcMain.handle(
