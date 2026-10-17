@@ -204,6 +204,8 @@ export type GameState = 'idle' | 'launching' | 'running' | 'exited' | 'crashed'
 export interface GameStatus {
   state: GameState
   versionId: string
+  /** 游戏进程开始的时间（毫秒时间戳），用于显示本次游玩时长 */
+  startedAt?: number
   /** 进程退出码 */
   exitCode?: number | null
   /** 启动失败或崩溃的原因 */
@@ -486,6 +488,31 @@ export interface ScreenshotList {
   /** screenshots 文件夹 */
   dir: string
   items: Screenshot[]
+}
+
+/** 某个版本的游玩统计 */
+export interface VersionPlayStats {
+  /** 累计游玩时长（毫秒） */
+  totalMs: number
+  /** 启动次数 */
+  launches: number
+  /** 最后游玩时间（毫秒时间戳） */
+  lastPlayed: number
+}
+
+/** 一次游玩记录 */
+export interface PlaySession {
+  versionId: string
+  start: number
+  durationMs: number
+  /** 是否异常退出 */
+  crashed: boolean
+}
+
+export interface PlayStats {
+  versions: Record<string, VersionPlayStats>
+  /** 最近的游玩记录（最新的在前） */
+  sessions: PlaySession[]
 }
 
 /** Modrinth 搜索结果中的一个模组 */

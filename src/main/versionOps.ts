@@ -6,6 +6,7 @@ import { getSettings, updateSettings } from './config'
 import { getInstallStatus } from './install'
 import { getGameStatus } from './launch'
 import { listServers, saveServer } from './servers'
+import { renamePlayStats } from './playStats'
 import { assertSafeId } from './versionManage'
 
 /** 版本名规则与安装时一致 */
@@ -98,6 +99,7 @@ export async function renameVersion(versionId: string, newId: string): Promise<v
   for (const server of await listServers()) {
     if (server.versionId === versionId) await saveServer({ ...server, versionId: newId })
   }
+  await renamePlayStats(versionId, newId)
 }
 
 /** 版本隔离时游戏在版本文件夹里产生、复制时可以不要的内容 */

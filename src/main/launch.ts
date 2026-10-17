@@ -13,6 +13,7 @@ import { onGameEnded, onGameWindowReady } from './windows'
 import { resolveJava } from './java'
 import { openLogWindow } from './logWindow'
 import { collectCrash } from './crashReport'
+import { recordSession } from './playStats'
 import { parseAddress } from './serverPing'
 import { ensureAuthlibInjector } from './authlibInjector'
 import type { GameLogEvent, GameStatus, InstalledVersion, JavaInfo, ModLoader } from '../shared/types'
@@ -308,6 +309,8 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       extraExecOption: { windowsHide: false }
     })
     launcherLog(`游戏进程已创建（PID ${proc.pid}）`)
+    const processStartedAt = Date.now()
+    setStatus({ state: 'launching', versionId, startedAt: processStartedAt })
 
     pipeLines(proc.stdout)
     pipeLines(proc.stderr)
@@ -316,7 +319,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     watcher.on('minecraft-window-ready', () => {
       if (status.state === 'launching') {
         launcherLog('游戏窗口已出现')
-        setStatus({ state: 'running', versionId })
+        setStatus({ state: 'running', versionId, startedAt: processStartedAt })
       }
     })
     watcher.on('error', (e) => {
@@ -324,6 +327,8 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     })
     watcher.on('minecraft-exit', async ({ code, crashReportLocation }) => {
       launcherLog(`游戏进程已退出，退出码 ${code}`)
+      // 记录游玩时长（从游戏进程启动到退出）
+      void recordSession(versionId, processStartedAt, Date.now(), code !== 0).catch(() => undefined)
       if (code === 0) {
         setStatus({ state: 'exited', versionId, exitCode: code })
       } else {

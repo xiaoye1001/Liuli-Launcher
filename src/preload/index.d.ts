@@ -37,7 +37,8 @@ import type {
   ExternalAccount,
   ExternalLoginResult,
   ModUpdate,
-  ScreenshotList
+  ScreenshotList,
+  PlayStats
 } from '../shared/types'
 
 declare global {
@@ -116,6 +117,8 @@ declare global {
       copyScreenshot: (versionId: string, fileName: string) => Promise<void>
       showScreenshot: (versionId: string, fileName: string) => Promise<void>
       openScreenshotsDir: (versionId: string) => Promise<void>
+      /** 游玩时长统计与最近游玩记录 */
+      getPlayStats: () => Promise<PlayStats>
       /** 版本设置（未设置的项跟随全局设置） */
       getVersionConfig: (versionId: string) => Promise<VersionConfig>
       setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) => Promise<VersionConfig>

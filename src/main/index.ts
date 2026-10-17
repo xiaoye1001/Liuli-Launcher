@@ -63,6 +63,7 @@ import { exportCrashInfo, openCrashFile } from './crashReport'
 import { deleteServer, importGameServers, listServers, moveServer, saveServer } from './servers'
 import { pingServer } from './serverPing'
 import { checkUpdate, openUpdateLink } from './updater'
+import { getPlayStats } from './playStats'
 import { copyScreenshot, deleteScreenshot, listScreenshots, openScreenshotsDir, showScreenshot } from './screenshots'
 import { copyVersion, createDesktopShortcut, launchArgOf, renameVersion } from './versionOps'
 import { loginExternal, removeExternalAccount, selectExternalProfile } from './yggdrasil'
@@ -276,6 +277,7 @@ function registerIpc(): void {
   ipcMain.handle('servers:import', () => importGameServers())
   ipcMain.handle('servers:ping', (_, address: string) => pingServer(address))
   ipcMain.handle('game:status', () => getGameStatus())
+  ipcMain.handle('stats:get', () => getPlayStats())
   ipcMain.handle('game:logs', () => getGameLogs())
   ipcMain.handle('logs:open', () => openLogWindow())
   ipcMain.handle('crash:open', (_, kind: 'report' | 'native') => openCrashFile(kind))

@@ -23,12 +23,13 @@ import {
   Wrench
 } from 'lucide-react'
 import GrassBlockIcon from '../components/GrassBlockIcon'
+import { formatDuration } from '../utils/format'
 import InstallProgressCard from '../components/InstallProgressCard'
 import LocalResourcesPage from './LocalResourcesPage'
 import ModsPage from './ModsPage'
 import VersionSettingsPage from './VersionSettingsPage'
 import WorldsPage from './WorldsPage'
-import type { InstalledVersion, InstallStatus, ModLoader, ResourceType } from '../../../shared/types'
+import type { InstalledVersion, InstallStatus, ModLoader, PlayStats, ResourceType } from '../../../shared/types'
 
 const LOADER_LABELS: Record<ModLoader, { label: string; className: string }> = {
   fabric: { label: 'Fabric', className: 'bg-amber-500/20 text-amber-300' },
@@ -256,6 +257,7 @@ function VersionsPage({
   onDownloadResources
 }: VersionsPageProps): JSX.Element {
   const [installed, setInstalled] = useState<InstalledVersion[] | null>(null)
+  const [stats, setStats] = useState<PlayStats | null>(null)
   const [selected, setSelected] = useState('')
   const [gameDir, setGameDir] = useState('')
   const [keyword, setKeyword] = useState('')
@@ -275,6 +277,10 @@ function VersionsPage({
     const [list, settings] = await Promise.all([window.api.getInstalledVersions(), window.api.getSettings()])
     setInstalled(list)
     setSelected(settings.selectedVersion)
+    window.api
+      .getPlayStats()
+      .then(setStats)
+      .catch(() => undefined)
     setGameDir(settings.gameDir)
     return list
   }, [])
@@ -533,6 +539,14 @@ function VersionsPage({
                             className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 text-white/60"
                           >
                             隔离
+                          </span>
+                        )}
+                        {stats?.versions[version.id] && (
+                          <span
+                            title={`启动 ${stats.versions[version.id].launches} 次`}
+                            className="shrink-0 text-white/40"
+                          >
+                            已玩 {formatDuration(stats.versions[version.id].totalMs)}
                           </span>
                         )}
                         {version.customized && (
