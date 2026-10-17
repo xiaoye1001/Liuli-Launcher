@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, Box, Check, ChevronDown, Gamepad2, Loader2, Play, Terminal, UserRound } from 'lucide-react'
 import SkinHead from '../components/SkinHead'
-import type { AccountsInfo, AppSettings, GameStatus, InstalledVersion } from '../../../shared/types'
+import type { AccountsInfo, AppSettings, GameStatus, InstallStatus, InstalledVersion } from '../../../shared/types'
 
 const NAME_PATTERN = /^[A-Za-z0-9_]{3,16}$/
 
@@ -71,6 +71,8 @@ function HomePage(): JSX.Element {
   const [name, setName] = useState('')
   const [game, setGame] = useState<GameStatus>({ state: 'idle', versionId: '' })
   const [accounts, setAccounts] = useState<AccountsInfo | null>(null)
+  /** 启动时自动下载 Java 的进度 */
+  const [javaTask, setJavaTask] = useState<InstallStatus | null>(null)
 
   useEffect(() => {
     const init = async (): Promise<void> => {
@@ -91,7 +93,12 @@ function HomePage(): JSX.Element {
       }
     }
     init()
-    return window.api.onGameStatus(setGame)
+    const offInstall = window.api.onInstallStatus((status) => setJavaTask(status?.kind === 'java' ? status : null))
+    const offGame = window.api.onGameStatus(setGame)
+    return () => {
+      offInstall()
+      offGame()
+    }
   }, [])
 
   // 使用微软账号时玩家名来自正版档案，不需要输入
@@ -202,6 +209,18 @@ function HomePage(): JSX.Element {
             {game.state === 'launching' ? '正在启动...' : game.state === 'running' ? '游戏运行中' : '启动游戏'}
           </motion.button>
         </div>
+        {javaTask?.state === 'running' && (
+          <div className="mt-3 flex items-center gap-3 text-xs text-white/60">
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+            <span className="shrink-0">正在下载该版本需要的 {javaTask.versionId}</span>
+            <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-emerald-400 transition-all"
+                style={{ width: `${javaTask.total > 0 ? (javaTask.progress / javaTask.total) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        )}
         {!nameValid && <p className="mt-2 text-xs text-red-300">玩家名只能包含字母、数字和下划线，长度 3~16</p>}
       </div>
     </div>

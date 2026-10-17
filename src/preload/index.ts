@@ -16,6 +16,8 @@ const api = {
     node: process.versions.node
   },
   scanJava: () => ipcRenderer.invoke('java:scan'),
+  getJavaRuntimes: () => ipcRenderer.invoke('java:runtimes'),
+  downloadJava: (component: string) => ipcRenderer.invoke('java:download', component),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch: Partial<AppSettings>) => ipcRenderer.invoke('settings:update', patch),
   getSystemInfo: () => ipcRenderer.invoke('system:info'),

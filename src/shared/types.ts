@@ -1,4 +1,16 @@
 /** 一个可用的 Java 运行环境 */
+/** 启动器可以下载的 Java 运行环境（来自 Mojang 官方的 Java 运行时） */
+export interface JavaRuntimeInfo {
+  /** 组件名，例如 java-runtime-delta */
+  component: string
+  /** 主版本号，例如 21 */
+  majorVersion: number
+  /** 完整版本号，例如 21.0.7 */
+  version: string
+  /** 是否已经下载 */
+  installed: boolean
+}
+
 export interface JavaInfo {
   /** java 可执行文件的完整路径 */
   path: string
@@ -15,6 +27,8 @@ export type DownloadSource = 'mojang' | 'bmclapi'
 export interface AppSettings {
   /** 选中的 java 可执行文件路径，空字符串表示未选择 */
   javaPath: string
+  /** 自动选择 Java：按游戏版本的要求挑选合适的 Java，没有时自动下载 */
+  javaAuto: boolean
   /** 游戏最大内存（MB） */
   maxMemory: number
   /** 下载源 */
@@ -96,13 +110,13 @@ export interface VersionManifest {
 }
 
 /** 任务类型：安装新版本 / 检查并修复已安装版本 */
-export type InstallKind = 'install' | 'repair'
+export type InstallKind = 'install' | 'repair' | 'java'
 
 /** 安装状态 */
 export type InstallState = 'running' | 'success' | 'failed' | 'cancelled'
 
 /** 安装阶段：游戏本体（版本 json 与客户端 jar） → 依赖库与资源文件（并行下载） → 运行模组加载器安装程序 */
-export type InstallPhase = 'version' | 'dependencies' | 'processing'
+export type InstallPhase = 'version' | 'dependencies' | 'processing' | 'java'
 
 /** 安装进度，由主进程实时推送到界面 */
 export interface InstallStatus {

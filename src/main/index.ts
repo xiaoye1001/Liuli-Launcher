@@ -7,6 +7,7 @@ import icon from '../../resources/icon.png?asset'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { totalmem } from 'os'
 import { scanJava } from './java'
+import { downloadedJavaPaths, listJavaRuntimes } from './javaRuntime'
 import { getSettings, updateSettings } from './config'
 import { getVersionManifest } from './versions'
 import { getForgeVersions } from './forge'
@@ -18,6 +19,7 @@ import {
   getInstallStatus,
   retryLastInstall,
   startCustomInstall,
+  startJavaInstall,
   startRepair
 } from './install'
 import { getGameLogs, getGameStatus, launchGame, listInstalledVersions } from './launch'
@@ -84,7 +86,9 @@ function createWindow(): void {
 }
 
 function registerIpc(): void {
-  ipcMain.handle('java:scan', () => scanJava())
+  ipcMain.handle('java:scan', async () => scanJava(await downloadedJavaPaths()))
+  ipcMain.handle('java:runtimes', () => listJavaRuntimes())
+  ipcMain.handle('java:download', (_, component: string) => startJavaInstall(component))
   ipcMain.handle('settings:get', () => getSettings())
   ipcMain.handle('settings:update', (_, patch: Partial<AppSettings>) => {
     // 修改主题时同步给 Electron，所有窗口的 prefers-color-scheme 会随之变化

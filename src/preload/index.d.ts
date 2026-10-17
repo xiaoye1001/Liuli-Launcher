@@ -10,6 +10,7 @@ import type {
   InstallRequest,
   InstallStatus,
   JavaInfo,
+  JavaRuntimeInfo,
   NeoForgeVersionInfo,
   OptiFineVersionInfo,
   ModList,
@@ -31,6 +32,10 @@ declare global {
         node: string
       }
       scanJava: () => Promise<JavaInfo[]>
+      /** 可下载的 Java 运行时及是否已下载 */
+      getJavaRuntimes: () => Promise<JavaRuntimeInfo[]>
+      /** 下载 Java 运行时，下载完成后返回 java 路径（进度通过 onInstallStatus 推送） */
+      downloadJava: (component: string) => Promise<string>
       getSettings: () => Promise<AppSettings>
       updateSettings: (patch: Partial<AppSettings>) => Promise<AppSettings>
       getSystemInfo: () => Promise<SystemInfo>

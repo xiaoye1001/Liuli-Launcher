@@ -5,8 +5,12 @@ import type { InstallStatus } from '../../../shared/types'
 const PHASE_LABELS = {
   version: '正在下载游戏本体',
   dependencies: '正在下载依赖库与资源文件',
-  processing: '正在运行模组加载器安装程序，可能需要几分钟'
+  processing: '正在运行模组加载器安装程序，可能需要几分钟',
+  java: '正在下载 Java 运行环境'
 }
+
+/** 任务类型对应的动词（标题用） */
+const ACTIONS = { install: '安装', repair: '修复', java: '下载' }
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes.toFixed(0)} B`
@@ -23,7 +27,7 @@ interface InstallProgressCardProps {
 }
 
 function InstallProgressCard({ status, onCancel, onRetry, onDismiss }: InstallProgressCardProps): JSX.Element {
-  const action = status.kind === 'repair' ? '修复' : '安装'
+  const action = ACTIONS[status.kind]
   const percent = status.total > 0 ? Math.min(100, (status.progress / status.total) * 100) : 0
   const running = status.state === 'running'
 
@@ -49,7 +53,7 @@ function InstallProgressCard({ status, onCancel, onRetry, onDismiss }: InstallPr
 
         <div className="min-w-0 flex-1">
           <div className="font-semibold">
-            {running && `正在${status.kind === 'repair' ? '检查并修复' : '安装'} ${status.versionId}`}
+            {running && `正在${status.kind === 'repair' ? '检查并修复' : action} ${status.versionId}`}
             {status.state === 'success' && `${status.versionId} ${action}完成`}
             {status.state === 'failed' && `${status.versionId} ${action}失败`}
             {status.state === 'cancelled' && `已取消${action} ${status.versionId}`}
