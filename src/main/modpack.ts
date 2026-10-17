@@ -366,7 +366,9 @@ interface CurseFile {
 }
 
 /** 通过 MCIM 镜像查询 CurseForge 文件的下载信息 */
-async function resolveCurseFiles(ids: number[]): Promise<{ path: string; urls: string[]; sha1?: string }[]> {
+async function resolveCurseFiles(
+  ids: number[]
+): Promise<{ path: string; urls: string[]; sha1?: string; size?: number }[]> {
   const result: CurseFile[] = []
   for (let i = 0; i < ids.length; i += 200) {
     let response: Response
@@ -400,6 +402,7 @@ async function resolveCurseFiles(ids: number[]): Promise<{ path: string; urls: s
     const folder = file.fileName.toLowerCase().endsWith('.zip') ? 'resourcepacks' : 'mods'
     return {
       path: `${folder}/${file.fileName}`,
+      size: file.fileLength || undefined,
       urls: [...new Set(urls)],
       sha1: file.hashes?.find((h) => h.algo === 1)?.value
     }
@@ -510,9 +513,26 @@ class ExtractTask extends AbortableTask<void> {
 }
 
 /**
+ * 一次下载多个文件，总大小一开始就按整合包里写的大小计算。
+ * xmcl 只在每个文件开始下载后才知道它的大小，几百个模组时总大小会越下越大
+ */
+class SizedDownloadTask extends DownloadMultipleTask {
+  constructor(
+    options: ConstructorParameters<typeof DownloadMultipleTask>[0],
+    private readonly expectedTotal: number
+  ) {
+    super(options)
+  }
+
+  get total(): number {
+    return Math.max(super.total, this.expectedTotal)
+  }
+}
+
+/**
  * 整合包的安装步骤：
  * - 安装原版之前：把整合包自带的 assets、libraries 解压到游戏目录根部，原版与加载器的文件校验通过就不再下载；
- * - 安装之后：下载整合包列出的模组（压缩包里已经有的跳过），再把其余文件复制到该版本的游戏目录
+ * - 安装之后：先把整合包自带的其余文件解压到该版本的游戏目录，再下载清单里缺少的模组（压缩包里已经有的跳过）
  */
 function modpackStep(path: string): InstallExtraStep {
   const step: InstallExtraStep = async (context, gameDir) => {
@@ -521,9 +541,9 @@ function modpackStep(path: string): InstallExtraStep {
     const modrinthFiles = await Promise.all(
       parsed.downloads
         .filter((d) => !included.has(d.path.toLowerCase()))
-        .map(async (d) => ({ path: d.path, urls: await modrinthFileUrls(d.urls), sha1: d.sha1 }))
+        .map(async (d) => ({ path: d.path, urls: await modrinthFileUrls(d.urls), sha1: d.sha1, size: d.size }))
     )
-    let curseFiles: { path: string; urls: string[]; sha1?: string }[] = []
+    let curseFiles: { path: string; urls: string[]; sha1?: string; size?: number }[] = []
     if (parsed.curseFileIds.length > 0) {
       try {
         curseFiles = (await resolveCurseFiles(parsed.curseFileIds)).filter((f) => !included.has(f.path.toLowerCase()))
@@ -532,24 +552,27 @@ function modpackStep(path: string): InstallExtraStep {
         if ((parsed.info.includedMods ?? 0) < parsed.curseFileIds.length) throw e
       }
     }
+    // 先把整合包自带的文件解压出来，再下载缺少的文件
+    const files = parsed.overrides
+      .filter((o) => !isShared(o.rel))
+      .map((o) => ({ entryName: o.entryName, target: safeJoin(gameDir, o.rel), size: o.size }))
+    if (files.length > 0) await context.yield(new ExtractTask(path, files).setName('modpackOverrides'))
+
     const downloads = [...modrinthFiles, ...curseFiles]
     if (downloads.length > 0) {
       await context.yield(
-        new DownloadMultipleTask(
+        new SizedDownloadTask(
           downloads.map((d) => ({
             url: d.urls,
             destination: safeJoin(gameDir, d.path),
             validator: d.sha1 ? { algorithm: 'sha1', hash: d.sha1 } : undefined,
             headers: { 'User-Agent': MODRINTH_USER_AGENT },
             dispatcher: installDispatcher()
-          }))
+          })),
+          downloads.reduce((sum, d) => sum + (d.size ?? 0), 0)
         ).setName('modpackFiles')
       )
     }
-    const files = parsed.overrides
-      .filter((o) => !isShared(o.rel))
-      .map((o) => ({ entryName: o.entryName, target: safeJoin(gameDir, o.rel), size: o.size }))
-    if (files.length > 0) await context.yield(new ExtractTask(path, files).setName('modpackOverrides'))
   }
   step.before = async (context) => {
     const parsed = await parseModpack(path)

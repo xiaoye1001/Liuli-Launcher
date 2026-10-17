@@ -518,7 +518,18 @@ export async function startCustomInstall(
       )
     }
     const resolved = await Version.parse(settings.gameDir, name)
-    await this.yield(installDependenciesTask(resolved, options))
+    // 资源文件与原版相同，安装原版时已经下载并校验过；这里只补充加载器自己的依赖库。
+    // 如果再检查一遍全部依赖，几千个资源文件会被重复计算进总大小，也会再算一遍哈希
+    const vanilla = await Version.parse(settings.gameDir, minecraftVersion)
+    if (resolved.assets !== vanilla.assets) {
+      await this.yield(installDependenciesTask(resolved, options))
+    } else {
+      const vanillaLibs = new Set(vanilla.libraries.map((l) => l.download.path))
+      const loaderLibs = resolved.libraries.filter((l) => !vanillaLibs.has(l.download.path))
+      if (loaderLibs.length > 0) {
+        await this.yield(installResolvedLibrariesTask(loaderLibs, settings.gameDir, options))
+      }
+    }
 
     if (extra) {
       const loader = forgeVersion
