@@ -31,6 +31,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # 版本号以发布时的标签为准（例如 v0.1.2 → 0.1.2），不用每次手动修改 package.json
+      - name: Use version from tag
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+
       - name: Type check
         run: npm run typecheck
 
@@ -64,6 +68,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # 版本号以发布时的标签为准（例如 v0.1.2 → 0.1.2），不用每次手动修改 package.json
+      - name: Use version from tag
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
 
       # 同时生成安装版（NSIS）与免安装版（portable），配置见 electron-builder.yml
       - name: Build installer and portable exe
