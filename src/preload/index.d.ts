@@ -94,6 +94,15 @@ declare global {
       setResourcePackEnabled: (versionId: string, fileName: string, enabled: boolean) => Promise<void>
       /** 设置当前光影，null 为关闭光影 */
       setActiveShader: (versionId: string, fileName: string | null) => Promise<void>
+      /** 检查资源包 / 光影包在 Modrinth 上有没有新版本 */
+      checkResourceUpdates: (versionId: string, kind: LocalResourceKind) => Promise<ModUpdate[]>
+      /** 更新资源包 / 光影包，返回新文件名（启用状态保持不变） */
+      updateResource: (
+        versionId: string,
+        kind: LocalResourceKind,
+        fileName: string,
+        modrinthVersionId: string
+      ) => Promise<string>
       deleteLocalResource: (versionId: string, kind: LocalResourceKind, fileName: string) => Promise<void>
       /** 选择文件添加，返回添加的数量 */
       addLocalResources: (versionId: string, kind: LocalResourceKind) => Promise<number>

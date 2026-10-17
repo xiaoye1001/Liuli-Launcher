@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowUpCircle,
   CheckCircle2,
   Download,
   Folder,
@@ -15,7 +16,13 @@ import {
   Trash2
 } from 'lucide-react'
 import ScreenshotsPanel from '../components/ScreenshotsPanel'
-import type { InstalledVersion, LocalResource, LocalResourceKind, LocalResourceList } from '../../../shared/types'
+import type {
+  InstalledVersion,
+  LocalResource,
+  LocalResourceKind,
+  LocalResourceList,
+  ModUpdate
+} from '../../../shared/types'
 
 const TABS: [LocalResourceKind, string][] = [
   ['resourcepack', '资源包'],
@@ -57,6 +64,9 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
   const [notice, setNotice] = useState('')
   /** 正在修改的文件名，避免重复点击 */
   const [pending, setPending] = useState<string | null>(null)
+  /** 检查更新的结果（文件名 → 更新），未检查时为 null */
+  const [updates, setUpdates] = useState<Record<string, ModUpdate> | null>(null)
+  const [checking, setChecking] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -73,6 +83,7 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
   useEffect(() => {
     setList(null)
     setNotice('')
+    setUpdates(null)
     load()
   }, [load])
 
@@ -89,6 +100,58 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
       setPending(null)
     }
   }
+
+  const checkUpdates = async (): Promise<void> => {
+    setChecking(true)
+    setError('')
+    setNotice('')
+    try {
+      const result = await window.api.checkResourceUpdates(version.id, kind)
+      setUpdates(Object.fromEntries(result.map((u) => [u.fileName, u])))
+      setNotice(
+        result.length > 0
+          ? `有 ${result.length} 个${label}可以更新`
+          : `没有发现新版本（只能检查从 Modrinth 下载的${label}）`
+      )
+    } catch (e) {
+      setError(cleanError(e))
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  const removeUpdate = (fileName: string): void =>
+    setUpdates((prev) => {
+      const next = { ...prev }
+      delete next[fileName]
+      return next
+    })
+
+  const updateOne = (update: ModUpdate): Promise<void> =>
+    act(update.fileName, async () => {
+      await window.api.updateResource(version.id, kind, update.fileName, update.newVersionId)
+      removeUpdate(update.fileName)
+      setNotice(`已将 ${update.title || update.fileName} 更新到 ${update.newVersion}，旧版本已移到回收站`)
+    })
+
+  const updateAll = (): Promise<void> =>
+    act('', async () => {
+      const failed: string[] = []
+      let done = 0
+      for (const update of Object.values(updates ?? {})) {
+        try {
+          await window.api.updateResource(version.id, kind, update.fileName, update.newVersionId)
+          removeUpdate(update.fileName)
+          done++
+        } catch (e) {
+          failed.push(`${update.title || update.fileName}（${cleanError(e)}）`)
+        }
+      }
+      if (failed.length > 0) throw new Error(`已更新 ${done} 个，失败：${failed.join('、')}`)
+      setNotice(`已更新 ${done} 个${label}，旧版本已移到回收站`)
+    })
+
+  const updateCount = Object.keys(updates ?? {}).length
 
   const kw = keyword.trim().toLowerCase()
   const items = useMemo(
@@ -150,6 +213,34 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
             </button>
           </div>
           <div className={`ml-auto flex gap-2 ${showShots ? 'hidden' : ''}`}>
+            {updateCount > 0 ? (
+              <button
+                onClick={updateAll}
+                disabled={pending !== null}
+                className="flex items-center gap-1.5 rounded-lg bg-sky-500/80 px-3 py-1.5 text-xs font-medium hover:bg-sky-500 disabled:opacity-50"
+              >
+                {pending === '' ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ArrowUpCircle className="h-3.5 w-3.5" />
+                )}
+                全部更新（{updateCount}）
+              </button>
+            ) : (
+              <button
+                onClick={checkUpdates}
+                disabled={checking || pending !== null}
+                title={`在 Modrinth 上检查${label}的新版本`}
+                className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+              >
+                {checking ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ArrowUpCircle className="h-3.5 w-3.5" />
+                )}
+                检查更新
+              </button>
+            )}
             <button
               onClick={() => act(null, () => window.api.addLocalResources(version.id, kind))}
               disabled={pending !== null}
@@ -314,6 +405,18 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
                       {item.packFormat !== undefined && <span>· 格式版本 {item.packFormat}</span>}
                     </div>
                   </div>
+                  {updates?.[item.fileName] && (
+                    <button
+                      onClick={() => updateOne(updates[item.fileName])}
+                      disabled={pending !== null}
+                      title={`更新到 ${updates[item.fileName].newFileName}`}
+                      className="flex shrink-0 items-center gap-1 rounded-lg bg-sky-500/20 px-2.5 py-1.5 text-xs text-sky-300 hover:bg-sky-500/30 disabled:opacity-50"
+                    >
+                      <ArrowUpCircle className="h-3.5 w-3.5" />
+                      更新到 {updates[item.fileName].newVersion}
+                      {updates[item.fileName].prerelease && '（测试版）'}
+                    </button>
+                  )}
                   {kind === 'resourcepack' ? (
                     <button
                       role="switch"

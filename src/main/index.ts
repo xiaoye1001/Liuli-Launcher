@@ -42,11 +42,13 @@ import { isElevated } from './elevation'
 import { getVersionConfig, setVersionConfig } from './versionConfig'
 import {
   addLocalResources,
+  checkResourceUpdates,
   deleteLocalResource,
   listLocalResources,
   openLocalResourceDir,
   setActiveShader,
-  setResourcePackEnabled
+  setResourcePackEnabled,
+  updateResource
 } from './resources'
 import {
   addWorldDatapacks,
@@ -218,6 +220,14 @@ function registerIpc(): void {
     updateMod(versionId, fileName, modrinthVersionId)
   )
   ipcMain.handle('local:list', (_, versionId: string, kind: LocalResourceKind) => listLocalResources(versionId, kind))
+  ipcMain.handle('local:checkUpdates', (_, versionId: string, kind: LocalResourceKind) =>
+    checkResourceUpdates(versionId, kind)
+  )
+  ipcMain.handle(
+    'local:update',
+    (_, versionId: string, kind: LocalResourceKind, fileName: string, modrinthVersionId: string) =>
+      updateResource(versionId, kind, fileName, modrinthVersionId)
+  )
   ipcMain.handle('local:setPackEnabled', (_, versionId: string, fileName: string, enabled: boolean) =>
     setResourcePackEnabled(versionId, fileName, enabled)
   )

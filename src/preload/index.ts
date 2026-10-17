@@ -56,6 +56,10 @@ const api = {
   listLocalResources: (versionId: string, kind: LocalResourceKind) => ipcRenderer.invoke('local:list', versionId, kind),
   setResourcePackEnabled: (versionId: string, fileName: string, enabled: boolean) =>
     ipcRenderer.invoke('local:setPackEnabled', versionId, fileName, enabled),
+  checkResourceUpdates: (versionId: string, kind: LocalResourceKind) =>
+    ipcRenderer.invoke('local:checkUpdates', versionId, kind),
+  updateResource: (versionId: string, kind: LocalResourceKind, fileName: string, modrinthVersionId: string) =>
+    ipcRenderer.invoke('local:update', versionId, kind, fileName, modrinthVersionId),
   setActiveShader: (versionId: string, fileName: string | null) =>
     ipcRenderer.invoke('local:setShader', versionId, fileName),
   deleteLocalResource: (versionId: string, kind: LocalResourceKind, fileName: string) =>
