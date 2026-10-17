@@ -213,6 +213,14 @@ export interface VersionConfig {
   jvmArgs: string
   /** 附加的游戏参数 */
   gameArgs: string
+  /** 包装命令，例如 gamemoderun、prime-run：游戏通过这个命令启动 */
+  wrapperCommand: string
+  /** 附加的环境变量，每行一个「名称=值」 */
+  envVars: string
+  /** 启动前执行的命令（通过系统命令行执行，失败时取消启动） */
+  preLaunchCommand: string
+  /** 游戏退出后执行的命令 */
+  postExitCommand: string
 }
 
 /** 游戏运行状态：空闲 / 启动中 / 窗口已出现 / 正常退出 / 崩溃或启动失败 */

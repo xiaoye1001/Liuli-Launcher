@@ -10,6 +10,7 @@ import {
   Monitor,
   RotateCcw,
   Settings2,
+  SquareTerminal,
   Terminal,
   type LucideIcon
 } from 'lucide-react'
@@ -29,8 +30,16 @@ const DEFAULT_CONFIG: VersionConfig = {
   windowHeight: 0,
   fullscreen: false,
   jvmArgs: '',
-  gameArgs: ''
+  gameArgs: '',
+  wrapperCommand: '',
+  envVars: '',
+  preLaunchCommand: '',
+  postExitCommand: ''
 }
+
+const IS_WINDOWS = navigator.userAgent.includes('Windows')
+/** 命令里引用变量的写法：Windows 命令行用 %NAME%，其他系统用 $NAME */
+const varRef = (name: string): string => (IS_WINDOWS ? `%${name}%` : `$${name}`)
 
 function formatMemory(mb: number): string {
   return mb >= 1024 ? `${(mb / 1024).toFixed(mb % 1024 === 0 ? 0 : 2)} GB` : `${mb} MB`
@@ -126,6 +135,31 @@ function TextField({
       className={`rounded-lg border border-white/15 bg-black/20 px-3 py-2 text-sm outline-none transition-colors placeholder:text-white/30 focus:border-sky-400/70 ${
         mono ? 'font-mono' : ''
       } ${className}`}
+    />
+  )
+}
+
+/** 多行文本框：失去焦点时才保存 */
+function TextAreaField({
+  value,
+  onCommit,
+  placeholder
+}: {
+  value: string
+  onCommit: (value: string) => void
+  placeholder?: string
+}): JSX.Element {
+  const [draft, setDraft] = useState(value)
+  useEffect(() => setDraft(value), [value])
+  return (
+    <textarea
+      value={draft}
+      rows={3}
+      placeholder={placeholder}
+      spellCheck={false}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => draft !== value && onCommit(draft)}
+      className="mt-1 w-full resize-y rounded-lg border border-white/15 bg-black/20 px-3 py-2 font-mono text-sm outline-none transition-colors placeholder:text-white/30 focus:border-sky-400/70"
     />
   )
 }
@@ -427,6 +461,72 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
                 onCommit={(gameArgs) => save({ gameArgs })}
               />
             </label>
+          </div>
+        </Card>
+
+        <Card
+          icon={SquareTerminal}
+          title="启动命令"
+          desc="在游戏启动前后执行自己的命令，或通过其他程序启动游戏。不清楚用途时请留空"
+        >
+          <div className="space-y-3">
+            <label className="block">
+              <span className="text-xs text-white/60">包装命令（游戏通过这个命令启动）</span>
+              <TextField
+                mono
+                value={config.wrapperCommand}
+                placeholder={IS_WINDOWS ? '一般不需要' : '例如 gamemoderun、prime-run、mangohud'}
+                className="mt-1 w-full"
+                onCommit={(wrapperCommand) => save({ wrapperCommand })}
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs text-white/60">环境变量（每行一个「名称=值」）</span>
+              <TextAreaField
+                value={config.envVars}
+                placeholder={'例如\n__GL_THREADED_OPTIMIZATIONS=1'}
+                onCommit={(envVars) => save({ envVars })}
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs text-white/60">启动前执行（执行失败时取消启动）</span>
+              <TextField
+                mono
+                value={config.preLaunchCommand}
+                placeholder={
+                  IS_WINDOWS
+                    ? '例如 copy /y %INST_DIR%\\options-backup.txt %INST_DIR%\\options.txt'
+                    : '例如 cp "$INST_DIR/options-backup.txt" "$INST_DIR/options.txt"'
+                }
+                className="mt-1 w-full"
+                onCommit={(preLaunchCommand) => save({ preLaunchCommand })}
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs text-white/60">游戏退出后执行</span>
+              <TextField
+                mono
+                value={config.postExitCommand}
+                placeholder={IS_WINDOWS ? '例如 explorer %INST_DIR%\\screenshots' : '例如 notify-send "游戏已退出"'}
+                className="mt-1 w-full"
+                onCommit={(postExitCommand) => save({ postExitCommand })}
+              />
+            </label>
+            <p className="text-xs leading-5 text-white/40">
+              命令通过系统命令行执行，在版本的游戏目录中运行，输出显示在游戏日志里。可以使用这些变量：
+              {[
+                ['INST_NAME', '版本名'],
+                ['INST_DIR', '游戏目录'],
+                ['INST_MC_DIR', '.minecraft 目录'],
+                ['INST_JAVA', 'Java 路径'],
+                ['INST_MC_VERSION', 'Minecraft 版本'],
+                ['INST_EXIT_CODE', '退出码（仅退出后命令）']
+              ].map(([name, desc]) => (
+                <span key={name} className="mr-2 inline-block">
+                  <code className="rounded bg-black/30 px-1 font-mono text-white/60">{varRef(name)}</code> {desc}
+                </span>
+              ))}
+            </p>
           </div>
         </Card>
       </div>

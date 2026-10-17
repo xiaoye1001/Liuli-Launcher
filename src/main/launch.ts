@@ -1,3 +1,4 @@
+import { spawn } from 'child_process'
 import { createHash } from 'crypto'
 import { readdir, readFile } from 'fs/promises'
 import { join } from 'path'
@@ -5,7 +6,7 @@ import { BrowserWindow } from 'electron'
 import { createMinecraftProcessWatcher, launch, Version, type ResolvedVersion } from '@xmcl/core'
 import { getSettings } from './config'
 import { versionGameDir } from './isolation'
-import { getVersionConfig, isCustomized, isolatedWith, splitArgs } from './versionConfig'
+import { getVersionConfig, isCustomized, isolatedWith, parseEnvVars, splitArgs } from './versionConfig'
 import { getMicrosoftLaunchAuth } from './microsoft'
 import { pickJava, requirementOf } from './javaRuntime'
 import { completeMissingFiles, startJavaInstall } from './install'
@@ -123,18 +124,46 @@ function launcherLog(message: string): void {
  * 把输出流按行切分。数据块可能在一行中间断开，
  * 所以把最后不完整的一行留到下一个数据块再处理。
  */
-function pipeLines(stream: NodeJS.ReadableStream | null): void {
+function pipeLines(stream: NodeJS.ReadableStream | null, prefix = ''): void {
   if (!stream) return
   let rest = ''
   stream.setEncoding('utf8')
   stream.on('data', (chunk: string) => {
     const parts = (rest + chunk).split(/\r?\n/)
     rest = parts.pop() ?? ''
-    pushLines(parts.filter((line) => line.length > 0))
+    pushLines(parts.filter((line) => line.length > 0).map((line) => prefix + line))
   })
   stream.on('end', () => {
-    if (rest) pushLines([rest])
+    if (rest) pushLines([prefix + rest])
     rest = ''
+  })
+}
+
+/** 启动前 / 退出后命令最多运行 10 分钟 */
+const HOOK_TIMEOUT = 10 * 60 * 1000
+
+/**
+ * 通过系统命令行执行用户设置的命令，输出显示在游戏日志中。
+ * 返回退出码；超时会结束命令并抛出错误。
+ */
+function runHook(label: string, command: string, cwd: string, env: NodeJS.ProcessEnv): Promise<number> {
+  launcherLog(`正在执行${label}：${command}`)
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, { shell: true, cwd, env, windowsHide: true })
+    const timer = setTimeout(() => {
+      child.kill()
+      reject(new Error(`${label}运行超过 10 分钟，已结束`))
+    }, HOOK_TIMEOUT)
+    pipeLines(child.stdout, `[${label}] `)
+    pipeLines(child.stderr, `[${label}] `)
+    child.on('error', (e) => {
+      clearTimeout(timer)
+      reject(new Error(`无法执行${label}：${e.message}`))
+    })
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      resolve(code ?? -1)
+    })
   })
 }
 
@@ -331,6 +360,27 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
 
     if (settings.checkFiles) await ensureGameFiles(versionId, version)
 
+    // 自定义环境变量（只显示名称，值可能包含不想公开的内容）
+    const customEnv = parseEnvVars(config.envVars)
+    if (Object.keys(customEnv).length > 0) launcherLog(`环境变量：${Object.keys(customEnv).join('、')}`)
+    const gameEnv: NodeJS.ProcessEnv = { ...process.env, ...customEnv }
+    // 提供给命令使用的变量，与 MultiMC / Prism Launcher 相同
+    const hookEnv: NodeJS.ProcessEnv = {
+      ...gameEnv,
+      INST_NAME: versionId,
+      INST_ID: versionId,
+      INST_DIR: gamePath,
+      INST_MC_DIR: settings.gameDir,
+      INST_JAVA: java.path,
+      INST_MC_VERSION: minecraftVersion
+    }
+    if (config.preLaunchCommand.trim()) {
+      const code = await runHook('启动前命令', config.preLaunchCommand, gamePath, hookEnv)
+      if (code !== 0) throw new Error(`启动前命令执行失败（退出码 ${code}），已取消启动`)
+    }
+    const wrapper = splitArgs(config.wrapperCommand)
+    if (wrapper.length > 0) launcherLog(`包装命令：${config.wrapperCommand.trim()}`)
+
     // 版本单独设置了内存时优先使用；否则按全局设置自动或手动分配
     let maxMemory = config.maxMemory || settings.maxMemory
     if (!config.maxMemory && settings.memoryAuto) {
@@ -372,7 +422,8 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
               height: config.windowHeight || undefined
             }
           : undefined,
-      extraExecOption: { windowsHide: false }
+      prependCommand: wrapper.length > 0 ? wrapper : undefined,
+      extraExecOption: { windowsHide: false, env: gameEnv }
     })
     launcherLog(`游戏进程已创建（PID ${proc.pid}）`)
     const processStartedAt = Date.now()
@@ -393,6 +444,12 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     })
     watcher.on('minecraft-exit', async ({ code, crashReportLocation }) => {
       launcherLog(`游戏进程已退出，退出码 ${code}`)
+      if (config.postExitCommand.trim()) {
+        // 不等待退出后命令结束，避免影响崩溃分析与界面状态
+        runHook('退出后命令', config.postExitCommand, gamePath, { ...hookEnv, INST_EXIT_CODE: String(code) })
+          .then((exit) => exit !== 0 && launcherLog(`退出后命令执行失败（退出码 ${exit}）`))
+          .catch((e) => launcherLog(e instanceof Error ? e.message : String(e)))
+      }
       // 记录游玩时长（从游戏进程启动到退出）
       void recordSession(versionId, processStartedAt, Date.now(), code !== 0).catch(() => undefined)
       if (code === 0) {
