@@ -1,11 +1,12 @@
 import { download, getDefaultAgent } from '@xmcl/file-transfer'
-import { app } from 'electron'
-import { mkdir, readdir, stat } from 'fs/promises'
+import { app, shell } from 'electron'
+import { mkdir, readdir, rename, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import { getSettings } from './config'
 import { assertGameStopped, fileSha1, listModFiles, modsContextOf, type ModsContext } from './mods'
 import type {
   ModrinthInstallResult,
+  ModUpdate,
   ModrinthProjectHit,
   ModrinthProjectVersion,
   ModrinthSearchResult,
@@ -35,6 +36,7 @@ interface ModrinthVersion {
   name: string
   version_number: string
   version_type: 'release' | 'beta' | 'alpha'
+  date_published?: string
   files: ModrinthFile[]
   dependencies: { project_id?: string | null; version_id?: string | null; dependency_type: string }[]
 }
@@ -355,7 +357,8 @@ export async function listWorlds(versionId: string): Promise<string[]> {
   const names = await readdir(saves, { withFileTypes: true }).catch(() => [])
   const worlds: string[] = []
   for (const entry of names) {
-    if (entry.isDirectory() && (await stat(join(saves, entry.name, 'level.dat')).catch(() => null))) worlds.push(entry.name)
+    if (entry.isDirectory() && (await stat(join(saves, entry.name, 'level.dat')).catch(() => null)))
+      worlds.push(entry.name)
   }
   return worlds.sort((a, b) => a.localeCompare(b, 'zh-CN'))
 }
@@ -379,7 +382,8 @@ export async function installResource(
   if (type === 'datapack') {
     if (!target.world) throw new Error('请选择要安装数据包的存档')
     assertSafeName(target.world)
-    if (!(await stat(join(gameDir, 'saves', target.world)).catch(() => null))) throw new Error(`找不到存档：${target.world}`)
+    if (!(await stat(join(gameDir, 'saves', target.world)).catch(() => null)))
+      throw new Error(`找不到存档：${target.world}`)
     dir = join(gameDir, 'saves', target.world, 'datapacks')
   } else {
     dir = join(gameDir, RESOURCE_FOLDERS[type])
@@ -400,4 +404,107 @@ export async function installResource(
     installed: [{ projectId: version.project_id, title: project.title, fileName: file.filename, dependency: false }],
     missingDependencies: []
   }
+}
+
+// ---------- 模组更新 ----------
+
+/**
+ * 检查 mods 文件夹里的模组有没有新版本：按文件 SHA1 在 Modrinth 上识别，
+ * 查询适用于当前 Minecraft 版本与加载器的最新版本。正式版的模组不会推荐升级到测试版
+ */
+export async function checkModUpdates(versionId: string): Promise<ModUpdate[]> {
+  const ctx = await modsContextOf(versionId)
+  const loaders = loadersOf(ctx)
+  const files = await listModFiles(ctx.dir)
+  const hashOf = new Map<string, string>()
+  for (const name of files) {
+    const hash = await fileSha1(join(ctx.dir, name)).catch(() => '')
+    if (hash) hashOf.set(name, hash)
+  }
+  const hashes = [...new Set(hashOf.values())]
+  if (hashes.length === 0) return []
+
+  const current = await modrinthFetch<Record<string, ModrinthVersion>>('/version_files', {
+    method: 'POST',
+    body: JSON.stringify({ hashes, algorithm: 'sha1' })
+  })
+  const known = hashes.filter((h) => current[h])
+  if (known.length === 0) return []
+  const latest = await modrinthFetch<Record<string, ModrinthVersion>>('/version_files/update', {
+    method: 'POST',
+    body: JSON.stringify({ hashes: known, algorithm: 'sha1', loaders, game_versions: [ctx.minecraftVersion] })
+  })
+
+  const updates: ModUpdate[] = []
+  for (const [fileName, hash] of hashOf) {
+    const now = current[hash]
+    let next: ModrinthVersion | undefined = latest[hash]
+    if (!now || !next || next.id === now.id) continue
+    // 当前是正式版、最新是测试版时，改为找最新的正式版
+    if (next.version_type !== 'release' && now.version_type === 'release') {
+      next = await pickRelease(now.project_id, loaders, ctx.minecraftVersion)
+      if (!next || next.id === now.id) continue
+    }
+    // 发布时间比当前版本早的不算更新（例如当前版本不在筛选范围内时）
+    if (now.date_published && next.date_published && next.date_published < now.date_published) continue
+    const file = next.files.find((f) => f.primary) ?? next.files[0]
+    if (!file || file.hashes.sha1 === hash) continue
+    updates.push({
+      fileName,
+      projectId: now.project_id,
+      title: '',
+      currentVersion: now.version_number,
+      newVersion: next.version_number,
+      newVersionId: next.id,
+      newFileName: file.filename,
+      prerelease: next.version_type !== 'release'
+    })
+  }
+
+  // 批量获取模组名称
+  if (updates.length > 0) {
+    try {
+      const ids = [...new Set(updates.map((u) => u.projectId))]
+      const projects = await modrinthFetch<{ id: string; title: string }[]>(
+        `/projects?ids=${encodeURIComponent(JSON.stringify(ids))}`
+      )
+      for (const u of updates) u.title = projects.find((p) => p.id === u.projectId)?.title ?? ''
+    } catch {
+      // 名称获取失败时界面显示文件里读到的名称
+    }
+  }
+  return updates
+}
+
+/** 项目适用于该版本的最新正式版 */
+async function pickRelease(
+  projectId: string,
+  loaders: string[],
+  minecraftVersion: string
+): Promise<ModrinthVersion | undefined> {
+  const params = new URLSearchParams({
+    loaders: JSON.stringify(loaders),
+    game_versions: JSON.stringify([minecraftVersion])
+  })
+  const versions = await modrinthFetch<ModrinthVersion[]>(`/project/${encodeURIComponent(projectId)}/version?${params}`)
+  return versions.find((v) => v.version_type === 'release')
+}
+
+/** 更新一个模组：下载新版本，旧文件移到回收站；原来禁用的模组更新后仍然禁用。返回新的文件名 */
+export async function updateMod(versionId: string, fileName: string, modrinthVersionId: string): Promise<string> {
+  assertGameStopped(versionId)
+  const ctx = await modsContextOf(versionId)
+  if (fileName !== basename(fileName) || !(await listModFiles(ctx.dir)).includes(fileName)) {
+    throw new Error(`找不到模组文件：${fileName}`)
+  }
+  const version = await modrinthFetch<ModrinthVersion>(`/version/${encodeURIComponent(modrinthVersionId)}`)
+  const disabled = fileName.endsWith('.disabled')
+  const newName = await downloadVersionFile(version, ctx.dir)
+  const finalName = disabled ? `${newName}.disabled` : newName
+  if (finalName !== fileName) {
+    // 新旧文件名不同（版本号写在文件名里时）：旧文件移到回收站
+    if (fileName !== newName) await shell.trashItem(join(ctx.dir, fileName))
+    if (disabled) await rename(join(ctx.dir, newName), join(ctx.dir, finalName))
+  }
+  return finalName
 }

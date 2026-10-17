@@ -35,7 +35,8 @@ import type {
   ServerStatus,
   UpdateInfo,
   ExternalAccount,
-  ExternalLoginResult
+  ExternalLoginResult,
+  ModUpdate
 } from '../shared/types'
 
 declare global {
@@ -97,6 +98,10 @@ declare global {
       openCrashFile: (kind: 'report' | 'native') => Promise<void>
       /** 导出崩溃信息 zip，返回保存路径；取消时返回 null */
       exportCrashInfo: () => Promise<string | null>
+      /** 检查模组更新（只能识别 Modrinth 上的模组） */
+      checkModUpdates: (versionId: string) => Promise<ModUpdate[]>
+      /** 更新模组，返回新的文件名 */
+      updateMod: (versionId: string, fileName: string, modrinthVersionId: string) => Promise<string>
       /** 版本设置（未设置的项跟随全局设置） */
       getVersionConfig: (versionId: string) => Promise<VersionConfig>
       setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) => Promise<VersionConfig>

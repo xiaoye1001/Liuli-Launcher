@@ -56,6 +56,7 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 - Shows each mod's name, version, description and icon; supports Fabric / Quilt / Forge / NeoForge
 - Enable or disable mods (using the `.disabled` suffix, compatible with other launchers); deleted mods go to the recycle bin
 - Flags mods that don't match the version's mod loader
+- **Mod updates**: finds newer versions of mods published on Modrinth that fit the game version and loader; update one at a time or all at once. Stable releases are never upgraded to betas, disabled mods stay disabled, and old files go to the recycle bin
 - **Search and install mods from Modrinth** right inside the launcher: only mods compatible with the current version are shown, and required dependencies are installed automatically
 
 ### Accounts

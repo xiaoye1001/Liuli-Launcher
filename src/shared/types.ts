@@ -337,6 +337,22 @@ export interface ModInfo {
   size: number
 }
 
+/** 可以更新的模组 */
+export interface ModUpdate {
+  /** 磁盘上的文件名 */
+  fileName: string
+  projectId: string
+  /** Modrinth 上的模组名称 */
+  title: string
+  currentVersion: string
+  newVersion: string
+  /** 新版本的 Modrinth 版本 ID */
+  newVersionId: string
+  newFileName: string
+  /** 新版本是否为测试版 */
+  prerelease: boolean
+}
+
 /** 某个版本的模组列表 */
 export interface ModList {
   versionId: string

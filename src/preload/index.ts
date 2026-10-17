@@ -73,6 +73,9 @@ const api = {
     ipcRenderer.invoke('worlds:openDatapacks', versionId, folder),
   openCrashFile: (kind: 'report' | 'native') => ipcRenderer.invoke('crash:open', kind),
   exportCrashInfo: () => ipcRenderer.invoke('crash:export'),
+  checkModUpdates: (versionId: string) => ipcRenderer.invoke('mods:checkUpdates', versionId),
+  updateMod: (versionId: string, fileName: string, modrinthVersionId: string) =>
+    ipcRenderer.invoke('mods:update', versionId, fileName, modrinthVersionId),
   getVersionConfig: (versionId: string) => ipcRenderer.invoke('versions:getConfig', versionId),
   setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) =>
     ipcRenderer.invoke('versions:setConfig', versionId, patch),

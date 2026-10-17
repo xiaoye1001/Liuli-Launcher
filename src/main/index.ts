@@ -28,12 +28,14 @@ import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
 import { deleteVersion, openVersionDir } from './versionManage'
 import { addMods, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
 import {
+  checkModUpdates,
   getProjectVersions,
   installFromModrinth,
   installResource,
   listWorlds,
   searchModrinth,
-  searchProjects
+  searchProjects,
+  updateMod
 } from './modrinth'
 import { isElevated } from './elevation'
 import { getVersionConfig, setVersionConfig } from './versionConfig'
@@ -177,6 +179,10 @@ function registerIpc(): void {
     addMods(versionId, BrowserWindow.fromWebContents(event.sender))
   )
   ipcMain.handle('mods:open', (_, versionId: string) => openModsDir(versionId))
+  ipcMain.handle('mods:checkUpdates', (_, versionId: string) => checkModUpdates(versionId))
+  ipcMain.handle('mods:update', (_, versionId: string, fileName: string, modrinthVersionId: string) =>
+    updateMod(versionId, fileName, modrinthVersionId)
+  )
   ipcMain.handle('local:list', (_, versionId: string, kind: LocalResourceKind) => listLocalResources(versionId, kind))
   ipcMain.handle('local:setPackEnabled', (_, versionId: string, fileName: string, enabled: boolean) =>
     setResourcePackEnabled(versionId, fileName, enabled)
