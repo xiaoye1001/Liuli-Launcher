@@ -41,6 +41,29 @@ function withRetry(base: Dispatcher): Dispatcher {
 }
 
 let downloads: Dispatcher = withRetry(new Agent({ connections: DEFAULT_THREADS }))
+/** 新建连接池用的设置（应用网络设置时更新） */
+let downloadConfig: { uri: string | null; connections: number } = { uri: null, connections: DEFAULT_THREADS }
+/** 当前安装任务专用的连接池；取消安装时整体关闭，正在进行的下载会立即停止 */
+let installPool: { base: Agent | ProxyAgent; dispatcher: Dispatcher } | null = null
+
+function newPool(): { base: Agent | ProxyAgent; dispatcher: Dispatcher } {
+  const { uri, connections } = downloadConfig
+  const base = uri ? new ProxyAgent({ uri, connections }) : new Agent({ connections })
+  return { base, dispatcher: withRetry(base) }
+}
+
+/** 安装任务（安装版本、整合包、修复、下载 Java）使用的连接池 */
+export function installDispatcher(): Dispatcher {
+  if (!installPool) installPool = newPool()
+  return installPool.dispatcher
+}
+
+/** 关闭安装任务的连接池：取消时调用，所有还在进行的下载立即中断；任务结束后也会调用以释放连接 */
+export function closeInstallDispatcher(): void {
+  const pool = installPool
+  installPool = null
+  pool?.base.destroy().catch(() => undefined)
+}
 /** 当前使用的代理（用于界面显示），null 为直连 */
 let activeProxy: string | null = null
 
@@ -87,7 +110,8 @@ export async function applyNetworkSettings(): Promise<void> {
   const uri = settings.proxyMode === 'system' ? await systemProxy() : custom
   const connections = clampThreads(settings.downloadThreads)
   // 已经在进行的下载继续使用旧的连接池，不主动关闭
-  downloads = withRetry(uri ? new ProxyAgent({ uri, connections }) : new Agent({ connections }))
+  downloadConfig = { uri, connections }
+  downloads = newPool().dispatcher
   setGlobalDispatcher(uri ? new ProxyAgent({ uri }) : new Agent())
   activeProxy = uri
 }

@@ -10,7 +10,7 @@ import { pipeline } from 'stream/promises'
 import { startCustomInstall, type InstallExtraStep } from './install'
 import { downloadModpackFile, modrinthFileUrls, MODRINTH_USER_AGENT } from './modrinth'
 import { getSettings } from './config'
-import { downloadDispatcher } from './network'
+import { installDispatcher } from './network'
 import type { InstallRequest, ModpackInfo } from '../shared/types'
 
 /**
@@ -515,7 +515,7 @@ function modpackStep(path: string): InstallExtraStep {
             destination: safeJoin(gameDir, d.path),
             validator: d.sha1 ? { algorithm: 'sha1', hash: d.sha1 } : undefined,
             headers: { 'User-Agent': MODRINTH_USER_AGENT },
-            dispatcher: downloadDispatcher()
+            dispatcher: installDispatcher()
           }))
         ).setName('modpackFiles')
       )

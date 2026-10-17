@@ -25,7 +25,7 @@ import { neoforgeProject } from './neoforge'
 import { optiFineInstallerUrl } from './optifine'
 import { createJavaInstallTask, javaExecutable, pickJava, requirementOf } from './javaRuntime'
 import { isIsolated, versionGameDir } from './isolation'
-import { downloadDispatcher } from './network'
+import { closeInstallDispatcher, installDispatcher } from './network'
 import type { MissingFiles } from './fileCheck'
 import type {
   DownloadSource,
@@ -129,7 +129,7 @@ async function downloadOptions(): Promise<Options> {
   const settings = await getSettings()
   return {
     ...mirrorOptions(settings.downloadSource),
-    dispatcher: downloadDispatcher(),
+    dispatcher: installDispatcher(),
     headers: { 'User-Agent': 'LiuliLauncher/0.1.0' },
     throwErrorImmediately: false
   }
@@ -190,6 +190,7 @@ function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): Pr
     .finally(() => {
       clearInterval(timer)
       currentTask = null
+      closeInstallDispatcher()
       broadcast()
     })
 }
@@ -574,7 +575,10 @@ export async function retryLastInstall(): Promise<void> {
 export async function cancelInstall(): Promise<void> {
   if (!currentTask) return
   cancelRequested = true
-  // 最多等待 3 秒让正在进行的下载中止
+  // 先关闭这次安装的连接池：所有正在进行的下载立即中断，
+  // 即使某个下载任务没有及时响应取消，也不会在后台继续下载
+  closeInstallDispatcher()
+  // 最多等待 3 秒让任务结束
   await currentTask.cancel(3000)
 }
 

@@ -5,7 +5,7 @@ import { chmod, mkdir, readFile, rm, symlink, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { getSettings } from './config'
 import { resolveJava, scanJava } from './java'
-import { downloadDispatcher } from './network'
+import { installDispatcher } from './network'
 import type { JavaInfo, JavaRuntimeInfo } from '../shared/types'
 
 /**
@@ -135,7 +135,7 @@ export async function createJavaInstallTask(component: string): Promise<Task<str
         destination,
         manifest,
         apiHost: mirror ? [BMCLAPI_HOST] : undefined,
-        dispatcher: downloadDispatcher(),
+        dispatcher: installDispatcher(),
         throwErrorImmediately: false
       })
     )
