@@ -18,12 +18,21 @@ import type {
   MsLoginStatus,
   ModrinthInstallResult,
   ModpackInfo,
-  ModrinthModpack,
-  ModpackSearchFilters,
-  ModrinthModpackVersion,
+  ModrinthProjectHit,
+  ResourceSearchFilters,
+  ResourceTarget,
+  ResourceType,
+  ModrinthProjectVersion,
   ModrinthSearchResult,
   SystemInfo,
-  VersionManifest
+  VersionManifest,
+  VersionConfig,
+  LocalResourceKind,
+  LocalResourceList,
+  WorldDatapack,
+  WorldList,
+  SavedServer,
+  ServerStatus
 } from '../shared/types'
 
 declare global {
@@ -57,6 +66,37 @@ declare global {
       repairVersion: (versionId: string) => Promise<void>
       deleteVersion: (versionId: string) => Promise<boolean>
       openVersionDir: (versionId: string) => Promise<void>
+      /** 版本游戏目录里的资源包 / 光影包 */
+      listLocalResources: (versionId: string, kind: LocalResourceKind) => Promise<LocalResourceList>
+      /** 在游戏中启用或停用资源包（修改 options.txt） */
+      setResourcePackEnabled: (versionId: string, fileName: string, enabled: boolean) => Promise<void>
+      /** 设置当前光影，null 为关闭光影 */
+      setActiveShader: (versionId: string, fileName: string | null) => Promise<void>
+      deleteLocalResource: (versionId: string, kind: LocalResourceKind, fileName: string) => Promise<void>
+      /** 选择文件添加，返回添加的数量 */
+      addLocalResources: (versionId: string, kind: LocalResourceKind) => Promise<number>
+      openLocalResourceDir: (versionId: string, kind: LocalResourceKind) => Promise<void>
+      /** 版本的存档列表 */
+      listWorldInfos: (versionId: string) => Promise<WorldList>
+      /** 删除存档（移到回收站） */
+      deleteWorld: (versionId: string, folder: string) => Promise<void>
+      /** 备份存档为 zip，返回路径与大小 */
+      backupWorld: (versionId: string, folder: string) => Promise<{ path: string; size: number }>
+      openWorldDir: (versionId: string, folder?: string) => Promise<void>
+      openBackupsDir: (versionId: string) => Promise<void>
+      /** 从 zip 导入存档，返回文件夹名；取消时返回 null */
+      importWorld: (versionId: string) => Promise<string | null>
+      listWorldDatapacks: (versionId: string, folder: string) => Promise<WorldDatapack[]>
+      deleteWorldDatapack: (versionId: string, folder: string, fileName: string) => Promise<void>
+      addWorldDatapacks: (versionId: string, folder: string) => Promise<number>
+      openWorldDatapacksDir: (versionId: string, folder: string) => Promise<void>
+      /** 打开最近一次崩溃的崩溃报告 / Java 崩溃日志 */
+      openCrashFile: (kind: 'report' | 'native') => Promise<void>
+      /** 导出崩溃信息 zip，返回保存路径；取消时返回 null */
+      exportCrashInfo: () => Promise<string | null>
+      /** 版本设置（未设置的项跟随全局设置） */
+      getVersionConfig: (versionId: string) => Promise<VersionConfig>
+      setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) => Promise<VersionConfig>
       listMods: (versionId: string) => Promise<ModList>
       /** 返回修改后的文件名 */
       setModEnabled: (versionId: string, fileName: string, enabled: boolean) => Promise<string>
@@ -71,18 +111,34 @@ declare global {
       installModpack: (name: string) => Promise<void>
       /** 读取拖入窗口的 .mrpack 文件 */
       loadModpackFile: (path: string) => Promise<ModpackInfo>
-      searchModpacks: (
+      /** 在 Modrinth 搜索某类社区资源 */
+      searchResources: (
+        type: ResourceType,
         query: string,
         offset: number,
-        filters: ModpackSearchFilters
-      ) => Promise<{ hits: ModrinthModpack[]; total: number }>
-      getModpackVersions: (projectId: string) => Promise<ModrinthModpackVersion[]>
+        filters: ResourceSearchFilters
+      ) => Promise<{ hits: ModrinthProjectHit[]; total: number }>
+      getResourceVersions: (projectId: string, type: ResourceType) => Promise<ModrinthProjectVersion[]>
+      /** 安装模组 / 资源包 / 光影 / 数据包的某个版本到指定游戏版本 */
+      installResource: (target: ResourceTarget, type: ResourceType, versionId: string) => Promise<ModrinthInstallResult>
+      /** 某个版本的存档列表 */
+      listWorlds: (versionId: string) => Promise<string[]>
       /** 从 Modrinth 下载整合包的某个版本并读取信息 */
       downloadModpack: (versionId: string) => Promise<ModpackInfo>
       /** 拖入窗口的文件在本机的路径 */
       getPathForFile: (file: File) => string
       installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>
-      launchGame: (versionId: string) => Promise<void>
+      /** 启动游戏；server 不为空时进入游戏后直接连接该服务器 */
+      launchGame: (versionId: string, server?: string) => Promise<void>
+      listServers: () => Promise<SavedServer[]>
+      /** 添加（没有 id）或修改服务器，返回新的列表 */
+      saveServer: (server: Omit<SavedServer, 'id'> & { id?: string }) => Promise<SavedServer[]>
+      deleteServer: (id: string) => Promise<SavedServer[]>
+      moveServer: (id: string, offset: number) => Promise<SavedServer[]>
+      /** 从游戏的多人游戏列表（servers.dat）导入 */
+      importGameServers: () => Promise<{ added: number; list: SavedServer[] }>
+      /** 查询服务器状态 */
+      pingServer: (address: string) => Promise<ServerStatus>
       getGameStatus: () => Promise<GameStatus>
       onGameStatus: (callback: (status: GameStatus) => void) => () => void
       /** 选择背景图片，取消时返回原设置 */

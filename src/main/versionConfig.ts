@@ -1,0 +1,137 @@
+import { existsSync } from 'fs'
+import { readFile, rename, writeFile } from 'fs/promises'
+import { join } from 'path'
+import { getSettings } from './config'
+import { isIsolated, versionGameDir } from './isolation'
+import { assertSafeId } from './versionManage'
+import type { AppSettings, ModLoader, VersionConfig } from '../shared/types'
+
+const CONFIG_FILE = 'liuli-version.json'
+
+export const DEFAULT_VERSION_CONFIG: VersionConfig = {
+  maxMemory: 0,
+  javaMode: 'global',
+  javaPath: '',
+  isolation: 'global',
+  windowWidth: 0,
+  windowHeight: 0,
+  fullscreen: false,
+  jvmArgs: '',
+  gameArgs: ''
+}
+
+function configPath(gameDir: string, versionId: string): string {
+  assertSafeId(versionId)
+  return join(gameDir, 'versions', versionId, CONFIG_FILE)
+}
+
+/** 只保留类型正确的字段，文件被手动改坏时用默认值代替 */
+function sanitize(raw: unknown): VersionConfig {
+  const saved = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  const config = { ...DEFAULT_VERSION_CONFIG }
+  const int = (value: unknown, max: number): number | undefined =>
+    typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= max ? value : undefined
+  config.maxMemory = int(saved.maxMemory, 1024 * 1024) ?? 0
+  config.windowWidth = int(saved.windowWidth, 16384) ?? 0
+  config.windowHeight = int(saved.windowHeight, 16384) ?? 0
+  if (saved.javaMode === 'auto' || saved.javaMode === 'custom') config.javaMode = saved.javaMode
+  if (saved.isolation === 'on' || saved.isolation === 'off') config.isolation = saved.isolation
+  // 只有「指定 Java」时才保留路径，切回其他模式后不算作单独设置
+  if (config.javaMode === 'custom' && typeof saved.javaPath === 'string') config.javaPath = saved.javaPath
+  if (typeof saved.fullscreen === 'boolean') config.fullscreen = saved.fullscreen
+  if (typeof saved.jvmArgs === 'string') config.jvmArgs = saved.jvmArgs
+  if (typeof saved.gameArgs === 'string') config.gameArgs = saved.gameArgs
+  return config
+}
+
+/** 读取版本设置，没有设置文件时全部跟随全局 */
+export async function getVersionConfig(versionId: string, gameDir?: string): Promise<VersionConfig> {
+  const dir = gameDir ?? (await getSettings()).gameDir
+  try {
+    return sanitize(JSON.parse(await readFile(configPath(dir, versionId), 'utf-8')))
+  } catch {
+    return { ...DEFAULT_VERSION_CONFIG }
+  }
+}
+
+/** 是否有与默认值不同的设置 */
+export function isCustomized(config: VersionConfig): boolean {
+  return (Object.keys(DEFAULT_VERSION_CONFIG) as (keyof VersionConfig)[]).some(
+    (key) => config[key] !== DEFAULT_VERSION_CONFIG[key]
+  )
+}
+
+/** 保存版本设置（先写临时文件再重命名） */
+export async function setVersionConfig(versionId: string, patch: Partial<VersionConfig>): Promise<VersionConfig> {
+  const { gameDir } = await getSettings()
+  const path = configPath(gameDir, versionId)
+  const next = sanitize({ ...(await getVersionConfig(versionId, gameDir)), ...patch })
+  if (next.javaMode === 'custom' && !next.javaPath) throw new Error('请选择要使用的 Java')
+  // 保存前检查参数能否正确拆分（例如引号没有配对）
+  try {
+    splitArgs(next.jvmArgs)
+  } catch {
+    throw new Error('JVM 参数中的引号没有配对')
+  }
+  try {
+    splitArgs(next.gameArgs)
+  } catch {
+    throw new Error('游戏参数中的引号没有配对')
+  }
+  if (!existsSync(join(gameDir, 'versions', versionId, `${versionId}.json`)))
+    throw new Error(`找不到版本：${versionId}`)
+  await writeFile(`${path}.tmp`, JSON.stringify(next, null, 2), 'utf-8')
+  await rename(`${path}.tmp`, path)
+  return next
+}
+
+/** 结合版本设置判断是否版本隔离 */
+export function isolatedWith(
+  config: VersionConfig,
+  mode: AppSettings['versionIsolation'],
+  loader?: ModLoader
+): boolean {
+  if (config.isolation === 'on') return true
+  if (config.isolation === 'off') return false
+  return isIsolated(mode, loader)
+}
+
+/** 版本实际使用的游戏目录（考虑版本自己的隔离设置） */
+export async function resolveVersionGameDir(
+  versionId: string,
+  loader: ModLoader | undefined
+): Promise<{ dir: string; isolated: boolean }> {
+  const { gameDir, versionIsolation } = await getSettings()
+  const isolated = isolatedWith(await getVersionConfig(versionId, gameDir), versionIsolation, loader)
+  return { dir: versionGameDir(gameDir, versionId, isolated), isolated }
+}
+
+/**
+ * 把参数文本拆成数组：按空白分隔，单引号或双引号包住的部分可以带空格。
+ * 参数直接交给 Java 进程，不经过命令行解释器
+ */
+export function splitArgs(text: string): string[] {
+  const args: string[] = []
+  let current = ''
+  let quote: string | null = null
+  let started = false
+  for (const ch of text) {
+    if (quote) {
+      if (ch === quote) quote = null
+      else current += ch
+    } else if (ch === '"' || ch === "'") {
+      quote = ch
+      started = true
+    } else if (/\s/.test(ch)) {
+      if (started) args.push(current)
+      current = ''
+      started = false
+    } else {
+      current += ch
+      started = true
+    }
+  }
+  if (quote) throw new Error('参数中的引号没有配对')
+  if (started) args.push(current)
+  return args
+}

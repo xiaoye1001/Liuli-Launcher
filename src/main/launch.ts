@@ -4,13 +4,16 @@ import { join } from 'path'
 import { BrowserWindow } from 'electron'
 import { createMinecraftProcessWatcher, launch, Version } from '@xmcl/core'
 import { getSettings } from './config'
-import { isIsolated, versionGameDir } from './isolation'
+import { versionGameDir } from './isolation'
+import { getVersionConfig, isCustomized, isolatedWith, splitArgs } from './versionConfig'
 import { getMicrosoftLaunchAuth } from './microsoft'
 import { pickJava, requirementOf } from './javaRuntime'
 import { startJavaInstall } from './install'
 import { onGameEnded, onGameWindowReady } from './windows'
 import { resolveJava } from './java'
 import { openLogWindow } from './logWindow'
+import { collectCrash } from './crashReport'
+import { parseAddress } from './serverPing'
 import type { GameLogEvent, GameStatus, InstalledVersion, JavaInfo, ModLoader } from '../shared/types'
 
 /** 根据版本 json 的启动类与依赖库判断模组加载器 */
@@ -40,12 +43,16 @@ export async function listInstalledVersions(): Promise<InstalledVersion[]> {
     try {
       const json = JSON.parse(await readFile(join(versionsDir, id, `${id}.json`), 'utf-8'))
       const loader = detectLoader(json)
+      const config = await getVersionConfig(id, gameDir)
       result.push({
         id,
         type: json.type ?? '',
         releaseTime: json.releaseTime ?? '',
         loader,
-        isolated: isIsolated(versionIsolation, loader)
+        isolated: isolatedWith(config, versionIsolation, loader),
+        customized: isCustomized(config),
+        // 加载器版本继承自原版，原版版本的 id 就是版本号
+        minecraftVersion: json.inheritsFrom ?? json.id ?? id
       })
     } catch {
       // 没有 json 或 json 损坏的目录不是有效版本
@@ -156,7 +163,28 @@ function describeLaunchError(e: unknown): string {
 }
 
 /** 启动游戏（离线模式）。启动结果通过 game:status 推送 */
-export async function launchGame(versionId: string): Promise<void> {
+/** 直接进入服务器的启动参数 */
+function serverOptions(
+  server: string | undefined,
+  minecraftVersion: string
+): { quickPlayMultiplayer?: string; server?: { ip: string; port?: number } } {
+  if (!server) return {}
+  if (supportsQuickPlay(minecraftVersion)) return { quickPlayMultiplayer: server }
+  const { host, port } = parseAddress(server)
+  return { server: { ip: host, port } }
+}
+
+/** 1.20（快照 23w14a）起用 --quickPlayMultiplayer 直接进入服务器，更早的版本用 --server / --port */
+export function supportsQuickPlay(minecraftVersion: string): boolean {
+  const release = /^1\.(\d+)/.exec(minecraftVersion)
+  if (release) return Number(release[1]) >= 20
+  const snapshot = /^(\d{2})w(\d{2})/.exec(minecraftVersion)
+  if (snapshot) return Number(snapshot[1]) > 23 || (Number(snapshot[1]) === 23 && Number(snapshot[2]) >= 14)
+  return false
+}
+
+/** 启动游戏。server 不为空时，进入游戏后直接连接该服务器 */
+export async function launchGame(versionId: string, server?: string): Promise<void> {
   if (status.state === 'launching' || status.state === 'running') {
     throw new Error('游戏已经在运行中')
   }
@@ -164,11 +192,19 @@ export async function launchGame(versionId: string): Promise<void> {
   const settings = await getSettings()
   resetLogs()
   setStatus({ state: 'launching', versionId })
+  const startedAt = Date.now()
   openLogWindow()
-  launcherLog(`正在启动 ${versionId}`)
+  launcherLog(`正在启动 ${versionId}${server ? `，进入游戏后连接服务器 ${server}` : ''}`)
 
   try {
-    if (!settings.javaAuto && !settings.javaPath) {
+    // 版本设置优先，未设置的项跟随全局设置
+    const config = await getVersionConfig(versionId, settings.gameDir)
+    const javaAuto = config.javaMode === 'global' ? settings.javaAuto : config.javaMode === 'auto'
+    const javaPath = config.javaMode === 'custom' ? config.javaPath : settings.javaPath
+    const maxMemory = config.maxMemory || settings.maxMemory
+    const jvmArgs = splitArgs(config.jvmArgs)
+    const gameArgs = splitArgs(config.gameArgs)
+    if (!javaAuto && !javaPath) {
       throw new Error('尚未选择 Java，请先到「设置」页选择，或开启「自动选择 Java」')
     }
     // 微软账号会在这里自动刷新过期的令牌；离线账号使用玩家名生成固定的 UUID
@@ -188,7 +224,7 @@ export async function launchGame(versionId: string): Promise<void> {
     const requirement = requirementOf(version)
     const required = requirement.majorVersion
     let java: JavaInfo | undefined
-    if (settings.javaAuto) {
+    if (javaAuto) {
       // 自动选择：挑选该版本需要的 Java，本机没有就自动下载
       java = (await pickJava(requirement)) ?? undefined
       if (!java) {
@@ -200,20 +236,22 @@ export async function launchGame(versionId: string): Promise<void> {
       }
     } else {
       // 手动选择：检查所选 Java 是否满足该游戏版本的要求
-      java = await resolveJava(settings.javaPath)
+      const where = config.javaMode === 'custom' ? '该版本的「版本设置」' : '「设置」'
+      java = await resolveJava(javaPath)
       if (!java) {
-        throw new Error(`无法运行所选的 Java：${settings.javaPath}`)
+        throw new Error(`无法运行所选的 Java：${javaPath}，请在${where}中重新选择`)
       }
       if (java.majorVersion < required) {
         throw new Error(
-          `${versionId} 需要 Java ${required} 或更高版本，当前选择的是 Java ${java.majorVersion}。可以在「设置」中开启「自动选择 Java」`
+          `${versionId} 需要 Java ${required} 或更高版本，当前选择的是 Java ${java.majorVersion}。可以在${where}中改为自动选择 Java`
         )
       }
     }
     launcherLog(`Java ${java.version}：${java.path}`)
-    launcherLog(`${auth.microsoft ? '微软账号' : '离线账号'} ${auth.name}，最大内存 ${settings.maxMemory} MB`)
+    launcherLog(`${auth.microsoft ? '微软账号' : '离线账号'} ${auth.name}，最大内存 ${maxMemory} MB`)
+    if (isCustomized(config)) launcherLog('已应用该版本的独立设置')
     // 版本隔离：模组、存档、配置放在版本自己的文件夹里，依赖库与资源文件仍从游戏目录读取
-    const isolated = isIsolated(settings.versionIsolation, detectLoader(version))
+    const isolated = isolatedWith(config, settings.versionIsolation, detectLoader(version))
     const gamePath = versionGameDir(settings.gameDir, versionId, isolated)
     launcherLog(`游戏目录：${gamePath}${isolated ? '（版本隔离）' : ''}`)
 
@@ -222,8 +260,8 @@ export async function launchGame(versionId: string): Promise<void> {
       resourcePath: settings.gameDir,
       javaPath: java.path,
       version,
-      maxMemory: settings.maxMemory,
-      minMemory: Math.min(512, settings.maxMemory),
+      maxMemory,
+      minMemory: Math.min(512, maxMemory),
       gameProfile: { name: auth.name, id: auth.uuid },
       accessToken: auth.accessToken,
       // 官方启动器给微软账号传的是 msa，xmcl 的类型定义还没有这个值
@@ -232,7 +270,18 @@ export async function launchGame(versionId: string): Promise<void> {
       launcherBrand: 'Liuli Launcher',
       versionType: 'Liuli Launcher',
       // 强制游戏以 UTF-8 输出日志，避免中文 Windows 下日志乱码
-      extraJVMArgs: ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8'],
+      // 版本设置里的附加参数放在最后，可以覆盖前面的默认值
+      extraJVMArgs: ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8', ...jvmArgs],
+      extraMCArgs: gameArgs,
+      ...serverOptions(server, version.minecraftVersion),
+      resolution:
+        config.fullscreen || config.windowWidth || config.windowHeight
+          ? {
+              fullscreen: config.fullscreen,
+              width: config.windowWidth || undefined,
+              height: config.windowHeight || undefined
+            }
+          : undefined,
       extraExecOption: { windowsHide: false }
     })
     launcherLog(`游戏进程已创建（PID ${proc.pid}）`)
@@ -250,11 +299,31 @@ export async function launchGame(versionId: string): Promise<void> {
     watcher.on('error', (e) => {
       setStatus({ state: 'crashed', versionId, error: describeLaunchError(e) })
     })
-    watcher.on('minecraft-exit', ({ code, crashReportLocation }) => {
+    watcher.on('minecraft-exit', async ({ code, crashReportLocation }) => {
       launcherLog(`游戏进程已退出，退出码 ${code}`)
       if (code === 0) {
         setStatus({ state: 'exited', versionId, exitCode: code })
       } else {
+        // 等待剩余的输出写完，再分析崩溃原因
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        const analysis = await collectCrash({
+          versionId,
+          gamePath,
+          startedAt,
+          exitCode: code,
+          crashReportLocation,
+          logs: [...logs],
+          context: {
+            javaMajor: java?.majorVersion,
+            javaPath: java?.path,
+            maxMemory,
+            customJvmArgs: jvmArgs.length > 0
+          }
+        }).catch((e) => {
+          launcherLog(`崩溃分析失败：${e instanceof Error ? e.message : String(e)}`)
+          return undefined
+        })
+        if (analysis?.causes.length) launcherLog(`崩溃分析：${analysis.causes.map((c) => c.title).join('、')}`)
         const lastLines = logs
           .filter((line) => !line.startsWith('[启动器]'))
           .slice(-5)
@@ -265,7 +334,8 @@ export async function launchGame(versionId: string): Promise<void> {
           exitCode: code,
           error: crashReportLocation
             ? `游戏崩溃，崩溃报告：${crashReportLocation}`
-            : `游戏异常退出（退出码 ${code}）${lastLines ? `\n${lastLines}` : ''}`
+            : `游戏异常退出（退出码 ${code}）${lastLines ? `\n${lastLines}` : ''}`,
+          analysis
         })
       }
     })

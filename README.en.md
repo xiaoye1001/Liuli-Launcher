@@ -25,15 +25,32 @@ Glass-style UI · Dark & light themes · Fast downloads via mirrors · One-click
 - Choose a custom version name and attach a mod loader before installing:
   - **Forge**, **NeoForge** or **Fabric** (pick one)
   - **OptiFine** (on its own, or together with Forge)
-- **Modpacks**: search, filter and download Modrinth modpacks inside the launcher, or import a local modpack (just drag it onto the window). Modrinth (`.mrpack`), CurseForge, MultiMC / Prism and MCBBS (`.zip`) formats are supported; the matching Minecraft version and mod loader, every mod, and the bundled config files are installed in one go
+- Import local modpacks (pick a file, or just drag it onto the window): Modrinth (`.mrpack`), CurseForge, MultiMC / Prism and MCBBS (`.zip`) formats are supported; the matching Minecraft version and mod loader, every mod, and the bundled config files are installed in one go
 - "Check & repair" installed versions: only missing or corrupted files are downloaded again
 - Before deleting a version, the launcher checks whether other versions depend on it, and warns you if its folder contains worlds
+
+### Community resources
+The **Download** page has a side menu with **Vanilla** and **Community resources** (mods, modpacks, data packs, resource packs, shader packs), all from Modrinth:
+- Search every resource type and filter by Minecraft version, loader and category, or sort by downloads, last update and more
+- Expand a project to see all of its versions, with the ones matching your filters listed first, and pick exactly which one to download
+- Choose which installed game version to install into, and the filters follow that version's Minecraft version and loader
+- Mods go to `mods` (required dependencies are installed too), resource packs to `resourcepacks`, shader packs to `shaderpacks`, and data packs to the chosen world's `datapacks`; modpacks open the install page after downloading
 
 ### Launching
 - **Automatic Java**: picks the right Java for each game version and downloads it automatically when missing (the same Java runtimes as the official launcher); Java 8 / 17 / 21 / 25 can also be downloaded from Settings with one click, or chosen manually
 - Configurable game memory
 - Live game log window with search filtering and one-click copy
+- **Crash analysis**: after a crash, the launcher reads the game output, crash report and Java crash log and explains the cause and how to fix it: missing dependencies, mods that don't match the game version or conflict with each other, duplicate mods, Mixin failures, Java too old or too new, out of memory, invalid JVM arguments, graphics drivers, incompatible OptiFine, corrupted files and more. You can open the crash report directly, or export all related files as a zip to ask others for help
 - **Version isolation**: modded versions (or all versions) each get their own `mods`, worlds and config, so they never interfere with each other
+- **Version management**: the Versions page gathers everything for installed versions: choosing the version to launch, mods, worlds, resources, version settings, opening the folder, check & repair, and deleting
+- **World management**: see each world's name, icon, game mode (hardcore / cheats), game version and last played time; back up a world to a zip in one click, import worlds from zip files, or move them to the recycle bin; manage each world's data packs (with their enabled state; add, download or delete)
+- **Resource pack & shader management**: see each version's resource packs (with icon and description) and shader packs; enable resource packs, switch or turn off shaders (Iris, Oculus and OptiFine supported) right from the launcher, add files, or move them to the recycle bin
+- **Per-version settings** (from the Versions page or the gear button next to the version on Home): set memory, Java, version isolation, game window size (or fullscreen) and extra JVM / game arguments for each version; anything not set follows the global settings. The settings are stored in `liuli-version.json` inside the version's folder
+
+### Servers
+- Save your favorite servers on the Servers page, with each server's icon, colored MOTD, player count, latency and server version; SRV records (domains without a port) are supported
+- Click **Join** to launch the game and connect to the server directly (Quick Play on 1.20+, the `--server` argument on older versions); each server can use its own game version
+- Import the servers from the game's Multiplayer list (`servers.dat`) in one click
 
 ### Mod management
 - Shows each mod's name, version, description and icon; supports Fabric / Quilt / Forge / NeoForge

@@ -84,6 +84,8 @@ export interface SystemInfo {
   totalMemory: number
   /** 免安装版的数据文件夹（exe 旁边），安装版为 null */
   portableDir: string | null
+  /** Windows 上是否以管理员身份运行（此时无法从资源管理器拖入文件） */
+  elevated: boolean
 }
 
 /** 版本类型：正式版 / 快照 / 远古 Beta / 远古 Alpha */
@@ -148,6 +150,30 @@ export interface InstalledVersion {
   loader?: ModLoader
   /** 是否使用独立的游戏目录（版本隔离） */
   isolated: boolean
+  /** 原版 Minecraft 版本号 */
+  minecraftVersion: string
+  /** 是否有自己的版本设置（与全局设置不同） */
+  customized: boolean
+}
+
+/** 单个版本的设置，保存在 versions/<版本名>/liuli-version.json，未设置的项跟随全局设置 */
+export interface VersionConfig {
+  /** 最大内存（MB），0 表示跟随全局设置 */
+  maxMemory: number
+  /** Java：跟随全局设置 / 自动选择 / 使用 javaPath 指定的 Java */
+  javaMode: 'global' | 'auto' | 'custom'
+  javaPath: string
+  /** 版本隔离：跟随全局设置 / 开启 / 关闭 */
+  isolation: 'global' | 'on' | 'off'
+  /** 游戏窗口大小，0 表示游戏默认大小 */
+  windowWidth: number
+  windowHeight: number
+  /** 全屏启动 */
+  fullscreen: boolean
+  /** 附加的 JVM 参数（空格分隔，可以用引号包住带空格的参数） */
+  jvmArgs: string
+  /** 附加的游戏参数 */
+  gameArgs: string
 }
 
 /** 游戏运行状态：空闲 / 启动中 / 窗口已出现 / 正常退出 / 崩溃或启动失败 */
@@ -160,6 +186,30 @@ export interface GameStatus {
   exitCode?: number | null
   /** 启动失败或崩溃的原因 */
   error?: string
+  /** 崩溃分析结果（游戏进程异常退出时） */
+  analysis?: CrashAnalysis
+}
+
+/** 崩溃原因对应的界面操作：打开版本设置 / 到「版本」页（修复、管理模组） */
+export type CrashAction = 'versionSettings' | 'versions'
+
+export interface CrashCause {
+  title: string
+  detail: string
+  /** 相关的模组（缺少的前置、冲突或出错的模组） */
+  mods?: string[]
+  suggestions: string[]
+  action?: CrashAction
+}
+
+export interface CrashAnalysis {
+  /** 识别出的原因，按可能性排列；为空表示没能识别 */
+  causes: CrashCause[]
+  /** 没识别出原因时，从日志中找到的关键错误 */
+  keyError?: string
+  exitCode: number | null
+  hasCrashReport: boolean
+  hasNativeLog: boolean
 }
 
 /** 推送到日志窗口的一批日志 */
@@ -279,6 +329,112 @@ export interface ModList {
   mods: ModInfo[]
 }
 
+/** 版本游戏目录里的本地资源：资源包或光影包 */
+export type LocalResourceKind = 'resourcepack' | 'shader'
+
+export interface LocalResource {
+  /** 文件名（.zip）或文件夹名 */
+  fileName: string
+  isDirectory: boolean
+  /** 文件大小（字节），文件夹为 0 */
+  size: number
+  /** 资源包的简介（来自 pack.mcmeta） */
+  description: string
+  /** 资源包格式版本 */
+  packFormat?: number
+  /** 资源包图标（pack.png 的 data URL） */
+  icon?: string
+  /** 资源包：是否在游戏中启用（options.txt）；光影包：是否为当前使用的光影 */
+  enabled: boolean
+}
+
+export interface LocalResourceList {
+  versionId: string
+  kind: LocalResourceKind
+  /** resourcepacks / shaderpacks 文件夹路径 */
+  dir: string
+  items: LocalResource[]
+  /** 光影：检测到的光影加载器配置（没有找到时为空） */
+  shaderLoader?: 'iris' | 'oculus' | 'optifine'
+  /** 光影：光影是否开启 */
+  shadersEnabled?: boolean
+}
+
+/** 存档的游戏模式 */
+export type WorldGameMode = 'survival' | 'creative' | 'adventure' | 'spectator' | 'unknown'
+
+export interface WorldInfo {
+  /** 存档文件夹名 */
+  folder: string
+  /** 存档名称（level.dat 中的 LevelName，读取失败时为文件夹名） */
+  name: string
+  gameMode: WorldGameMode
+  hardcore: boolean
+  /** 是否允许作弊 */
+  cheats: boolean
+  /** 最后一次游玩该存档的游戏版本 */
+  version: string
+  /** 最后游玩时间（毫秒时间戳），未知时为 0 */
+  lastPlayed: number
+  /** 存档图标（icon.png 的 data URL） */
+  icon?: string
+  /** level.dat 读取失败 */
+  damaged: boolean
+}
+
+export interface WorldList {
+  versionId: string
+  /** saves 文件夹 */
+  dir: string
+  worlds: WorldInfo[]
+}
+
+/** 存档中的数据包 */
+export interface WorldDatapack {
+  fileName: string
+  isDirectory: boolean
+  size: number
+  description: string
+  /** 在存档中的状态：已启用 / 已停用 / 尚未加载（下次进入存档时自动启用） */
+  state: 'enabled' | 'disabled' | 'new'
+}
+
+/** 服务器简介（MOTD）的一段带样式的文字 */
+export interface MotdSegment {
+  text: string
+  color?: string
+  bold?: boolean
+  italic?: boolean
+  underlined?: boolean
+  strikethrough?: boolean
+}
+
+/** 收藏的服务器 */
+export interface SavedServer {
+  id: string
+  name: string
+  /** 服务器地址：host、host:port 或 [IPv6]:port */
+  address: string
+  /** 加入时使用的游戏版本，空字符串表示使用主页选择的版本 */
+  versionId: string
+}
+
+/** 服务器状态查询结果 */
+export interface ServerStatus {
+  online: boolean
+  /** 连接失败的原因 */
+  error?: string
+  /** 延迟（毫秒） */
+  latency?: number
+  /** 服务器版本名称，例如 Paper 1.20.4 */
+  version: string
+  protocol?: number
+  players: { online: number; max: number; sample: string[] }
+  motd: MotdSegment[]
+  /** 服务器图标（PNG 的 data URL） */
+  favicon?: string
+}
+
 /** Modrinth 搜索结果中的一个模组 */
 export interface ModrinthProject {
   projectId: string
@@ -367,11 +523,14 @@ export interface ModpackInfo {
   overrideCount: number
 }
 
-/** 整合包搜索的筛选条件 */
-export interface ModpackSearchFilters {
+/** 下载页的社区资源类型（与 Modrinth 的项目类型一致） */
+export type ResourceType = 'mod' | 'modpack' | 'datapack' | 'resourcepack' | 'shader'
+
+/** 社区资源搜索的筛选条件 */
+export interface ResourceSearchFilters {
   /** Minecraft 版本，例如 1.20.1 */
   gameVersion?: string
-  /** 模组加载器：fabric / forge / neoforge / quilt */
+  /** 加载器：模组与整合包为 fabric / forge / neoforge / quilt，光影为 iris / optifine 等 */
   loader?: string
   /** Modrinth 分类，例如 optimization */
   category?: string
@@ -379,8 +538,8 @@ export interface ModpackSearchFilters {
   sort?: string
 }
 
-/** Modrinth 上的整合包（搜索结果） */
-export interface ModrinthModpack {
+/** Modrinth 上的项目（搜索结果） */
+export interface ModrinthProjectHit {
   projectId: string
   title: string
   description: string
@@ -393,8 +552,8 @@ export interface ModrinthModpack {
   latestGameVersion: string
 }
 
-/** 整合包的一个版本 */
-export interface ModrinthModpackVersion {
+/** 项目的一个版本 */
+export interface ModrinthProjectVersion {
   id: string
   name: string
   versionNumber: string
@@ -402,6 +561,15 @@ export interface ModrinthModpackVersion {
   gameVersions: string[]
   loaders: string[]
   datePublished: string
-  /** .mrpack 文件大小（字节） */
+  /** 主文件名 */
+  fileName: string
+  /** 主文件大小（字节） */
   fileSize: number
+}
+
+/** 社区资源安装到哪里：某个已安装的版本（数据包还需要选择存档） */
+export interface ResourceTarget {
+  versionId: string
+  /** 数据包安装到的存档文件夹名 */
+  world?: string
 }

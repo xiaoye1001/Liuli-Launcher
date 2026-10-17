@@ -41,6 +41,8 @@ function DropOverlay({ onModpack }: DropOverlayProps): JSX.Element | null {
     }
 
     const onEnter = (e: DragEvent): void => {
+      // dragenter 也要阻止默认行为，部分 Windows 环境下否则不会把这个窗口当作放置目标
+      e.preventDefault()
       if (!hasFiles(e)) return
       depth.current += 1
       setDragging(true)

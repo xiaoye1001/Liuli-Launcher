@@ -5,22 +5,55 @@ import AccountPage from './pages/AccountPage'
 import DownloadPage from './pages/DownloadPage'
 import HomePage from './pages/HomePage'
 import PlaceholderPage from './pages/PlaceholderPage'
+import VersionsPage from './pages/VersionsPage'
+import ServersPage from './pages/ServersPage'
 import SettingsPage from './pages/SettingsPage'
 import DropOverlay from './components/DropOverlay'
-import type { ModpackInfo } from '../../shared/types'
+import type { ModpackInfo, ResourceType } from '../../shared/types'
 import { backgroundUrl, useAppearance } from './utils/appearance'
 
 interface PageContext {
   droppedModpack: ModpackInfo | null
   clearDroppedModpack: () => void
+  navigate: (key: PageKey) => void
+  /** 从主页打开某个版本的版本设置 */
+  versionSettings: string | null
+  /** 打开下载页的某个分类，并预选安装目标 */
+  downloadRequest: { section: ResourceType; versionId: string; world?: string } | null
+  openDownload: (section: ResourceType, versionId: string, world?: string) => void
+  clearDownloadRequest: () => void
+  openVersionSettings: (versionId: string) => void
+  clearVersionSettings: () => void
 }
 
 function renderPage(key: PageKey, ctx: PageContext): JSX.Element {
-  if (key === 'home') return <HomePage />
+  if (key === 'home') {
+    return (
+      <HomePage onOpenVersionSettings={ctx.openVersionSettings} onManageVersions={() => ctx.navigate('versions')} />
+    )
+  }
+  if (key === 'versions') {
+    return (
+      <VersionsPage
+        openSettingsFor={ctx.versionSettings}
+        onSettingsOpened={ctx.clearVersionSettings}
+        onInstallNew={() => ctx.navigate('download')}
+        onDownloadResources={ctx.openDownload}
+      />
+    )
+  }
   if (key === 'account') return <AccountPage />
   if (key === 'download') {
-    return <DownloadPage incomingModpack={ctx.droppedModpack} onModpackConsumed={ctx.clearDroppedModpack} />
+    return (
+      <DownloadPage
+        incomingModpack={ctx.droppedModpack}
+        onModpackConsumed={ctx.clearDroppedModpack}
+        request={ctx.downloadRequest}
+        onRequestConsumed={ctx.clearDownloadRequest}
+      />
+    )
   }
+  if (key === 'servers') return <ServersPage />
   if (key === 'settings') return <SettingsPage />
   const item = NAV_ITEMS.find((nav) => nav.key === key)!
   return <PlaceholderPage title={item.label} icon={item.icon} />
@@ -31,6 +64,18 @@ function App(): JSX.Element {
   /** 拖入窗口的整合包，交给下载页打开安装确认页 */
   const [droppedModpack, setDroppedModpack] = useState<ModpackInfo | null>(null)
   const clearDroppedModpack = useCallback(() => setDroppedModpack(null), [])
+  const [versionSettings, setVersionSettings] = useState<string | null>(null)
+  const [downloadRequest, setDownloadRequest] = useState<PageContext['downloadRequest']>(null)
+  const clearDownloadRequest = useCallback(() => setDownloadRequest(null), [])
+  const openDownload = useCallback((section: ResourceType, versionId: string, world?: string) => {
+    setDownloadRequest({ section, versionId, world })
+    setPage('download')
+  }, [])
+  const clearVersionSettings = useCallback(() => setVersionSettings(null), [])
+  const openVersionSettings = useCallback((versionId: string) => {
+    setVersionSettings(versionId)
+    setPage('versions')
+  }, [])
   const appearance = useAppearance()
   const { backgroundImage, backgroundBlur, backgroundDim } = appearance
 
@@ -73,7 +118,17 @@ function App(): JSX.Element {
               exit={{ opacity: 0, y: -16, filter: 'blur(6px)' }}
               transition={{ duration: appearance.animations ? 0.25 : 0, ease: 'easeOut' }}
             >
-              {renderPage(page, { droppedModpack, clearDroppedModpack })}
+              {renderPage(page, {
+                droppedModpack,
+                clearDroppedModpack,
+                navigate: setPage,
+                versionSettings,
+                downloadRequest,
+                openDownload,
+                clearDownloadRequest,
+                openVersionSettings,
+                clearVersionSettings
+              })}
             </motion.div>
           </AnimatePresence>
         </main>

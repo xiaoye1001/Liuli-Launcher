@@ -6,8 +6,13 @@ import type {
   GameStatus,
   InstallRequest,
   InstallStatus,
-  ModpackSearchFilters,
-  MsLoginStatus
+  ResourceSearchFilters,
+  ResourceTarget,
+  ResourceType,
+  MsLoginStatus,
+  VersionConfig,
+  LocalResourceKind,
+  SavedServer
 } from '../shared/types'
 
 const api = {
@@ -43,6 +48,34 @@ const api = {
   repairVersion: (versionId: string) => ipcRenderer.invoke('versions:repair', versionId),
   deleteVersion: (versionId: string) => ipcRenderer.invoke('versions:delete', versionId),
   openVersionDir: (versionId: string) => ipcRenderer.invoke('versions:open', versionId),
+  listLocalResources: (versionId: string, kind: LocalResourceKind) => ipcRenderer.invoke('local:list', versionId, kind),
+  setResourcePackEnabled: (versionId: string, fileName: string, enabled: boolean) =>
+    ipcRenderer.invoke('local:setPackEnabled', versionId, fileName, enabled),
+  setActiveShader: (versionId: string, fileName: string | null) =>
+    ipcRenderer.invoke('local:setShader', versionId, fileName),
+  deleteLocalResource: (versionId: string, kind: LocalResourceKind, fileName: string) =>
+    ipcRenderer.invoke('local:delete', versionId, kind, fileName),
+  addLocalResources: (versionId: string, kind: LocalResourceKind) => ipcRenderer.invoke('local:add', versionId, kind),
+  openLocalResourceDir: (versionId: string, kind: LocalResourceKind) =>
+    ipcRenderer.invoke('local:open', versionId, kind),
+  listWorldInfos: (versionId: string) => ipcRenderer.invoke('worlds:list', versionId),
+  deleteWorld: (versionId: string, folder: string) => ipcRenderer.invoke('worlds:delete', versionId, folder),
+  backupWorld: (versionId: string, folder: string) => ipcRenderer.invoke('worlds:backup', versionId, folder),
+  openWorldDir: (versionId: string, folder?: string) => ipcRenderer.invoke('worlds:open', versionId, folder),
+  openBackupsDir: (versionId: string) => ipcRenderer.invoke('worlds:openBackups', versionId),
+  importWorld: (versionId: string) => ipcRenderer.invoke('worlds:import', versionId),
+  listWorldDatapacks: (versionId: string, folder: string) => ipcRenderer.invoke('worlds:datapacks', versionId, folder),
+  deleteWorldDatapack: (versionId: string, folder: string, fileName: string) =>
+    ipcRenderer.invoke('worlds:deleteDatapack', versionId, folder, fileName),
+  addWorldDatapacks: (versionId: string, folder: string) =>
+    ipcRenderer.invoke('worlds:addDatapacks', versionId, folder),
+  openWorldDatapacksDir: (versionId: string, folder: string) =>
+    ipcRenderer.invoke('worlds:openDatapacks', versionId, folder),
+  openCrashFile: (kind: 'report' | 'native') => ipcRenderer.invoke('crash:open', kind),
+  exportCrashInfo: () => ipcRenderer.invoke('crash:export'),
+  getVersionConfig: (versionId: string) => ipcRenderer.invoke('versions:getConfig', versionId),
+  setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) =>
+    ipcRenderer.invoke('versions:setConfig', versionId, patch),
   listMods: (versionId: string) => ipcRenderer.invoke('mods:list', versionId),
   setModEnabled: (versionId: string, fileName: string, enabled: boolean) =>
     ipcRenderer.invoke('mods:setEnabled', versionId, fileName, enabled),
@@ -52,9 +85,13 @@ const api = {
   pickModpack: () => ipcRenderer.invoke('modpack:pick'),
   installModpack: (name: string) => ipcRenderer.invoke('modpack:install', name),
   loadModpackFile: (path: string) => ipcRenderer.invoke('modpack:loadFile', path),
-  searchModpacks: (query: string, offset: number, filters: ModpackSearchFilters) =>
-    ipcRenderer.invoke('modpack:search', query, offset, filters),
-  getModpackVersions: (projectId: string) => ipcRenderer.invoke('modpack:versions', projectId),
+  searchResources: (type: ResourceType, query: string, offset: number, filters: ResourceSearchFilters) =>
+    ipcRenderer.invoke('resource:search', type, query, offset, filters),
+  getResourceVersions: (projectId: string, type: ResourceType) =>
+    ipcRenderer.invoke('resource:versions', projectId, type),
+  installResource: (target: ResourceTarget, type: ResourceType, versionId: string) =>
+    ipcRenderer.invoke('resource:install', target, type, versionId),
+  listWorlds: (versionId: string) => ipcRenderer.invoke('resource:worlds', versionId),
   downloadModpack: (versionId: string) => ipcRenderer.invoke('modpack:download', versionId),
   /** 拖入窗口的文件在本机的路径 */
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
@@ -62,7 +99,13 @@ const api = {
     ipcRenderer.invoke('modrinth:search', versionId, query, offset),
   installFromModrinth: (versionId: string, projectId: string) =>
     ipcRenderer.invoke('modrinth:install', versionId, projectId),
-  launchGame: (versionId: string) => ipcRenderer.invoke('game:launch', versionId),
+  launchGame: (versionId: string, server?: string) => ipcRenderer.invoke('game:launch', versionId, server),
+  listServers: () => ipcRenderer.invoke('servers:list'),
+  saveServer: (server: Omit<SavedServer, 'id'> & { id?: string }) => ipcRenderer.invoke('servers:save', server),
+  deleteServer: (id: string) => ipcRenderer.invoke('servers:delete', id),
+  moveServer: (id: string, offset: number) => ipcRenderer.invoke('servers:move', id, offset),
+  importGameServers: () => ipcRenderer.invoke('servers:import'),
+  pingServer: (address: string) => ipcRenderer.invoke('servers:ping', address),
   getGameStatus: () => ipcRenderer.invoke('game:status'),
   /** 订阅游戏运行状态，返回取消订阅函数 */
   getAccounts: () => ipcRenderer.invoke('accounts:list'),

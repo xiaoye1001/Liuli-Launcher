@@ -1,15 +1,17 @@
 import { download, getDefaultAgent } from '@xmcl/file-transfer'
 import { app } from 'electron'
-import { mkdir } from 'fs/promises'
-import { basename, join } from 'path'
+import { mkdir, readdir, stat } from 'fs/promises'
+import { basename, dirname, join } from 'path'
 import { getSettings } from './config'
 import { assertGameStopped, fileSha1, listModFiles, modsContextOf, type ModsContext } from './mods'
 import type {
   ModrinthInstallResult,
-  ModrinthModpack,
-  ModrinthModpackVersion,
+  ModrinthProjectHit,
+  ModrinthProjectVersion,
   ModrinthSearchResult,
-  ModpackSearchFilters
+  ResourceSearchFilters,
+  ResourceTarget,
+  ResourceType
 } from '../shared/types'
 
 const OFFICIAL_API = 'https://api.modrinth.com/v2'
@@ -179,7 +181,12 @@ async function downloadVersionFile(version: ModrinthVersion, dir: string): Promi
 /**
  * 从 Modrinth 安装模组：下载适用于该版本的最新版本，并自动安装缺少的必需前置模组
  */
-export async function installFromModrinth(versionId: string, projectId: string): Promise<ModrinthInstallResult> {
+export async function installFromModrinth(
+  versionId: string,
+  projectId: string,
+  /** 指定要安装的 Modrinth 版本；不指定时自动选择适用于该游戏版本的最新版本 */
+  modrinthVersionId?: string
+): Promise<ModrinthInstallResult> {
   assertGameStopped(versionId)
   const ctx = await modsContextOf(versionId)
   await mkdir(ctx.dir, { recursive: true })
@@ -196,7 +203,10 @@ export async function installFromModrinth(versionId: string, projectId: string):
     if (visited.size > 20) break
 
     const project = await modrinthFetch<{ title: string }>(`/project/${encodeURIComponent(item.projectId)}`)
-    const version = await pickVersion(item.projectId, ctx)
+    const version =
+      !item.dependency && modrinthVersionId
+        ? await modrinthFetch<ModrinthVersion>(`/version/${encodeURIComponent(modrinthVersionId)}`)
+        : await pickVersion(item.projectId, ctx)
     if (!version) {
       if (!item.dependency) {
         throw new Error(`${project.title} 没有适用于 ${ctx.minecraftVersion} ${loadersOf(ctx)[0]} 的版本`)
@@ -220,17 +230,24 @@ export async function installFromModrinth(versionId: string, projectId: string):
   return result
 }
 
-// ---------- 整合包 ----------
+// ---------- 社区资源（模组、整合包、数据包、资源包、光影） ----------
 
-const LOADER_CATEGORIES = ['fabric', 'forge', 'neoforge', 'quilt']
+/** 各类资源在 Modrinth 上的加载器分类 */
+const LOADER_CATEGORIES = ['fabric', 'forge', 'neoforge', 'quilt', 'iris', 'optifine', 'canvas']
 
-/** 在 Modrinth 搜索整合包（无关键字时按下载量排序） */
-export async function searchModpacks(
+/** 资源类型对应的搜索条件。数据包在 Modrinth 上也可能是带 datapack 加载器的模组项目 */
+function typeFacet(type: ResourceType): string[] {
+  return type === 'datapack' ? ['project_type:datapack', 'categories:datapack'] : [`project_type:${type}`]
+}
+
+/** 在 Modrinth 搜索某类资源（无关键字时按下载量排序） */
+export async function searchProjects(
+  type: ResourceType,
   query: string,
   offset = 0,
-  filters: ModpackSearchFilters = {}
-): Promise<{ hits: ModrinthModpack[]; total: number }> {
-  const facets = [['project_type:modpack']]
+  filters: ResourceSearchFilters = {}
+): Promise<{ hits: ModrinthProjectHit[]; total: number }> {
+  const facets = [typeFacet(type)]
   if (filters.gameVersion) facets.push([`versions:${filters.gameVersion}`])
   if (filters.loader) facets.push([`categories:${filters.loader}`])
   if (filters.category) facets.push([`categories:${filters.category}`])
@@ -272,14 +289,14 @@ export async function searchModpacks(
   }
 }
 
-/** 整合包的版本列表（新版本在前，只保留带 .mrpack 文件的版本） */
-export async function getModpackVersions(projectId: string): Promise<ModrinthModpackVersion[]> {
+/** 项目的版本列表（新版本在前）。整合包只保留带 .mrpack 文件的版本，数据包优先使用 .zip 文件 */
+export async function getProjectVersions(projectId: string, type: ResourceType): Promise<ModrinthProjectVersion[]> {
   const versions = await modrinthFetch<
     (ModrinthVersion & { game_versions: string[]; loaders: string[]; date_published: string })[]
   >(`/project/${encodeURIComponent(projectId)}/version`)
   return versions
-    .map((v) => ({ v, file: v.files.find((f) => f.primary) ?? v.files[0] }))
-    .filter(({ file }) => file?.filename.endsWith('.mrpack'))
+    .map((v) => ({ v, file: mainFile(v, type) }))
+    .filter(({ file }) => (type === 'modpack' ? file?.filename.endsWith('.mrpack') : !!file))
     .map(({ v, file }) => ({
       id: v.id,
       name: v.name,
@@ -288,7 +305,8 @@ export async function getModpackVersions(projectId: string): Promise<ModrinthMod
       gameVersions: v.game_versions,
       loaders: v.loaders,
       datePublished: v.date_published,
-      fileSize: file.size
+      fileName: file!.filename,
+      fileSize: file!.size
     }))
 }
 
@@ -308,4 +326,78 @@ export async function downloadModpackFile(versionId: string): Promise<string> {
     validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
   })
   return destination
+}
+
+/** 版本中要下载的文件：数据包优先 .zip（同一版本可能同时带有模组 jar），其余用主文件 */
+function mainFile(version: ModrinthVersion, type: ResourceType): ModrinthFile | undefined {
+  if (type === 'datapack') {
+    const zip = version.files.find((f) => f.filename.toLowerCase().endsWith('.zip'))
+    if (zip) return zip
+  }
+  return version.files.find((f) => f.primary) ?? version.files[0]
+}
+
+/** 资源类型对应的游戏目录下的文件夹 */
+const RESOURCE_FOLDERS: Record<Exclude<ResourceType, 'mod' | 'modpack' | 'datapack'>, string> = {
+  resourcepack: 'resourcepacks',
+  shader: 'shaderpacks'
+}
+
+/** 存档文件夹名只允许是普通名字，防止 ../ 之类的路径 */
+function assertSafeName(name: string): void {
+  if (!name || name !== basename(name) || name === '.' || name === '..') throw new Error(`无效的存档名：${name}`)
+}
+
+/** 某个版本的存档列表（数据包需要安装到存档里） */
+export async function listWorlds(versionId: string): Promise<string[]> {
+  const gameDir = dirname((await modsContextOf(versionId)).dir)
+  const saves = join(gameDir, 'saves')
+  const names = await readdir(saves, { withFileTypes: true }).catch(() => [])
+  const worlds: string[] = []
+  for (const entry of names) {
+    if (entry.isDirectory() && (await stat(join(saves, entry.name, 'level.dat')).catch(() => null))) worlds.push(entry.name)
+  }
+  return worlds.sort((a, b) => a.localeCompare(b, 'zh-CN'))
+}
+
+/**
+ * 安装社区资源的某个版本到指定游戏版本：
+ * 模组放进 mods（并自动安装前置），资源包放进 resourcepacks，光影放进 shaderpacks，数据包放进所选存档的 datapacks
+ */
+export async function installResource(
+  target: ResourceTarget,
+  type: ResourceType,
+  modrinthVersionId: string
+): Promise<ModrinthInstallResult> {
+  const version = await modrinthFetch<ModrinthVersion>(`/version/${encodeURIComponent(modrinthVersionId)}`)
+  if (type === 'mod') return installFromModrinth(target.versionId, version.project_id, modrinthVersionId)
+  if (type === 'modpack') throw new Error('整合包请通过安装整合包页面安装')
+
+  assertGameStopped(target.versionId)
+  const gameDir = dirname((await modsContextOf(target.versionId)).dir)
+  let dir: string
+  if (type === 'datapack') {
+    if (!target.world) throw new Error('请选择要安装数据包的存档')
+    assertSafeName(target.world)
+    if (!(await stat(join(gameDir, 'saves', target.world)).catch(() => null))) throw new Error(`找不到存档：${target.world}`)
+    dir = join(gameDir, 'saves', target.world, 'datapacks')
+  } else {
+    dir = join(gameDir, RESOURCE_FOLDERS[type])
+  }
+  await mkdir(dir, { recursive: true })
+
+  const file = mainFile(version, type)
+  if (!file) throw new Error(`${version.name} 没有可下载的文件`)
+  await download({
+    url: await modrinthFileUrls([file.url]),
+    destination: join(dir, basename(file.filename)),
+    dispatcher: getDefaultAgent({ maxRetries: 3 }),
+    headers: { 'User-Agent': USER_AGENT },
+    validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
+  })
+  const project = await modrinthFetch<{ title: string }>(`/project/${encodeURIComponent(version.project_id)}`)
+  return {
+    installed: [{ projectId: version.project_id, title: project.title, fileName: file.filename, dependency: false }],
+    missingDependencies: []
+  }
 }

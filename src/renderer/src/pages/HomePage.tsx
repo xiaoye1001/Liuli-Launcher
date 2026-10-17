@@ -1,6 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertTriangle, Box, Check, ChevronDown, Gamepad2, Loader2, Play, Terminal, UserRound } from 'lucide-react'
+import {
+  AlertTriangle,
+  Box,
+  Check,
+  ChevronDown,
+  Gamepad2,
+  Loader2,
+  Play,
+  Settings2,
+  Terminal,
+  UserRound
+} from 'lucide-react'
+import CrashCard from '../components/CrashCard'
 import SkinHead from '../components/SkinHead'
 import type { AccountsInfo, AppSettings, GameStatus, InstallStatus, InstalledVersion } from '../../../shared/types'
 
@@ -65,7 +77,13 @@ function VersionSelect({ versions, value, onChange }: VersionSelectProps): JSX.E
   )
 }
 
-function HomePage(): JSX.Element {
+interface HomePageProps {
+  /** 打开某个版本的版本设置（跳转到「版本」页） */
+  onOpenVersionSettings: (versionId: string) => void
+  onManageVersions: () => void
+}
+
+function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): JSX.Element {
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [versions, setVersions] = useState<InstalledVersion[]>([])
   const [name, setName] = useState('')
@@ -73,6 +91,8 @@ function HomePage(): JSX.Element {
   const [accounts, setAccounts] = useState<AccountsInfo | null>(null)
   /** 启动时自动下载 Java 的进度 */
   const [javaTask, setJavaTask] = useState<InstallStatus | null>(null)
+  /** 关闭崩溃提示，下次启动后重新显示 */
+  const [crashDismissed, setCrashDismissed] = useState(false)
 
   useEffect(() => {
     const init = async (): Promise<void> => {
@@ -94,7 +114,10 @@ function HomePage(): JSX.Element {
     }
     init()
     const offInstall = window.api.onInstallStatus((status) => setJavaTask(status?.kind === 'java' ? status : null))
-    const offGame = window.api.onGameStatus(setGame)
+    const offGame = window.api.onGameStatus((status) => {
+      setGame(status)
+      setCrashDismissed(false)
+    })
     return () => {
       offInstall()
       offGame()
@@ -126,21 +149,14 @@ function HomePage(): JSX.Element {
   return (
     <div className="flex h-full flex-col justify-end gap-4">
       <AnimatePresence>
-        {game.state === 'crashed' && game.error && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 12 }}
-            className="flex items-start gap-3 rounded-2xl border border-red-400/20 bg-red-500/20 px-5 py-4 text-sm text-red-100 backdrop-blur-xl"
-          >
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-300" />
-            <div className="min-w-0">
-              <div className="font-semibold">{game.versionId} 启动失败</div>
-              <pre className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-all font-sans text-xs text-red-200/90">
-                {game.error}
-              </pre>
-            </div>
-          </motion.div>
+        {game.state === 'crashed' && game.error && !crashDismissed && (
+          <CrashCard
+            game={game}
+            onDismiss={() => setCrashDismissed(true)}
+            onAction={(action) =>
+              action === 'versionSettings' ? onOpenVersionSettings(game.versionId) : onManageVersions()
+            }
+          />
         )}
       </AnimatePresence>
 
@@ -183,8 +199,23 @@ function HomePage(): JSX.Element {
           )}
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-white/50">游戏版本</span>
-            <VersionSelect versions={versions} value={selected} onChange={selectVersion} />
+            <span className="flex items-center justify-between text-xs text-white/50">
+              游戏版本
+              <button onClick={onManageVersions} className="text-white/50 hover:text-white hover:underline">
+                管理版本
+              </button>
+            </span>
+            <div className="flex gap-2">
+              <VersionSelect versions={versions} value={selected} onChange={selectVersion} />
+              <button
+                onClick={() => onOpenVersionSettings(selected)}
+                disabled={!selected}
+                title="版本设置：单独设置这个版本的内存、Java、窗口大小等"
+                className="rounded-xl border border-white/10 bg-black/20 px-3 text-white/70 hover:bg-black/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Settings2 className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           <button

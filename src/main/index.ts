@@ -27,7 +27,39 @@ import { closeLogWindow, openLogWindow } from './logWindow'
 import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
 import { deleteVersion, openVersionDir } from './versionManage'
 import { addMods, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
-import { getModpackVersions, installFromModrinth, searchModpacks, searchModrinth } from './modrinth'
+import {
+  getProjectVersions,
+  installFromModrinth,
+  installResource,
+  listWorlds,
+  searchModrinth,
+  searchProjects
+} from './modrinth'
+import { isElevated } from './elevation'
+import { getVersionConfig, setVersionConfig } from './versionConfig'
+import {
+  addLocalResources,
+  deleteLocalResource,
+  listLocalResources,
+  openLocalResourceDir,
+  setActiveShader,
+  setResourcePackEnabled
+} from './resources'
+import {
+  addWorldDatapacks,
+  backupWorld,
+  deleteWorld,
+  deleteWorldDatapack,
+  importWorld,
+  listWorldDatapacks,
+  listWorldInfos,
+  openBackupsDir,
+  openWorldDatapacksDir,
+  openWorldDir
+} from './worlds'
+import { exportCrashInfo, openCrashFile } from './crashReport'
+import { deleteServer, importGameServers, listServers, moveServer, saveServer } from './servers'
+import { pingServer } from './serverPing'
 import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
 import {
   cancelMicrosoftLogin,
@@ -38,7 +70,17 @@ import {
   setActiveAccount,
   startMicrosoftLogin
 } from './microsoft'
-import type { AppSettings, InstallRequest, ModpackSearchFilters, SystemInfo } from '../shared/types'
+import type {
+  AppSettings,
+  InstallRequest,
+  ResourceSearchFilters,
+  ResourceTarget,
+  ResourceType,
+  SystemInfo,
+  VersionConfig,
+  LocalResourceKind,
+  SavedServer
+} from '../shared/types'
 
 /** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
 function broadcastSettings(settings: AppSettings): AppSettings {
@@ -120,6 +162,10 @@ function registerIpc(): void {
     deleteVersion(BrowserWindow.fromWebContents(event.sender), versionId)
   )
   ipcMain.handle('versions:open', (_, versionId: string) => openVersionDir(versionId))
+  ipcMain.handle('versions:getConfig', (_, versionId: string) => getVersionConfig(versionId))
+  ipcMain.handle('versions:setConfig', (_, versionId: string, patch: Partial<VersionConfig>) =>
+    setVersionConfig(versionId, patch)
+  )
   ipcMain.handle('mods:list', (_, versionId: string) => listMods(versionId))
   ipcMain.handle('mods:setEnabled', (_, versionId: string, fileName: string, enabled: boolean) =>
     setModEnabled(versionId, fileName, enabled)
@@ -129,6 +175,38 @@ function registerIpc(): void {
     addMods(versionId, BrowserWindow.fromWebContents(event.sender))
   )
   ipcMain.handle('mods:open', (_, versionId: string) => openModsDir(versionId))
+  ipcMain.handle('local:list', (_, versionId: string, kind: LocalResourceKind) => listLocalResources(versionId, kind))
+  ipcMain.handle('local:setPackEnabled', (_, versionId: string, fileName: string, enabled: boolean) =>
+    setResourcePackEnabled(versionId, fileName, enabled)
+  )
+  ipcMain.handle('local:setShader', (_, versionId: string, fileName: string | null) =>
+    setActiveShader(versionId, fileName)
+  )
+  ipcMain.handle('local:delete', (_, versionId: string, kind: LocalResourceKind, fileName: string) =>
+    deleteLocalResource(versionId, kind, fileName)
+  )
+  ipcMain.handle('local:add', (event, versionId: string, kind: LocalResourceKind) =>
+    addLocalResources(versionId, kind, BrowserWindow.fromWebContents(event.sender))
+  )
+  ipcMain.handle('worlds:list', (_, versionId: string) => listWorldInfos(versionId))
+  ipcMain.handle('worlds:delete', (_, versionId: string, folder: string) => deleteWorld(versionId, folder))
+  ipcMain.handle('worlds:backup', (_, versionId: string, folder: string) => backupWorld(versionId, folder))
+  ipcMain.handle('worlds:open', (_, versionId: string, folder?: string) => openWorldDir(versionId, folder))
+  ipcMain.handle('worlds:openBackups', (_, versionId: string) => openBackupsDir(versionId))
+  ipcMain.handle('worlds:import', (event, versionId: string) =>
+    importWorld(versionId, BrowserWindow.fromWebContents(event.sender))
+  )
+  ipcMain.handle('worlds:datapacks', (_, versionId: string, folder: string) => listWorldDatapacks(versionId, folder))
+  ipcMain.handle('worlds:deleteDatapack', (_, versionId: string, folder: string, fileName: string) =>
+    deleteWorldDatapack(versionId, folder, fileName)
+  )
+  ipcMain.handle('worlds:addDatapacks', (event, versionId: string, folder: string) =>
+    addWorldDatapacks(versionId, folder, BrowserWindow.fromWebContents(event.sender))
+  )
+  ipcMain.handle('worlds:openDatapacks', (_, versionId: string, folder: string) =>
+    openWorldDatapacksDir(versionId, folder)
+  )
+  ipcMain.handle('local:open', (_, versionId: string, kind: LocalResourceKind) => openLocalResourceDir(versionId, kind))
   ipcMain.handle('accounts:list', () => getAccounts())
   ipcMain.handle('accounts:setActive', (_, id: string) => setActiveAccount(id))
   ipcMain.handle('accounts:remove', (_, uuid: string) => removeAccount(uuid))
@@ -139,10 +217,16 @@ function registerIpc(): void {
   ipcMain.handle('modpack:pick', (event) => pickModpack(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('modpack:install', (_, name: string) => installModpack(name))
   ipcMain.handle('modpack:loadFile', (_, path: string) => loadModpackFile(path))
-  ipcMain.handle('modpack:search', (_, query: string, offset: number, filters: ModpackSearchFilters) =>
-    searchModpacks(query, offset, filters)
+  ipcMain.handle(
+    'resource:search',
+    (_, type: ResourceType, query: string, offset: number, filters: ResourceSearchFilters) =>
+      searchProjects(type, query, offset, filters)
   )
-  ipcMain.handle('modpack:versions', (_, projectId: string) => getModpackVersions(projectId))
+  ipcMain.handle('resource:versions', (_, projectId: string, type: ResourceType) => getProjectVersions(projectId, type))
+  ipcMain.handle('resource:install', (_, target: ResourceTarget, type: ResourceType, versionId: string) =>
+    installResource(target, type, versionId)
+  )
+  ipcMain.handle('resource:worlds', (_, versionId: string) => listWorlds(versionId))
   ipcMain.handle('modpack:download', (_, versionId: string) => downloadModpack(versionId))
   ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>
     searchModrinth(versionId, query, offset)
@@ -150,10 +234,18 @@ function registerIpc(): void {
   ipcMain.handle('modrinth:install', (_, versionId: string, projectId: string) =>
     installFromModrinth(versionId, projectId)
   )
-  ipcMain.handle('game:launch', (_, versionId: string) => launchGame(versionId))
+  ipcMain.handle('game:launch', (_, versionId: string, server?: string) => launchGame(versionId, server))
+  ipcMain.handle('servers:list', () => listServers())
+  ipcMain.handle('servers:save', (_, server: Omit<SavedServer, 'id'> & { id?: string }) => saveServer(server))
+  ipcMain.handle('servers:delete', (_, id: string) => deleteServer(id))
+  ipcMain.handle('servers:move', (_, id: string, offset: number) => moveServer(id, offset))
+  ipcMain.handle('servers:import', () => importGameServers())
+  ipcMain.handle('servers:ping', (_, address: string) => pingServer(address))
   ipcMain.handle('game:status', () => getGameStatus())
   ipcMain.handle('game:logs', () => getGameLogs())
   ipcMain.handle('logs:open', () => openLogWindow())
+  ipcMain.handle('crash:open', (_, kind: 'report' | 'native') => openCrashFile(kind))
+  ipcMain.handle('crash:export', (event) => exportCrashInfo(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('gamedir:info', () => getGameDirInfo())
   ipcMain.handle('gamedir:set', (_, dir: string) => setGameDir(dir))
   ipcMain.handle('gamedir:open', () => openGameDir())
@@ -164,7 +256,11 @@ function registerIpc(): void {
   })
   ipcMain.handle(
     'system:info',
-    (): SystemInfo => ({ totalMemory: Math.floor(totalmem() / 1024 / 1024), portableDir })
+    async (): Promise<SystemInfo> => ({
+      totalMemory: Math.floor(totalmem() / 1024 / 1024),
+      portableDir,
+      elevated: await isElevated()
+    })
   )
 }
 
