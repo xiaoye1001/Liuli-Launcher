@@ -71,6 +71,7 @@ import { getPlayStats } from './playStats'
 import { exportModpack, getModpackExportInfo, showExportedModpack } from './modpackExport'
 import { copyScreenshot, deleteScreenshot, listScreenshots, openScreenshotsDir, showScreenshot } from './screenshots'
 import { copyVersion, createDesktopShortcut, launchArgOf, renameVersion } from './versionOps'
+import { getNews } from './news'
 import { applyNetworkSettings, checkNetwork, validateProxyUrl } from './network'
 import { addOfflineAccount, removeOfflineAccount, renameOfflineAccount, selectOfflineAccount } from './offline'
 import { loginExternal, removeExternalAccount, selectExternalProfile } from './yggdrasil'
@@ -170,6 +171,7 @@ function registerIpc(): void {
     return broadcastSettings(next)
   })
   ipcMain.handle('network:check', () => checkNetwork())
+  ipcMain.handle('news:get', (_, force?: boolean) => getNews(force === true))
   ipcMain.handle('appearance:pickBackground', (event) =>
     pickBackground(BrowserWindow.fromWebContents(event.sender)).then(broadcastSettings)
   )

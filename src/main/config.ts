@@ -22,6 +22,7 @@ function defaultSettings(): AppSettings {
     memoryAuto: true,
     checkFiles: true,
     downloadSource: 'bmclapi',
+    showNews: true,
     downloadThreads: 16,
     proxyMode: 'none',
     proxyUrl: '',

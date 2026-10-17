@@ -17,6 +17,7 @@ import {
   Loader2,
   MemoryStick,
   Network,
+  Newspaper,
   XCircle,
   ShieldCheck,
   Monitor,
@@ -372,6 +373,31 @@ function SettingsPage(): JSX.Element {
             <span
               className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
                 settings.animations ? 'left-6' : 'left-1'
+              }`}
+            />
+          </button>
+        </div>
+        {/* 主页新闻 */}
+        <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Newspaper className="h-4 w-4 text-emerald-300" />
+            <div>
+              <div className="text-sm font-medium">主页显示 Minecraft 新闻</div>
+              <div className="text-xs text-white/50">在主页显示 Minecraft 官方发布的新闻与更新公告（英文）</div>
+            </div>
+          </div>
+          <button
+            role="switch"
+            aria-checked={settings.showNews}
+            aria-label="主页显示 Minecraft 新闻"
+            onClick={() => update({ showNews: !settings.showNews })}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+              settings.showNews ? 'bg-emerald-500' : 'bg-white/20'
+            }`}
+          >
+            <span
+              className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                settings.showNews ? 'left-6' : 'left-1'
               }`}
             />
           </button>

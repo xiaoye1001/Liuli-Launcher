@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import CrashCard from '../components/CrashCard'
 import RecentPlays from '../components/RecentPlays'
+import NewsPanel from '../components/NewsPanel'
 import { formatClock } from '../utils/format'
 import SkinHead from '../components/SkinHead'
 import type { AccountsInfo, AppSettings, GameStatus, InstallStatus, InstalledVersion } from '../../../shared/types'
@@ -166,6 +167,11 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
 
   return (
     <div className="flex h-full flex-col justify-end gap-4">
+      {settings?.showNews && (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <NewsPanel onHide={async () => setSettings(await window.api.updateSettings({ showNews: false }))} />
+        </div>
+      )}
       {nameValid && <RecentPlays versions={versions} game={game} onLaunch={launchRecent} />}
 
       <AnimatePresence>

@@ -1,5 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
+  NewsList,
   NetworkCheck,
   WorldBackup,
   MemoryPlan,
@@ -67,6 +68,8 @@ declare global {
       getSystemInfo: () => Promise<SystemInfo>
       /** 测试常用服务器能否连接（使用当前的代理设置） */
       checkNetwork: () => Promise<NetworkCheck>
+      /** Minecraft 官方新闻（一小时内使用缓存，force 为 true 时重新获取） */
+      getNews: (force?: boolean) => Promise<NewsList>
       /** 预览某个版本自动分配的内存；版本无法读取时返回 null */
       previewMemory: (versionId: string) => Promise<MemoryPlan | null>
       getVersionList: (force?: boolean) => Promise<VersionManifest>

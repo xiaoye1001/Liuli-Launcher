@@ -32,6 +32,28 @@ export interface OfflineAccount {
   skinModel: SkinModel
 }
 
+/** Minecraft 官方新闻 */
+export interface NewsItem {
+  id: string
+  title: string
+  /** 分类标签，例如 Minecraft: Java Edition */
+  tag: string
+  /** 日期，例如 2025-06-17 */
+  date: string
+  text: string
+  /** 配图（https 地址），可能为空 */
+  image: string
+  /** 「阅读全文」链接（https），可能为空 */
+  link: string
+}
+
+export interface NewsList {
+  items: NewsItem[]
+  fetchedAt: number
+  /** 网络失败，显示的是上次保存的新闻 */
+  offline: boolean
+}
+
 export type ProxyMode = 'none' | 'system' | 'custom'
 
 /** 网络连通性测试结果 */
@@ -53,6 +75,8 @@ export interface AppSettings {
   memoryAuto: boolean
   /** 启动前检查游戏文件，自动补全缺失或损坏的文件 */
   checkFiles: boolean
+  /** 主页显示 Minecraft 新闻 */
+  showNews: boolean
   /** 下载源 */
   downloadSource: DownloadSource
   /** 每个服务器同时下载的文件数（1~64） */
