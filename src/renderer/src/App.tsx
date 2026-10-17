@@ -18,8 +18,8 @@ interface PageContext {
   /** 从主页打开某个版本的版本设置 */
   versionSettings: string | null
   /** 打开下载页的某个分类，并预选安装目标 */
-  downloadRequest: { section: ResourceType; versionId: string } | null
-  openDownload: (section: ResourceType, versionId: string) => void
+  downloadRequest: { section: ResourceType; versionId: string; world?: string } | null
+  openDownload: (section: ResourceType, versionId: string, world?: string) => void
   clearDownloadRequest: () => void
   openVersionSettings: (versionId: string) => void
   clearVersionSettings: () => void
@@ -65,8 +65,8 @@ function App(): JSX.Element {
   const [versionSettings, setVersionSettings] = useState<string | null>(null)
   const [downloadRequest, setDownloadRequest] = useState<PageContext['downloadRequest']>(null)
   const clearDownloadRequest = useCallback(() => setDownloadRequest(null), [])
-  const openDownload = useCallback((section: ResourceType, versionId: string) => {
-    setDownloadRequest({ section, versionId })
+  const openDownload = useCallback((section: ResourceType, versionId: string, world?: string) => {
+    setDownloadRequest({ section, versionId, world })
     setPage('download')
   }, [])
   const clearVersionSettings = useCallback(() => setVersionSettings(null), [])

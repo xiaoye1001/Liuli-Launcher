@@ -336,6 +336,45 @@ export interface LocalResourceList {
   shadersEnabled?: boolean
 }
 
+/** 存档的游戏模式 */
+export type WorldGameMode = 'survival' | 'creative' | 'adventure' | 'spectator' | 'unknown'
+
+export interface WorldInfo {
+  /** 存档文件夹名 */
+  folder: string
+  /** 存档名称（level.dat 中的 LevelName，读取失败时为文件夹名） */
+  name: string
+  gameMode: WorldGameMode
+  hardcore: boolean
+  /** 是否允许作弊 */
+  cheats: boolean
+  /** 最后一次游玩该存档的游戏版本 */
+  version: string
+  /** 最后游玩时间（毫秒时间戳），未知时为 0 */
+  lastPlayed: number
+  /** 存档图标（icon.png 的 data URL） */
+  icon?: string
+  /** level.dat 读取失败 */
+  damaged: boolean
+}
+
+export interface WorldList {
+  versionId: string
+  /** saves 文件夹 */
+  dir: string
+  worlds: WorldInfo[]
+}
+
+/** 存档中的数据包 */
+export interface WorldDatapack {
+  fileName: string
+  isDirectory: boolean
+  size: number
+  description: string
+  /** 在存档中的状态：已启用 / 已停用 / 尚未加载（下次进入存档时自动启用） */
+  state: 'enabled' | 'disabled' | 'new'
+}
+
 /** Modrinth 搜索结果中的一个模组 */
 export interface ModrinthProject {
   projectId: string

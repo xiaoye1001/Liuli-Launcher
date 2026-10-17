@@ -49,7 +49,7 @@ function plainText(value: unknown): string {
 }
 
 /** 读取资源包的 pack.mcmeta 与 pack.png（zip 与文件夹都支持） */
-async function readPackMeta(path: string): Promise<Pick<LocalResource, 'description' | 'packFormat' | 'icon'>> {
+export async function readPackMeta(path: string): Promise<Pick<LocalResource, 'description' | 'packFormat' | 'icon'>> {
   let fs: FileSystem | undefined
   try {
     fs = await openFileSystem(path)

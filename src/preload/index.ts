@@ -57,6 +57,19 @@ const api = {
   addLocalResources: (versionId: string, kind: LocalResourceKind) => ipcRenderer.invoke('local:add', versionId, kind),
   openLocalResourceDir: (versionId: string, kind: LocalResourceKind) =>
     ipcRenderer.invoke('local:open', versionId, kind),
+  listWorldInfos: (versionId: string) => ipcRenderer.invoke('worlds:list', versionId),
+  deleteWorld: (versionId: string, folder: string) => ipcRenderer.invoke('worlds:delete', versionId, folder),
+  backupWorld: (versionId: string, folder: string) => ipcRenderer.invoke('worlds:backup', versionId, folder),
+  openWorldDir: (versionId: string, folder?: string) => ipcRenderer.invoke('worlds:open', versionId, folder),
+  openBackupsDir: (versionId: string) => ipcRenderer.invoke('worlds:openBackups', versionId),
+  importWorld: (versionId: string) => ipcRenderer.invoke('worlds:import', versionId),
+  listWorldDatapacks: (versionId: string, folder: string) => ipcRenderer.invoke('worlds:datapacks', versionId, folder),
+  deleteWorldDatapack: (versionId: string, folder: string, fileName: string) =>
+    ipcRenderer.invoke('worlds:deleteDatapack', versionId, folder, fileName),
+  addWorldDatapacks: (versionId: string, folder: string) =>
+    ipcRenderer.invoke('worlds:addDatapacks', versionId, folder),
+  openWorldDatapacksDir: (versionId: string, folder: string) =>
+    ipcRenderer.invoke('worlds:openDatapacks', versionId, folder),
   getVersionConfig: (versionId: string) => ipcRenderer.invoke('versions:getConfig', versionId),
   setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) =>
     ipcRenderer.invoke('versions:setConfig', versionId, patch),

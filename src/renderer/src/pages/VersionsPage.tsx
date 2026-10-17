@@ -3,11 +3,14 @@ import { AnimatePresence } from 'framer-motion'
 import {
   AlertTriangle,
   CheckCircle2,
+  CircleDot,
   Download,
   FolderOpen,
   HardDrive,
+  Globe,
   Image as ImageIcon,
   Loader2,
+  MoreHorizontal,
   Puzzle,
   RefreshCw,
   Search,
@@ -20,7 +23,8 @@ import InstallProgressCard from '../components/InstallProgressCard'
 import LocalResourcesPage from './LocalResourcesPage'
 import ModsPage from './ModsPage'
 import VersionSettingsPage from './VersionSettingsPage'
-import type { InstalledVersion, InstallStatus, LocalResourceKind, ModLoader } from '../../../shared/types'
+import WorldsPage from './WorldsPage'
+import type { InstalledVersion, InstallStatus, ModLoader, ResourceType } from '../../../shared/types'
 
 const LOADER_LABELS: Record<ModLoader, { label: string; className: string }> = {
   fabric: { label: 'Fabric', className: 'bg-amber-500/20 text-amber-300' },
@@ -60,6 +64,74 @@ function cleanError(e: unknown): string {
   return e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e)
 }
 
+/** 「更多」菜单：打开文件夹、检查修复、删除 */
+function MoreMenu({
+  busy,
+  repairing,
+  onOpenFolder,
+  onRepair,
+  onDelete
+}: {
+  busy: boolean
+  repairing: boolean
+  onOpenFolder: () => void
+  onRepair: () => void
+  onDelete: () => void
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e: MouseEvent): void => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [open])
+
+  const item = (
+    icon: JSX.Element,
+    label: string,
+    action: () => void,
+    danger = false,
+    disabled = false
+  ): JSX.Element => (
+    <button
+      onClick={() => {
+        setOpen(false)
+        action()
+      }}
+      disabled={disabled}
+      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm disabled:cursor-not-allowed disabled:opacity-40 ${
+        danger ? 'text-red-300 hover:bg-red-500/20' : 'hover:bg-white/10'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  )
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        title="更多操作"
+        className="rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
+      >
+        {repairing ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-white/10 popover-background p-1 shadow-2xl backdrop-blur-xl">
+          {item(<FolderOpen className="h-4 w-4" />, '打开版本文件夹', onOpenFolder)}
+          {item(<Wrench className="h-4 w-4" />, '检查并修复', onRepair, false, busy)}
+          {item(<Trash2 className="h-4 w-4" />, '删除版本', onDelete, true, busy)}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface VersionsPageProps {
   /** 打开页面时直接进入某个版本的版本设置（从主页的齿轮按钮进入） */
   openSettingsFor?: string | null
@@ -67,7 +139,7 @@ interface VersionsPageProps {
   /** 跳转到下载页安装新版本 */
   onInstallNew: () => void
   /** 跳转到下载页下载资源包 / 光影包，安装目标为该版本 */
-  onDownloadResources: (kind: LocalResourceKind, versionId: string) => void
+  onDownloadResources: (kind: ResourceType, versionId: string, world?: string) => void
 }
 
 /** 已安装版本的管理：选择启动版本、模组、版本设置、打开文件夹、检查修复、删除 */
@@ -87,6 +159,7 @@ function VersionsPage({
   const [modsFor, setModsFor] = useState<InstalledVersion | null>(null)
   const [settingsFor, setSettingsFor] = useState<InstalledVersion | null>(null)
   const [resourcesFor, setResourcesFor] = useState<InstalledVersion | null>(null)
+  const [worldsFor, setWorldsFor] = useState<InstalledVersion | null>(null)
   const lastState = useRef<string | undefined>(undefined)
 
   const load = useCallback(async (): Promise<InstalledVersion[]> => {
@@ -110,6 +183,7 @@ function VersionsPage({
     if (version) {
       setModsFor(null)
       setResourcesFor(null)
+      setWorldsFor(null)
       setSettingsFor(version)
     }
     onSettingsOpened?.()
@@ -159,6 +233,15 @@ function VersionsPage({
           <VersionSettingsPage version={settingsFor} onBack={() => setSettingsFor(null)} onChanged={load} />
         </div>
       )}
+      {worldsFor && (
+        <div key={worldsFor.id} className="h-full animate-slide-in">
+          <WorldsPage
+            version={worldsFor}
+            onBack={() => setWorldsFor(null)}
+            onDownloadDatapacks={(world) => onDownloadResources('datapack', worldsFor.id, world)}
+          />
+        </div>
+      )}
       {resourcesFor && (
         <div key={resourcesFor.id} className="h-full animate-slide-in">
           <LocalResourcesPage
@@ -173,7 +256,9 @@ function VersionsPage({
           <ModsPage version={modsFor} onBack={() => setModsFor(null)} />
         </div>
       )}
-      <div className={`flex h-full flex-col gap-5 ${settingsFor || modsFor || resourcesFor ? 'hidden' : ''}`}>
+      <div
+        className={`flex h-full flex-col gap-5 ${settingsFor || modsFor || resourcesFor || worldsFor ? 'hidden' : ''}`}
+      >
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <h1 className="text-3xl font-bold tracking-tight">版本</h1>
@@ -278,6 +363,8 @@ function VersionsPage({
               const info = typeInfo(version)
               const current = version.id === selected
               const repairing = busy && install?.versionId === version.id
+              const actionClass =
+                'flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20'
               return (
                 <div
                   key={version.id}
@@ -287,63 +374,68 @@ function VersionsPage({
                       : 'border-transparent bg-black/20 hover:bg-black/30'
                   }`}
                 >
-                  <GrassBlockIcon className="h-9 w-9 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-semibold" title={version.id}>
-                        {version.id}
-                      </span>
-                      {current && (
-                        <span className="flex shrink-0 items-center gap-1 text-xs text-emerald-300">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          启动版本
-                        </span>
-                      )}
+                  {/* 点击图标或名称设为启动版本 */}
+                  <button
+                    onClick={() => !current && select(version.id)}
+                    title={current ? '主页的「启动游戏」会启动这个版本' : '点击设为启动版本'}
+                    className={`group flex min-w-0 flex-1 items-center gap-3 text-left ${current ? 'cursor-default' : ''}`}
+                  >
+                    <GrassBlockIcon className="h-9 w-9 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-semibold">{version.id}</span>
+                        {current ? (
+                          <span className="flex shrink-0 items-center gap-1 text-xs text-emerald-300">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            启动版本
+                          </span>
+                        ) : (
+                          <span className="hidden shrink-0 items-center gap-1 text-xs text-white/50 group-hover:flex">
+                            <CircleDot className="h-3.5 w-3.5" />
+                            设为启动版本
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs">
+                        <span className={`shrink-0 rounded-md px-2 py-0.5 ${info.className}`}>{info.label}</span>
+                        <span className="shrink-0 text-white/50">{version.minecraftVersion}</span>
+                        {version.isolated && (
+                          <span
+                            title="模组、存档、配置放在该版本自己的文件夹里"
+                            className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 text-white/60"
+                          >
+                            隔离
+                          </span>
+                        )}
+                        {version.customized && (
+                          <span
+                            title="该版本有自己的设置（内存、Java 等）"
+                            className="shrink-0 rounded-md bg-sky-500/15 px-2 py-0.5 text-sky-300"
+                          >
+                            独立设置
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-                      <span className={`rounded-md px-2 py-0.5 ${info.className}`}>{info.label}</span>
-                      <span className="text-white/50">Minecraft {version.minecraftVersion}</span>
-                      {version.isolated && (
-                        <span
-                          title="模组、存档、配置放在该版本自己的文件夹里"
-                          className="rounded-md bg-white/10 px-2 py-0.5 text-white/60"
-                        >
-                          版本隔离
-                        </span>
-                      )}
-                      {version.customized && (
-                        <span
-                          title="该版本有自己的设置（内存、Java 等）"
-                          className="rounded-md bg-sky-500/15 px-2 py-0.5 text-sky-300"
-                        >
-                          独立设置
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {!current && (
-                    <button
-                      onClick={() => select(version.id)}
-                      title="主页的「启动游戏」将启动这个版本"
-                      className="shrink-0 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
-                    >
-                      设为启动版本
-                    </button>
-                  )}
+                  </button>
                   {isModded(version) && (
-                    <button
-                      onClick={() => setModsFor(version)}
-                      title="管理该版本的模组"
-                      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
-                    >
+                    <button onClick={() => setModsFor(version)} title="管理该版本的模组" className={actionClass}>
                       <Puzzle className="h-3.5 w-3.5" />
                       模组
                     </button>
                   )}
                   <button
+                    onClick={() => setWorldsFor(version)}
+                    title="管理该版本的存档与数据包"
+                    className={actionClass}
+                  >
+                    <Globe className="h-3.5 w-3.5" />
+                    存档
+                  </button>
+                  <button
                     onClick={() => setResourcesFor(version)}
                     title="管理该版本的资源包和光影包"
-                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                    className={actionClass}
                   >
                     <ImageIcon className="h-3.5 w-3.5" />
                     资源
@@ -351,34 +443,18 @@ function VersionsPage({
                   <button
                     onClick={() => setSettingsFor(version)}
                     title="版本设置：单独设置内存、Java、窗口大小等"
-                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                    className={actionClass}
                   >
                     <Settings2 className="h-3.5 w-3.5" />
                     设置
                   </button>
-                  <button
-                    onClick={() => window.api.openVersionDir(version.id)}
-                    title="打开版本文件夹"
-                    className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
-                  >
-                    <FolderOpen className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => repair(version.id)}
-                    disabled={busy}
-                    title="检查并修复：校验文件，重新下载缺失或损坏的部分"
-                    className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {repairing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wrench className="h-4 w-4" />}
-                  </button>
-                  <button
-                    onClick={() => remove(version.id)}
-                    disabled={busy}
-                    title="删除该版本"
-                    className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-red-500/30 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <MoreMenu
+                    busy={busy}
+                    repairing={repairing}
+                    onOpenFolder={() => window.api.openVersionDir(version.id)}
+                    onRepair={() => repair(version.id)}
+                    onDelete={() => remove(version.id)}
+                  />
                 </div>
               )
             })}

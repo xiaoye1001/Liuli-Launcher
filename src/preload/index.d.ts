@@ -28,7 +28,9 @@ import type {
   VersionManifest,
   VersionConfig,
   LocalResourceKind,
-  LocalResourceList
+  LocalResourceList,
+  WorldDatapack,
+  WorldList
 } from '../shared/types'
 
 declare global {
@@ -72,6 +74,20 @@ declare global {
       /** 选择文件添加，返回添加的数量 */
       addLocalResources: (versionId: string, kind: LocalResourceKind) => Promise<number>
       openLocalResourceDir: (versionId: string, kind: LocalResourceKind) => Promise<void>
+      /** 版本的存档列表 */
+      listWorldInfos: (versionId: string) => Promise<WorldList>
+      /** 删除存档（移到回收站） */
+      deleteWorld: (versionId: string, folder: string) => Promise<void>
+      /** 备份存档为 zip，返回路径与大小 */
+      backupWorld: (versionId: string, folder: string) => Promise<{ path: string; size: number }>
+      openWorldDir: (versionId: string, folder?: string) => Promise<void>
+      openBackupsDir: (versionId: string) => Promise<void>
+      /** 从 zip 导入存档，返回文件夹名；取消时返回 null */
+      importWorld: (versionId: string) => Promise<string | null>
+      listWorldDatapacks: (versionId: string, folder: string) => Promise<WorldDatapack[]>
+      deleteWorldDatapack: (versionId: string, folder: string, fileName: string) => Promise<void>
+      addWorldDatapacks: (versionId: string, folder: string) => Promise<number>
+      openWorldDatapacksDir: (versionId: string, folder: string) => Promise<void>
       /** 版本设置（未设置的项跟随全局设置） */
       getVersionConfig: (versionId: string) => Promise<VersionConfig>
       setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) => Promise<VersionConfig>

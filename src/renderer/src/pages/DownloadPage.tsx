@@ -94,7 +94,7 @@ interface DownloadPageProps {
   incomingModpack?: ModpackInfo | null
   onModpackConsumed?: () => void
   /** 从「版本」页跳转过来：打开某个资源分类，并把安装目标设为该版本 */
-  request?: { section: ResourceType; versionId: string } | null
+  request?: { section: ResourceType; versionId: string; world?: string } | null
   onRequestConsumed?: () => void
 }
 
@@ -134,11 +134,13 @@ function DownloadPage({
 
   /** 社区资源默认安装到的版本（从「版本」页跳转过来时） */
   const [targetHint, setTargetHint] = useState<string | undefined>(undefined)
+  const [worldHint, setWorldHint] = useState<string | undefined>(undefined)
   useEffect(() => {
     if (!request) return
     setSetupFor(null)
     setModpack(null)
     setTargetHint(request.versionId)
+    setWorldHint(request.world)
     openSection(request.section)
     onRequestConsumed?.()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -323,6 +325,7 @@ function DownloadPage({
                 type={type}
                 installed={installed}
                 targetHint={targetHint}
+                worldHint={worldHint}
                 onModpackPicked={setModpack}
                 headerExtra={type === 'modpack' ? importButton : undefined}
                 topExtra={type === 'modpack' ? dropZone : undefined}

@@ -233,6 +233,8 @@ interface ResourceBrowserProps {
   installed: InstalledVersion[]
   /** 优先选中的安装目标（从「版本」页跳转过来时） */
   targetHint?: string
+  /** 数据包优先选中的存档 */
+  worldHint?: string
   /** 整合包下载并读取完成，进入安装确认页 */
   onModpackPicked: (info: ModpackInfo) => void
   /** 标题栏右侧的附加内容（整合包页的导入按钮） */
@@ -246,6 +248,7 @@ function ResourceBrowser({
   type,
   installed,
   targetHint,
+  worldHint,
   onModpackPicked,
   headerExtra,
   topExtra
@@ -318,10 +321,12 @@ function ResourceBrowser({
       .listWorlds(targetId)
       .then((list) => {
         setWorlds(list)
-        setWorld((prev) => (list.includes(prev) ? prev : (list[0] ?? '')))
+        setWorld((prev) =>
+          worldHint && list.includes(worldHint) ? worldHint : list.includes(prev) ? prev : (list[0] ?? '')
+        )
       })
       .catch(() => setWorlds([]))
-  }, [type, targetId])
+  }, [type, targetId, worldHint])
 
   const setFilter = (key: keyof ResourceSearchFilters, value: string): void =>
     setFilters((prev) => ({ ...prev, [key]: value || undefined }))

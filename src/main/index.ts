@@ -45,6 +45,18 @@ import {
   setActiveShader,
   setResourcePackEnabled
 } from './resources'
+import {
+  addWorldDatapacks,
+  backupWorld,
+  deleteWorld,
+  deleteWorldDatapack,
+  importWorld,
+  listWorldDatapacks,
+  listWorldInfos,
+  openBackupsDir,
+  openWorldDatapacksDir,
+  openWorldDir
+} from './worlds'
 import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
 import {
   cancelMicrosoftLogin,
@@ -171,6 +183,24 @@ function registerIpc(): void {
   )
   ipcMain.handle('local:add', (event, versionId: string, kind: LocalResourceKind) =>
     addLocalResources(versionId, kind, BrowserWindow.fromWebContents(event.sender))
+  )
+  ipcMain.handle('worlds:list', (_, versionId: string) => listWorldInfos(versionId))
+  ipcMain.handle('worlds:delete', (_, versionId: string, folder: string) => deleteWorld(versionId, folder))
+  ipcMain.handle('worlds:backup', (_, versionId: string, folder: string) => backupWorld(versionId, folder))
+  ipcMain.handle('worlds:open', (_, versionId: string, folder?: string) => openWorldDir(versionId, folder))
+  ipcMain.handle('worlds:openBackups', (_, versionId: string) => openBackupsDir(versionId))
+  ipcMain.handle('worlds:import', (event, versionId: string) =>
+    importWorld(versionId, BrowserWindow.fromWebContents(event.sender))
+  )
+  ipcMain.handle('worlds:datapacks', (_, versionId: string, folder: string) => listWorldDatapacks(versionId, folder))
+  ipcMain.handle('worlds:deleteDatapack', (_, versionId: string, folder: string, fileName: string) =>
+    deleteWorldDatapack(versionId, folder, fileName)
+  )
+  ipcMain.handle('worlds:addDatapacks', (event, versionId: string, folder: string) =>
+    addWorldDatapacks(versionId, folder, BrowserWindow.fromWebContents(event.sender))
+  )
+  ipcMain.handle('worlds:openDatapacks', (_, versionId: string, folder: string) =>
+    openWorldDatapacksDir(versionId, folder)
   )
   ipcMain.handle('local:open', (_, versionId: string, kind: LocalResourceKind) => openLocalResourceDir(versionId, kind))
   ipcMain.handle('accounts:list', () => getAccounts())
