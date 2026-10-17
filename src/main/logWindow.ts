@@ -1,4 +1,4 @@
-import { BrowserWindow, nativeTheme } from 'electron'
+import { BrowserWindow, nativeTheme, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 
@@ -28,6 +28,11 @@ export function openLogWindow(): void {
   })
 
   logWindow.on('ready-to-show', () => logWindow?.show())
+  // 链接（例如分享日志得到的 mclo.gs 链接）用系统浏览器打开
+  logWindow.webContents.setWindowOpenHandler((details) => {
+    if (/^https?:\/\//.test(details.url)) shell.openExternal(details.url)
+    return { action: 'deny' }
+  })
   logWindow.on('closed', () => {
     logWindow = null
   })

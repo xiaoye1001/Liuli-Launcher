@@ -14,6 +14,7 @@ import {
   Loader2,
   MonitorSmartphone,
   MoreHorizontal,
+  Share2,
   PackageOpen,
   PenLine,
   Puzzle,
@@ -31,6 +32,7 @@ import ModsPage from './ModsPage'
 import VersionSettingsPage from './VersionSettingsPage'
 import WorldsPage from './WorldsPage'
 import ExportModpackPage from './ExportModpackPage'
+import { ShareStatus, useLogShare } from '../components/LogShare'
 import type {
   GameDirSummary,
   InstalledVersion,
@@ -86,6 +88,7 @@ function MoreMenu({
   onCopy,
   onShortcut,
   onExport,
+  onShareLog,
   onOpenFolder,
   onRepair,
   onDelete
@@ -96,6 +99,7 @@ function MoreMenu({
   onCopy: () => void
   onShortcut: () => void
   onExport: () => void
+  onShareLog: () => void
   onOpenFolder: () => void
   onRepair: () => void
   onDelete: () => void
@@ -149,6 +153,7 @@ function MoreMenu({
           {item(<Copy className="h-4 w-4" />, '复制版本', onCopy, false, busy)}
           {item(<MonitorSmartphone className="h-4 w-4" />, '创建桌面快捷方式', onShortcut)}
           {item(<PackageOpen className="h-4 w-4" />, '导出整合包', onExport)}
+          {item(<Share2 className="h-4 w-4" />, '分享最近的日志', onShareLog)}
           <div className="my-1 border-t border-white/10" />
           {item(<FolderOpen className="h-4 w-4" />, '打开版本文件夹', onOpenFolder)}
           {item(<Wrench className="h-4 w-4" />, '检查并修复', onRepair, false, busy)}
@@ -287,6 +292,9 @@ function VersionsPage({
   const [worldsFor, setWorldsFor] = useState<InstalledVersion | null>(null)
   const [exportFor, setExportFor] = useState<InstalledVersion | null>(null)
   const lastState = useRef<string | undefined>(undefined)
+  /** 分享哪个版本的 latest.log */
+  const shareTarget = useRef('')
+  const share = useLogShare(() => window.api.shareLatestLog(shareTarget.current))
 
   const load = useCallback(async (): Promise<InstalledVersion[]> => {
     const [list, settings] = await Promise.all([window.api.getInstalledVersions(), window.api.getSettings()])
@@ -485,6 +493,7 @@ function VersionsPage({
             />
           )}
         </AnimatePresence>
+        <ShareStatus control={share} />
         {notice && (
           <div className="flex items-start gap-3 rounded-xl bg-emerald-500/15 px-4 py-3 text-sm text-emerald-200">
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
@@ -654,6 +663,10 @@ function VersionsPage({
                       })
                     }
                     onExport={() => setExportFor(version)}
+                    onShareLog={() => {
+                      shareTarget.current = version.id
+                      share.ask()
+                    }}
                     onOpenFolder={() => window.api.openVersionDir(version.id)}
                     onRepair={() => repair(version.id)}
                     onDelete={() => remove(version.id)}

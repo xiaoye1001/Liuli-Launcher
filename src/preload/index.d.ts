@@ -10,6 +10,7 @@ import type {
   FabricLoaderVersion,
   ForgeVersionInfo,
   GameDirInfo,
+  SharedLog,
   GameLogEvent,
   GameStatus,
   InstalledVersion,
@@ -265,6 +266,12 @@ declare global {
       removeGameDir: (dir: string) => Promise<GameDirInfo>
       getGameLogs: () => Promise<string[]>
       openLogWindow: () => Promise<void>
+      /** 上传到 mclo.gs：日志窗口里的游戏输出 */
+      shareGameLog: () => Promise<SharedLog[]>
+      /** 上传到 mclo.gs：最近一次崩溃的游戏输出和崩溃报告 */
+      shareCrashLogs: () => Promise<SharedLog[]>
+      /** 上传到 mclo.gs：某个版本的 logs/latest.log */
+      shareLatestLog: (versionId: string) => Promise<SharedLog[]>
       onGameLog: (callback: (event: GameLogEvent) => void) => () => void
     }
   }

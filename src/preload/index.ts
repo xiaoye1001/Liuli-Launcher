@@ -208,6 +208,9 @@ const api = {
   removeGameDir: (dir: string) => ipcRenderer.invoke('gamedir:remove', dir),
   getGameLogs: () => ipcRenderer.invoke('game:logs'),
   openLogWindow: () => ipcRenderer.invoke('logs:open'),
+  shareGameLog: () => ipcRenderer.invoke('logs:shareGame'),
+  shareCrashLogs: () => ipcRenderer.invoke('logs:shareCrash'),
+  shareLatestLog: (versionId: string) => ipcRenderer.invoke('logs:shareLatest', versionId),
   /** 订阅游戏日志，返回取消订阅函数 */
   onGameLog: (callback: (event: GameLogEvent) => void) => {
     const listener = (_: Electron.IpcRendererEvent, event: GameLogEvent): void => callback(event)

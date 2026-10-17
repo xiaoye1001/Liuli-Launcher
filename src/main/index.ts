@@ -25,6 +25,7 @@ import {
 } from './install'
 import { getGameLogs, getGameStatus, launchGame, listInstalledVersions, previewMemory } from './launch'
 import { closeLogWindow, openLogWindow } from './logWindow'
+import { shareCrashLogs, shareGameLog, shareLatestLog } from './logShare'
 import { getGameDirInfo, openGameDir, pickGameDir, removeGameDir, renameGameDir, setGameDir } from './gameDir'
 import { assertSafeId, deleteVersion, openVersionDir } from './versionManage'
 import { addMods, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
@@ -364,6 +365,9 @@ function registerIpc(): void {
   )
   ipcMain.handle('game:logs', () => getGameLogs())
   ipcMain.handle('logs:open', () => openLogWindow())
+  ipcMain.handle('logs:shareGame', () => shareGameLog())
+  ipcMain.handle('logs:shareCrash', () => shareCrashLogs())
+  ipcMain.handle('logs:shareLatest', (_, versionId: string) => shareLatestLog(versionId))
   ipcMain.handle('crash:open', (_, kind: 'report' | 'native') => openCrashFile(kind))
   ipcMain.handle('crash:export', (event) => exportCrashInfo(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('gamedir:info', () => getGameDirInfo())

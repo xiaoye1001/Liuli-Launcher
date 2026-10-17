@@ -82,6 +82,11 @@ export async function collectCrash(options: {
   return analysis
 }
 
+/** 最近一次崩溃的游戏输出和崩溃报告路径（分享日志用） */
+export function getCrashFiles(): { logs: string[]; crashReport?: string } | null {
+  return lastCrash ? { logs: lastCrash.logs, crashReport: lastCrash.crashReport } : null
+}
+
 /** 打开最近一次崩溃的崩溃报告或 Java 崩溃日志（只能打开启动器自己找到的文件） */
 export async function openCrashFile(kind: 'report' | 'native'): Promise<void> {
   const path = kind === 'report' ? lastCrash?.crashReport : lastCrash?.nativeLog

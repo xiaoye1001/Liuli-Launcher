@@ -903,3 +903,11 @@ export interface ResourceTarget {
   /** 数据包安装到的存档文件夹名 */
   world?: string
 }
+
+/** 上传到 mclo.gs 的日志 */
+export interface SharedLog {
+  /** 日志的名字，例如「游戏日志」「崩溃报告」 */
+  label: string
+  /** 公开链接（https://mclo.gs/xxxx） */
+  url: string
+}
