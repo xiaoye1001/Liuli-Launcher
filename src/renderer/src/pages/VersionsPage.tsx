@@ -6,6 +6,7 @@ import {
   Download,
   FolderOpen,
   HardDrive,
+  Image as ImageIcon,
   Loader2,
   Puzzle,
   RefreshCw,
@@ -16,9 +17,10 @@ import {
 } from 'lucide-react'
 import GrassBlockIcon from '../components/GrassBlockIcon'
 import InstallProgressCard from '../components/InstallProgressCard'
+import LocalResourcesPage from './LocalResourcesPage'
 import ModsPage from './ModsPage'
 import VersionSettingsPage from './VersionSettingsPage'
-import type { InstalledVersion, InstallStatus, ModLoader } from '../../../shared/types'
+import type { InstalledVersion, InstallStatus, LocalResourceKind, ModLoader } from '../../../shared/types'
 
 const LOADER_LABELS: Record<ModLoader, { label: string; className: string }> = {
   fabric: { label: 'Fabric', className: 'bg-amber-500/20 text-amber-300' },
@@ -64,10 +66,17 @@ interface VersionsPageProps {
   onSettingsOpened?: () => void
   /** 跳转到下载页安装新版本 */
   onInstallNew: () => void
+  /** 跳转到下载页下载资源包 / 光影包，安装目标为该版本 */
+  onDownloadResources: (kind: LocalResourceKind, versionId: string) => void
 }
 
 /** 已安装版本的管理：选择启动版本、模组、版本设置、打开文件夹、检查修复、删除 */
-function VersionsPage({ openSettingsFor, onSettingsOpened, onInstallNew }: VersionsPageProps): JSX.Element {
+function VersionsPage({
+  openSettingsFor,
+  onSettingsOpened,
+  onInstallNew,
+  onDownloadResources
+}: VersionsPageProps): JSX.Element {
   const [installed, setInstalled] = useState<InstalledVersion[] | null>(null)
   const [selected, setSelected] = useState('')
   const [gameDir, setGameDir] = useState('')
@@ -77,6 +86,7 @@ function VersionsPage({ openSettingsFor, onSettingsOpened, onInstallNew }: Versi
   const [actionError, setActionError] = useState('')
   const [modsFor, setModsFor] = useState<InstalledVersion | null>(null)
   const [settingsFor, setSettingsFor] = useState<InstalledVersion | null>(null)
+  const [resourcesFor, setResourcesFor] = useState<InstalledVersion | null>(null)
   const lastState = useRef<string | undefined>(undefined)
 
   const load = useCallback(async (): Promise<InstalledVersion[]> => {
@@ -99,6 +109,7 @@ function VersionsPage({ openSettingsFor, onSettingsOpened, onInstallNew }: Versi
     const version = installed.find((v) => v.id === openSettingsFor)
     if (version) {
       setModsFor(null)
+      setResourcesFor(null)
       setSettingsFor(version)
     }
     onSettingsOpened?.()
@@ -148,12 +159,21 @@ function VersionsPage({ openSettingsFor, onSettingsOpened, onInstallNew }: Versi
           <VersionSettingsPage version={settingsFor} onBack={() => setSettingsFor(null)} onChanged={load} />
         </div>
       )}
+      {resourcesFor && (
+        <div key={resourcesFor.id} className="h-full animate-slide-in">
+          <LocalResourcesPage
+            version={resourcesFor}
+            onBack={() => setResourcesFor(null)}
+            onDownloadMore={(kind) => onDownloadResources(kind, resourcesFor.id)}
+          />
+        </div>
+      )}
       {modsFor && (
         <div key={modsFor.id} className="h-full animate-slide-in">
           <ModsPage version={modsFor} onBack={() => setModsFor(null)} />
         </div>
       )}
-      <div className={`flex h-full flex-col gap-5 ${settingsFor || modsFor ? 'hidden' : ''}`}>
+      <div className={`flex h-full flex-col gap-5 ${settingsFor || modsFor || resourcesFor ? 'hidden' : ''}`}>
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <h1 className="text-3xl font-bold tracking-tight">版本</h1>
@@ -320,6 +340,14 @@ function VersionsPage({ openSettingsFor, onSettingsOpened, onInstallNew }: Versi
                       模组
                     </button>
                   )}
+                  <button
+                    onClick={() => setResourcesFor(version)}
+                    title="管理该版本的资源包和光影包"
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                  >
+                    <ImageIcon className="h-3.5 w-3.5" />
+                    资源
+                  </button>
                   <button
                     onClick={() => setSettingsFor(version)}
                     title="版本设置：单独设置内存、Java、窗口大小等"

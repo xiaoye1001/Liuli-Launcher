@@ -10,7 +10,8 @@ import type {
   ResourceTarget,
   ResourceType,
   MsLoginStatus,
-  VersionConfig
+  VersionConfig,
+  LocalResourceKind
 } from '../shared/types'
 
 const api = {
@@ -46,6 +47,16 @@ const api = {
   repairVersion: (versionId: string) => ipcRenderer.invoke('versions:repair', versionId),
   deleteVersion: (versionId: string) => ipcRenderer.invoke('versions:delete', versionId),
   openVersionDir: (versionId: string) => ipcRenderer.invoke('versions:open', versionId),
+  listLocalResources: (versionId: string, kind: LocalResourceKind) => ipcRenderer.invoke('local:list', versionId, kind),
+  setResourcePackEnabled: (versionId: string, fileName: string, enabled: boolean) =>
+    ipcRenderer.invoke('local:setPackEnabled', versionId, fileName, enabled),
+  setActiveShader: (versionId: string, fileName: string | null) =>
+    ipcRenderer.invoke('local:setShader', versionId, fileName),
+  deleteLocalResource: (versionId: string, kind: LocalResourceKind, fileName: string) =>
+    ipcRenderer.invoke('local:delete', versionId, kind, fileName),
+  addLocalResources: (versionId: string, kind: LocalResourceKind) => ipcRenderer.invoke('local:add', versionId, kind),
+  openLocalResourceDir: (versionId: string, kind: LocalResourceKind) =>
+    ipcRenderer.invoke('local:open', versionId, kind),
   getVersionConfig: (versionId: string) => ipcRenderer.invoke('versions:getConfig', versionId),
   setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) =>
     ipcRenderer.invoke('versions:setConfig', versionId, patch),

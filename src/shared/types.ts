@@ -305,6 +305,37 @@ export interface ModList {
   mods: ModInfo[]
 }
 
+/** 版本游戏目录里的本地资源：资源包或光影包 */
+export type LocalResourceKind = 'resourcepack' | 'shader'
+
+export interface LocalResource {
+  /** 文件名（.zip）或文件夹名 */
+  fileName: string
+  isDirectory: boolean
+  /** 文件大小（字节），文件夹为 0 */
+  size: number
+  /** 资源包的简介（来自 pack.mcmeta） */
+  description: string
+  /** 资源包格式版本 */
+  packFormat?: number
+  /** 资源包图标（pack.png 的 data URL） */
+  icon?: string
+  /** 资源包：是否在游戏中启用（options.txt）；光影包：是否为当前使用的光影 */
+  enabled: boolean
+}
+
+export interface LocalResourceList {
+  versionId: string
+  kind: LocalResourceKind
+  /** resourcepacks / shaderpacks 文件夹路径 */
+  dir: string
+  items: LocalResource[]
+  /** 光影：检测到的光影加载器配置（没有找到时为空） */
+  shaderLoader?: 'iris' | 'oculus' | 'optifine'
+  /** 光影：光影是否开启 */
+  shadersEnabled?: boolean
+}
+
 /** Modrinth 搜索结果中的一个模组 */
 export interface ModrinthProject {
   projectId: string

@@ -41,7 +41,8 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 - Configurable game memory
 - Live game log window with search filtering and one-click copy
 - **Version isolation**: modded versions (or all versions) each get their own `mods`, worlds and config, so they never interfere with each other
-- **Version management**: the Versions page gathers everything for installed versions: choosing the version to launch, mods, version settings, opening the folder, check & repair, and deleting
+- **Version management**: the Versions page gathers everything for installed versions: choosing the version to launch, mods, resources, version settings, opening the folder, check & repair, and deleting
+- **Resource pack & shader management**: see each version's resource packs (with icon and description) and shader packs; enable resource packs, switch or turn off shaders (Iris, Oculus and OptiFine supported) right from the launcher, add files, or move them to the recycle bin
 - **Per-version settings** (from the Versions page or the gear button next to the version on Home): set memory, Java, version isolation, game window size (or fullscreen) and extra JVM / game arguments for each version; anything not set follows the global settings. The settings are stored in `liuli-version.json` inside the version's folder
 
 ### Mod management

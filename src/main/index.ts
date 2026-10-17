@@ -37,6 +37,14 @@ import {
 } from './modrinth'
 import { isElevated } from './elevation'
 import { getVersionConfig, setVersionConfig } from './versionConfig'
+import {
+  addLocalResources,
+  deleteLocalResource,
+  listLocalResources,
+  openLocalResourceDir,
+  setActiveShader,
+  setResourcePackEnabled
+} from './resources'
 import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
 import {
   cancelMicrosoftLogin,
@@ -54,7 +62,8 @@ import type {
   ResourceTarget,
   ResourceType,
   SystemInfo,
-  VersionConfig
+  VersionConfig,
+  LocalResourceKind
 } from '../shared/types'
 
 /** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
@@ -150,6 +159,20 @@ function registerIpc(): void {
     addMods(versionId, BrowserWindow.fromWebContents(event.sender))
   )
   ipcMain.handle('mods:open', (_, versionId: string) => openModsDir(versionId))
+  ipcMain.handle('local:list', (_, versionId: string, kind: LocalResourceKind) => listLocalResources(versionId, kind))
+  ipcMain.handle('local:setPackEnabled', (_, versionId: string, fileName: string, enabled: boolean) =>
+    setResourcePackEnabled(versionId, fileName, enabled)
+  )
+  ipcMain.handle('local:setShader', (_, versionId: string, fileName: string | null) =>
+    setActiveShader(versionId, fileName)
+  )
+  ipcMain.handle('local:delete', (_, versionId: string, kind: LocalResourceKind, fileName: string) =>
+    deleteLocalResource(versionId, kind, fileName)
+  )
+  ipcMain.handle('local:add', (event, versionId: string, kind: LocalResourceKind) =>
+    addLocalResources(versionId, kind, BrowserWindow.fromWebContents(event.sender))
+  )
+  ipcMain.handle('local:open', (_, versionId: string, kind: LocalResourceKind) => openLocalResourceDir(versionId, kind))
   ipcMain.handle('accounts:list', () => getAccounts())
   ipcMain.handle('accounts:setActive', (_, id: string) => setActiveAccount(id))
   ipcMain.handle('accounts:remove', (_, uuid: string) => removeAccount(uuid))

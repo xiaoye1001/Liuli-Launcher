@@ -231,6 +231,8 @@ interface ResourceBrowserProps {
   type: ResourceType
   /** 已安装的版本（模组、资源包等要安装到其中一个） */
   installed: InstalledVersion[]
+  /** 优先选中的安装目标（从「版本」页跳转过来时） */
+  targetHint?: string
   /** 整合包下载并读取完成，进入安装确认页 */
   onModpackPicked: (info: ModpackInfo) => void
   /** 标题栏右侧的附加内容（整合包页的导入按钮） */
@@ -243,6 +245,7 @@ interface ResourceBrowserProps {
 function ResourceBrowser({
   type,
   installed,
+  targetHint,
   onModpackPicked,
   headerExtra,
   topExtra
@@ -279,11 +282,18 @@ function ResourceBrowser({
       .catch(() => undefined)
   }, [])
 
+  // 从「版本」页跳转过来时，安装到那个版本
+  useEffect(() => {
+    if (needsTarget && targetHint && installed.some((v) => v.id === targetHint)) setTargetId(targetHint)
+  }, [needsTarget, targetHint, installed])
+
   // 默认安装到主页选中的版本
   useEffect(() => {
     if (!needsTarget || installed.length === 0 || installed.some((v) => v.id === targetId)) return
     window.api.getSettings().then((s) => {
-      setTargetId(installed.some((v) => v.id === s.selectedVersion) ? s.selectedVersion : installed[0].id)
+      const fallback = installed.some((v) => v.id === s.selectedVersion) ? s.selectedVersion : installed[0].id
+      // 读取设置期间可能已经选好了目标（例如从「版本」页跳转过来），不要覆盖
+      setTargetId((prev) => (installed.some((v) => v.id === prev) ? prev : fallback))
     })
   }, [needsTarget, targetId, installed])
 
@@ -448,7 +458,8 @@ function ResourceBrowser({
       {type === 'mod' && target && !(target.loader && MOD_LOADERS.includes(target.loader)) && (
         <p className="flex items-center gap-2 px-1 text-xs text-amber-300">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-          {target.id} 没有安装模组加载器（Fabric / Forge 等），装进去的模组不会生效。请在「原版游戏」里安装带加载器的版本。
+          {target.id} 没有安装模组加载器（Fabric / Forge
+          等），装进去的模组不会生效。请在「原版游戏」里安装带加载器的版本。
         </p>
       )}
       {topExtra}

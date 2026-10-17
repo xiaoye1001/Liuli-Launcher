@@ -93,9 +93,17 @@ interface DownloadPageProps {
   /** 拖入窗口的整合包，打开安装确认页 */
   incomingModpack?: ModpackInfo | null
   onModpackConsumed?: () => void
+  /** 从「版本」页跳转过来：打开某个资源分类，并把安装目标设为该版本 */
+  request?: { section: ResourceType; versionId: string } | null
+  onRequestConsumed?: () => void
 }
 
-function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps = {}): JSX.Element {
+function DownloadPage({
+  incomingModpack,
+  onModpackConsumed,
+  request,
+  onRequestConsumed
+}: DownloadPageProps = {}): JSX.Element {
   const [manifest, setManifest] = useState<VersionManifest | null>(null)
   const [installed, setInstalled] = useState<InstalledVersion[]>([])
   const [loading, setLoading] = useState(false)
@@ -123,6 +131,18 @@ function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps 
       .then((info) => setElevated(info.elevated))
       .catch(() => undefined)
   }, [])
+
+  /** 社区资源默认安装到的版本（从「版本」页跳转过来时） */
+  const [targetHint, setTargetHint] = useState<string | undefined>(undefined)
+  useEffect(() => {
+    if (!request) return
+    setSetupFor(null)
+    setModpack(null)
+    setTargetHint(request.versionId)
+    openSection(request.section)
+    onRequestConsumed?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request, onRequestConsumed])
 
   // 拖入的整合包：关闭其他子页面，直接进入安装确认页
   useEffect(() => {
@@ -302,6 +322,7 @@ function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps 
               <ResourceBrowser
                 type={type}
                 installed={installed}
+                targetHint={targetHint}
                 onModpackPicked={setModpack}
                 headerExtra={type === 'modpack' ? importButton : undefined}
                 topExtra={type === 'modpack' ? dropZone : undefined}

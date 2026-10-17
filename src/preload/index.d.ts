@@ -26,7 +26,9 @@ import type {
   ModrinthSearchResult,
   SystemInfo,
   VersionManifest,
-  VersionConfig
+  VersionConfig,
+  LocalResourceKind,
+  LocalResourceList
 } from '../shared/types'
 
 declare global {
@@ -60,6 +62,16 @@ declare global {
       repairVersion: (versionId: string) => Promise<void>
       deleteVersion: (versionId: string) => Promise<boolean>
       openVersionDir: (versionId: string) => Promise<void>
+      /** 版本游戏目录里的资源包 / 光影包 */
+      listLocalResources: (versionId: string, kind: LocalResourceKind) => Promise<LocalResourceList>
+      /** 在游戏中启用或停用资源包（修改 options.txt） */
+      setResourcePackEnabled: (versionId: string, fileName: string, enabled: boolean) => Promise<void>
+      /** 设置当前光影，null 为关闭光影 */
+      setActiveShader: (versionId: string, fileName: string | null) => Promise<void>
+      deleteLocalResource: (versionId: string, kind: LocalResourceKind, fileName: string) => Promise<void>
+      /** 选择文件添加，返回添加的数量 */
+      addLocalResources: (versionId: string, kind: LocalResourceKind) => Promise<number>
+      openLocalResourceDir: (versionId: string, kind: LocalResourceKind) => Promise<void>
       /** 版本设置（未设置的项跟随全局设置） */
       getVersionConfig: (versionId: string) => Promise<VersionConfig>
       setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) => Promise<VersionConfig>

@@ -8,7 +8,7 @@ import PlaceholderPage from './pages/PlaceholderPage'
 import VersionsPage from './pages/VersionsPage'
 import SettingsPage from './pages/SettingsPage'
 import DropOverlay from './components/DropOverlay'
-import type { ModpackInfo } from '../../shared/types'
+import type { ModpackInfo, ResourceType } from '../../shared/types'
 import { backgroundUrl, useAppearance } from './utils/appearance'
 
 interface PageContext {
@@ -17,6 +17,10 @@ interface PageContext {
   navigate: (key: PageKey) => void
   /** 从主页打开某个版本的版本设置 */
   versionSettings: string | null
+  /** 打开下载页的某个分类，并预选安装目标 */
+  downloadRequest: { section: ResourceType; versionId: string } | null
+  openDownload: (section: ResourceType, versionId: string) => void
+  clearDownloadRequest: () => void
   openVersionSettings: (versionId: string) => void
   clearVersionSettings: () => void
 }
@@ -33,12 +37,20 @@ function renderPage(key: PageKey, ctx: PageContext): JSX.Element {
         openSettingsFor={ctx.versionSettings}
         onSettingsOpened={ctx.clearVersionSettings}
         onInstallNew={() => ctx.navigate('download')}
+        onDownloadResources={ctx.openDownload}
       />
     )
   }
   if (key === 'account') return <AccountPage />
   if (key === 'download') {
-    return <DownloadPage incomingModpack={ctx.droppedModpack} onModpackConsumed={ctx.clearDroppedModpack} />
+    return (
+      <DownloadPage
+        incomingModpack={ctx.droppedModpack}
+        onModpackConsumed={ctx.clearDroppedModpack}
+        request={ctx.downloadRequest}
+        onRequestConsumed={ctx.clearDownloadRequest}
+      />
+    )
   }
   if (key === 'settings') return <SettingsPage />
   const item = NAV_ITEMS.find((nav) => nav.key === key)!
@@ -51,6 +63,12 @@ function App(): JSX.Element {
   const [droppedModpack, setDroppedModpack] = useState<ModpackInfo | null>(null)
   const clearDroppedModpack = useCallback(() => setDroppedModpack(null), [])
   const [versionSettings, setVersionSettings] = useState<string | null>(null)
+  const [downloadRequest, setDownloadRequest] = useState<PageContext['downloadRequest']>(null)
+  const clearDownloadRequest = useCallback(() => setDownloadRequest(null), [])
+  const openDownload = useCallback((section: ResourceType, versionId: string) => {
+    setDownloadRequest({ section, versionId })
+    setPage('download')
+  }, [])
   const clearVersionSettings = useCallback(() => setVersionSettings(null), [])
   const openVersionSettings = useCallback((versionId: string) => {
     setVersionSettings(versionId)
@@ -103,6 +121,9 @@ function App(): JSX.Element {
                 clearDroppedModpack,
                 navigate: setPage,
                 versionSettings,
+                downloadRequest,
+                openDownload,
+                clearDownloadRequest,
                 openVersionSettings,
                 clearVersionSettings
               })}
