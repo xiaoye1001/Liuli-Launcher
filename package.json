@@ -1,6 +1,6 @@
 {
   "name": "mc_launcher",
-  "version": "0.2.2",
+  "version": "0.2.4",
   "description": "琉璃启动器（Liuli Launcher）：现代化的跨平台 Minecraft Java 版启动器",
   "main": "./out/main/index.js",
   "author": "xiaoye1001",
@@ -28,7 +28,8 @@
     "@xmcl/system": "2.2.9",
     "@xmcl/task": "4.1.1",
     "@xmcl/unzip": "2.1.2",
-    "@xmcl/user": "4.3.0"
+    "@xmcl/user": "4.3.0",
+    "undici": "7.2.3"
   },
   "devDependencies": {
     "@types/node": "22.18.0",

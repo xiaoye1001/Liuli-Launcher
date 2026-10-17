@@ -3,8 +3,9 @@ import { openFileSystem, type FileSystem } from '@xmcl/system'
 import { copyFile, mkdir, readdir, readFile, rename, stat, writeFile } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import { getGameStatus } from './launch'
-import { modsContextOf } from './mods'
-import type { LocalResource, LocalResourceKind, LocalResourceList } from '../shared/types'
+import { fileSha1, modsContextOf } from './mods'
+import { downloadModrinthVersion, findModrinthUpdates } from './modrinth'
+import type { LocalResource, LocalResourceKind, LocalResourceList, ModUpdate } from '../shared/types'
 
 const FOLDERS: Record<LocalResourceKind, string> = { resourcepack: 'resourcepacks', shader: 'shaderpacks' }
 const KIND_NAMES: Record<LocalResourceKind, string> = { resourcepack: '资源包', shader: '光影包' }
@@ -316,4 +317,75 @@ export async function openLocalResourceDir(versionId: string, kind: LocalResourc
   await mkdir(dir, { recursive: true })
   const error = await shell.openPath(dir)
   if (error) throw new Error(error)
+}
+
+// ---------- 检查更新 ----------
+
+/** 查询更新时，当前版本没有声明加载器时使用的默认值 */
+const DEFAULT_LOADERS: Record<LocalResourceKind, string[]> = {
+  resourcepack: ['minecraft'],
+  shader: ['iris', 'optifine']
+}
+
+/** 检查资源包或光影包有没有新版本（只能识别 Modrinth 上的 zip 文件） */
+export async function checkResourceUpdates(versionId: string, kind: LocalResourceKind): Promise<ModUpdate[]> {
+  const { dir, minecraftVersion } = await contextOf(versionId, kind)
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
+  const hashOf = new Map<string, string>()
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.toLowerCase().endsWith('.zip')) continue
+    const hash = await fileSha1(join(dir, entry.name)).catch(() => '')
+    if (hash) hashOf.set(entry.name, hash)
+  }
+  return findModrinthUpdates(hashOf, minecraftVersion, (current) =>
+    current.length > 0 ? current : DEFAULT_LOADERS[kind]
+  )
+}
+
+/**
+ * 更新资源包或光影包：下载新版本，旧文件移到回收站。
+ * 启用中的资源包和正在使用的光影会改成新文件，保持启用。返回新的文件名
+ */
+export async function updateResource(
+  versionId: string,
+  kind: LocalResourceKind,
+  fileName: string,
+  modrinthVersionId: string
+): Promise<string> {
+  assertSafeName(fileName)
+  assertGameStopped(versionId)
+  const { gameDir, dir } = await contextOf(versionId, kind)
+  if (!(await stat(join(dir, fileName)).catch(() => null))?.isFile()) {
+    throw new Error(`找不到${KIND_NAMES[kind]}：${fileName}`)
+  }
+  const newName = await downloadModrinthVersion(modrinthVersionId, dir)
+  if (newName === fileName) return newName
+  await shell.trashItem(join(dir, fileName))
+
+  if (kind === 'resourcepack') {
+    const path = join(gameDir, 'options.txt')
+    const { lines, eol } = await readLines(path)
+    const replace = (list: string[]): string[] =>
+      list.map((v) => (v === fileName ? newName : v === `file/${fileName}` ? `file/${newName}` : v))
+    const enabled = readList(lines, 'resourcePacks')
+    if (packEnabled(enabled, fileName)) {
+      writeList(lines, 'resourcePacks', replace(enabled))
+      const incompatible = readList(lines, 'incompatibleResourcePacks')
+      if (incompatible.length > 0) {
+        writeList(
+          lines,
+          'incompatibleResourcePacks',
+          incompatible.filter((v) => !packEnabled([v], fileName))
+        )
+      }
+      await writeLines(path, lines, eol)
+    }
+  } else {
+    const config = await findShaderConfig(gameDir)
+    if (config && getProperty(config.lines, 'shaderPack') === fileName) {
+      setProperty(config.lines, 'shaderPack', newName)
+      await writeLines(config.path, config.lines, config.eol)
+    }
+  }
+  return newName
 }

@@ -40,7 +40,16 @@ interface LoaderRowProps {
 }
 
 /** 一行模组加载器选项，点击后展开版本列表 */
-function LoaderRow({ title, status, highlight, disabled, expanded, onToggle, onClear, children }: LoaderRowProps): JSX.Element {
+function LoaderRow({
+  title,
+  status,
+  highlight,
+  disabled,
+  expanded,
+  onToggle,
+  onClear,
+  children
+}: LoaderRowProps): JSX.Element {
   return (
     <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/10 shadow-lg backdrop-blur-xl">
       <div
@@ -95,10 +104,10 @@ interface InstallSetupPageProps {
   onStarted: () => void
 }
 
-type LoaderKind = 'forge' | 'neoforge' | 'fabric' | 'optifine'
+type LoaderKind = 'forge' | 'neoforge' | 'fabric' | 'quilt' | 'optifine'
 
 /** 界面上的排列顺序，也是自动生成版本名时的顺序 */
-const LOADER_ORDER: LoaderKind[] = ['forge', 'neoforge', 'fabric', 'optifine']
+const LOADER_ORDER: LoaderKind[] = ['forge', 'neoforge', 'fabric', 'quilt', 'optifine']
 
 /** 能同时安装的组合：只有 Forge + OptiFine（OptiFine 作为 Forge 模组） */
 function compatible(a: LoaderKind, b: LoaderKind): boolean {
@@ -109,6 +118,7 @@ const LOADER_NAMES: Record<LoaderKind, string> = {
   forge: 'Forge',
   neoforge: 'NeoForge',
   fabric: 'Fabric',
+  quilt: 'Quilt',
   optifine: 'OptiFine'
 }
 
@@ -140,7 +150,7 @@ const TAG_STYLES = {
   beta: 'bg-amber-500/20 text-amber-300'
 }
 
-/** 安装设置页：自定义版本名，并选择要附加的模组加载器（Forge / NeoForge / Fabric 三选一，OptiFine 可单独装或配合 Forge） */
+/** 安装设置页：自定义版本名，并选择要附加的模组加载器（Forge / NeoForge / Fabric / Quilt 四选一，OptiFine 可单独装或配合 Forge） */
 function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: InstallSetupPageProps): JSX.Element {
   const mc = version.id
   const [name, setName] = useState(mc)
@@ -149,6 +159,7 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
     forge: { options: null, error: '' },
     neoforge: { options: null, error: '' },
     fabric: { options: null, error: '' },
+    quilt: { options: null, error: '' },
     optifine: { options: null, error: '' }
   })
   /** 已选择的加载器及版本 */
@@ -184,6 +195,13 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
     )
     load('fabric', async () =>
       (await window.api.getFabricLoaders(mc)).map((v: FabricLoaderVersion) => ({
+        version: v.version,
+        unstable: !v.stable,
+        tags: v.stable ? [] : [{ text: '测试版', className: TAG_STYLES.beta }]
+      }))
+    )
+    load('quilt', async () =>
+      (await window.api.getQuiltLoaders(mc)).map((v: FabricLoaderVersion) => ({
         version: v.version,
         unstable: !v.stable,
         tags: v.stable ? [] : [{ text: '测试版', className: TAG_STYLES.beta }]
@@ -263,6 +281,7 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
         forgeVersion: selected.forge,
         neoforgeVersion: selected.neoforge,
         fabricLoader: selected.fabric,
+        quiltLoader: selected.quilt,
         optifine: optionOf('optifine')?.optifine
       })
       onStarted()
@@ -372,8 +391,9 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
 
         {(selected.forge || selected.neoforge) && (
           <p className="px-2 text-xs leading-5 text-white/45">
-            安装 {selected.forge ? 'Forge' : 'NeoForge'} 时需要用 Java 运行它的安装程序，会比普通安装多花几分钟。装好后在下载页点该版本的
-            「打开文件夹」，把模组放进 mods 文件夹即可（未开启版本隔离时为游戏目录下的 mods）。
+            安装 {selected.forge ? 'Forge' : 'NeoForge'} 时需要用 Java
+            运行它的安装程序，会比普通安装多花几分钟。装好后在下载页点该版本的 「打开文件夹」，把模组放进 mods
+            文件夹即可（未开启版本隔离时为游戏目录下的 mods）。
           </p>
         )}
         {selected.optifine && !selected.forge && (

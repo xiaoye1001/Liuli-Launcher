@@ -7,9 +7,14 @@ const FORMAT_NAMES = { modrinth: 'Modrinth', curseforge: 'CurseForge', multimc: 
 
 /** 「需要下载」一栏：不同格式的整合包获取模组的方式不同 */
 function downloadSummary(modpack: ModpackInfo): string {
-  if (modpack.format === 'curseforge') return `${modpack.fileCount} 个模组（安装时通过 MCIM 镜像获取）`
-  if (modpack.fileCount === 0) return '无需下载（模组已包含在整合包中）'
-  return `${modpack.fileCount} 个文件 · ${formatBytes(modpack.totalSize)}`
+  const included = modpack.includedMods ?? 0
+  if (modpack.fileCount === 0 || (modpack.format === 'curseforge' && included >= modpack.fileCount)) {
+    return '无需下载（模组已包含在整合包中）'
+  }
+  const skip = included > 0 ? '，整合包里已有的跳过' : ''
+  if (modpack.format === 'curseforge') return `${modpack.fileCount} 个模组（MCIM 镜像${skip}）`
+  const skipped = modpack.skippedDownloads ? `（另有 ${modpack.skippedDownloads} 个整合包里已有，不用下载）` : ''
+  return `${modpack.fileCount} 个文件 · ${formatBytes(modpack.totalSize)}${skipped}`
 }
 
 function formatBytes(bytes: number): string {
@@ -47,7 +52,6 @@ function ModpackSetupPage({ modpack, installedIds, busy, onBack, onStarted }: Mo
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const nameError = validateName(name, installedIds)
-  const unsupported = modpack.loader === 'quilt'
 
   const start = async (): Promise<void> => {
     setSubmitting(true)
@@ -65,7 +69,16 @@ function ModpackSetupPage({ modpack, installedIds, busy, onBack, onStarted }: Mo
     ['Minecraft 版本', modpack.minecraftVersion],
     ['模组加载器', modpack.loader ? `${LOADER_NAMES[modpack.loader]} ${modpack.loaderVersion}` : '无（原版）'],
     ['需要下载', downloadSummary(modpack)],
-    ['整合包内的文件', `${modpack.overrideCount} 个`],
+    [
+      '整合包内的文件',
+      `${modpack.overrideCount} 个${modpack.includedMods ? `（含 ${modpack.includedMods} 个模组）` : ''}`
+    ],
+    [
+      '游戏本体与资源',
+      modpack.includedGameFiles
+        ? `整合包自带 ${modpack.includedGameFiles} 个资源文件，安装时直接使用，只下载缺少的`
+        : `需要下载 Minecraft ${modpack.minecraftVersion}${modpack.loader ? ' 与加载器' : ''}（含声音、语言等资源，约几百 MB；已经装过同版本时不会重复下载）`
+    ],
     ['格式', FORMAT_NAMES[modpack.format]],
     ['文件', modpack.fileName]
   ]
@@ -111,7 +124,7 @@ function ModpackSetupPage({ modpack, installedIds, busy, onBack, onStarted }: Mo
           {rows.map(([label, value]) => (
             <div key={label} className="min-w-0">
               <div className="text-xs text-white/50">{label}</div>
-              <div className="truncate text-sm" title={value}>
+              <div className="break-words text-sm" title={value}>
                 {value}
               </div>
             </div>
@@ -119,12 +132,6 @@ function ModpackSetupPage({ modpack, installedIds, busy, onBack, onStarted }: Mo
         </div>
       </section>
 
-      {unsupported && (
-        <div className="flex items-start gap-3 rounded-xl bg-amber-500/20 px-4 py-3 text-sm text-amber-100">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          暂不支持 Quilt 整合包。
-        </div>
-      )}
       {error && (
         <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -139,7 +146,7 @@ function ModpackSetupPage({ modpack, installedIds, busy, onBack, onStarted }: Mo
       <div className="mt-auto flex justify-center pb-2">
         <button
           onClick={start}
-          disabled={busy || submitting || !!nameError || unsupported}
+          disabled={busy || submitting || !!nameError}
           title={busy ? '已有安装任务在进行中' : undefined}
           className="flex items-center gap-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 px-8 py-3.5 text-base font-semibold shadow-xl shadow-emerald-500/30 disabled:cursor-not-allowed disabled:from-slate-600 disabled:to-slate-500 disabled:shadow-none"
         >

@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
+  UpdateDownload,
   AppSettings,
   GameLogEvent,
   GameStatus,
@@ -28,6 +29,8 @@ const api = {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch: Partial<AppSettings>) => ipcRenderer.invoke('settings:update', patch),
   getSystemInfo: () => ipcRenderer.invoke('system:info'),
+  checkNetwork: () => ipcRenderer.invoke('network:check'),
+  getNews: (force?: boolean) => ipcRenderer.invoke('news:get', force),
   previewMemory: (versionId: string) => ipcRenderer.invoke('memory:preview', versionId),
   getVersionList: (force = false) => ipcRenderer.invoke('versions:list', force),
   startInstall: (request: InstallRequest) => ipcRenderer.invoke('install:start', request),
@@ -35,6 +38,7 @@ const api = {
   cancelInstall: () => ipcRenderer.invoke('install:cancel'),
   getInstallStatus: () => ipcRenderer.invoke('install:status'),
   getFabricLoaders: (minecraftVersion: string) => ipcRenderer.invoke('fabric:loaders', minecraftVersion),
+  getQuiltLoaders: (minecraftVersion: string) => ipcRenderer.invoke('quilt:loaders', minecraftVersion),
   getForgeVersions: (minecraftVersion: string) => ipcRenderer.invoke('forge:versions', minecraftVersion),
   getNeoForgeVersions: (minecraftVersion: string) => ipcRenderer.invoke('neoforge:versions', minecraftVersion),
   getOptiFineVersions: (minecraftVersion: string) => ipcRenderer.invoke('optifine:versions', minecraftVersion),
@@ -53,6 +57,10 @@ const api = {
   listLocalResources: (versionId: string, kind: LocalResourceKind) => ipcRenderer.invoke('local:list', versionId, kind),
   setResourcePackEnabled: (versionId: string, fileName: string, enabled: boolean) =>
     ipcRenderer.invoke('local:setPackEnabled', versionId, fileName, enabled),
+  checkResourceUpdates: (versionId: string, kind: LocalResourceKind) =>
+    ipcRenderer.invoke('local:checkUpdates', versionId, kind),
+  updateResource: (versionId: string, kind: LocalResourceKind, fileName: string, modrinthVersionId: string) =>
+    ipcRenderer.invoke('local:update', versionId, kind, fileName, modrinthVersionId),
   setActiveShader: (versionId: string, fileName: string | null) =>
     ipcRenderer.invoke('local:setShader', versionId, fileName),
   deleteLocalResource: (versionId: string, kind: LocalResourceKind, fileName: string) =>
@@ -65,6 +73,10 @@ const api = {
   backupWorld: (versionId: string, folder: string) => ipcRenderer.invoke('worlds:backup', versionId, folder),
   openWorldDir: (versionId: string, folder?: string) => ipcRenderer.invoke('worlds:open', versionId, folder),
   openBackupsDir: (versionId: string) => ipcRenderer.invoke('worlds:openBackups', versionId),
+  listWorldBackups: (versionId: string) => ipcRenderer.invoke('worlds:backups', versionId),
+  restoreWorldBackup: (versionId: string, file: string, asNew: boolean) =>
+    ipcRenderer.invoke('worlds:restore', versionId, file, asNew),
+  deleteWorldBackup: (versionId: string, file: string) => ipcRenderer.invoke('worlds:deleteBackup', versionId, file),
   importWorld: (versionId: string) => ipcRenderer.invoke('worlds:import', versionId),
   listWorldDatapacks: (versionId: string, folder: string) => ipcRenderer.invoke('worlds:datapacks', versionId, folder),
   deleteWorldDatapack: (versionId: string, folder: string, fileName: string) =>
@@ -126,6 +138,17 @@ const api = {
   launchGame: (versionId: string, server?: string) => ipcRenderer.invoke('game:launch', versionId, server),
   checkUpdate: () => ipcRenderer.invoke('update:check'),
   openUpdateLink: (kind: 'asset' | 'page') => ipcRenderer.invoke('update:open', kind),
+  downloadUpdate: () => ipcRenderer.invoke('update:download'),
+  getUpdateDownload: () => ipcRenderer.invoke('update:downloadStatus'),
+  cancelUpdateDownload: () => ipcRenderer.invoke('update:cancelDownload'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  onUpdateDownload: (callback: (status: UpdateDownload) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, status: UpdateDownload): void => callback(status)
+    ipcRenderer.on('update:download', listener)
+    return () => {
+      ipcRenderer.removeListener('update:download', listener)
+    }
+  },
   listServers: () => ipcRenderer.invoke('servers:list'),
   saveServer: (server: Omit<SavedServer, 'id'> & { id?: string }) => ipcRenderer.invoke('servers:save', server),
   deleteServer: (id: string) => ipcRenderer.invoke('servers:delete', id),
@@ -142,6 +165,10 @@ const api = {
   selectExternalProfile: (pendingId: string, profileId: string) =>
     ipcRenderer.invoke('external:selectProfile', pendingId, profileId),
   removeExternalAccount: (id: string) => ipcRenderer.invoke('external:remove', id),
+  addOfflineAccount: (name: string) => ipcRenderer.invoke('offline:add', name),
+  selectOfflineAccount: (id: string) => ipcRenderer.invoke('offline:select', id),
+  renameOfflineAccount: (id: string, name: string) => ipcRenderer.invoke('offline:rename', id, name),
+  removeOfflineAccount: (id: string) => ipcRenderer.invoke('offline:remove', id),
   startMicrosoftLogin: () => ipcRenderer.invoke('ms:login'),
   cancelMicrosoftLogin: () => ipcRenderer.invoke('ms:cancel'),
   getMicrosoftLoginStatus: () => ipcRenderer.invoke('ms:status'),
@@ -176,7 +203,9 @@ const api = {
   getGameDirInfo: () => ipcRenderer.invoke('gamedir:info'),
   setGameDir: (dir: string) => ipcRenderer.invoke('gamedir:set', dir),
   pickGameDir: () => ipcRenderer.invoke('gamedir:pick'),
-  openGameDir: () => ipcRenderer.invoke('gamedir:open'),
+  openGameDir: (dir?: string) => ipcRenderer.invoke('gamedir:open', dir),
+  renameGameDir: (dir: string, name: string) => ipcRenderer.invoke('gamedir:rename', dir, name),
+  removeGameDir: (dir: string) => ipcRenderer.invoke('gamedir:remove', dir),
   getGameLogs: () => ipcRenderer.invoke('game:logs'),
   openLogWindow: () => ipcRenderer.invoke('logs:open'),
   /** 订阅游戏日志，返回取消订阅函数 */

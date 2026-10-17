@@ -22,8 +22,9 @@ Glass-style UI · Dark & light themes · Fast downloads via mirrors · One-click
 - Version list split into releases, snapshots and old versions, with search
 - Two download sources: the **BMCLAPI mirror** (recommended in mainland China) or the **official Mojang servers**; automatically falls back to the official source if the mirror fails
 - Multi-threaded downloads with live progress and speed; installs can be cancelled and retried
+- **Download & network settings**: adjust how many files download at once; use the system proxy or a manual HTTP proxy (used for downloads, version lists, Modrinth, sign-in and images in the UI), and test which servers are reachable in one click
 - Choose a custom version name and attach a mod loader before installing:
-  - **Forge**, **NeoForge** or **Fabric** (pick one)
+  - **Forge**, **NeoForge**, **Fabric** or **Quilt** (pick one)
   - **OptiFine** (on its own, or together with Forge)
 - Import local modpacks (pick a file, or just drag it onto the window): Modrinth (`.mrpack`), CurseForge, MultiMC / Prism and MCBBS (`.zip`) formats are supported; the matching Minecraft version and mod loader, every mod, and the bundled config files are installed in one go
 - **Export modpacks**: export a version as a Modrinth (`.mrpack`), CurseForge, MultiMC / Prism or MCBBS pack, choosing which mods, configs, resource packs, worlds and so on to include; the Modrinth format can reference files available on Modrinth instead of bundling them, keeping the pack small
@@ -46,10 +47,10 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 - **Crash analysis**: after a crash, the launcher reads the game output, crash report and Java crash log and explains the cause and how to fix it: missing dependencies, mods that don't match the game version or conflict with each other, duplicate mods, Mixin failures, Java too old or too new, out of memory, invalid JVM arguments, graphics drivers, incompatible OptiFine, corrupted files and more. You can open the crash report directly, or export all related files as a zip to ask others for help
 - **Version isolation**: modded versions (or all versions) each get their own `mods`, worlds and config, so they never interfere with each other
 - **Version management**: the Versions page gathers everything for installed versions: choosing the version to launch, mods, worlds, resources, version settings, opening the folder, check & repair, and deleting; you can also rename or copy a version (optionally with its worlds), or create a desktop shortcut that launches the version directly
-- **World management**: see each world's name, icon, game mode (hardcore / cheats), game version and last played time; back up a world to a zip in one click, import worlds from zip files, or move them to the recycle bin; manage each world's data packs (with their enabled state; add, download or delete)
+- **World management**: see each world's name, icon, game mode (hardcore / cheats), game version and last played time; back up a world to a zip in one click and restore any backup later (over the current world, which is backed up automatically first, or as a new world; backups of deleted worlds can be restored too), import worlds from zip files, or move them to the recycle bin; manage each world's data packs (with their enabled state; add, download or delete)
 - **Screenshots**: browse each version's screenshots as thumbnails, open a large preview and switch with the arrow keys, copy an image to the clipboard to paste into chat apps, show it in the folder, or delete it
-- **Resource pack & shader management**: see each version's resource packs (with icon and description) and shader packs; enable resource packs, switch or turn off shaders (Iris, Oculus and OptiFine supported) right from the launcher, add files, or move them to the recycle bin
-- **Per-version settings** (from the Versions page or the gear button next to the version on Home): set memory, Java, version isolation, game window size (or fullscreen) and extra JVM / game arguments for each version; anything not set follows the global settings. The settings are stored in `liuli-version.json` inside the version's folder
+- **Resource pack & shader management**: see each version's resource packs (with icon and description) and shader packs; enable resource packs, switch or turn off shaders (Iris, Oculus and OptiFine supported) right from the launcher, add files, or move them to the recycle bin; check Modrinth for newer versions of resource packs and shaders and update them in one click (enabled packs and the active shader stay enabled)
+- **Per-version settings** (from the Versions page or the gear button next to the version on Home): set memory, Java, version isolation, game window size (or fullscreen) and extra JVM / game arguments for each version, plus a wrapper command (such as gamemoderun or prime-run), environment variables, a command to run before launch (the launch is cancelled if it fails) and a command to run after the game exits; commands can use variables such as `INST_NAME` and `INST_DIR`. Anything not set follows the global settings. The settings are stored in `liuli-version.json` inside the version's folder
 
 ### Servers
 - Save your favorite servers on the Servers page, with each server's icon, colored MOTD, player count, latency and server version; SRV records (domains without a port) are supported
@@ -64,15 +65,16 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 - **Search and install mods from Modrinth** right inside the launcher: only mods compatible with the current version are shown, and required dependencies are installed automatically
 
 ### Accounts
-- **Offline accounts**: upload a skin and preview it on an animated 3D model
+- **Offline accounts**: keep several offline accounts, each with its own player name and skin, and switch with one click; preview skins on an animated 3D model
 - **Microsoft login**: sign in by entering a code on Microsoft's website, so the launcher never sees your password; switch between multiple accounts, with sessions refreshed automatically at launch
 - **Skins and capes for Microsoft accounts**: upload a new skin (classic or slim model), reset to the default skin, and choose which cape to show, right from the Accounts page; the 3D preview shows the cape too
 - **External login**: accounts from LittleSkin and other authlib-injector skin sites (just enter the site's address); authlib-injector is downloaded automatically at launch. Only encrypted login tokens are stored, never your password
 
 ### Interface
+- **Minecraft news**: the Home page shows official Java Edition news and update posts; click one to read it in your browser. When offline, the last fetched news is shown. You can turn it off on Home or in Settings
 - Glass-style design with page transition animations
 - Dark / light / follow-system themes
-- **Update check**: checks GitHub for new versions at startup and shows a notice in the bottom-right corner, with the release notes and a download link for the right installer for your system; check manually or turn this off under Settings → About
+- **Update check**: checks GitHub for new versions at startup and shows a notice in the bottom-right corner, with the release notes; click "Download and update" to download the new version inside the launcher (verified with SHA-256), then "Restart and update" to replace the launcher and reopen it automatically (portable, installer, AppImage and macOS builds), with no manual file replacing; check manually or turn this off under Settings → About
 
 | Install setup | Mod management |
 |---|---|

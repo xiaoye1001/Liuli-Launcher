@@ -13,11 +13,19 @@ import {
   Loader2,
   Plus,
   RefreshCw,
+  RotateCcw,
   Search,
   Trash2
 } from 'lucide-react'
 import GrassBlockIcon from '../components/GrassBlockIcon'
-import type { InstalledVersion, WorldDatapack, WorldGameMode, WorldInfo, WorldList } from '../../../shared/types'
+import type {
+  InstalledVersion,
+  WorldBackup,
+  WorldDatapack,
+  WorldGameMode,
+  WorldInfo,
+  WorldList
+} from '../../../shared/types'
 
 const GAME_MODES: Record<WorldGameMode, { label: string; className: string }> = {
   survival: { label: '生存', className: 'bg-emerald-500/20 text-emerald-300' },
@@ -189,11 +197,20 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
   const [expanded, setExpanded] = useState<string | null>(null)
   /** 正在操作的存档（备份可能需要一些时间） */
   const [pending, setPending] = useState<string | null>(null)
+  const [tab, setTab] = useState<'worlds' | 'backups'>('worlds')
+  const [backups, setBackups] = useState<WorldBackup[]>([])
+  /** 等待确认覆盖还原的备份 */
+  const [confirming, setConfirming] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      setList(await window.api.listWorldInfos(version.id))
+      const [worldList, backupList] = await Promise.all([
+        window.api.listWorldInfos(version.id),
+        window.api.listWorldBackups(version.id)
+      ])
+      setList(worldList)
+      setBackups(backupList)
       setError('')
     } catch (e) {
       setError(cleanError(e))
@@ -230,6 +247,31 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
     [list, kw]
   )
   const showError = useCallback((message: string) => setError(message), [])
+  /** 存档文件夹名 → 显示名称 */
+  const worldNames = useMemo(() => new Map((list?.worlds ?? []).map((w) => [w.folder, w.name])), [list])
+  const backupCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const b of backups) counts.set(b.world, (counts.get(b.world) ?? 0) + 1)
+    return counts
+  }, [backups])
+  const shownBackups = useMemo(
+    () =>
+      backups.filter(
+        (b) => !kw || b.world.toLowerCase().includes(kw) || (worldNames.get(b.world) ?? '').toLowerCase().includes(kw)
+      ),
+    [backups, kw, worldNames]
+  )
+
+  const restore = (backup: WorldBackup, asNew: boolean): Promise<void> =>
+    act(`restore:${backup.file}`, async () => {
+      setConfirming(null)
+      const result = await window.api.restoreWorldBackup(version.id, backup.file, asNew)
+      const when = new Date(backup.createdAt).toLocaleString('zh-CN')
+      if (asNew || !backup.worldExists) return `已从 ${when} 的备份还原出存档「${result.folder}」`
+      return `已把「${worldNames.get(backup.world) ?? backup.world}」还原到 ${when} 的备份${
+        result.safetyBackup ? `，还原前的存档已备份为 ${result.safetyBackup}` : ''
+      }`
+    })
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -310,15 +352,34 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
       )}
 
       <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-center gap-2 rounded-xl bg-black/20 px-3 py-2">
-          <Search className="h-4 w-4 text-white/40" />
-          <input
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder="搜索存档"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-white/30"
-          />
-          <span className="text-xs text-white/40">共 {list?.worlds.length ?? 0} 个</span>
+        <div className="flex items-center gap-2">
+          <div className="flex shrink-0 gap-1 rounded-xl bg-black/20 p-1">
+            {(
+              [
+                ['worlds', `存档 ${list?.worlds.length ?? 0}`],
+                ['backups', `备份 ${backups.length}`]
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                className={`rounded-lg px-3 py-1.5 text-xs transition-colors ${
+                  tab === key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-1 items-center gap-2 rounded-xl bg-black/20 px-3 py-2">
+            <Search className="h-4 w-4 text-white/40" />
+            <input
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder={tab === 'worlds' ? '搜索存档' : '按存档名搜索备份'}
+              className="flex-1 bg-transparent text-sm outline-none placeholder:text-white/30"
+            />
+          </div>
         </div>
 
         <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
@@ -327,121 +388,226 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           )}
-          {list && list.worlds.length === 0 && (
+          {tab === 'backups' && (
+            <>
+              {backups.length === 0 && (
+                <div className="py-10 text-center text-sm text-white/40">
+                  还没有备份。在「存档」里点存档右侧的「备份」按钮即可备份
+                </div>
+              )}
+              {backups.length > 0 && shownBackups.length === 0 && (
+                <div className="py-10 text-center text-sm text-white/40">没有匹配的备份</div>
+              )}
+              {shownBackups.map((backup) => {
+                const busy = pending === `restore:${backup.file}` || pending === `delbak:${backup.file}`
+                return (
+                  <div key={backup.file} className="flex items-center gap-3 rounded-xl bg-black/20 px-4 py-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10">
+                      {busy ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Archive className="h-5 w-5 text-white/60" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-semibold" title={backup.world}>
+                          {worldNames.get(backup.world) ?? backup.world}
+                        </span>
+                        {!backup.worldExists && (
+                          <span className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 text-xs text-white/50">
+                            存档已不在
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-0.5 truncate text-xs text-white/50" title={backup.file}>
+                        {new Date(backup.createdAt).toLocaleString('zh-CN')} · {formatLastPlayed(backup.createdAt)} ·{' '}
+                        {formatSize(backup.size)}
+                      </div>
+                    </div>
+                    {confirming === backup.file ? (
+                      <div className="flex shrink-0 items-center gap-2 rounded-lg bg-amber-500/15 px-3 py-1.5 text-xs text-amber-200">
+                        覆盖当前存档？会先自动备份当前存档
+                        <button
+                          onClick={() => restore(backup, false)}
+                          className="rounded-md bg-amber-500/80 px-2.5 py-1 font-medium text-white hover:bg-amber-500"
+                        >
+                          确认还原
+                        </button>
+                        <button onClick={() => setConfirming(null)} className="rounded-md px-2 py-1 hover:bg-white/10">
+                          取消
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => (backup.worldExists ? setConfirming(backup.file) : restore(backup, false))}
+                          disabled={pending !== null}
+                          title={backup.worldExists ? '用这个备份覆盖原存档' : '把这个备份还原为存档'}
+                          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          还原
+                        </button>
+                        {backup.worldExists && (
+                          <button
+                            onClick={() => restore(backup, true)}
+                            disabled={pending !== null}
+                            title="还原成一个新存档，不影响现在的存档"
+                            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            还原为新存档
+                          </button>
+                        )}
+                        <button
+                          onClick={() =>
+                            act(`delbak:${backup.file}`, async () => {
+                              await window.api.deleteWorldBackup(version.id, backup.file)
+                              return `已把备份 ${backup.file} 移到回收站`
+                            })
+                          }
+                          disabled={pending !== null}
+                          title="删除备份（移到回收站，可以找回）"
+                          className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-red-500/30 hover:text-red-200 disabled:opacity-40"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+            </>
+          )}
+          {tab === 'worlds' && list && list.worlds.length === 0 && (
             <div className="py-10 text-center text-sm text-white/40">
               这个版本还没有存档，进入游戏创建一个世界，或点「导入存档」
             </div>
           )}
-          {list && list.worlds.length > 0 && worlds.length === 0 && (
+          {tab === 'worlds' && list && list.worlds.length > 0 && worlds.length === 0 && (
             <div className="py-10 text-center text-sm text-white/40">没有匹配的存档</div>
           )}
-          {worlds.map((world) => {
-            const mode = GAME_MODES[world.gameMode]
-            const open = expanded === world.folder
-            return (
-              <div key={world.folder} className="overflow-hidden rounded-xl bg-black/20">
-                <div className="flex items-center gap-3 px-4 py-3">
-                  {world.icon ? (
-                    <img
-                      src={world.icon}
-                      alt=""
-                      className="h-12 w-12 shrink-0 rounded-lg [image-rendering:pixelated]"
-                    />
-                  ) : (
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/10">
-                      <GrassBlockIcon className="h-8 w-8" />
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-semibold" title={world.name}>
-                        {world.name}
-                      </span>
-                      {world.name !== world.folder && (
-                        <span className="truncate text-xs text-white/40" title="文件夹名">
-                          <Folder className="mr-0.5 inline h-3 w-3" />
-                          {world.folder}
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-                      {world.damaged ? (
-                        <span className="rounded-md bg-red-500/20 px-2 py-0.5 text-red-300">level.dat 无法读取</span>
-                      ) : (
-                        <>
-                          <span className={`rounded-md px-2 py-0.5 ${mode.className}`}>{mode.label}</span>
-                          {world.hardcore && (
-                            <span className="rounded-md bg-red-500/20 px-2 py-0.5 text-red-300">极限</span>
-                          )}
-                          {world.cheats && (
-                            <span className="rounded-md bg-white/10 px-2 py-0.5 text-white/60">允许作弊</span>
-                          )}
-                          {world.version && <span className="text-white/50">{world.version}</span>}
-                        </>
-                      )}
-                      <span className="text-white/40">· 最后游玩 {formatLastPlayed(world.lastPlayed)}</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setExpanded(open ? null : world.folder)}
-                    className="flex shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
-                  >
-                    数据包
-                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
-                  </button>
-                  <button
-                    onClick={() =>
-                      act(world.folder, async () => {
-                        const result = await window.api.backupWorld(version.id, world.folder)
-                        const name = result.path.split(/[\\/]/).pop()
-                        return `已备份「${world.name}」：${name}（${formatSize(result.size)}），点「备份文件夹」查看`
-                      })
-                    }
-                    disabled={pending !== null}
-                    title="把存档打包成 zip 放到备份文件夹"
-                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
-                  >
-                    {pending === world.folder ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          {tab === 'worlds' &&
+            worlds.map((world) => {
+              const mode = GAME_MODES[world.gameMode]
+              const open = expanded === world.folder
+              return (
+                <div key={world.folder} className="overflow-hidden rounded-xl bg-black/20">
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    {world.icon ? (
+                      <img
+                        src={world.icon}
+                        alt=""
+                        className="h-12 w-12 shrink-0 rounded-lg [image-rendering:pixelated]"
+                      />
                     ) : (
-                      <Archive className="h-3.5 w-3.5" />
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/10">
+                        <GrassBlockIcon className="h-8 w-8" />
+                      </div>
                     )}
-                    备份
-                  </button>
-                  <button
-                    onClick={() =>
-                      window.api.openWorldDir(version.id, world.folder).catch((e) => setError(cleanError(e)))
-                    }
-                    title="打开存档文件夹"
-                    className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
-                  >
-                    <FolderOpen className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() =>
-                      act(`delete:${world.folder}`, async () => {
-                        await window.api.deleteWorld(version.id, world.folder)
-                        return `已把存档「${world.name}」移到回收站`
-                      })
-                    }
-                    disabled={pending !== null}
-                    title="删除（移到回收站，可以找回）"
-                    className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-red-500/30 hover:text-red-200 disabled:opacity-40"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-semibold" title={world.name}>
+                          {world.name}
+                        </span>
+                        {world.name !== world.folder && (
+                          <span className="truncate text-xs text-white/40" title="文件夹名">
+                            <Folder className="mr-0.5 inline h-3 w-3" />
+                            {world.folder}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                        {world.damaged ? (
+                          <span className="rounded-md bg-red-500/20 px-2 py-0.5 text-red-300">level.dat 无法读取</span>
+                        ) : (
+                          <>
+                            <span className={`rounded-md px-2 py-0.5 ${mode.className}`}>{mode.label}</span>
+                            {world.hardcore && (
+                              <span className="rounded-md bg-red-500/20 px-2 py-0.5 text-red-300">极限</span>
+                            )}
+                            {world.cheats && (
+                              <span className="rounded-md bg-white/10 px-2 py-0.5 text-white/60">允许作弊</span>
+                            )}
+                            {world.version && <span className="text-white/50">{world.version}</span>}
+                          </>
+                        )}
+                        <span className="text-white/40">· 最后游玩 {formatLastPlayed(world.lastPlayed)}</span>
+                        {(backupCounts.get(world.folder) ?? 0) > 0 && (
+                          <button
+                            onClick={() => {
+                              setTab('backups')
+                              setKeyword(world.folder)
+                            }}
+                            title="查看这个存档的备份"
+                            className="text-sky-300 hover:underline"
+                          >
+                            · {backupCounts.get(world.folder)} 个备份
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setExpanded(open ? null : world.folder)}
+                      className="flex shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                    >
+                      数据包
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+                    </button>
+                    <button
+                      onClick={() =>
+                        act(world.folder, async () => {
+                          const result = await window.api.backupWorld(version.id, world.folder)
+                          const name = result.path.split(/[\\/]/).pop()
+                          return `已备份「${world.name}」：${name}（${formatSize(result.size)}），可以在「备份」里还原`
+                        })
+                      }
+                      disabled={pending !== null}
+                      title="把存档打包成 zip 放到备份文件夹"
+                      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+                    >
+                      {pending === world.folder ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Archive className="h-3.5 w-3.5" />
+                      )}
+                      备份
+                    </button>
+                    <button
+                      onClick={() =>
+                        window.api.openWorldDir(version.id, world.folder).catch((e) => setError(cleanError(e)))
+                      }
+                      title="打开存档文件夹"
+                      className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
+                    >
+                      <FolderOpen className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() =>
+                        act(`delete:${world.folder}`, async () => {
+                          await window.api.deleteWorld(version.id, world.folder)
+                          return `已把存档「${world.name}」移到回收站`
+                        })
+                      }
+                      disabled={pending !== null}
+                      title="删除（移到回收站，可以找回）"
+                      className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-red-500/30 hover:text-red-200 disabled:opacity-40"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {open && (
+                    <DatapackPanel
+                      versionId={version.id}
+                      world={world}
+                      onError={showError}
+                      onDownload={() => onDownloadDatapacks(world.folder)}
+                    />
+                  )}
                 </div>
-                {open && (
-                  <DatapackPanel
-                    versionId={version.id}
-                    world={world}
-                    onError={showError}
-                    onDownload={() => onDownloadDatapacks(world.folder)}
-                  />
-                )}
-              </div>
-            )
-          })}
+              )
+            })}
         </div>
       </section>
     </div>

@@ -16,6 +16,7 @@ import { getOptiFineVersions } from './optifine'
 import {
   cancelInstall,
   getFabricLoaders,
+  getQuiltLoaders,
   getInstallStatus,
   retryLastInstall,
   startCustomInstall,
@@ -24,7 +25,7 @@ import {
 } from './install'
 import { getGameLogs, getGameStatus, launchGame, listInstalledVersions, previewMemory } from './launch'
 import { closeLogWindow, openLogWindow } from './logWindow'
-import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
+import { getGameDirInfo, openGameDir, pickGameDir, removeGameDir, renameGameDir, setGameDir } from './gameDir'
 import { assertSafeId, deleteVersion, openVersionDir } from './versionManage'
 import { addMods, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
 import {
@@ -41,15 +42,20 @@ import { isElevated } from './elevation'
 import { getVersionConfig, setVersionConfig } from './versionConfig'
 import {
   addLocalResources,
+  checkResourceUpdates,
   deleteLocalResource,
   listLocalResources,
   openLocalResourceDir,
   setActiveShader,
-  setResourcePackEnabled
+  setResourcePackEnabled,
+  updateResource
 } from './resources'
 import {
   addWorldDatapacks,
   backupWorld,
+  deleteWorldBackup,
+  listWorldBackups,
+  restoreWorldBackup,
   deleteWorld,
   deleteWorldDatapack,
   importWorld,
@@ -62,13 +68,25 @@ import {
 import { exportCrashInfo, openCrashFile } from './crashReport'
 import { deleteServer, importGameServers, listServers, moveServer, saveServer } from './servers'
 import { pingServer } from './serverPing'
-import { checkUpdate, openUpdateLink } from './updater'
+import {
+  cancelUpdateDownload,
+  checkUpdate,
+  cleanUpdateFiles,
+  downloadUpdate,
+  getUpdateDownload,
+  installUpdate,
+  openUpdateLink
+} from './updater'
 import { getPlayStats } from './playStats'
 import { exportModpack, getModpackExportInfo, showExportedModpack } from './modpackExport'
 import { copyScreenshot, deleteScreenshot, listScreenshots, openScreenshotsDir, showScreenshot } from './screenshots'
 import { copyVersion, createDesktopShortcut, launchArgOf, renameVersion } from './versionOps'
+import { getNews } from './news'
+import { applyNetworkSettings, checkNetwork, validateProxyUrl } from './network'
+import { addOfflineAccount, removeOfflineAccount, renameOfflineAccount, selectOfflineAccount } from './offline'
 import { loginExternal, removeExternalAccount, selectExternalProfile } from './yggdrasil'
 import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
+import { getCurseForgeVersions, installCurseForgeResource, isCurseForgeId, searchCurseForge } from './curseforge'
 import {
   cancelMicrosoftLogin,
   getAccounts,
@@ -92,13 +110,20 @@ import type {
   VersionConfig,
   LocalResourceKind,
   SavedServer,
-  ModpackExportOptions
+  ModpackExportOptions,
+  GameDirInfo
 } from '../shared/types'
 
 /** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
 function broadcastSettings(settings: AppSettings): AppSettings {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('settings:changed', settings)
   return settings
+}
+
+/** 切换游戏目录后通知所有窗口（选中的版本也随之改变） */
+async function afterGameDirChange(info: GameDirInfo): Promise<GameDirInfo> {
+  broadcastSettings(await getSettings())
+  return info
 }
 
 function createWindow(): void {
@@ -148,11 +173,23 @@ function registerIpc(): void {
   ipcMain.handle('java:runtimes', () => listJavaRuntimes())
   ipcMain.handle('java:download', (_, component: string) => startJavaInstall(component))
   ipcMain.handle('settings:get', () => getSettings())
-  ipcMain.handle('settings:update', (_, patch: Partial<AppSettings>) => {
+  ipcMain.handle('settings:update', async (_, patch: Partial<AppSettings>) => {
     // 修改主题时同步给 Electron，所有窗口的 prefers-color-scheme 会随之变化
     if (patch.theme) nativeTheme.themeSource = patch.theme
-    return updateSettings(patch).then(broadcastSettings)
+    if (typeof patch.proxyUrl === 'string' && patch.proxyUrl.trim()) {
+      patch = { ...patch, proxyUrl: validateProxyUrl(patch.proxyUrl) }
+    }
+    if (patch.downloadThreads !== undefined) {
+      const threads = Number(patch.downloadThreads)
+      patch = { ...patch, downloadThreads: Number.isInteger(threads) ? Math.min(64, Math.max(1, threads)) : 16 }
+    }
+    const next = await updateSettings(patch)
+    // 代理与下载线程数立即生效
+    if ('proxyMode' in patch || 'proxyUrl' in patch || 'downloadThreads' in patch) await applyNetworkSettings()
+    return broadcastSettings(next)
   })
+  ipcMain.handle('network:check', () => checkNetwork())
+  ipcMain.handle('news:get', (_, force?: boolean) => getNews(force === true))
   ipcMain.handle('appearance:pickBackground', (event) =>
     pickBackground(BrowserWindow.fromWebContents(event.sender)).then(broadcastSettings)
   )
@@ -166,6 +203,7 @@ function registerIpc(): void {
   ipcMain.handle('install:cancel', () => cancelInstall())
   ipcMain.handle('install:status', () => getInstallStatus())
   ipcMain.handle('fabric:loaders', (_, minecraftVersion: string) => getFabricLoaders(minecraftVersion))
+  ipcMain.handle('quilt:loaders', (_, minecraftVersion: string) => getQuiltLoaders(minecraftVersion))
   ipcMain.handle('forge:versions', (_, minecraftVersion: string) => getForgeVersions(minecraftVersion))
   ipcMain.handle('neoforge:versions', (_, minecraftVersion: string) => getNeoForgeVersions(minecraftVersion))
   ipcMain.handle('optifine:versions', (_, minecraftVersion: string) => getOptiFineVersions(minecraftVersion))
@@ -198,6 +236,14 @@ function registerIpc(): void {
     updateMod(versionId, fileName, modrinthVersionId)
   )
   ipcMain.handle('local:list', (_, versionId: string, kind: LocalResourceKind) => listLocalResources(versionId, kind))
+  ipcMain.handle('local:checkUpdates', (_, versionId: string, kind: LocalResourceKind) =>
+    checkResourceUpdates(versionId, kind)
+  )
+  ipcMain.handle(
+    'local:update',
+    (_, versionId: string, kind: LocalResourceKind, fileName: string, modrinthVersionId: string) =>
+      updateResource(versionId, kind, fileName, modrinthVersionId)
+  )
   ipcMain.handle('local:setPackEnabled', (_, versionId: string, fileName: string, enabled: boolean) =>
     setResourcePackEnabled(versionId, fileName, enabled)
   )
@@ -215,6 +261,11 @@ function registerIpc(): void {
   ipcMain.handle('worlds:backup', (_, versionId: string, folder: string) => backupWorld(versionId, folder))
   ipcMain.handle('worlds:open', (_, versionId: string, folder?: string) => openWorldDir(versionId, folder))
   ipcMain.handle('worlds:openBackups', (_, versionId: string) => openBackupsDir(versionId))
+  ipcMain.handle('worlds:backups', (_, versionId: string) => listWorldBackups(versionId))
+  ipcMain.handle('worlds:restore', (_, versionId: string, file: string, asNew: boolean) =>
+    restoreWorldBackup(versionId, file, asNew === true)
+  )
+  ipcMain.handle('worlds:deleteBackup', (_, versionId: string, file: string) => deleteWorldBackup(versionId, file))
   ipcMain.handle('worlds:import', (event, versionId: string) =>
     importWorld(versionId, BrowserWindow.fromWebContents(event.sender))
   )
@@ -249,6 +300,12 @@ function registerIpc(): void {
     await removeExternalAccount(id)
     return getAccounts()
   })
+  ipcMain.handle('offline:add', (_, name: string) => addOfflineAccount(name).then(broadcastSettings))
+  ipcMain.handle('offline:select', (_, id: string) => selectOfflineAccount(id).then(broadcastSettings))
+  ipcMain.handle('offline:rename', (_, id: string, name: string) =>
+    renameOfflineAccount(id, name).then(broadcastSettings)
+  )
+  ipcMain.handle('offline:remove', (_, id: string) => removeOfflineAccount(id).then(broadcastSettings))
   ipcMain.handle('ms:login', () => startMicrosoftLogin())
   ipcMain.handle('ms:cancel', () => cancelMicrosoftLogin())
   ipcMain.handle('ms:status', () => getLoginStatus())
@@ -265,11 +322,17 @@ function registerIpc(): void {
   ipcMain.handle(
     'resource:search',
     (_, type: ResourceType, query: string, offset: number, filters: ResourceSearchFilters) =>
-      searchProjects(type, query, offset, filters)
+      filters?.source === 'curseforge'
+        ? searchCurseForge(type, query, offset, filters)
+        : searchProjects(type, query, offset, filters)
   )
-  ipcMain.handle('resource:versions', (_, projectId: string, type: ResourceType) => getProjectVersions(projectId, type))
+  ipcMain.handle('resource:versions', (_, projectId: string, type: ResourceType) =>
+    isCurseForgeId(projectId) ? getCurseForgeVersions(projectId, type) : getProjectVersions(projectId, type)
+  )
   ipcMain.handle('resource:install', (_, target: ResourceTarget, type: ResourceType, versionId: string) =>
-    installResource(target, type, versionId)
+    isCurseForgeId(versionId)
+      ? installCurseForgeResource(target, type, versionId)
+      : installResource(target, type, versionId)
   )
   ipcMain.handle('resource:worlds', (_, versionId: string) => listWorlds(versionId))
   ipcMain.handle('modpack:download', (_, versionId: string) => downloadModpack(versionId))
@@ -282,6 +345,10 @@ function registerIpc(): void {
   ipcMain.handle('game:launch', (_, versionId: string, server?: string) => launchGame(versionId, server))
   ipcMain.handle('update:check', () => checkUpdate())
   ipcMain.handle('update:open', (_, kind: 'asset' | 'page') => openUpdateLink(kind))
+  ipcMain.handle('update:download', () => downloadUpdate())
+  ipcMain.handle('update:downloadStatus', () => getUpdateDownload())
+  ipcMain.handle('update:cancelDownload', () => cancelUpdateDownload())
+  ipcMain.handle('update:install', () => installUpdate())
   ipcMain.handle('servers:list', () => listServers())
   ipcMain.handle('servers:save', (_, server: Omit<SavedServer, 'id'> & { id?: string }) => saveServer(server))
   ipcMain.handle('servers:delete', (_, id: string) => deleteServer(id))
@@ -300,12 +367,14 @@ function registerIpc(): void {
   ipcMain.handle('crash:open', (_, kind: 'report' | 'native') => openCrashFile(kind))
   ipcMain.handle('crash:export', (event) => exportCrashInfo(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('gamedir:info', () => getGameDirInfo())
-  ipcMain.handle('gamedir:set', (_, dir: string) => setGameDir(dir))
-  ipcMain.handle('gamedir:open', () => openGameDir())
-  // 弹出文件夹选择框并切换；用户取消时返回 null
+  ipcMain.handle('gamedir:set', (_, dir: string) => setGameDir(dir).then(afterGameDirChange))
+  ipcMain.handle('gamedir:rename', (_, dir: string, name: string) => renameGameDir(dir, name))
+  ipcMain.handle('gamedir:remove', (_, dir: string) => removeGameDir(dir))
+  ipcMain.handle('gamedir:open', (_, dir?: string) => openGameDir(typeof dir === 'string' ? dir : undefined))
+  // 弹出文件夹选择框，添加并切换到选中的目录；用户取消时返回 null
   ipcMain.handle('gamedir:pick', async (event) => {
     const dir = await pickGameDir(BrowserWindow.fromWebContents(event.sender))
-    return dir ? setGameDir(dir) : null
+    return dir ? setGameDir(dir).then(afterGameDirChange) : null
   })
   ipcMain.handle('memory:preview', (_, versionId: string) => previewMemory(versionId))
   ipcMain.handle(
@@ -361,7 +430,10 @@ app.whenReady().then(async () => {
   registerBackgroundProtocol()
   // 先应用保存的主题，再创建窗口，避免启动时闪烁
   nativeTheme.themeSource = (await getSettings()).theme
+  await applyNetworkSettings().catch((e) => console.error('应用网络设置失败：', e))
   createWindow()
+  // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
+  setTimeout(() => void cleanUpdateFiles(), 60_000)
   const shortcutVersion = launchArgOf(process.argv)
   if (shortcutVersion) void launchFromShortcut(shortcutVersion)
 

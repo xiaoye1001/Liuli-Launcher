@@ -1,9 +1,10 @@
-import { download, getDefaultAgent } from '@xmcl/file-transfer'
+import { download } from '@xmcl/file-transfer'
 import { app, shell } from 'electron'
 import { mkdir, readdir, rename, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import { getSettings } from './config'
 import { assertGameStopped, fileSha1, listModFiles, modsContextOf, type ModsContext } from './mods'
+import { downloadDispatcher } from './network'
 import type {
   ModrinthInstallResult,
   ModUpdate,
@@ -37,6 +38,7 @@ interface ModrinthVersion {
   version_number: string
   version_type: 'release' | 'beta' | 'alpha'
   date_published?: string
+  loaders?: string[]
   files: ModrinthFile[]
   dependencies: { project_id?: string | null; version_id?: string | null; dependency_type: string }[]
 }
@@ -167,11 +169,14 @@ export { USER_AGENT as MODRINTH_USER_AGENT }
 async function downloadVersionFile(version: ModrinthVersion, dir: string): Promise<string> {
   const file = version.files.find((f) => f.primary) ?? version.files[0]
   if (!file) throw new Error(`${version.name} 没有可下载的文件`)
+  if (!file.filename || file.filename !== basename(file.filename) || file.filename.startsWith('.')) {
+    throw new Error(`文件名无效：${file.filename}`)
+  }
   const urls = await modrinthFileUrls([file.url])
   await download({
     url: urls,
     destination: join(dir, file.filename),
-    dispatcher: getDefaultAgent({ maxRetries: 3 }),
+    dispatcher: downloadDispatcher(),
     headers: { 'User-Agent': USER_AGENT },
     validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
   })
@@ -323,7 +328,7 @@ export async function downloadModpackFile(versionId: string): Promise<string> {
   await download({
     url: await modrinthFileUrls([file.url]),
     destination,
-    dispatcher: getDefaultAgent({ maxRetries: 3 }),
+    dispatcher: downloadDispatcher(),
     headers: { 'User-Agent': USER_AGENT },
     validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
   })
@@ -395,7 +400,7 @@ export async function installResource(
   await download({
     url: await modrinthFileUrls([file.url]),
     destination: join(dir, basename(file.filename)),
-    dispatcher: getDefaultAgent({ maxRetries: 3 }),
+    dispatcher: downloadDispatcher(),
     headers: { 'User-Agent': USER_AGENT },
     validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
   })
@@ -421,19 +426,54 @@ export async function checkModUpdates(versionId: string): Promise<ModUpdate[]> {
     const hash = await fileSha1(join(ctx.dir, name)).catch(() => '')
     if (hash) hashOf.set(name, hash)
   }
+  return findModrinthUpdates(hashOf, ctx.minecraftVersion, () => loaders)
+}
+
+/**
+ * 按 SHA1 在 Modrinth 上查找文件的新版本（hashOf：文件名 → SHA1）。
+ * loadersFor 根据当前版本声明的加载器，返回查询新版本时使用的加载器（相同加载器的文件一起查询）。
+ * 正式版不会推荐升级到测试版；新版本的发布时间不能早于当前版本
+ */
+export async function findModrinthUpdates(
+  hashOf: Map<string, string>,
+  minecraftVersion: string,
+  loadersFor: (current: string[]) => string[]
+): Promise<ModUpdate[]> {
   const hashes = [...new Set(hashOf.values())]
   if (hashes.length === 0) return []
-
   const current = await modrinthFetch<Record<string, ModrinthVersion>>('/version_files', {
     method: 'POST',
     body: JSON.stringify({ hashes, algorithm: 'sha1' })
   })
-  const known = hashes.filter((h) => current[h])
-  if (known.length === 0) return []
-  const latest = await modrinthFetch<Record<string, ModrinthVersion>>('/version_files/update', {
-    method: 'POST',
-    body: JSON.stringify({ hashes: known, algorithm: 'sha1', loaders, game_versions: [ctx.minecraftVersion] })
-  })
+  // 按查询用的加载器分组
+  const groups = new Map<string, { loaders: string[]; hashes: string[] }>()
+  for (const hash of hashes) {
+    const now = current[hash]
+    if (!now) continue
+    const loaders = loadersFor(now.loaders ?? [])
+    const key = JSON.stringify(loaders)
+    const group = groups.get(key) ?? { loaders, hashes: [] }
+    group.hashes.push(hash)
+    groups.set(key, group)
+  }
+  if (groups.size === 0) return []
+  const latest: Record<string, ModrinthVersion> = {}
+  const loadersOfHash = new Map<string, string[]>()
+  for (const group of groups.values()) {
+    Object.assign(
+      latest,
+      await modrinthFetch<Record<string, ModrinthVersion>>('/version_files/update', {
+        method: 'POST',
+        body: JSON.stringify({
+          hashes: group.hashes,
+          algorithm: 'sha1',
+          loaders: group.loaders,
+          game_versions: [minecraftVersion]
+        })
+      })
+    )
+    for (const hash of group.hashes) loadersOfHash.set(hash, group.loaders)
+  }
 
   const updates: ModUpdate[] = []
   for (const [fileName, hash] of hashOf) {
@@ -442,7 +482,7 @@ export async function checkModUpdates(versionId: string): Promise<ModUpdate[]> {
     if (!now || !next || next.id === now.id) continue
     // 当前是正式版、最新是测试版时，改为找最新的正式版
     if (next.version_type !== 'release' && now.version_type === 'release') {
-      next = await pickRelease(now.project_id, loaders, ctx.minecraftVersion)
+      next = await pickRelease(now.project_id, loadersOfHash.get(hash) ?? [], minecraftVersion)
       if (!next || next.id === now.id) continue
     }
     // 发布时间比当前版本早的不算更新（例如当前版本不在筛选范围内时）
@@ -461,7 +501,7 @@ export async function checkModUpdates(versionId: string): Promise<ModUpdate[]> {
     })
   }
 
-  // 批量获取模组名称
+  // 批量获取项目名称
   if (updates.length > 0) {
     try {
       const ids = [...new Set(updates.map((u) => u.projectId))]
@@ -470,10 +510,16 @@ export async function checkModUpdates(versionId: string): Promise<ModUpdate[]> {
       )
       for (const u of updates) u.title = projects.find((p) => p.id === u.projectId)?.title ?? ''
     } catch {
-      // 名称获取失败时界面显示文件里读到的名称
+      // 名称获取失败时界面显示文件名
     }
   }
   return updates
+}
+
+/** 下载 Modrinth 上的某个版本到文件夹，返回文件名 */
+export async function downloadModrinthVersion(modrinthVersionId: string, dir: string): Promise<string> {
+  const version = await modrinthFetch<ModrinthVersion>(`/version/${encodeURIComponent(modrinthVersionId)}`)
+  return downloadVersionFile(version, dir)
 }
 
 /** 项目适用于该版本的最新正式版 */

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, ExternalLink, Globe, Loader2, LogIn, Trash2, X } from 'lucide-react'
+import { Check, CheckCircle2, ExternalLink, Globe, Loader2, LogIn, Pencil, Trash2, UserPlus, X } from 'lucide-react'
 import ExternalLoginForm from './ExternalLoginForm'
 import SkinHead from './SkinHead'
 import type { AccountsInfo, AppSettings, MsLoginStatus } from '../../../shared/types'
@@ -13,13 +13,82 @@ interface AccountListProps {
   settings: AppSettings
   accounts: AccountsInfo
   onAccountsChange: (accounts: AccountsInfo) => void
+  /** 离线账号变化后通知（离线账号保存在设置里） */
+  onSettingsChange: (settings: AppSettings) => void
+}
+
+const NAME_PATTERN = /^[A-Za-z0-9_]{3,16}$/
+
+/** 输入玩家名的小表单：添加或重命名离线账号 */
+function NameInput({
+  initial,
+  submitLabel,
+  onSubmit,
+  onCancel
+}: {
+  initial: string
+  submitLabel: string
+  onSubmit: (name: string) => Promise<void>
+  onCancel: () => void
+}): JSX.Element {
+  const [name, setName] = useState(initial)
+  const [busy, setBusy] = useState(false)
+  const valid = NAME_PATTERN.test(name)
+
+  const submit = async (): Promise<void> => {
+    if (!valid || busy) return
+    setBusy(true)
+    try {
+      await onSubmit(name)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-1 items-center gap-2">
+      <input
+        autoFocus
+        value={name}
+        maxLength={16}
+        placeholder="玩家名（字母、数字、下划线，3~16 位）"
+        onChange={(e) => setName(e.target.value.replace(/\s/g, ''))}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') void submit()
+          if (e.key === 'Escape') onCancel()
+        }}
+        className={`min-w-0 flex-1 rounded-xl border bg-black/20 px-4 py-2.5 text-sm outline-none ${
+          name && !valid ? 'border-red-400/60' : 'border-white/10 focus:border-emerald-400/50'
+        }`}
+      />
+      <button
+        onClick={submit}
+        disabled={!valid || busy}
+        title={submitLabel}
+        className="flex items-center gap-1.5 rounded-xl bg-emerald-500/80 px-3 py-2.5 text-sm font-medium hover:bg-emerald-500 disabled:opacity-40"
+      >
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+        {submitLabel}
+      </button>
+      <button
+        onClick={onCancel}
+        title="取消"
+        className="rounded-lg p-2.5 text-white/50 hover:bg-white/10 hover:text-white"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  )
 }
 
 /** 账号列表：离线账号 + 微软账号，添加微软账号（设备代码登录） */
-function AccountList({ settings, accounts, onAccountsChange }: AccountListProps): JSX.Element {
+function AccountList({ settings, accounts, onAccountsChange, onSettingsChange }: AccountListProps): JSX.Element {
   const [login, setLogin] = useState<MsLoginStatus>({ state: 'idle' })
   const [error, setError] = useState('')
   const [addingExternal, setAddingExternal] = useState(false)
+  const [addingOffline, setAddingOffline] = useState(false)
+  /** 正在重命名的离线账号 id */
+  const [renaming, setRenaming] = useState('')
 
   useEffect(() => {
     window.api.getMicrosoftLoginStatus().then(setLogin)
@@ -39,6 +108,18 @@ function AccountList({ settings, accounts, onAccountsChange }: AccountListProps)
     }
   }
 
+  /** 离线账号保存在设置里：更新设置后刷新账号列表 */
+  const offlineAction = async (action: () => Promise<AppSettings>): Promise<void> => {
+    setError('')
+    try {
+      onSettingsChange(await action())
+      onAccountsChange(await window.api.getAccounts())
+    } catch (e) {
+      setError(cleanError(e))
+      throw e
+    }
+  }
+
   const startLogin = (): Promise<void> =>
     run(async () => {
       setLogin(await window.api.startMicrosoftLogin())
@@ -53,17 +134,57 @@ function AccountList({ settings, accounts, onAccountsChange }: AccountListProps)
   return (
     <div className="space-y-3">
       {/* 离线账号 */}
-      <button
-        onClick={() => run(async () => onAccountsChange(await window.api.setActiveAccount('offline')))}
-        className={rowClass(accounts.active === 'offline')}
-      >
-        <SkinHead skin={settings.skinDataUrl} />
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-semibold">{settings.offlineName}</div>
-          <div className="text-xs text-white/50">离线账号 · 在主页修改玩家名</div>
-        </div>
-        {accounts.active === 'offline' && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
-      </button>
+      {settings.offlineAccounts.map((account) => {
+        const active = accounts.active === 'offline' && settings.activeOffline === account.id
+        if (renaming === account.id) {
+          return (
+            <div key={account.id} className="flex items-center gap-2">
+              <NameInput
+                initial={account.name}
+                submitLabel="保存"
+                onCancel={() => setRenaming('')}
+                onSubmit={(name) =>
+                  offlineAction(() => window.api.renameOfflineAccount(account.id, name)).then(
+                    () => setRenaming(''),
+                    () => undefined
+                  )
+                }
+              />
+            </div>
+          )
+        }
+        return (
+          <div key={account.id} className="flex items-center gap-2">
+            <button
+              onClick={() => offlineAction(() => window.api.selectOfflineAccount(account.id)).catch(() => undefined)}
+              className={rowClass(active)}
+            >
+              <SkinHead skin={account.skin} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-semibold">{account.name}</div>
+                <div className="text-xs text-white/50">离线账号{account.skin ? ' · 自定义皮肤' : ''}</div>
+              </div>
+              {active && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
+            </button>
+            <button
+              onClick={() => setRenaming(account.id)}
+              title="修改玩家名"
+              className="rounded-lg p-2.5 text-white/50 hover:bg-white/10 hover:text-white"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            {settings.offlineAccounts.length > 1 && (
+              <button
+                onClick={() => offlineAction(() => window.api.removeOfflineAccount(account.id)).catch(() => undefined)}
+                title="删除这个离线账号"
+                className="rounded-lg p-2.5 text-white/50 hover:bg-red-500/30 hover:text-red-200"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )
+      })}
 
       {/* 微软账号 */}
       {accounts.accounts.map((account) => (
@@ -155,6 +276,28 @@ function AccountList({ settings, accounts, onAccountsChange }: AccountListProps)
       )}
       {error && <div className="rounded-xl bg-red-500/20 px-4 py-2.5 text-sm text-red-200">{error}</div>}
 
+      {addingOffline ? (
+        <NameInput
+          initial=""
+          submitLabel="添加"
+          onCancel={() => setAddingOffline(false)}
+          onSubmit={(name) =>
+            offlineAction(() => window.api.addOfflineAccount(name)).then(
+              () => setAddingOffline(false),
+              () => undefined
+            )
+          }
+        />
+      ) : (
+        <button
+          onClick={() => setAddingOffline(true)}
+          title="每个离线账号有自己的玩家名和皮肤"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2.5 text-sm font-medium hover:bg-white/20"
+        >
+          <UserPlus className="h-4 w-4" />
+          添加离线账号
+        </button>
+      )}
       <button
         onClick={startLogin}
         disabled={loggingIn || !accounts.loginAvailable}

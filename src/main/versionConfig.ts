@@ -17,7 +17,11 @@ export const DEFAULT_VERSION_CONFIG: VersionConfig = {
   windowHeight: 0,
   fullscreen: false,
   jvmArgs: '',
-  gameArgs: ''
+  gameArgs: '',
+  wrapperCommand: '',
+  envVars: '',
+  preLaunchCommand: '',
+  postExitCommand: ''
 }
 
 function configPath(gameDir: string, versionId: string): string {
@@ -41,6 +45,9 @@ function sanitize(raw: unknown): VersionConfig {
   if (typeof saved.fullscreen === 'boolean') config.fullscreen = saved.fullscreen
   if (typeof saved.jvmArgs === 'string') config.jvmArgs = saved.jvmArgs
   if (typeof saved.gameArgs === 'string') config.gameArgs = saved.gameArgs
+  for (const key of ['wrapperCommand', 'envVars', 'preLaunchCommand', 'postExitCommand'] as const) {
+    if (typeof saved[key] === 'string') config[key] = saved[key] as string
+  }
   return config
 }
 
@@ -78,6 +85,12 @@ export async function setVersionConfig(versionId: string, patch: Partial<Version
   } catch {
     throw new Error('游戏参数中的引号没有配对')
   }
+  try {
+    splitArgs(next.wrapperCommand)
+  } catch {
+    throw new Error('包装命令中的引号没有配对')
+  }
+  parseEnvVars(next.envVars)
   if (!existsSync(join(gameDir, 'versions', versionId, `${versionId}.json`)))
     throw new Error(`找不到版本：${versionId}`)
   await writeFile(`${path}.tmp`, JSON.stringify(next, null, 2), 'utf-8')
@@ -104,6 +117,23 @@ export async function resolveVersionGameDir(
   const { gameDir, versionIsolation } = await getSettings()
   const isolated = isolatedWith(await getVersionConfig(versionId, gameDir), versionIsolation, loader)
   return { dir: versionGameDir(gameDir, versionId, isolated), isolated }
+}
+
+/** 名称：字母或下划线开头，只含字母、数字、下划线 */
+const ENV_LINE = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/
+
+/** 解析环境变量文本：每行一个「名称=值」，空行和 # 开头的行忽略 */
+export function parseEnvVars(text: string): Record<string, string> {
+  const env: Record<string, string> = {}
+  text.split(/\r?\n/).forEach((raw, index) => {
+    const line = raw.trim()
+    if (!line || line.startsWith('#')) return
+    const match = ENV_LINE.exec(line)
+    if (!match)
+      throw new Error(`环境变量第 ${index + 1} 行格式不对，应为「名称=值」，例如 MESA_GL_VERSION_OVERRIDE=4.5`)
+    env[match[1]] = match[2]
+  })
+  return env
 }
 
 /**

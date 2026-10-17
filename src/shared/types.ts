@@ -23,6 +23,46 @@ export interface JavaInfo {
 /** 下载源：官方源 或 BMCLAPI 国内镜像 */
 export type DownloadSource = 'mojang' | 'bmclapi'
 
+/** 离线账号（可以保存多个，各自有玩家名和皮肤） */
+export interface OfflineAccount {
+  id: string
+  name: string
+  /** 皮肤（PNG 的 data URL），空字符串使用默认皮肤 */
+  skin: string
+  skinModel: SkinModel
+}
+
+/** Minecraft 官方新闻 */
+export interface NewsItem {
+  id: string
+  title: string
+  /** 分类标签，例如 Minecraft: Java Edition */
+  tag: string
+  /** 日期，例如 2025-06-17 */
+  date: string
+  text: string
+  /** 配图（https 地址），可能为空 */
+  image: string
+  /** 「阅读全文」链接（https），可能为空 */
+  link: string
+}
+
+export interface NewsList {
+  items: NewsItem[]
+  fetchedAt: number
+  /** 网络失败，显示的是上次保存的新闻 */
+  offline: boolean
+}
+
+export type ProxyMode = 'none' | 'system' | 'custom'
+
+/** 网络连通性测试结果 */
+export interface NetworkCheck {
+  /** 正在使用的代理（隐藏密码），null 为直连 */
+  proxy: string | null
+  results: { name: string; ok: boolean; ms: number; status?: number; error?: string }[]
+}
+
 /** 启动器设置，保存在 userData/settings.json */
 export interface AppSettings {
   /** 选中的 java 可执行文件路径，空字符串表示未选择 */
@@ -35,12 +75,26 @@ export interface AppSettings {
   memoryAuto: boolean
   /** 启动前检查游戏文件，自动补全缺失或损坏的文件 */
   checkFiles: boolean
+  /** 主页显示 Minecraft 新闻 */
+  showNews: boolean
   /** 下载源 */
   downloadSource: DownloadSource
+  /** 每个服务器同时下载的文件数（1~64） */
+  downloadThreads: number
+  /** 代理：不使用 / 系统代理 / 手动设置 */
+  proxyMode: ProxyMode
+  /** 手动设置的 HTTP 代理地址，例如 http://127.0.0.1:7890 */
+  proxyUrl: string
   /** 游戏目录（.minecraft） */
   gameDir: string
-  /** 离线模式玩家名 */
+  /** 添加过的游戏目录（包含当前目录），可以在它们之间切换 */
+  gameDirs: GameDirEntry[]
+  /** 当前离线账号的玩家名（与 offlineAccounts 中 activeOffline 对应的账号同步） */
   offlineName: string
+  /** 所有离线账号 */
+  offlineAccounts: OfflineAccount[]
+  /** 当前使用的离线账号 id */
+  activeOffline: string
   /** 上次选择启动的版本 */
   selectedVersion: string
   /** 自定义皮肤（PNG 的 data URL），空字符串表示使用默认皮肤 */
@@ -87,6 +141,20 @@ export interface UpdateInfo {
   /** 适合本机的安装包文件名，没有时为空 */
   assetName: string
   assetSize: number
+  /** 是否可以在启动器里直接下载并替换更新（开发版本或无法识别运行方式时为 false） */
+  autoUpdate: boolean
+}
+
+/** 自动更新的下载状态 */
+export interface UpdateDownload {
+  state: 'idle' | 'downloading' | 'ready' | 'failed'
+  /** 正在下载 / 已下载的版本号 */
+  version: string
+  progress: number
+  total: number
+  /** 字节/秒 */
+  speed: number
+  error?: string
 }
 
 /** 主题色 */
@@ -144,7 +212,24 @@ export type InstallKind = 'install' | 'repair' | 'java'
 export type InstallState = 'running' | 'success' | 'failed' | 'cancelled'
 
 /** 安装阶段：游戏本体（版本 json 与客户端 jar） → 依赖库与资源文件（并行下载） → 运行模组加载器安装程序 */
-export type InstallPhase = 'version' | 'dependencies' | 'processing' | 'java' | 'modpack'
+export type InstallPhase =
+  | 'version'
+  | 'assets'
+  | 'libraries'
+  | 'loader'
+  | 'dependencies'
+  | 'processing'
+  | 'java'
+  | 'modpack'
+  | 'unpack'
+
+/** 安装过程中的一个步骤（同一类下载任务合在一起） */
+export interface InstallStep {
+  phase: InstallPhase
+  progress: number
+  total: number
+  done: boolean
+}
 
 /** 安装进度，由主进程实时推送到界面 */
 export interface InstallStatus {
@@ -159,6 +244,10 @@ export interface InstallStatus {
   total: number
   /** 下载速度（字节/秒） */
   speed: number
+  /** 补充说明，例如「还剩 2 个文件：xxx.jar」 */
+  detail?: string
+  /** 各个步骤的进度（与 PCL 类似，按开始的先后排列） */
+  steps?: InstallStep[]
   /** 失败原因 */
   error?: string
 }
@@ -200,6 +289,14 @@ export interface VersionConfig {
   jvmArgs: string
   /** 附加的游戏参数 */
   gameArgs: string
+  /** 包装命令，例如 gamemoderun、prime-run：游戏通过这个命令启动 */
+  wrapperCommand: string
+  /** 附加的环境变量，每行一个「名称=值」 */
+  envVars: string
+  /** 启动前执行的命令（通过系统命令行执行，失败时取消启动） */
+  preLaunchCommand: string
+  /** 游戏退出后执行的命令 */
+  postExitCommand: string
 }
 
 /** 游戏运行状态：空闲 / 启动中 / 窗口已出现 / 正常退出 / 崩溃或启动失败 */
@@ -248,7 +345,29 @@ export interface GameLogEvent {
 }
 
 /** 游戏目录信息 */
+/** 保存的一个游戏目录 */
+export interface GameDirEntry {
+  path: string
+  /** 显示的名字 */
+  name: string
+  /** 切换走时该目录选中的版本，切换回来时恢复 */
+  selectedVersion?: string
+}
+
+/** 游戏目录列表中的一项（含统计信息） */
+export interface GameDirSummary {
+  path: string
+  name: string
+  current: boolean
+  exists: boolean
+  versionCount: number
+  isDefault: boolean
+  isOfficial: boolean
+}
+
 export interface GameDirInfo {
+  /** 添加过的所有游戏目录，当前目录在其中 */
+  dirs: GameDirSummary[]
   /** 当前使用的游戏目录 */
   path: string
   /** 目录中已安装的版本数量 */
@@ -280,6 +399,8 @@ export interface InstallRequest {
   name: string
   /** 要附加的 Fabric 加载器版本，不安装时为空 */
   fabricLoader?: string
+  /** 要附加的 Quilt 加载器版本，不安装时为空 */
+  quiltLoader?: string
   /** 要附加的 Forge 版本（例如 47.3.0），不安装时为空 */
   forgeVersion?: string
   /** 要附加的 NeoForge 版本（例如 21.1.65，1.20.1 为 1.20.1-47.1.106），不安装时为空 */
@@ -424,6 +545,18 @@ export interface WorldInfo {
   icon?: string
   /** level.dat 读取失败 */
   damaged: boolean
+}
+
+/** 存档备份（游戏目录 backups 文件夹里的 zip） */
+export interface WorldBackup {
+  file: string
+  /** 备份的存档文件夹名 */
+  world: string
+  /** 备份时间（毫秒时间戳） */
+  createdAt: number
+  size: number
+  /** 原存档是否还在 */
+  worldExists: boolean
 }
 
 export interface WorldList {
@@ -706,8 +839,14 @@ export interface ModpackInfo {
   fileCount: number
   /** 下载文件的总大小（字节），CurseForge 整合包在安装时才知道，为 0 */
   totalSize: number
-  /** overrides 中的文件数（配置文件等） */
+  /** overrides 中的文件数（配置文件等，不含游戏资源文件） */
   overrideCount: number
+  /** 列在整合包清单里、但压缩包里已经有了而不用下载的文件数 */
+  skippedDownloads?: number
+  /** 整合包里已经带着的模组（mods 文件夹中的 .jar）数量 */
+  includedMods?: number
+  /** 整合包里带着的游戏资源文件（assets、libraries）数量，安装时直接使用、不再下载 */
+  includedGameFiles?: number
 }
 
 /** 下载页的社区资源类型（与 Modrinth 的项目类型一致） */
@@ -723,7 +862,11 @@ export interface ResourceSearchFilters {
   category?: string
   /** 排序：relevance / downloads / follows / newest / updated，不填时有关键字按相关度、否则按下载量 */
   sort?: string
+  /** 资源来源，默认 Modrinth */
+  source?: ResourceSource
 }
+
+export type ResourceSource = 'modrinth' | 'curseforge'
 
 /** Modrinth 上的项目（搜索结果） */
 export interface ModrinthProjectHit {

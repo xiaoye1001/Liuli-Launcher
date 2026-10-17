@@ -1,5 +1,9 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
+  UpdateDownload,
+  NewsList,
+  NetworkCheck,
+  WorldBackup,
   MemoryPlan,
   MsSkinProfile,
   AppSettings,
@@ -63,6 +67,10 @@ declare global {
       getSettings: () => Promise<AppSettings>
       updateSettings: (patch: Partial<AppSettings>) => Promise<AppSettings>
       getSystemInfo: () => Promise<SystemInfo>
+      /** 测试常用服务器能否连接（使用当前的代理设置） */
+      checkNetwork: () => Promise<NetworkCheck>
+      /** Minecraft 官方新闻（一小时内使用缓存，force 为 true 时重新获取） */
+      getNews: (force?: boolean) => Promise<NewsList>
       /** 预览某个版本自动分配的内存；版本无法读取时返回 null */
       previewMemory: (versionId: string) => Promise<MemoryPlan | null>
       getVersionList: (force?: boolean) => Promise<VersionManifest>
@@ -71,6 +79,8 @@ declare global {
       cancelInstall: () => Promise<void>
       getInstallStatus: () => Promise<InstallStatus | null>
       getFabricLoaders: (minecraftVersion: string) => Promise<FabricLoaderVersion[]>
+      /** 某个 Minecraft 版本可用的 Quilt 加载器版本，不支持时为空 */
+      getQuiltLoaders: (minecraftVersion: string) => Promise<FabricLoaderVersion[]>
       getForgeVersions: (minecraftVersion: string) => Promise<ForgeVersionInfo[]>
       getNeoForgeVersions: (minecraftVersion: string) => Promise<NeoForgeVersionInfo[]>
       getOptiFineVersions: (minecraftVersion: string) => Promise<OptiFineVersionInfo[]>
@@ -85,6 +95,15 @@ declare global {
       setResourcePackEnabled: (versionId: string, fileName: string, enabled: boolean) => Promise<void>
       /** 设置当前光影，null 为关闭光影 */
       setActiveShader: (versionId: string, fileName: string | null) => Promise<void>
+      /** 检查资源包 / 光影包在 Modrinth 上有没有新版本 */
+      checkResourceUpdates: (versionId: string, kind: LocalResourceKind) => Promise<ModUpdate[]>
+      /** 更新资源包 / 光影包，返回新文件名（启用状态保持不变） */
+      updateResource: (
+        versionId: string,
+        kind: LocalResourceKind,
+        fileName: string,
+        modrinthVersionId: string
+      ) => Promise<string>
       deleteLocalResource: (versionId: string, kind: LocalResourceKind, fileName: string) => Promise<void>
       /** 选择文件添加，返回添加的数量 */
       addLocalResources: (versionId: string, kind: LocalResourceKind) => Promise<number>
@@ -97,6 +116,16 @@ declare global {
       backupWorld: (versionId: string, folder: string) => Promise<{ path: string; size: number }>
       openWorldDir: (versionId: string, folder?: string) => Promise<void>
       openBackupsDir: (versionId: string) => Promise<void>
+      /** 列出存档备份（新的在前） */
+      listWorldBackups: (versionId: string) => Promise<WorldBackup[]>
+      /** 还原备份：asNew 为 true 时还原为新存档，否则覆盖原存档（会先自动备份当前存档） */
+      restoreWorldBackup: (
+        versionId: string,
+        file: string,
+        asNew: boolean
+      ) => Promise<{ folder: string; safetyBackup?: string }>
+      /** 删除备份（移到回收站） */
+      deleteWorldBackup: (versionId: string, file: string) => Promise<void>
       /** 从 zip 导入存档，返回文件夹名；取消时返回 null */
       importWorld: (versionId: string) => Promise<string | null>
       listWorldDatapacks: (versionId: string, folder: string) => Promise<WorldDatapack[]>
@@ -173,6 +202,13 @@ declare global {
       checkUpdate: () => Promise<UpdateInfo>
       /** 在浏览器中打开新版本的安装包或发布页面 */
       openUpdateLink: (kind: 'asset' | 'page') => Promise<void>
+      /** 在启动器里下载新版本（校验 SHA-256），进度通过 onUpdateDownload 推送 */
+      downloadUpdate: () => Promise<void>
+      getUpdateDownload: () => Promise<UpdateDownload>
+      cancelUpdateDownload: () => Promise<void>
+      /** 替换为新版本并重启启动器 */
+      installUpdate: () => Promise<void>
+      onUpdateDownload: (callback: (status: UpdateDownload) => void) => () => void
       listServers: () => Promise<SavedServer[]>
       /** 添加（没有 id）或修改服务器，返回新的列表 */
       saveServer: (server: Omit<SavedServer, 'id'> & { id?: string }) => Promise<SavedServer[]>
@@ -198,6 +234,13 @@ declare global {
       /** 账号下有多个角色时选择一个 */
       selectExternalProfile: (pendingId: string, profileId: string) => Promise<ExternalAccount>
       removeExternalAccount: (id: string) => Promise<AccountsInfo>
+      /** 添加离线账号并切换为当前账号 */
+      addOfflineAccount: (name: string) => Promise<AppSettings>
+      /** 切换到某个离线账号（同时把当前账号设为离线） */
+      selectOfflineAccount: (id: string) => Promise<AppSettings>
+      renameOfflineAccount: (id: string, name: string) => Promise<AppSettings>
+      /** 删除离线账号，至少保留一个 */
+      removeOfflineAccount: (id: string) => Promise<AppSettings>
       /** 获取设备代码后立即返回，之后的进度通过 onMicrosoftLogin 推送 */
       startMicrosoftLogin: () => Promise<MsLoginStatus>
       cancelMicrosoftLogin: () => Promise<void>
@@ -216,7 +259,10 @@ declare global {
       getGameDirInfo: () => Promise<GameDirInfo>
       setGameDir: (dir: string) => Promise<GameDirInfo>
       pickGameDir: () => Promise<GameDirInfo | null>
-      openGameDir: () => Promise<void>
+      /** 打开游戏目录，不填时打开当前目录 */
+      openGameDir: (dir?: string) => Promise<void>
+      renameGameDir: (dir: string, name: string) => Promise<GameDirInfo>
+      removeGameDir: (dir: string) => Promise<GameDirInfo>
       getGameLogs: () => Promise<string[]>
       openLogWindow: () => Promise<void>
       onGameLog: (callback: (event: GameLogEvent) => void) => () => void
