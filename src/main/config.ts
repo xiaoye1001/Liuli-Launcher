@@ -63,6 +63,8 @@ function defaultSettings(): AppSettings {
     checkFiles: true,
     downloadSource: 'bmclapi',
     showNews: true,
+    showRecentPlays: true,
+    recentPlaysCollapsed: false,
     downloadThreads: 16,
     proxyMode: 'none',
     proxyUrl: '',

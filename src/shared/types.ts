@@ -77,6 +77,10 @@ export interface AppSettings {
   checkFiles: boolean
   /** 主页显示 Minecraft 新闻 */
   showNews: boolean
+  /** 主页显示「最近游玩」 */
+  showRecentPlays: boolean
+  /** 主页的「最近游玩」收起（只显示标题） */
+  recentPlaysCollapsed: boolean
   /** 下载源 */
   downloadSource: DownloadSource
   /** 每个服务器同时下载的文件数（1~64） */

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   CheckCircle2,
+  Clock,
   Coffee,
   ExternalLink,
   Download,
@@ -369,6 +370,31 @@ function SettingsPage(): JSX.Element {
             <span
               className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
                 settings.showNews ? 'left-6' : 'left-1'
+              }`}
+            />
+          </button>
+        </div>
+        {/* 主页最近游玩 */}
+        <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Clock className="h-4 w-4 text-emerald-300" />
+            <div>
+              <div className="text-sm font-medium">主页显示最近游玩</div>
+              <div className="text-xs text-white/50">在主页显示最近玩过的版本和游玩时长，点击直接启动</div>
+            </div>
+          </div>
+          <button
+            role="switch"
+            aria-checked={settings.showRecentPlays}
+            aria-label="主页显示最近游玩"
+            onClick={() => update({ showRecentPlays: !settings.showRecentPlays })}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+              settings.showRecentPlays ? 'bg-emerald-500' : 'bg-white/20'
+            }`}
+          >
+            <span
+              className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                settings.showRecentPlays ? 'left-6' : 'left-1'
               }`}
             />
           </button>

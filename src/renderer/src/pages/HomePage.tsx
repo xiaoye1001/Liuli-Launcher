@@ -172,7 +172,18 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
           <NewsPanel onHide={async () => setSettings(await window.api.updateSettings({ showNews: false }))} />
         </div>
       )}
-      {nameValid && <RecentPlays versions={versions} game={game} onLaunch={launchRecent} />}
+      {nameValid && settings?.showRecentPlays && (
+        <RecentPlays
+          versions={versions}
+          game={game}
+          onLaunch={launchRecent}
+          collapsed={settings.recentPlaysCollapsed}
+          onToggleCollapsed={async () =>
+            setSettings(await window.api.updateSettings({ recentPlaysCollapsed: !settings.recentPlaysCollapsed }))
+          }
+          onHide={async () => setSettings(await window.api.updateSettings({ showRecentPlays: false }))}
+        />
+      )}
 
       <AnimatePresence>
         {game.state === 'crashed' && game.error && !crashDismissed && (
