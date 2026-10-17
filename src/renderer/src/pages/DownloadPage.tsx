@@ -244,7 +244,7 @@ function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps 
                   if (info) setModpack(info)
                 })
               }
-              title="导入 Modrinth 整合包（.mrpack）"
+              title="导入整合包：Modrinth（.mrpack）、CurseForge、MultiMC / Prism、MCBBS（.zip），也可以直接拖进窗口"
               className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
             >
               <Package className="h-4 w-4" />

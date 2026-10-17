@@ -19,6 +19,7 @@ import type {
   ModrinthInstallResult,
   ModpackInfo,
   ModrinthModpack,
+  ModpackSearchFilters,
   ModrinthModpackVersion,
   ModrinthSearchResult,
   SystemInfo,
@@ -70,7 +71,11 @@ declare global {
       installModpack: (name: string) => Promise<void>
       /** 读取拖入窗口的 .mrpack 文件 */
       loadModpackFile: (path: string) => Promise<ModpackInfo>
-      searchModpacks: (query: string, offset: number) => Promise<{ hits: ModrinthModpack[]; total: number }>
+      searchModpacks: (
+        query: string,
+        offset: number,
+        filters: ModpackSearchFilters
+      ) => Promise<{ hits: ModrinthModpack[]; total: number }>
       getModpackVersions: (projectId: string) => Promise<ModrinthModpackVersion[]>
       /** 从 Modrinth 下载整合包的某个版本并读取信息 */
       downloadModpack: (versionId: string) => Promise<ModpackInfo>

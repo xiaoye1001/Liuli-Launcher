@@ -344,7 +344,11 @@ export interface MsLoginStatus {
 }
 
 /** 整合包信息（从 .mrpack 中读取） */
+/** 整合包格式 */
+export type ModpackFormat = 'modrinth' | 'curseforge' | 'multimc' | 'mcbbs'
+
 export interface ModpackInfo {
+  format: ModpackFormat
   /** 文件名 */
   fileName: string
   name: string
@@ -357,10 +361,22 @@ export interface ModpackInfo {
   loaderVersion: string
   /** 需要下载的文件数（已排除客户端不支持的文件） */
   fileCount: number
-  /** 下载文件的总大小（字节） */
+  /** 下载文件的总大小（字节），CurseForge 整合包在安装时才知道，为 0 */
   totalSize: number
   /** overrides 中的文件数（配置文件等） */
   overrideCount: number
+}
+
+/** 整合包搜索的筛选条件 */
+export interface ModpackSearchFilters {
+  /** Minecraft 版本，例如 1.20.1 */
+  gameVersion?: string
+  /** 模组加载器：fabric / forge / neoforge / quilt */
+  loader?: string
+  /** Modrinth 分类，例如 optimization */
+  category?: string
+  /** 排序：relevance / downloads / follows / newest / updated，不填时有关键字按相关度、否则按下载量 */
+  sort?: string
 }
 
 /** Modrinth 上的整合包（搜索结果） */

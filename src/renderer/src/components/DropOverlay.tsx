@@ -13,7 +13,7 @@ interface DropOverlayProps {
 }
 
 /**
- * 全窗口拖放：把 .mrpack 拖进启动器任意位置即可导入整合包。
+ * 全窗口拖放：把整合包（.mrpack / .zip）拖进启动器任意位置即可导入。
  * 同时阻止浏览器默认的「打开拖入的文件」行为。
  */
 function DropOverlay({ onModpack }: DropOverlayProps): JSX.Element | null {
@@ -26,7 +26,12 @@ function DropOverlay({ onModpack }: DropOverlayProps): JSX.Element | null {
   onModpackRef.current = onModpack
 
   useEffect(() => {
-    const hasFiles = (e: DragEvent): boolean => !!e.dataTransfer?.types.includes('Files')
+    // 从文件管理器拖入时类型里有 Files；部分程序拖出的文件在拖动过程中类型为空，也按文件处理。
+    // 只有页面内部的拖动（文字、图片等，类型为 text/plain 之类）才忽略
+    const hasFiles = (e: DragEvent): boolean => {
+      const types = e.dataTransfer?.types ?? []
+      return types.includes('Files') || types.length === 0
+    }
     let errorTimer: ReturnType<typeof setTimeout> | undefined
 
     const showError = (message: string): void => {
@@ -46,22 +51,31 @@ function DropOverlay({ onModpack }: DropOverlayProps): JSX.Element | null {
       if (depth.current === 0) setDragging(false)
     }
     const onOver = (e: DragEvent): void => {
+      // 始终允许放下（否则浏览器不会触发 drop），放下后再检查是不是整合包
       e.preventDefault()
-      if (e.dataTransfer) e.dataTransfer.dropEffect = hasFiles(e) ? 'copy' : 'none'
+      if (e.dataTransfer && hasFiles(e)) e.dataTransfer.dropEffect = 'copy'
     }
     const onDrop = async (e: DragEvent): Promise<void> => {
       e.preventDefault()
       depth.current = 0
       setDragging(false)
       const file = e.dataTransfer?.files[0]
-      if (!file) return
-      if (!file.name.toLowerCase().endsWith('.mrpack')) {
-        showError('只支持拖入 Modrinth 整合包（.mrpack 文件）')
+      if (!file) {
+        showError('没有读取到文件，请从文件管理器中把整合包拖进来')
+        return
+      }
+      if (!/\.(mrpack|zip)$/i.test(file.name)) {
+        showError('只支持拖入整合包（.mrpack 或 .zip 文件）')
+        return
+      }
+      const path = window.api.getPathForFile(file)
+      if (!path) {
+        showError('无法获取文件位置，请改用「导入整合包」按钮选择文件')
         return
       }
       setLoading(true)
       try {
-        onModpackRef.current(await window.api.loadModpackFile(window.api.getPathForFile(file)))
+        onModpackRef.current(await window.api.loadModpackFile(path))
       } catch (err) {
         showError(cleanError(err))
       } finally {
@@ -94,7 +108,11 @@ function DropOverlay({ onModpack }: DropOverlayProps): JSX.Element | null {
             <PackagePlus className="h-12 w-12 text-emerald-300" />
           )}
           <div className="text-lg font-semibold">{loading ? '正在读取整合包…' : '松开以导入整合包'}</div>
-          {!loading && <div className="text-sm text-white/60">支持 Modrinth 整合包（.mrpack）</div>}
+          {!loading && (
+            <div className="text-sm text-white/60">
+              支持 Modrinth（.mrpack）、CurseForge、MultiMC / Prism、MCBBS 整合包（.zip）
+            </div>
+          )}
         </div>
       )}
       {error && !dragging && !loading && (

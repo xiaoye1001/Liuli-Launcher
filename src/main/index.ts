@@ -38,7 +38,7 @@ import {
   setActiveAccount,
   startMicrosoftLogin
 } from './microsoft'
-import type { AppSettings, InstallRequest, SystemInfo } from '../shared/types'
+import type { AppSettings, InstallRequest, ModpackSearchFilters, SystemInfo } from '../shared/types'
 
 /** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
 function broadcastSettings(settings: AppSettings): AppSettings {
@@ -139,7 +139,9 @@ function registerIpc(): void {
   ipcMain.handle('modpack:pick', (event) => pickModpack(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('modpack:install', (_, name: string) => installModpack(name))
   ipcMain.handle('modpack:loadFile', (_, path: string) => loadModpackFile(path))
-  ipcMain.handle('modpack:search', (_, query: string, offset: number) => searchModpacks(query, offset))
+  ipcMain.handle('modpack:search', (_, query: string, offset: number, filters: ModpackSearchFilters) =>
+    searchModpacks(query, offset, filters)
+  )
   ipcMain.handle('modpack:versions', (_, projectId: string) => getModpackVersions(projectId))
   ipcMain.handle('modpack:download', (_, versionId: string) => downloadModpack(versionId))
   ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>

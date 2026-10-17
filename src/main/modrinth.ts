@@ -8,7 +8,8 @@ import type {
   ModrinthInstallResult,
   ModrinthModpack,
   ModrinthModpackVersion,
-  ModrinthSearchResult
+  ModrinthSearchResult,
+  ModpackSearchFilters
 } from '../shared/types'
 
 const OFFICIAL_API = 'https://api.modrinth.com/v2'
@@ -224,11 +225,21 @@ export async function installFromModrinth(versionId: string, projectId: string):
 const LOADER_CATEGORIES = ['fabric', 'forge', 'neoforge', 'quilt']
 
 /** 在 Modrinth 搜索整合包（无关键字时按下载量排序） */
-export async function searchModpacks(query: string, offset = 0): Promise<{ hits: ModrinthModpack[]; total: number }> {
+export async function searchModpacks(
+  query: string,
+  offset = 0,
+  filters: ModpackSearchFilters = {}
+): Promise<{ hits: ModrinthModpack[]; total: number }> {
+  const facets = [['project_type:modpack']]
+  if (filters.gameVersion) facets.push([`versions:${filters.gameVersion}`])
+  if (filters.loader) facets.push([`categories:${filters.loader}`])
+  if (filters.category) facets.push([`categories:${filters.category}`])
+  const sorts = ['relevance', 'downloads', 'follows', 'newest', 'updated']
+  const index = filters.sort && sorts.includes(filters.sort) ? filters.sort : query.trim() ? 'relevance' : 'downloads'
   const params = new URLSearchParams({
     query: query.trim(),
-    facets: JSON.stringify([['project_type:modpack']]),
-    index: query.trim() ? 'relevance' : 'downloads',
+    facets: JSON.stringify(facets),
+    index,
     offset: String(offset),
     limit: '20'
   })

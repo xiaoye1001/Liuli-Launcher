@@ -1,9 +1,59 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertTriangle, ArrowLeft, ChevronDown, Download, Loader2, Package, Search } from 'lucide-react'
-import type { ModpackInfo, ModrinthModpack, ModrinthModpackVersion } from '../../../shared/types'
+import type { ModpackInfo, ModpackSearchFilters, ModrinthModpack, ModrinthModpackVersion } from '../../../shared/types'
 
 const LOADER_NAMES: Record<string, string> = { fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge', quilt: 'Quilt' }
 const TYPE_LABELS = { release: '', beta: '测试版', alpha: '早期测试版' }
+
+/** Modrinth 的整合包分类 */
+const CATEGORIES: [string, string][] = [
+  ['adventure', '冒险'],
+  ['challenging', '挑战'],
+  ['combat', '战斗'],
+  ['kitchen-sink', '大型综合'],
+  ['lightweight', '轻量'],
+  ['magic', '魔法'],
+  ['multiplayer', '多人'],
+  ['optimization', '优化'],
+  ['quests', '任务'],
+  ['technology', '科技']
+]
+
+const SORTS: [string, string][] = [
+  ['', '默认排序'],
+  ['relevance', '相关度'],
+  ['downloads', '下载量'],
+  ['follows', '关注数'],
+  ['updated', '最近更新'],
+  ['newest', '最新发布']
+]
+
+/** 筛选下拉框 */
+function FilterSelect({
+  value,
+  onChange,
+  options
+}: {
+  value: string
+  onChange: (value: string) => void
+  options: [string, string][]
+}): JSX.Element {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`min-w-0 rounded-lg border bg-black/20 px-2.5 py-1.5 text-xs outline-none transition-colors focus:border-sky-400/70 ${
+        value ? 'border-emerald-400/50 text-white' : 'border-white/10 text-white/70'
+      }`}
+    >
+      {options.map(([key, label]) => (
+        <option key={key} value={key} className="bg-slate-800 text-white">
+          {label}
+        </option>
+      ))}
+    </select>
+  )
+}
 
 function formatDownloads(n: number): string {
   if (n >= 1e8) return `${(n / 1e8).toFixed(1)} 亿`
@@ -52,14 +102,27 @@ function ModpackBrowserPage({ onBack, onPicked }: ModpackBrowserPageProps): JSX.
   const [showUnstable, setShowUnstable] = useState(false)
   /** 正在下载的版本 */
   const [downloading, setDownloading] = useState<string | null>(null)
+  const [filters, setFilters] = useState<ModpackSearchFilters>({})
+  /** 正式版 Minecraft 版本（筛选用） */
+  const [gameVersions, setGameVersions] = useState<string[]>([])
   const requestId = useRef(0)
 
-  const search = useCallback(async (query: string, offset: number) => {
+  useEffect(() => {
+    window.api
+      .getVersionList()
+      .then((manifest) => setGameVersions(manifest.versions.filter((v) => v.type === 'release').map((v) => v.id)))
+      .catch(() => undefined)
+  }, [])
+
+  const setFilter = (key: keyof ModpackSearchFilters, value: string): void =>
+    setFilters((prev) => ({ ...prev, [key]: value || undefined }))
+
+  const search = useCallback(async (query: string, offset: number, filters: ModpackSearchFilters) => {
     const id = ++requestId.current
     setLoading(true)
     setError('')
     try {
-      const result = await window.api.searchModpacks(query, offset)
+      const result = await window.api.searchModpacks(query, offset, filters)
       if (id !== requestId.current) return
       setHits((prev) => (offset === 0 ? result.hits : [...prev, ...result.hits]))
       setTotal(result.total)
@@ -71,9 +134,14 @@ function ModpackBrowserPage({ onBack, onPicked }: ModpackBrowserPageProps): JSX.
   }, [])
 
   useEffect(() => {
-    const timer = setTimeout(() => search(keyword, 0), keyword ? 400 : 0)
+    const timer = setTimeout(() => search(keyword, 0, filters), keyword ? 400 : 0)
     return () => clearTimeout(timer)
-  }, [keyword, search])
+  }, [keyword, filters, search])
+
+  /** 版本是否符合当前的 Minecraft 版本与加载器筛选 */
+  const matches = (v: ModrinthModpackVersion): boolean =>
+    (!filters.gameVersion || v.gameVersions.includes(filters.gameVersion)) &&
+    (!filters.loader || v.loaders.includes(filters.loader))
 
   const toggle = async (projectId: string): Promise<void> => {
     if (expanded === projectId) {
@@ -148,6 +216,35 @@ function ModpackBrowserPage({ onBack, onPicked }: ModpackBrowserPageProps): JSX.
           </label>
         </div>
 
+        {/* 筛选 */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <FilterSelect
+            value={filters.gameVersion ?? ''}
+            onChange={(v) => setFilter('gameVersion', v)}
+            options={[['', '全部 Minecraft 版本'], ...gameVersions.map((v): [string, string] => [v, v])]}
+          />
+          <FilterSelect
+            value={filters.loader ?? ''}
+            onChange={(v) => setFilter('loader', v)}
+            options={[['', '全部加载器'], ...Object.entries(LOADER_NAMES)]}
+          />
+          <FilterSelect
+            value={filters.category ?? ''}
+            onChange={(v) => setFilter('category', v)}
+            options={[['', '全部分类'], ...CATEGORIES]}
+          />
+          <FilterSelect value={filters.sort ?? ''} onChange={(v) => setFilter('sort', v)} options={SORTS} />
+          {(filters.gameVersion || filters.loader || filters.category || filters.sort) && (
+            <button
+              onClick={() => setFilters({})}
+              className="rounded-lg px-2 py-1.5 text-xs text-white/50 hover:bg-white/10 hover:text-white"
+            >
+              清除筛选
+            </button>
+          )}
+          <span className="ml-auto text-xs text-white/40">共 {total} 个整合包</span>
+        </div>
+
         {error && (
           <div className="mt-3 flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-2.5 text-sm text-red-200">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -162,8 +259,11 @@ function ModpackBrowserPage({ onBack, onPicked }: ModpackBrowserPageProps): JSX.
           {hits.map((pack) => {
             const open = expanded === pack.projectId
             const list = versions[pack.projectId]
+            // 显示全部版本：符合筛选条件的排在前面，其余变暗
             const visible = Array.isArray(list)
-              ? list.filter((v) => showUnstable || v.versionType === 'release').slice(0, 15)
+              ? list
+                  .filter((v) => showUnstable || v.versionType === 'release')
+                  .sort((a, b) => Number(matches(b)) - Number(matches(a)))
               : []
             return (
               <div key={pack.projectId} className="overflow-hidden rounded-xl bg-black/20">
@@ -203,7 +303,13 @@ function ModpackBrowserPage({ onBack, onPicked }: ModpackBrowserPageProps): JSX.
                 </button>
 
                 {open && (
-                  <div className="border-t border-white/10 p-2">
+                  <div className="max-h-96 overflow-y-auto border-t border-white/10 p-2">
+                    {Array.isArray(list) && visible.length > 0 && (
+                      <div className="px-3 pb-1 pt-0.5 text-xs text-white/40">
+                        共 {visible.length} 个版本
+                        {list.length > visible.length && `（另有 ${list.length - visible.length} 个测试版已隐藏）`}
+                      </div>
+                    )}
                     {list === 'loading' && (
                       <div className="flex items-center gap-2 px-3 py-2 text-xs text-white/50">
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -216,7 +322,12 @@ function ModpackBrowserPage({ onBack, onPicked }: ModpackBrowserPageProps): JSX.
                       </div>
                     )}
                     {visible.map((v) => (
-                      <div key={v.id} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-white/5">
+                      <div
+                        key={v.id}
+                        className={`flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-white/5 ${
+                          matches(v) ? '' : 'opacity-45'
+                        }`}
+                      >
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 text-sm">
                             <span className="truncate font-medium">{v.versionNumber}</span>
@@ -226,10 +337,23 @@ function ModpackBrowserPage({ onBack, onPicked }: ModpackBrowserPageProps): JSX.
                               </span>
                             )}
                           </div>
-                          <div className="truncate text-xs text-white/40">
-                            Minecraft {v.gameVersions.join(' / ')} ·{' '}
+                          <div className="text-xs leading-5 text-white/40">
                             {v.loaders.map((l) => LOADER_NAMES[l] ?? l).join(' / ')} · {formatSize(v.fileSize)} ·{' '}
                             {new Date(v.datePublished).toLocaleDateString('zh-CN')}
+                          </div>
+                          <div className="flex flex-wrap gap-1 pt-0.5">
+                            {v.gameVersions.map((g) => (
+                              <span
+                                key={g}
+                                className={`rounded px-1.5 text-xs ${
+                                  g === filters.gameVersion
+                                    ? 'bg-emerald-500/25 text-emerald-200'
+                                    : 'bg-white/10 text-white/60'
+                                }`}
+                              >
+                                {g}
+                              </span>
+                            ))}
                           </div>
                         </div>
                         <button
@@ -253,7 +377,7 @@ function ModpackBrowserPage({ onBack, onPicked }: ModpackBrowserPageProps): JSX.
           })}
           {hits.length > 0 && hits.length < total && (
             <button
-              onClick={() => search(keyword, hits.length)}
+              onClick={() => search(keyword, hits.length, filters)}
               disabled={loading}
               className="w-full rounded-xl py-2.5 text-sm text-white/60 hover:bg-white/5 disabled:opacity-50"
             >

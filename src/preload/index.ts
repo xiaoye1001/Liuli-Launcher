@@ -6,6 +6,7 @@ import type {
   GameStatus,
   InstallRequest,
   InstallStatus,
+  ModpackSearchFilters,
   MsLoginStatus
 } from '../shared/types'
 
@@ -51,7 +52,8 @@ const api = {
   pickModpack: () => ipcRenderer.invoke('modpack:pick'),
   installModpack: (name: string) => ipcRenderer.invoke('modpack:install', name),
   loadModpackFile: (path: string) => ipcRenderer.invoke('modpack:loadFile', path),
-  searchModpacks: (query: string, offset: number) => ipcRenderer.invoke('modpack:search', query, offset),
+  searchModpacks: (query: string, offset: number, filters: ModpackSearchFilters) =>
+    ipcRenderer.invoke('modpack:search', query, offset, filters),
   getModpackVersions: (projectId: string) => ipcRenderer.invoke('modpack:versions', projectId),
   downloadModpack: (versionId: string) => ipcRenderer.invoke('modpack:download', versionId),
   /** 拖入窗口的文件在本机的路径 */

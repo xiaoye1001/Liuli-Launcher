@@ -3,6 +3,14 @@ import { AlertTriangle, ArrowLeft, Download, FileArchive, Loader2, Package } fro
 import type { ModpackInfo } from '../../../shared/types'
 
 const LOADER_NAMES = { fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge', quilt: 'Quilt' }
+const FORMAT_NAMES = { modrinth: 'Modrinth', curseforge: 'CurseForge', multimc: 'MultiMC / Prism', mcbbs: 'MCBBS' }
+
+/** 「需要下载」一栏：不同格式的整合包获取模组的方式不同 */
+function downloadSummary(modpack: ModpackInfo): string {
+  if (modpack.format === 'curseforge') return `${modpack.fileCount} 个模组（安装时通过 MCIM 镜像获取）`
+  if (modpack.fileCount === 0) return '无需下载（模组已包含在整合包中）'
+  return `${modpack.fileCount} 个文件 · ${formatBytes(modpack.totalSize)}`
+}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
@@ -56,8 +64,9 @@ function ModpackSetupPage({ modpack, installedIds, busy, onBack, onStarted }: Mo
   const rows: [string, string][] = [
     ['Minecraft 版本', modpack.minecraftVersion],
     ['模组加载器', modpack.loader ? `${LOADER_NAMES[modpack.loader]} ${modpack.loaderVersion}` : '无（原版）'],
-    ['需要下载', `${modpack.fileCount} 个文件 · ${formatBytes(modpack.totalSize)}`],
-    ['配置文件', `${modpack.overrideCount} 个`],
+    ['需要下载', downloadSummary(modpack)],
+    ['整合包内的文件', `${modpack.overrideCount} 个`],
+    ['格式', FORMAT_NAMES[modpack.format]],
     ['文件', modpack.fileName]
   ]
 
