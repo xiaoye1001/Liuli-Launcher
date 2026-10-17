@@ -30,7 +30,9 @@ import type {
   LocalResourceKind,
   LocalResourceList,
   WorldDatapack,
-  WorldList
+  WorldList,
+  SavedServer,
+  ServerStatus
 } from '../shared/types'
 
 declare global {
@@ -126,7 +128,17 @@ declare global {
       /** 拖入窗口的文件在本机的路径 */
       getPathForFile: (file: File) => string
       installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>
-      launchGame: (versionId: string) => Promise<void>
+      /** 启动游戏；server 不为空时进入游戏后直接连接该服务器 */
+      launchGame: (versionId: string, server?: string) => Promise<void>
+      listServers: () => Promise<SavedServer[]>
+      /** 添加（没有 id）或修改服务器，返回新的列表 */
+      saveServer: (server: Omit<SavedServer, 'id'> & { id?: string }) => Promise<SavedServer[]>
+      deleteServer: (id: string) => Promise<SavedServer[]>
+      moveServer: (id: string, offset: number) => Promise<SavedServer[]>
+      /** 从游戏的多人游戏列表（servers.dat）导入 */
+      importGameServers: () => Promise<{ added: number; list: SavedServer[] }>
+      /** 查询服务器状态 */
+      pingServer: (address: string) => Promise<ServerStatus>
       getGameStatus: () => Promise<GameStatus>
       onGameStatus: (callback: (status: GameStatus) => void) => () => void
       /** 选择背景图片，取消时返回原设置 */

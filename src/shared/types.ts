@@ -399,6 +399,42 @@ export interface WorldDatapack {
   state: 'enabled' | 'disabled' | 'new'
 }
 
+/** 服务器简介（MOTD）的一段带样式的文字 */
+export interface MotdSegment {
+  text: string
+  color?: string
+  bold?: boolean
+  italic?: boolean
+  underlined?: boolean
+  strikethrough?: boolean
+}
+
+/** 收藏的服务器 */
+export interface SavedServer {
+  id: string
+  name: string
+  /** 服务器地址：host、host:port 或 [IPv6]:port */
+  address: string
+  /** 加入时使用的游戏版本，空字符串表示使用主页选择的版本 */
+  versionId: string
+}
+
+/** 服务器状态查询结果 */
+export interface ServerStatus {
+  online: boolean
+  /** 连接失败的原因 */
+  error?: string
+  /** 延迟（毫秒） */
+  latency?: number
+  /** 服务器版本名称，例如 Paper 1.20.4 */
+  version: string
+  protocol?: number
+  players: { online: number; max: number; sample: string[] }
+  motd: MotdSegment[]
+  /** 服务器图标（PNG 的 data URL） */
+  favicon?: string
+}
+
 /** Modrinth 搜索结果中的一个模组 */
 export interface ModrinthProject {
   projectId: string

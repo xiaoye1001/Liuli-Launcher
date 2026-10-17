@@ -58,6 +58,8 @@ import {
   openWorldDir
 } from './worlds'
 import { exportCrashInfo, openCrashFile } from './crashReport'
+import { deleteServer, importGameServers, listServers, moveServer, saveServer } from './servers'
+import { pingServer } from './serverPing'
 import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
 import {
   cancelMicrosoftLogin,
@@ -76,7 +78,8 @@ import type {
   ResourceType,
   SystemInfo,
   VersionConfig,
-  LocalResourceKind
+  LocalResourceKind,
+  SavedServer
 } from '../shared/types'
 
 /** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
@@ -231,7 +234,13 @@ function registerIpc(): void {
   ipcMain.handle('modrinth:install', (_, versionId: string, projectId: string) =>
     installFromModrinth(versionId, projectId)
   )
-  ipcMain.handle('game:launch', (_, versionId: string) => launchGame(versionId))
+  ipcMain.handle('game:launch', (_, versionId: string, server?: string) => launchGame(versionId, server))
+  ipcMain.handle('servers:list', () => listServers())
+  ipcMain.handle('servers:save', (_, server: Omit<SavedServer, 'id'> & { id?: string }) => saveServer(server))
+  ipcMain.handle('servers:delete', (_, id: string) => deleteServer(id))
+  ipcMain.handle('servers:move', (_, id: string, offset: number) => moveServer(id, offset))
+  ipcMain.handle('servers:import', () => importGameServers())
+  ipcMain.handle('servers:ping', (_, address: string) => pingServer(address))
   ipcMain.handle('game:status', () => getGameStatus())
   ipcMain.handle('game:logs', () => getGameLogs())
   ipcMain.handle('logs:open', () => openLogWindow())

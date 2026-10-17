@@ -13,6 +13,7 @@ import { onGameEnded, onGameWindowReady } from './windows'
 import { resolveJava } from './java'
 import { openLogWindow } from './logWindow'
 import { collectCrash } from './crashReport'
+import { parseAddress } from './serverPing'
 import type { GameLogEvent, GameStatus, InstalledVersion, JavaInfo, ModLoader } from '../shared/types'
 
 /** 根据版本 json 的启动类与依赖库判断模组加载器 */
@@ -162,7 +163,28 @@ function describeLaunchError(e: unknown): string {
 }
 
 /** 启动游戏（离线模式）。启动结果通过 game:status 推送 */
-export async function launchGame(versionId: string): Promise<void> {
+/** 直接进入服务器的启动参数 */
+function serverOptions(
+  server: string | undefined,
+  minecraftVersion: string
+): { quickPlayMultiplayer?: string; server?: { ip: string; port?: number } } {
+  if (!server) return {}
+  if (supportsQuickPlay(minecraftVersion)) return { quickPlayMultiplayer: server }
+  const { host, port } = parseAddress(server)
+  return { server: { ip: host, port } }
+}
+
+/** 1.20（快照 23w14a）起用 --quickPlayMultiplayer 直接进入服务器，更早的版本用 --server / --port */
+export function supportsQuickPlay(minecraftVersion: string): boolean {
+  const release = /^1\.(\d+)/.exec(minecraftVersion)
+  if (release) return Number(release[1]) >= 20
+  const snapshot = /^(\d{2})w(\d{2})/.exec(minecraftVersion)
+  if (snapshot) return Number(snapshot[1]) > 23 || (Number(snapshot[1]) === 23 && Number(snapshot[2]) >= 14)
+  return false
+}
+
+/** 启动游戏。server 不为空时，进入游戏后直接连接该服务器 */
+export async function launchGame(versionId: string, server?: string): Promise<void> {
   if (status.state === 'launching' || status.state === 'running') {
     throw new Error('游戏已经在运行中')
   }
@@ -172,7 +194,7 @@ export async function launchGame(versionId: string): Promise<void> {
   setStatus({ state: 'launching', versionId })
   const startedAt = Date.now()
   openLogWindow()
-  launcherLog(`正在启动 ${versionId}`)
+  launcherLog(`正在启动 ${versionId}${server ? `，进入游戏后连接服务器 ${server}` : ''}`)
 
   try {
     // 版本设置优先，未设置的项跟随全局设置
@@ -251,6 +273,7 @@ export async function launchGame(versionId: string): Promise<void> {
       // 版本设置里的附加参数放在最后，可以覆盖前面的默认值
       extraJVMArgs: ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8', ...jvmArgs],
       extraMCArgs: gameArgs,
+      ...serverOptions(server, version.minecraftVersion),
       resolution:
         config.fullscreen || config.windowWidth || config.windowHeight
           ? {

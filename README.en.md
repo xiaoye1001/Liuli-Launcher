@@ -47,6 +47,11 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 - **Resource pack & shader management**: see each version's resource packs (with icon and description) and shader packs; enable resource packs, switch or turn off shaders (Iris, Oculus and OptiFine supported) right from the launcher, add files, or move them to the recycle bin
 - **Per-version settings** (from the Versions page or the gear button next to the version on Home): set memory, Java, version isolation, game window size (or fullscreen) and extra JVM / game arguments for each version; anything not set follows the global settings. The settings are stored in `liuli-version.json` inside the version's folder
 
+### Servers
+- Save your favorite servers on the Servers page, with each server's icon, colored MOTD, player count, latency and server version; SRV records (domains without a port) are supported
+- Click **Join** to launch the game and connect to the server directly (Quick Play on 1.20+, the `--server` argument on older versions); each server can use its own game version
+- Import the servers from the game's Multiplayer list (`servers.dat`) in one click
+
 ### Mod management
 - Shows each mod's name, version, description and icon; supports Fabric / Quilt / Forge / NeoForge
 - Enable or disable mods (using the `.disabled` suffix, compatible with other launchers); deleted mods go to the recycle bin

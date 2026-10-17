@@ -11,7 +11,8 @@ import type {
   ResourceType,
   MsLoginStatus,
   VersionConfig,
-  LocalResourceKind
+  LocalResourceKind,
+  SavedServer
 } from '../shared/types'
 
 const api = {
@@ -98,7 +99,13 @@ const api = {
     ipcRenderer.invoke('modrinth:search', versionId, query, offset),
   installFromModrinth: (versionId: string, projectId: string) =>
     ipcRenderer.invoke('modrinth:install', versionId, projectId),
-  launchGame: (versionId: string) => ipcRenderer.invoke('game:launch', versionId),
+  launchGame: (versionId: string, server?: string) => ipcRenderer.invoke('game:launch', versionId, server),
+  listServers: () => ipcRenderer.invoke('servers:list'),
+  saveServer: (server: Omit<SavedServer, 'id'> & { id?: string }) => ipcRenderer.invoke('servers:save', server),
+  deleteServer: (id: string) => ipcRenderer.invoke('servers:delete', id),
+  moveServer: (id: string, offset: number) => ipcRenderer.invoke('servers:move', id, offset),
+  importGameServers: () => ipcRenderer.invoke('servers:import'),
+  pingServer: (address: string) => ipcRenderer.invoke('servers:ping', address),
   getGameStatus: () => ipcRenderer.invoke('game:status'),
   /** 订阅游戏运行状态，返回取消订阅函数 */
   getAccounts: () => ipcRenderer.invoke('accounts:list'),
