@@ -26,7 +26,6 @@ function defaultSettings(): AppSettings {
     theme: 'system',
     versionIsolation: 'modded',
     activeAccount: 'offline',
-    msClientId: '',
     accentColor: 'emerald',
     backgroundImage: '',
     backgroundBlur: 0,
@@ -49,6 +48,8 @@ async function load(): Promise<AppSettings> {
     if (saved.gameDir && !existsSync(saved.gameDir) && existsSync(defaults.gameDir)) {
       saved.gameDir = defaults.gameDir
     }
+    // 旧版本在设置中保存过 Client ID，现在改为构建时注入，不再保存
+    delete (saved as Record<string, unknown>).msClientId
     return { ...defaults, ...saved }
   } catch {
     return defaults

@@ -101,7 +101,7 @@ The portable version unpacks itself on every start, so it launches a few seconds
 
 ## Microsoft login
 
-Minecraft's login API only accepts **Azure apps approved by Mojang**, so you need to register your own Client ID:
+Minecraft's login API only accepts **Azure apps approved by Mojang**. The Client ID is compiled into the app **at build time**: it is not shown in the UI and not stored in the source code (so others can't simply reuse it). To build with Microsoft login, first register your own Client ID:
 
 1. Sign in to the [Azure portal](https://portal.azure.com), search for **App registrations** → **New registration**:
    - Name: e.g. `Liuli Launcher`
@@ -109,9 +109,14 @@ Minecraft's login API only accepts **Azure apps approved by Mojang**, so you nee
    - Redirect URI: leave empty
 2. Under **Authentication**, set **Allow public client flows** to **Yes** and save (no client secret is needed)
 3. Submit the [Mojang review form](https://aka.ms/mce-reviewappid), choose *New AppID for Approval*, and fill in the Application (client) ID and Directory (tenant) ID from the app's **Overview** page
-4. Once approved, open the launcher → **账号 (Accounts)** → **登录设置 (Login settings)**, enter the Client ID, save, then click **添加微软账号 (Add Microsoft account)**
+4. Copy `.env.example` in the project root to `.env` and fill in the Client ID:
+   ```
+   MAIN_VITE_MS_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   ```
+   `.env` is listed in `.gitignore` and will not be committed. Both `npm run dev` and packaged builds will then have Microsoft login enabled
+5. For releases built by GitHub Actions, add a secret named `MS_CLIENT_ID` under the repository's Settings → Secrets and variables → Actions
 
-Until the app is approved, login fails at the last step with a "not approved by Mojang" message. This is expected, and offline accounts keep working.
+Without a Client ID, the **添加微软账号 (Add Microsoft account)** button is disabled and only offline accounts are available. Until the app is approved, login fails at the last step with a "not approved by Mojang" message. This is expected.
 
 ## Data location
 
