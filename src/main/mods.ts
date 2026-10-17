@@ -6,7 +6,8 @@ import { createHash } from 'crypto'
 import { copyFile, mkdir, readdir, readFile, rename, stat } from 'fs/promises'
 import { basename, join } from 'path'
 import { getSettings } from './config'
-import { isIsolated, versionGameDir } from './isolation'
+import { getVersionConfig, isolatedWith } from './versionConfig'
+import { versionGameDir } from './isolation'
 import { detectLoader, getGameStatus } from './launch'
 import { assertSafeId } from './versionManage'
 import type { ModInfo, ModKind, ModList, ModLoader } from '../shared/types'
@@ -43,7 +44,7 @@ export async function modsContextOf(versionId: string): Promise<ModsContext> {
     loader = detectLoader(json)
     minecraftVersion = json.inheritsFrom ?? json.id ?? ''
   }
-  const isolated = isIsolated(versionIsolation, loader)
+  const isolated = isolatedWith(await getVersionConfig(versionId, gameDir), versionIsolation, loader)
   return { dir: join(versionGameDir(gameDir, versionId, isolated), 'mods'), isolated, minecraftVersion, loader }
 }
 

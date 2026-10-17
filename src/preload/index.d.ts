@@ -25,7 +25,8 @@ import type {
   ModrinthProjectVersion,
   ModrinthSearchResult,
   SystemInfo,
-  VersionManifest
+  VersionManifest,
+  VersionConfig
 } from '../shared/types'
 
 declare global {
@@ -59,6 +60,9 @@ declare global {
       repairVersion: (versionId: string) => Promise<void>
       deleteVersion: (versionId: string) => Promise<boolean>
       openVersionDir: (versionId: string) => Promise<void>
+      /** 版本设置（未设置的项跟随全局设置） */
+      getVersionConfig: (versionId: string) => Promise<VersionConfig>
+      setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) => Promise<VersionConfig>
       listMods: (versionId: string) => Promise<ModList>
       /** 返回修改后的文件名 */
       setModEnabled: (versionId: string, fileName: string, enabled: boolean) => Promise<string>

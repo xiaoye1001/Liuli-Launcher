@@ -152,6 +152,28 @@ export interface InstalledVersion {
   isolated: boolean
   /** 原版 Minecraft 版本号 */
   minecraftVersion: string
+  /** 是否有自己的版本设置（与全局设置不同） */
+  customized: boolean
+}
+
+/** 单个版本的设置，保存在 versions/<版本名>/liuli-version.json，未设置的项跟随全局设置 */
+export interface VersionConfig {
+  /** 最大内存（MB），0 表示跟随全局设置 */
+  maxMemory: number
+  /** Java：跟随全局设置 / 自动选择 / 使用 javaPath 指定的 Java */
+  javaMode: 'global' | 'auto' | 'custom'
+  javaPath: string
+  /** 版本隔离：跟随全局设置 / 开启 / 关闭 */
+  isolation: 'global' | 'on' | 'off'
+  /** 游戏窗口大小，0 表示游戏默认大小 */
+  windowWidth: number
+  windowHeight: number
+  /** 全屏启动 */
+  fullscreen: boolean
+  /** 附加的 JVM 参数（空格分隔，可以用引号包住带空格的参数） */
+  jvmArgs: string
+  /** 附加的游戏参数 */
+  gameArgs: string
 }
 
 /** 游戏运行状态：空闲 / 启动中 / 窗口已出现 / 正常退出 / 崩溃或启动失败 */

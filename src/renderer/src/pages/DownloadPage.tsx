@@ -13,6 +13,7 @@ import {
   Puzzle,
   RefreshCw,
   Search,
+  Settings2,
   Sparkles,
   Trash2,
   Wrench
@@ -20,6 +21,7 @@ import {
 import InstallProgressCard from '../components/InstallProgressCard'
 import InstallSetupPage from './InstallSetupPage'
 import ModsPage from './ModsPage'
+import VersionSettingsPage from './VersionSettingsPage'
 import ModpackSetupPage from './ModpackSetupPage'
 import ResourceBrowser, { RESOURCE_TYPES } from '../components/ResourceBrowser'
 import type {
@@ -131,6 +133,7 @@ function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps 
   const [actionError, setActionError] = useState('')
   const [setupFor, setSetupFor] = useState<VersionEntry | null>(null)
   const [modsFor, setModsFor] = useState<InstalledVersion | null>(null)
+  const [settingsFor, setSettingsFor] = useState<InstalledVersion | null>(null)
   const [modpack, setModpack] = useState<ModpackInfo | null>(null)
   const [section, setSection] = useState<Section>('vanilla')
   /** 打开过的资源分类保持挂载（隐藏），切回来时搜索结果和筛选条件还在 */
@@ -155,6 +158,7 @@ function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps 
     if (!incomingModpack) return
     setSetupFor(null)
     setModsFor(null)
+    setSettingsFor(null)
     setModpack(incomingModpack)
     onModpackConsumed?.()
   }, [incomingModpack, onModpackConsumed])
@@ -282,6 +286,11 @@ function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps 
           />
         </div>
       )}
+      {settingsFor && (
+        <div key={settingsFor.id} className="h-full animate-slide-in">
+          <VersionSettingsPage version={settingsFor} onBack={() => setSettingsFor(null)} onChanged={loadInstalled} />
+        </div>
+      )}
       {modsFor && (
         <div key={modsFor.id} className="h-full animate-slide-in">
           <ModsPage version={modsFor} onBack={() => setModsFor(null)} />
@@ -298,7 +307,7 @@ function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps 
           />
         </div>
       )}
-      <div className={`flex h-full gap-4 ${setupFor || modsFor || modpack ? 'hidden' : ''}`}>
+      <div className={`flex h-full gap-4 ${setupFor || modsFor || modpack || settingsFor ? 'hidden' : ''}`}>
         {/* 分类 */}
         <nav className="flex w-36 shrink-0 flex-col gap-1 rounded-2xl border border-white/10 bg-white/10 p-2 shadow-2xl backdrop-blur-xl">
           <SectionButton
@@ -453,58 +462,76 @@ function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps 
                         return (
                           <div
                             key={version.id}
-                            className="flex items-center gap-4 rounded-xl bg-black/20 px-4 py-2.5 transition-colors hover:bg-black/30"
+                            className="flex items-center gap-2 rounded-xl bg-black/20 px-4 py-2.5 transition-colors hover:bg-black/30"
                           >
-                            <span className="w-40 truncate font-mono text-sm font-semibold" title={version.id}>
+                            <span className="w-36 shrink-0 truncate font-mono text-sm font-semibold" title={version.id}>
                               {version.id}
                             </span>
-                            <span className={`rounded-md px-2 py-0.5 text-xs ${typeInfo.className}`}>
+                            <span
+                              className={`shrink-0 whitespace-nowrap rounded-md px-2 py-0.5 text-xs ${typeInfo.className}`}
+                            >
                               {typeInfo.label}
                             </span>
                             {version.isolated && (
                               <span
                                 title="模组、存档、配置放在该版本自己的文件夹里（点右侧「打开文件夹」查看）"
-                                className="rounded-md bg-white/10 px-2 py-0.5 text-xs text-white/60"
+                                className="shrink-0 whitespace-nowrap rounded-md bg-white/10 px-2 py-0.5 text-xs text-white/60"
                               >
-                                版本隔离
+                                隔离
                               </span>
                             )}
-                            <span className="flex-1 text-xs text-white/40">{formatDate(version.releaseTime)}</span>
+                            {version.customized && (
+                              <span
+                                title="该版本有自己的设置（内存、Java 等），点右侧齿轮查看"
+                                className="shrink-0 whitespace-nowrap rounded-md bg-sky-500/15 px-2 py-0.5 text-xs text-sky-300"
+                              >
+                                独立设置
+                              </span>
+                            )}
+                            <span className="min-w-0 flex-1 truncate text-xs text-white/40">
+                              {formatDate(version.releaseTime)}
+                            </span>
                             {version.loader && MOD_LOADERS.includes(version.loader) && (
                               <button
                                 onClick={() => setModsFor(version)}
                                 title="管理该版本的模组"
-                                className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                                className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
                               >
                                 <Puzzle className="h-3.5 w-3.5" />
                                 模组
                               </button>
                             )}
                             <button
+                              onClick={() => setSettingsFor(version)}
+                              title="版本设置：单独设置内存、Java、窗口大小等"
+                              className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
+                            >
+                              <Settings2 className="h-4 w-4" />
+                            </button>
+                            <button
                               onClick={() => window.api.openVersionDir(version.id)}
                               title="打开版本文件夹"
-                              className="rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
+                              className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
                             >
                               <FolderOpen className="h-4 w-4" />
                             </button>
                             <button
                               onClick={() => repair(version.id)}
                               disabled={busy}
-                              title="校验文件，重新下载缺失或损坏的部分"
-                              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+                              title="检查并修复：校验文件，重新下载缺失或损坏的部分"
+                              className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               {repairing ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
-                                <Wrench className="h-3.5 w-3.5" />
+                                <Wrench className="h-4 w-4" />
                               )}
-                              检查并修复
                             </button>
                             <button
                               onClick={() => remove(version.id)}
                               disabled={busy}
                               title="删除该版本"
-                              className="rounded-lg p-2 text-white/60 hover:bg-red-500/30 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-40"
+                              className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-red-500/30 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>

@@ -36,6 +36,7 @@ import {
   searchProjects
 } from './modrinth'
 import { isElevated } from './elevation'
+import { getVersionConfig, setVersionConfig } from './versionConfig'
 import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
 import {
   cancelMicrosoftLogin,
@@ -52,7 +53,8 @@ import type {
   ResourceSearchFilters,
   ResourceTarget,
   ResourceType,
-  SystemInfo
+  SystemInfo,
+  VersionConfig
 } from '../shared/types'
 
 /** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
@@ -135,6 +137,10 @@ function registerIpc(): void {
     deleteVersion(BrowserWindow.fromWebContents(event.sender), versionId)
   )
   ipcMain.handle('versions:open', (_, versionId: string) => openVersionDir(versionId))
+  ipcMain.handle('versions:getConfig', (_, versionId: string) => getVersionConfig(versionId))
+  ipcMain.handle('versions:setConfig', (_, versionId: string, patch: Partial<VersionConfig>) =>
+    setVersionConfig(versionId, patch)
+  )
   ipcMain.handle('mods:list', (_, versionId: string) => listMods(versionId))
   ipcMain.handle('mods:setEnabled', (_, versionId: string, fileName: string, enabled: boolean) =>
     setModEnabled(versionId, fileName, enabled)

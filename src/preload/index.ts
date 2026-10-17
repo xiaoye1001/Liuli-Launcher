@@ -9,7 +9,8 @@ import type {
   ResourceSearchFilters,
   ResourceTarget,
   ResourceType,
-  MsLoginStatus
+  MsLoginStatus,
+  VersionConfig
 } from '../shared/types'
 
 const api = {
@@ -45,6 +46,9 @@ const api = {
   repairVersion: (versionId: string) => ipcRenderer.invoke('versions:repair', versionId),
   deleteVersion: (versionId: string) => ipcRenderer.invoke('versions:delete', versionId),
   openVersionDir: (versionId: string) => ipcRenderer.invoke('versions:open', versionId),
+  getVersionConfig: (versionId: string) => ipcRenderer.invoke('versions:getConfig', versionId),
+  setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) =>
+    ipcRenderer.invoke('versions:setConfig', versionId, patch),
   listMods: (versionId: string) => ipcRenderer.invoke('mods:list', versionId),
   setModEnabled: (versionId: string, fileName: string, enabled: boolean) =>
     ipcRenderer.invoke('mods:setEnabled', versionId, fileName, enabled),

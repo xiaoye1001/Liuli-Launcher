@@ -41,6 +41,7 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 - Configurable game memory
 - Live game log window with search filtering and one-click copy
 - **Version isolation**: modded versions (or all versions) each get their own `mods`, worlds and config, so they never interfere with each other
+- **Per-version settings**: set memory, Java, version isolation, game window size (or fullscreen) and extra JVM / game arguments for each version; anything not set follows the global settings. The settings are stored in `liuli-version.json` inside the version's folder
 
 ### Mod management
 - Shows each mod's name, version, description and icon; supports Fabric / Quilt / Forge / NeoForge
