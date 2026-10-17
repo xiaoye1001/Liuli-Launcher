@@ -142,6 +142,10 @@ const api = {
   selectExternalProfile: (pendingId: string, profileId: string) =>
     ipcRenderer.invoke('external:selectProfile', pendingId, profileId),
   removeExternalAccount: (id: string) => ipcRenderer.invoke('external:remove', id),
+  addOfflineAccount: (name: string) => ipcRenderer.invoke('offline:add', name),
+  selectOfflineAccount: (id: string) => ipcRenderer.invoke('offline:select', id),
+  renameOfflineAccount: (id: string, name: string) => ipcRenderer.invoke('offline:rename', id, name),
+  removeOfflineAccount: (id: string) => ipcRenderer.invoke('offline:remove', id),
   startMicrosoftLogin: () => ipcRenderer.invoke('ms:login'),
   cancelMicrosoftLogin: () => ipcRenderer.invoke('ms:cancel'),
   getMicrosoftLoginStatus: () => ipcRenderer.invoke('ms:status'),

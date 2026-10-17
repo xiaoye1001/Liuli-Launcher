@@ -67,6 +67,7 @@ import { getPlayStats } from './playStats'
 import { exportModpack, getModpackExportInfo, showExportedModpack } from './modpackExport'
 import { copyScreenshot, deleteScreenshot, listScreenshots, openScreenshotsDir, showScreenshot } from './screenshots'
 import { copyVersion, createDesktopShortcut, launchArgOf, renameVersion } from './versionOps'
+import { addOfflineAccount, removeOfflineAccount, renameOfflineAccount, selectOfflineAccount } from './offline'
 import { loginExternal, removeExternalAccount, selectExternalProfile } from './yggdrasil'
 import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
 import {
@@ -249,6 +250,12 @@ function registerIpc(): void {
     await removeExternalAccount(id)
     return getAccounts()
   })
+  ipcMain.handle('offline:add', (_, name: string) => addOfflineAccount(name).then(broadcastSettings))
+  ipcMain.handle('offline:select', (_, id: string) => selectOfflineAccount(id).then(broadcastSettings))
+  ipcMain.handle('offline:rename', (_, id: string, name: string) =>
+    renameOfflineAccount(id, name).then(broadcastSettings)
+  )
+  ipcMain.handle('offline:remove', (_, id: string) => removeOfflineAccount(id).then(broadcastSettings))
   ipcMain.handle('ms:login', () => startMicrosoftLogin())
   ipcMain.handle('ms:cancel', () => cancelMicrosoftLogin())
   ipcMain.handle('ms:status', () => getLoginStatus())

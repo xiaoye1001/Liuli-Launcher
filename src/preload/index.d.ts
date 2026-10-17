@@ -198,6 +198,13 @@ declare global {
       /** 账号下有多个角色时选择一个 */
       selectExternalProfile: (pendingId: string, profileId: string) => Promise<ExternalAccount>
       removeExternalAccount: (id: string) => Promise<AccountsInfo>
+      /** 添加离线账号并切换为当前账号 */
+      addOfflineAccount: (name: string) => Promise<AppSettings>
+      /** 切换到某个离线账号（同时把当前账号设为离线） */
+      selectOfflineAccount: (id: string) => Promise<AppSettings>
+      renameOfflineAccount: (id: string, name: string) => Promise<AppSettings>
+      /** 删除离线账号，至少保留一个 */
+      removeOfflineAccount: (id: string) => Promise<AppSettings>
       /** 获取设备代码后立即返回，之后的进度通过 onMicrosoftLogin 推送 */
       startMicrosoftLogin: () => Promise<MsLoginStatus>
       cancelMicrosoftLogin: () => Promise<void>

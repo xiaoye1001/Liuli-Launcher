@@ -23,6 +23,15 @@ export interface JavaInfo {
 /** 下载源：官方源 或 BMCLAPI 国内镜像 */
 export type DownloadSource = 'mojang' | 'bmclapi'
 
+/** 离线账号（可以保存多个，各自有玩家名和皮肤） */
+export interface OfflineAccount {
+  id: string
+  name: string
+  /** 皮肤（PNG 的 data URL），空字符串使用默认皮肤 */
+  skin: string
+  skinModel: SkinModel
+}
+
 /** 启动器设置，保存在 userData/settings.json */
 export interface AppSettings {
   /** 选中的 java 可执行文件路径，空字符串表示未选择 */
@@ -39,8 +48,12 @@ export interface AppSettings {
   downloadSource: DownloadSource
   /** 游戏目录（.minecraft） */
   gameDir: string
-  /** 离线模式玩家名 */
+  /** 当前离线账号的玩家名（与 offlineAccounts 中 activeOffline 对应的账号同步） */
   offlineName: string
+  /** 所有离线账号 */
+  offlineAccounts: OfflineAccount[]
+  /** 当前使用的离线账号 id */
+  activeOffline: string
   /** 上次选择启动的版本 */
   selectedVersion: string
   /** 自定义皮肤（PNG 的 data URL），空字符串表示使用默认皮肤 */

@@ -144,7 +144,12 @@ function AccountPage(): JSX.Element {
               <p className="text-xs text-white/50">点击切换启动游戏使用的账号</p>
             </div>
           </div>
-          <AccountList settings={settings} accounts={accounts} onAccountsChange={setAccounts} />
+          <AccountList
+            settings={settings}
+            accounts={accounts}
+            onAccountsChange={setAccounts}
+            onSettingsChange={setSettings}
+          />
         </section>
 
         <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
