@@ -27,8 +27,8 @@ import { closeLogWindow, openLogWindow } from './logWindow'
 import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
 import { deleteVersion, openVersionDir } from './versionManage'
 import { addMods, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
-import { installFromModrinth, searchModrinth } from './modrinth'
-import { installModpack, pickModpack } from './modpack'
+import { getModpackVersions, installFromModrinth, searchModpacks, searchModrinth } from './modrinth'
+import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
 import {
   cancelMicrosoftLogin,
   getAccounts,
@@ -73,6 +73,8 @@ function createWindow(): void {
     closeLogWindow()
   })
 
+  // 文件拖进窗口时，界面没有处理到的话浏览器会直接打开该文件，离开启动器界面，这里一律阻止
+  mainWindow.webContents.on('will-navigate', (event) => event.preventDefault())
   mainWindow.webContents.setWindowOpenHandler((details) => {
     // 只用系统浏览器打开网页链接
     if (/^https?:\/\//.test(details.url)) shell.openExternal(details.url)
@@ -136,6 +138,10 @@ function registerIpc(): void {
   ipcMain.handle('ms:openLoginPage', () => openLoginPage())
   ipcMain.handle('modpack:pick', (event) => pickModpack(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('modpack:install', (_, name: string) => installModpack(name))
+  ipcMain.handle('modpack:loadFile', (_, path: string) => loadModpackFile(path))
+  ipcMain.handle('modpack:search', (_, query: string, offset: number) => searchModpacks(query, offset))
+  ipcMain.handle('modpack:versions', (_, projectId: string) => getModpackVersions(projectId))
+  ipcMain.handle('modpack:download', (_, versionId: string) => downloadModpack(versionId))
   ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>
     searchModrinth(versionId, query, offset)
   )

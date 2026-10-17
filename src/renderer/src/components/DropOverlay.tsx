@@ -1,0 +1,110 @@
+import { useEffect, useRef, useState } from 'react'
+import { AlertTriangle, Loader2, PackagePlus } from 'lucide-react'
+import type { ModpackInfo } from '../../../shared/types'
+
+function cleanError(e: unknown): string {
+  const message = e instanceof Error ? e.message : String(e)
+  return message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+}
+
+interface DropOverlayProps {
+  /** 拖入的整合包读取成功 */
+  onModpack: (info: ModpackInfo) => void
+}
+
+/**
+ * 全窗口拖放：把 .mrpack 拖进启动器任意位置即可导入整合包。
+ * 同时阻止浏览器默认的「打开拖入的文件」行为。
+ */
+function DropOverlay({ onModpack }: DropOverlayProps): JSX.Element | null {
+  const [dragging, setDragging] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  /** dragenter / dragleave 会在子元素之间反复触发，用计数判断是否真的离开窗口 */
+  const depth = useRef(0)
+  const onModpackRef = useRef(onModpack)
+  onModpackRef.current = onModpack
+
+  useEffect(() => {
+    const hasFiles = (e: DragEvent): boolean => !!e.dataTransfer?.types.includes('Files')
+    let errorTimer: ReturnType<typeof setTimeout> | undefined
+
+    const showError = (message: string): void => {
+      setError(message)
+      clearTimeout(errorTimer)
+      errorTimer = setTimeout(() => setError(''), 4000)
+    }
+
+    const onEnter = (e: DragEvent): void => {
+      if (!hasFiles(e)) return
+      depth.current += 1
+      setDragging(true)
+    }
+    const onLeave = (e: DragEvent): void => {
+      if (!hasFiles(e)) return
+      depth.current = Math.max(0, depth.current - 1)
+      if (depth.current === 0) setDragging(false)
+    }
+    const onOver = (e: DragEvent): void => {
+      e.preventDefault()
+      if (e.dataTransfer) e.dataTransfer.dropEffect = hasFiles(e) ? 'copy' : 'none'
+    }
+    const onDrop = async (e: DragEvent): Promise<void> => {
+      e.preventDefault()
+      depth.current = 0
+      setDragging(false)
+      const file = e.dataTransfer?.files[0]
+      if (!file) return
+      if (!file.name.toLowerCase().endsWith('.mrpack')) {
+        showError('只支持拖入 Modrinth 整合包（.mrpack 文件）')
+        return
+      }
+      setLoading(true)
+      try {
+        onModpackRef.current(await window.api.loadModpackFile(window.api.getPathForFile(file)))
+      } catch (err) {
+        showError(cleanError(err))
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    window.addEventListener('dragenter', onEnter)
+    window.addEventListener('dragleave', onLeave)
+    window.addEventListener('dragover', onOver)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      clearTimeout(errorTimer)
+      window.removeEventListener('dragenter', onEnter)
+      window.removeEventListener('dragleave', onLeave)
+      window.removeEventListener('dragover', onOver)
+      window.removeEventListener('drop', onDrop)
+    }
+  }, [])
+
+  if (!dragging && !loading && !error) return null
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
+      {(dragging || loading) && (
+        <div className="absolute inset-3 flex flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-emerald-400/70 bg-black/60 backdrop-blur-sm">
+          {loading ? (
+            <Loader2 className="h-12 w-12 animate-spin text-emerald-300" />
+          ) : (
+            <PackagePlus className="h-12 w-12 text-emerald-300" />
+          )}
+          <div className="text-lg font-semibold">{loading ? '正在读取整合包…' : '松开以导入整合包'}</div>
+          {!loading && <div className="text-sm text-white/60">支持 Modrinth 整合包（.mrpack）</div>}
+        </div>
+      )}
+      {error && !dragging && !loading && (
+        <div className="absolute bottom-8 flex items-center gap-2 rounded-xl bg-red-500/90 px-4 py-3 text-sm text-[#fff] shadow-xl">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default DropOverlay

@@ -1,9 +1,15 @@
 import { download, getDefaultAgent } from '@xmcl/file-transfer'
+import { app } from 'electron'
 import { mkdir } from 'fs/promises'
-import { join } from 'path'
+import { basename, join } from 'path'
 import { getSettings } from './config'
 import { assertGameStopped, fileSha1, listModFiles, modsContextOf, type ModsContext } from './mods'
-import type { ModrinthInstallResult, ModrinthSearchResult } from '../shared/types'
+import type {
+  ModrinthInstallResult,
+  ModrinthModpack,
+  ModrinthModpackVersion,
+  ModrinthSearchResult
+} from '../shared/types'
 
 const OFFICIAL_API = 'https://api.modrinth.com/v2'
 const OFFICIAL_CDN = 'https://cdn.modrinth.com/'
@@ -211,4 +217,84 @@ export async function installFromModrinth(versionId: string, projectId: string):
     }
   }
   return result
+}
+
+// ---------- 整合包 ----------
+
+const LOADER_CATEGORIES = ['fabric', 'forge', 'neoforge', 'quilt']
+
+/** 在 Modrinth 搜索整合包（无关键字时按下载量排序） */
+export async function searchModpacks(query: string, offset = 0): Promise<{ hits: ModrinthModpack[]; total: number }> {
+  const params = new URLSearchParams({
+    query: query.trim(),
+    facets: JSON.stringify([['project_type:modpack']]),
+    index: query.trim() ? 'relevance' : 'downloads',
+    offset: String(offset),
+    limit: '20'
+  })
+  const result = await modrinthFetch<{
+    hits: {
+      project_id: string
+      title: string
+      description: string
+      author: string
+      icon_url?: string
+      downloads: number
+      categories?: string[]
+      versions?: string[]
+    }[]
+    total_hits: number
+  }>(`/search?${params}`)
+  return {
+    hits: result.hits.map((hit) => ({
+      projectId: hit.project_id,
+      title: hit.title,
+      description: hit.description,
+      author: hit.author,
+      iconUrl: hit.icon_url || undefined,
+      downloads: hit.downloads,
+      loaders: (hit.categories ?? []).filter((c) => LOADER_CATEGORIES.includes(c)),
+      // versions 按发布顺序排列，最后一个是最新支持的版本
+      latestGameVersion: hit.versions?.[hit.versions.length - 1] ?? ''
+    })),
+    total: result.total_hits
+  }
+}
+
+/** 整合包的版本列表（新版本在前，只保留带 .mrpack 文件的版本） */
+export async function getModpackVersions(projectId: string): Promise<ModrinthModpackVersion[]> {
+  const versions = await modrinthFetch<
+    (ModrinthVersion & { game_versions: string[]; loaders: string[]; date_published: string })[]
+  >(`/project/${encodeURIComponent(projectId)}/version`)
+  return versions
+    .map((v) => ({ v, file: v.files.find((f) => f.primary) ?? v.files[0] }))
+    .filter(({ file }) => file?.filename.endsWith('.mrpack'))
+    .map(({ v, file }) => ({
+      id: v.id,
+      name: v.name,
+      versionNumber: v.version_number,
+      versionType: v.version_type,
+      gameVersions: v.game_versions,
+      loaders: v.loaders,
+      datePublished: v.date_published,
+      fileSize: file.size
+    }))
+}
+
+/** 下载整合包的某个版本（.mrpack）到缓存目录，返回文件路径 */
+export async function downloadModpackFile(versionId: string): Promise<string> {
+  const version = await modrinthFetch<ModrinthVersion>(`/version/${encodeURIComponent(versionId)}`)
+  const file = version.files.find((f) => f.primary) ?? version.files[0]
+  if (!file?.filename.endsWith('.mrpack')) throw new Error('这个版本没有整合包文件')
+  const dir = join(app.getPath('userData'), 'cache', 'modpacks')
+  await mkdir(dir, { recursive: true })
+  const destination = join(dir, basename(file.filename))
+  await download({
+    url: await modrinthFileUrls([file.url]),
+    destination,
+    dispatcher: getDefaultAgent({ maxRetries: 3 }),
+    headers: { 'User-Agent': USER_AGENT },
+    validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
+  })
+  return destination
 }

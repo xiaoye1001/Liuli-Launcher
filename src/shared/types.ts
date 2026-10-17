@@ -362,3 +362,30 @@ export interface ModpackInfo {
   /** overrides 中的文件数（配置文件等） */
   overrideCount: number
 }
+
+/** Modrinth 上的整合包（搜索结果） */
+export interface ModrinthModpack {
+  projectId: string
+  title: string
+  description: string
+  author: string
+  iconUrl?: string
+  downloads: number
+  /** 支持的模组加载器，例如 fabric、forge */
+  loaders: string[]
+  /** 支持的最新 Minecraft 版本 */
+  latestGameVersion: string
+}
+
+/** 整合包的一个版本 */
+export interface ModrinthModpackVersion {
+  id: string
+  name: string
+  versionNumber: string
+  versionType: 'release' | 'beta' | 'alpha'
+  gameVersions: string[]
+  loaders: string[]
+  datePublished: string
+  /** .mrpack 文件大小（字节） */
+  fileSize: number
+}

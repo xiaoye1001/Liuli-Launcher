@@ -19,6 +19,7 @@ import InstallProgressCard from '../components/InstallProgressCard'
 import InstallSetupPage from './InstallSetupPage'
 import ModsPage from './ModsPage'
 import ModpackSetupPage from './ModpackSetupPage'
+import ModpackBrowserPage from './ModpackBrowserPage'
 import type {
   InstalledVersion,
   InstallStatus,
@@ -81,7 +82,13 @@ function cleanError(e: unknown): string {
   return e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e)
 }
 
-function DownloadPage(): JSX.Element {
+interface DownloadPageProps {
+  /** 拖入窗口的整合包，打开安装确认页 */
+  incomingModpack?: ModpackInfo | null
+  onModpackConsumed?: () => void
+}
+
+function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps = {}): JSX.Element {
   const [manifest, setManifest] = useState<VersionManifest | null>(null)
   const [installed, setInstalled] = useState<InstalledVersion[]>([])
   const [loading, setLoading] = useState(false)
@@ -93,6 +100,17 @@ function DownloadPage(): JSX.Element {
   const [setupFor, setSetupFor] = useState<VersionEntry | null>(null)
   const [modsFor, setModsFor] = useState<InstalledVersion | null>(null)
   const [modpack, setModpack] = useState<ModpackInfo | null>(null)
+  const [browsingModpacks, setBrowsingModpacks] = useState(false)
+
+  // 拖入的整合包：关闭其他子页面，直接进入安装确认页
+  useEffect(() => {
+    if (!incomingModpack) return
+    setSetupFor(null)
+    setModsFor(null)
+    setBrowsingModpacks(false)
+    setModpack(incomingModpack)
+    onModpackConsumed?.()
+  }, [incomingModpack, onModpackConsumed])
   const lastState = useRef<string | undefined>(undefined)
   const tabRefs = useRef<Partial<Record<Filter, HTMLButtonElement | null>>>({})
   const [tabIndicator, setTabIndicator] = useState<{ left: number; width: number } | null>(null)
@@ -169,6 +187,17 @@ function DownloadPage(): JSX.Element {
   // 列表里的 layoutId 动画元素如果中途卸载，framer-motion 会卡住 App 的页面退场动画，导致切换页面后空白
   return (
     <>
+      {browsingModpacks && !modpack && (
+        <div className="h-full animate-slide-in">
+          <ModpackBrowserPage
+            onBack={() => setBrowsingModpacks(false)}
+            onPicked={(info) => {
+              setBrowsingModpacks(false)
+              setModpack(info)
+            }}
+          />
+        </div>
+      )}
       {modpack && (
         <div className="h-full animate-slide-in">
           <ModpackSetupPage
@@ -196,7 +225,7 @@ function DownloadPage(): JSX.Element {
           />
         </div>
       )}
-      <div className={`flex h-full flex-col gap-5 ${setupFor || modsFor || modpack ? 'hidden' : ''}`}>
+      <div className={`flex h-full flex-col gap-5 ${setupFor || modsFor || modpack || browsingModpacks ? 'hidden' : ''}`}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">下载游戏</h1>
@@ -220,6 +249,14 @@ function DownloadPage(): JSX.Element {
             >
               <Package className="h-4 w-4" />
               导入整合包
+            </button>
+            <button
+              onClick={() => setBrowsingModpacks(true)}
+              title="从 Modrinth 搜索并下载整合包"
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+            >
+              <Download className="h-4 w-4" />
+              下载整合包
             </button>
             <motion.button
               whileHover={{ scale: 1.04 }}

@@ -3,10 +3,10 @@ import { getDefaultAgent } from '@xmcl/file-transfer'
 import { DownloadMultipleTask } from '@xmcl/installer'
 import { task as createTask } from '@xmcl/task'
 import { open, readAllEntries, readEntry } from '@xmcl/unzip'
-import { mkdir, writeFile } from 'fs/promises'
+import { mkdir, stat, writeFile } from 'fs/promises'
 import { basename, dirname, isAbsolute, relative, resolve } from 'path'
 import { startCustomInstall, type InstallExtraStep } from './install'
-import { modrinthFileUrls, MODRINTH_USER_AGENT } from './modrinth'
+import { downloadModpackFile, modrinthFileUrls, MODRINTH_USER_AGENT } from './modrinth'
 import type { InstallRequest, ModpackInfo } from '../shared/types'
 
 /** Modrinth 整合包（.mrpack）的 modrinth.index.json */
@@ -122,6 +122,21 @@ export async function loadModpack(path: string): Promise<ModpackInfo> {
   const info = describe(path, index, overrideCount)
   pending = { path, info }
   return info
+}
+
+/** 拖入窗口的文件：只接受存在的 .mrpack 文件 */
+export async function loadModpackFile(path: string): Promise<ModpackInfo> {
+  if (typeof path !== 'string' || !path.toLowerCase().endsWith('.mrpack')) {
+    throw new Error('只支持 Modrinth 整合包（.mrpack 文件）')
+  }
+  const info = await stat(path).catch(() => null)
+  if (!info?.isFile()) throw new Error('找不到这个文件')
+  return loadModpack(path)
+}
+
+/** 从 Modrinth 下载整合包的某个版本并读取信息 */
+export async function downloadModpack(modrinthVersionId: string): Promise<ModpackInfo> {
+  return loadModpack(await downloadModpackFile(modrinthVersionId))
 }
 
 /** 整合包的加载器版本转换为安装请求 */

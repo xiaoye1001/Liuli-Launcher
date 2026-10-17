@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
   AppSettings,
@@ -50,6 +50,12 @@ const api = {
   openModsDir: (versionId: string) => ipcRenderer.invoke('mods:open', versionId),
   pickModpack: () => ipcRenderer.invoke('modpack:pick'),
   installModpack: (name: string) => ipcRenderer.invoke('modpack:install', name),
+  loadModpackFile: (path: string) => ipcRenderer.invoke('modpack:loadFile', path),
+  searchModpacks: (query: string, offset: number) => ipcRenderer.invoke('modpack:search', query, offset),
+  getModpackVersions: (projectId: string) => ipcRenderer.invoke('modpack:versions', projectId),
+  downloadModpack: (versionId: string) => ipcRenderer.invoke('modpack:download', versionId),
+  /** 拖入窗口的文件在本机的路径 */
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
   searchModrinth: (versionId: string, query: string, offset: number) =>
     ipcRenderer.invoke('modrinth:search', versionId, query, offset),
   installFromModrinth: (versionId: string, projectId: string) =>
