@@ -4,13 +4,16 @@ import {
   AlertTriangle,
   CheckCircle2,
   CircleDot,
+  Copy,
   Download,
   FolderOpen,
   HardDrive,
   Globe,
   Image as ImageIcon,
   Loader2,
+  MonitorSmartphone,
   MoreHorizontal,
+  PenLine,
   Puzzle,
   RefreshCw,
   Search,
@@ -68,12 +71,18 @@ function cleanError(e: unknown): string {
 function MoreMenu({
   busy,
   repairing,
+  onRename,
+  onCopy,
+  onShortcut,
   onOpenFolder,
   onRepair,
   onDelete
 }: {
   busy: boolean
   repairing: boolean
+  onRename: () => void
+  onCopy: () => void
+  onShortcut: () => void
   onOpenFolder: () => void
   onRepair: () => void
   onDelete: () => void
@@ -123,11 +132,105 @@ function MoreMenu({
       </button>
       {open && (
         <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-white/10 popover-background p-1 shadow-2xl backdrop-blur-xl">
+          {item(<PenLine className="h-4 w-4" />, '重命名', onRename, false, busy)}
+          {item(<Copy className="h-4 w-4" />, '复制版本', onCopy, false, busy)}
+          {item(<MonitorSmartphone className="h-4 w-4" />, '创建桌面快捷方式', onShortcut)}
+          <div className="my-1 border-t border-white/10" />
           {item(<FolderOpen className="h-4 w-4" />, '打开版本文件夹', onOpenFolder)}
           {item(<Wrench className="h-4 w-4" />, '检查并修复', onRepair, false, busy)}
           {item(<Trash2 className="h-4 w-4" />, '删除版本', onDelete, true, busy)}
         </div>
       )}
+    </div>
+  )
+}
+
+/** 重命名或复制版本时填写新名字 */
+function NameDialog({
+  mode,
+  version,
+  onClose,
+  onDone
+}: {
+  mode: 'rename' | 'copy'
+  version: InstalledVersion
+  onClose: () => void
+  onDone: (message: string) => void
+}): JSX.Element {
+  const [name, setName] = useState(mode === 'rename' ? version.id : `${version.id} - 副本`)
+  const [includeSaves, setIncludeSaves] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const rename = mode === 'rename'
+
+  const submit = async (): Promise<void> => {
+    setBusy(true)
+    setError('')
+    try {
+      if (rename) await window.api.renameVersion(version.id, name)
+      else await window.api.copyVersion(version.id, name, includeSaves)
+      onDone(rename ? `已将 ${version.id} 重命名为 ${name}` : `已复制 ${version.id} 为 ${name}`)
+    } catch (e) {
+      setError(cleanError(e))
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="w-[28rem] rounded-2xl border border-white/15 popover-background p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="font-semibold">{rename ? `重命名 ${version.id}` : `复制 ${version.id}`}</div>
+        <label className="mt-4 block">
+          <span className="text-xs text-white/60">{rename ? '新的版本名' : '新版本的名称'}</span>
+          <input
+            value={name}
+            autoFocus
+            maxLength={64}
+            spellCheck={false}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !busy && submit()}
+            className="mt-1 w-full rounded-lg border border-white/15 bg-black/20 px-3 py-2 text-sm outline-none focus:border-sky-400/70"
+          />
+        </label>
+        {!rename && version.isolated && (
+          <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={includeSaves}
+              onChange={(e) => setIncludeSaves(e.target.checked)}
+              className="accent-emerald-500"
+            />
+            同时复制存档
+          </label>
+        )}
+        <p className="mt-3 text-xs leading-5 text-white/40">
+          {rename
+            ? '版本文件夹会一起改名，版本隔离的模组、存档、设置都会保留。'
+            : version.isolated
+              ? '会复制游戏文件以及版本隔离文件夹里的模组、配置、资源包等（不包括日志和截图）。'
+              : '会复制这个版本的游戏文件；存档等放在公共游戏目录里，两个版本共用。'}
+        </p>
+        {error && <div className="mt-3 rounded-lg bg-red-500/20 px-3 py-2 text-xs text-red-200">{error}</div>}
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-white/10 bg-white/10 px-4 py-1.5 text-sm hover:bg-white/20"
+          >
+            取消
+          </button>
+          <button
+            onClick={submit}
+            disabled={busy || !name.trim() || (rename && name === version.id)}
+            className="flex items-center gap-1.5 rounded-lg bg-emerald-500/80 px-4 py-1.5 text-sm font-medium hover:bg-emerald-500 disabled:opacity-50"
+          >
+            {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {rename ? '重命名' : '复制'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -156,6 +259,9 @@ function VersionsPage({
   const [filter, setFilter] = useState<Filter>('all')
   const [install, setInstall] = useState<InstallStatus | null>(null)
   const [actionError, setActionError] = useState('')
+  const [notice, setNotice] = useState('')
+  /** 正在重命名或复制的版本 */
+  const [naming, setNaming] = useState<{ mode: 'rename' | 'copy'; version: InstalledVersion } | null>(null)
   const [modsFor, setModsFor] = useState<InstalledVersion | null>(null)
   const [settingsFor, setSettingsFor] = useState<InstalledVersion | null>(null)
   const [resourcesFor, setResourcesFor] = useState<InstalledVersion | null>(null)
@@ -197,6 +303,7 @@ function VersionsPage({
 
   const run = async (action: () => Promise<unknown>): Promise<void> => {
     setActionError('')
+    setNotice('')
     try {
       await action()
     } catch (e) {
@@ -228,6 +335,18 @@ function VersionsPage({
 
   return (
     <>
+      {naming && (
+        <NameDialog
+          mode={naming.mode}
+          version={naming.version}
+          onClose={() => setNaming(null)}
+          onDone={async (message) => {
+            setNaming(null)
+            await load()
+            setNotice(message)
+          }}
+        />
+      )}
       {settingsFor && (
         <div key={settingsFor.id} className="h-full animate-slide-in">
           <VersionSettingsPage version={settingsFor} onBack={() => setSettingsFor(null)} onChanged={load} />
@@ -305,6 +424,12 @@ function VersionsPage({
             />
           )}
         </AnimatePresence>
+        {notice && (
+          <div className="flex items-start gap-3 rounded-xl bg-emerald-500/15 px-4 py-3 text-sm text-emerald-200">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+            <span className="break-all">{notice}</span>
+          </div>
+        )}
         {actionError && (
           <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -451,6 +576,14 @@ function VersionsPage({
                   <MoreMenu
                     busy={busy}
                     repairing={repairing}
+                    onRename={() => setNaming({ mode: 'rename', version })}
+                    onCopy={() => setNaming({ mode: 'copy', version })}
+                    onShortcut={() =>
+                      run(async () => {
+                        const path = await window.api.createDesktopShortcut(version.id)
+                        setNotice(`已在桌面创建快捷方式：${path.split(/[\\/]/).pop()}，双击即可直接启动 ${version.id}`)
+                      })
+                    }
                     onOpenFolder={() => window.api.openVersionDir(version.id)}
                     onRepair={() => repair(version.id)}
                     onDelete={() => remove(version.id)}

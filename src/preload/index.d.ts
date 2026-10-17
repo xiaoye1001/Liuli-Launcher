@@ -102,6 +102,11 @@ declare global {
       checkModUpdates: (versionId: string) => Promise<ModUpdate[]>
       /** 更新模组，返回新的文件名 */
       updateMod: (versionId: string, fileName: string, modrinthVersionId: string) => Promise<string>
+      renameVersion: (versionId: string, newId: string) => Promise<void>
+      /** 复制版本（includeSaves 为 false 时不复制存档） */
+      copyVersion: (versionId: string, newId: string, includeSaves: boolean) => Promise<void>
+      /** 在桌面创建直接启动该版本的快捷方式，返回快捷方式路径 */
+      createDesktopShortcut: (versionId: string) => Promise<string>
       /** 版本设置（未设置的项跟随全局设置） */
       getVersionConfig: (versionId: string) => Promise<VersionConfig>
       setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) => Promise<VersionConfig>

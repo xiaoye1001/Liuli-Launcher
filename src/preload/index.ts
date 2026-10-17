@@ -76,6 +76,10 @@ const api = {
   checkModUpdates: (versionId: string) => ipcRenderer.invoke('mods:checkUpdates', versionId),
   updateMod: (versionId: string, fileName: string, modrinthVersionId: string) =>
     ipcRenderer.invoke('mods:update', versionId, fileName, modrinthVersionId),
+  renameVersion: (versionId: string, newId: string) => ipcRenderer.invoke('versions:rename', versionId, newId),
+  copyVersion: (versionId: string, newId: string, includeSaves: boolean) =>
+    ipcRenderer.invoke('versions:copy', versionId, newId, includeSaves),
+  createDesktopShortcut: (versionId: string) => ipcRenderer.invoke('versions:shortcut', versionId),
   getVersionConfig: (versionId: string) => ipcRenderer.invoke('versions:getConfig', versionId),
   setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) =>
     ipcRenderer.invoke('versions:setConfig', versionId, patch),

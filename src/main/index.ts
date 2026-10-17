@@ -1,6 +1,6 @@
 import { portableDir } from './paths'
 import { clearBackground, pickBackground, registerBackgroundProtocol } from './appearance'
-import { setMainWindow } from './windows'
+import { getMainWindow, setMainWindow } from './windows'
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
@@ -25,7 +25,7 @@ import {
 import { getGameLogs, getGameStatus, launchGame, listInstalledVersions } from './launch'
 import { closeLogWindow, openLogWindow } from './logWindow'
 import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
-import { deleteVersion, openVersionDir } from './versionManage'
+import { assertSafeId, deleteVersion, openVersionDir } from './versionManage'
 import { addMods, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
 import {
   checkModUpdates,
@@ -63,6 +63,7 @@ import { exportCrashInfo, openCrashFile } from './crashReport'
 import { deleteServer, importGameServers, listServers, moveServer, saveServer } from './servers'
 import { pingServer } from './serverPing'
 import { checkUpdate, openUpdateLink } from './updater'
+import { copyVersion, createDesktopShortcut, launchArgOf, renameVersion } from './versionOps'
 import { loginExternal, removeExternalAccount, selectExternalProfile } from './yggdrasil'
 import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
 import {
@@ -166,6 +167,11 @@ function registerIpc(): void {
     deleteVersion(BrowserWindow.fromWebContents(event.sender), versionId)
   )
   ipcMain.handle('versions:open', (_, versionId: string) => openVersionDir(versionId))
+  ipcMain.handle('versions:rename', (_, versionId: string, newId: string) => renameVersion(versionId, newId))
+  ipcMain.handle('versions:copy', (_, versionId: string, newId: string, includeSaves: boolean) =>
+    copyVersion(versionId, newId, includeSaves)
+  )
+  ipcMain.handle('versions:shortcut', (_, versionId: string) => createDesktopShortcut(versionId))
   ipcMain.handle('versions:getConfig', (_, versionId: string) => getVersionConfig(versionId))
   ipcMain.handle('versions:setConfig', (_, versionId: string, patch: Partial<VersionConfig>) =>
     setVersionConfig(versionId, patch)
@@ -284,7 +290,39 @@ function registerIpc(): void {
   )
 }
 
+// 只允许运行一个启动器：再次打开（例如双击桌面快捷方式）时切换到已打开的窗口
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) app.quit()
+
+/** 从桌面快捷方式启动：等界面加载完再启动指定的版本 */
+async function launchFromShortcut(versionId: string): Promise<void> {
+  const win = getMainWindow()
+  if (win?.webContents.isLoading()) {
+    await new Promise<void>((resolve) => win.webContents.once('did-finish-load', () => resolve()))
+  }
+  try {
+    assertSafeId(versionId)
+    broadcastSettings(await updateSettings({ selectedVersion: versionId }))
+    await launchGame(versionId)
+  } catch (e) {
+    // 游戏已在运行等情况：只把窗口切到前台
+    console.error('快捷方式启动失败：', e)
+  }
+}
+
+app.on('second-instance', (_, argv) => {
+  const win = getMainWindow()
+  if (win) {
+    if (win.isMinimized()) win.restore()
+    win.show()
+    win.focus()
+  }
+  const versionId = launchArgOf(argv)
+  if (versionId) void launchFromShortcut(versionId)
+})
+
 app.whenReady().then(async () => {
+  if (!gotLock) return
   electronApp.setAppUserModelId('io.github.xiaoye1001.liuli-launcher')
 
   app.on('browser-window-created', (_, window) => {
@@ -296,6 +334,8 @@ app.whenReady().then(async () => {
   // 先应用保存的主题，再创建窗口，避免启动时闪烁
   nativeTheme.themeSource = (await getSettings()).theme
   createWindow()
+  const shortcutVersion = launchArgOf(process.argv)
+  if (shortcutVersion) void launchFromShortcut(shortcutVersion)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

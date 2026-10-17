@@ -38,11 +38,14 @@ export async function modsContextOf(versionId: string): Promise<ModsContext> {
     const version = await Version.parse(gameDir, versionId)
     loader = detectLoader(version)
     minecraftVersion = version.minecraftVersion
+    // 改过名的原版：版本名不再是游戏版本号，使用记录下来的版本号
+    const json = JSON.parse(await readFile(join(gameDir, 'versions', versionId, `${versionId}.json`), 'utf-8'))
+    if (!json.inheritsFrom && json.liuliMinecraftVersion) minecraftVersion = json.liuliMinecraftVersion
   } catch {
     // 版本文件损坏时按原始 json 判断
     const json = JSON.parse(await readFile(join(gameDir, 'versions', versionId, `${versionId}.json`), 'utf-8'))
     loader = detectLoader(json)
-    minecraftVersion = json.inheritsFrom ?? json.id ?? ''
+    minecraftVersion = json.inheritsFrom ?? json.liuliMinecraftVersion ?? json.id ?? ''
   }
   const isolated = isolatedWith(await getVersionConfig(versionId, gameDir), versionIsolation, loader)
   return { dir: join(versionGameDir(gameDir, versionId, isolated), 'mods'), isolated, minecraftVersion, loader }
@@ -61,7 +64,9 @@ export async function fileSha1(path: string): Promise<string> {
   const key = `${info.mtimeMs}:${info.size}`
   const cached = sha1Cache.get(path)
   if (cached?.key === key) return cached.sha1
-  const sha1 = createHash('sha1').update(await readFile(path)).digest('hex')
+  const sha1 = createHash('sha1')
+    .update(await readFile(path))
+    .digest('hex')
   sha1Cache.set(path, { key, sha1 })
   return sha1
 }
@@ -82,7 +87,9 @@ async function readIcon(fs: FileSystem, path: string | undefined): Promise<strin
 
 /** 从模组 jar 中读取名称、版本、图标等信息，依次尝试 Fabric、Quilt、NeoForge、Forge 的描述文件 */
 async function parseMod(path: string, size: number): Promise<Omit<ModInfo, 'fileName' | 'enabled'>> {
-  const fallbackName = basename(path).replace(/\.disabled$/, '').replace(/\.jar$/, '')
+  const fallbackName = basename(path)
+    .replace(/\.disabled$/, '')
+    .replace(/\.jar$/, '')
   const base = { name: fallbackName, modId: '', version: '', description: '', kind: 'unknown' as ModKind, size }
   let fs: FileSystem | undefined
   try {
@@ -163,7 +170,9 @@ function largestIcon(icon: unknown): string | undefined {
 /** mods.toml 里的 ${file.jarVersion} 取自 MANIFEST.MF 的 Implementation-Version */
 function resolveJarVersion(version: string, manifest: Record<string, string>): string {
   if (version.includes('${file.jarVersion}')) {
-    return manifest['Implementation-Version'] ? version.replace('${file.jarVersion}', manifest['Implementation-Version']) : ''
+    return manifest['Implementation-Version']
+      ? version.replace('${file.jarVersion}', manifest['Implementation-Version'])
+      : ''
   }
   return version
 }

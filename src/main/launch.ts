@@ -53,7 +53,7 @@ export async function listInstalledVersions(): Promise<InstalledVersion[]> {
         isolated: isolatedWith(config, versionIsolation, loader),
         customized: isCustomized(config),
         // 加载器版本继承自原版，原版版本的 id 就是版本号
-        minecraftVersion: json.inheritsFrom ?? json.id ?? id
+        minecraftVersion: json.inheritsFrom ?? json.liuliMinecraftVersion ?? json.id ?? id
       })
     } catch {
       // 没有 json 或 json 损坏的目录不是有效版本
@@ -222,6 +222,13 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     }
 
     const version = await Version.parse(settings.gameDir, versionId)
+    // 改过名的原版：版本名不再是游戏版本号，使用记录下来的版本号
+    const rawJson = JSON.parse(
+      await readFile(join(settings.gameDir, 'versions', versionId, `${versionId}.json`), 'utf-8')
+    )
+    const minecraftVersion: string = rawJson.inheritsFrom
+      ? version.minecraftVersion
+      : (rawJson.liuliMinecraftVersion ?? version.minecraftVersion)
     const requirement = requirementOf(version)
     const required = requirement.majorVersion
     let java: JavaInfo | undefined
@@ -289,7 +296,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       // 版本设置里的附加参数放在最后，可以覆盖前面的默认值
       extraJVMArgs: ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8', ...jvmArgs],
       extraMCArgs: gameArgs,
-      ...serverOptions(server, version.minecraftVersion),
+      ...serverOptions(server, minecraftVersion),
       resolution:
         config.fullscreen || config.windowWidth || config.windowHeight
           ? {
