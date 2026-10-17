@@ -145,6 +145,10 @@ const api = {
   cancelMicrosoftLogin: () => ipcRenderer.invoke('ms:cancel'),
   getMicrosoftLoginStatus: () => ipcRenderer.invoke('ms:status'),
   openMicrosoftLoginPage: () => ipcRenderer.invoke('ms:openLoginPage'),
+  getMsSkinProfile: (uuid: string) => ipcRenderer.invoke('ms:skinProfile', uuid),
+  uploadMsSkin: (uuid: string, variant: 'classic' | 'slim') => ipcRenderer.invoke('ms:uploadSkin', uuid, variant),
+  resetMsSkin: (uuid: string) => ipcRenderer.invoke('ms:resetSkin', uuid),
+  setMsCape: (uuid: string, capeId: string | null) => ipcRenderer.invoke('ms:setCape', uuid, capeId),
   onMicrosoftLogin: (callback: (status: MsLoginStatus) => void) => {
     const listener = (_: Electron.IpcRendererEvent, status: MsLoginStatus): void => callback(status)
     ipcRenderer.on('ms:login', listener)

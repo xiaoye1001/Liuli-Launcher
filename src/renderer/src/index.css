@@ -111,6 +111,7 @@ body {
 }
 
 /* 浅色模式下，把深色背景用的浅色强调文字（xxx-200/300）换成更深的颜色，保证可读性 */
+html.light .text-emerald-200,
 html.light .text-emerald-300,
 html.light .text-emerald-400 {
   color: rgb(var(--accent-600));

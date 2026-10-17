@@ -73,10 +73,14 @@ import {
   cancelMicrosoftLogin,
   getAccounts,
   getLoginStatus,
+  getMsSkinProfile,
   openLoginPage,
   removeAccount,
+  resetMsSkin,
   setActiveAccount,
-  startMicrosoftLogin
+  setMsCape,
+  startMicrosoftLogin,
+  uploadMsSkin
 } from './microsoft'
 import type {
   AppSettings,
@@ -249,6 +253,12 @@ function registerIpc(): void {
   ipcMain.handle('ms:cancel', () => cancelMicrosoftLogin())
   ipcMain.handle('ms:status', () => getLoginStatus())
   ipcMain.handle('ms:openLoginPage', () => openLoginPage())
+  ipcMain.handle('ms:skinProfile', (_, uuid: string) => getMsSkinProfile(uuid))
+  ipcMain.handle('ms:uploadSkin', (event, uuid: string, variant: 'classic' | 'slim') =>
+    uploadMsSkin(uuid, variant === 'slim' ? 'slim' : 'classic', BrowserWindow.fromWebContents(event.sender))
+  )
+  ipcMain.handle('ms:resetSkin', (_, uuid: string) => resetMsSkin(uuid))
+  ipcMain.handle('ms:setCape', (_, uuid: string, capeId: string | null) => setMsCape(uuid, capeId))
   ipcMain.handle('modpack:pick', (event) => pickModpack(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('modpack:install', (_, name: string) => installModpack(name))
   ipcMain.handle('modpack:loadFile', (_, path: string) => loadModpackFile(path))

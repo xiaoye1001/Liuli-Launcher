@@ -1,11 +1,11 @@
-import { app, BrowserWindow, clipboard, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, nativeImage, shell } from 'electron'
 import { MicrosoftAuthenticator, MojangClient, type MicrosoftMinecraftProfile } from '@xmcl/user'
 import { mkdir, readFile, rename, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { getSettings, updateSettings } from './config'
 import { seal, unseal } from './secure'
 import { getExternalLaunchAuth, hasExternalAccount, listExternalAccounts } from './yggdrasil'
-import type { AccountsInfo, MicrosoftAccount, MsLoginStatus, SkinModel } from '../shared/types'
+import type { AccountsInfo, MicrosoftAccount, MsCape, MsLoginStatus, MsSkinProfile, SkinModel } from '../shared/types'
 
 const ACCOUNTS_FILE = join(app.getPath('userData'), 'accounts.json')
 /** 个人微软账号使用 consumers 租户 */
@@ -380,4 +380,139 @@ export async function getMicrosoftLaunchAuth(): Promise<LaunchAuth | null> {
     userType: 'msa',
     microsoft: true
   }
+}
+
+// ---------- 皮肤与披风 ----------
+
+const MC_SERVICES = 'https://api.minecraftservices.com'
+const MAX_IMAGE_BYTES = 1024 * 1024
+
+interface ServicesProfile {
+  id: string
+  name: string
+  skins?: { id: string; state: string; url: string; variant?: string }[]
+  capes?: { id: string; state: string; url: string; alias?: string }[]
+}
+
+/** 当前可用的令牌（过期时自动刷新） */
+async function tokenOf(uuid: string): Promise<string> {
+  const account = (await loadAccounts()).find((a) => a.uuid === uuid)
+  if (!account) throw new Error('账号不存在，请到账号页重新登录')
+  const fresh = await ensureFresh(account)
+  return unseal(fresh.mcToken, fresh.encrypted)
+}
+
+/** 调用 Minecraft 档案接口，常见错误转成中文 */
+async function services<T>(uuid: string, path: string, init: RequestInit = {}): Promise<T | null> {
+  const token = await tokenOf(uuid)
+  let response: Response
+  try {
+    response = await fetch(`${MC_SERVICES}${path}`, {
+      ...init,
+      headers: { Authorization: `Bearer ${token}`, ...(init.headers ?? {}) },
+      signal: AbortSignal.timeout(20000)
+    })
+  } catch {
+    throw new Error('无法连接 Minecraft 服务器，请检查网络')
+  }
+  if (response.status === 401) throw new Error('登录已过期，请在账号页删除这个账号后重新登录')
+  if (response.status === 429) throw new Error('操作太频繁，请过一会儿再试')
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    if (response.status === 400) throw new Error('皮肤文件无效，请使用 64×64 或 64×32 的 PNG 图片')
+    throw new Error(`Minecraft 服务器返回错误（${response.status}）${text ? `：${text.slice(0, 200)}` : ''}`)
+  }
+  const text = await response.text()
+  return text ? (JSON.parse(text) as T) : null
+}
+
+/** 下载图片转为 data URL（官方贴图地址是 http，改用 https） */
+async function imageDataUrl(url: string): Promise<string> {
+  try {
+    const response = await fetch(url.replace(/^http:/, 'https:'), { signal: AbortSignal.timeout(15000) })
+    const data = Buffer.from(await response.arrayBuffer())
+    if (!response.ok || data.length > MAX_IMAGE_BYTES) return ''
+    return `data:image/png;base64,${data.toString('base64')}`
+  } catch {
+    return ''
+  }
+}
+
+/** 用最新的档案更新保存的皮肤 */
+async function storeSkin(uuid: string, profile: ServicesProfile): Promise<{ skin: string; skinModel: SkinModel }> {
+  const result = await fetchSkin(profile as MicrosoftMinecraftProfile)
+  const account = (await loadAccounts()).find((a) => a.uuid === uuid)
+  if (account) {
+    account.skin = result.skin
+    account.skinModel = result.skinModel
+    await saveAccounts()
+  }
+  return result
+}
+
+async function profileDetails(uuid: string, profile: ServicesProfile): Promise<MsSkinProfile> {
+  const { skin, skinModel } = await storeSkin(uuid, profile)
+  const capes: MsCape[] = await Promise.all(
+    (profile.capes ?? []).map(async (c) => ({
+      id: c.id,
+      alias: c.alias ?? '披风',
+      active: c.state === 'ACTIVE',
+      image: await imageDataUrl(c.url)
+    }))
+  )
+  return { uuid, name: profile.name, skin, skinModel, capes }
+}
+
+/** 读取正版账号的皮肤与披风（同时更新保存的皮肤） */
+export async function getMsSkinProfile(uuid: string): Promise<MsSkinProfile> {
+  const profile = await services<ServicesProfile>(uuid, '/minecraft/profile')
+  if (!profile) throw new Error('无法读取玩家档案')
+  return profileDetails(uuid, profile)
+}
+
+/** 选择 PNG 文件上传为正版皮肤；取消时返回 null */
+export async function uploadMsSkin(
+  uuid: string,
+  variant: 'classic' | 'slim',
+  win: BrowserWindow | null
+): Promise<MsSkinProfile | null> {
+  const options: Electron.OpenDialogOptions = {
+    title: '选择皮肤文件',
+    filters: [{ name: '皮肤（PNG）', extensions: ['png'] }],
+    properties: ['openFile']
+  }
+  const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+  const file = result.filePaths[0]
+  if (result.canceled || !file) return null
+  const data = await readFile(file)
+  if (data.length > MAX_IMAGE_BYTES) throw new Error('皮肤文件太大')
+  const size = nativeImage.createFromBuffer(data).getSize()
+  if (size.width !== 64 || (size.height !== 64 && size.height !== 32)) {
+    throw new Error(`皮肤图片应为 64×64 或 64×32，这张是 ${size.width}×${size.height}`)
+  }
+  const form = new FormData()
+  form.append('variant', variant)
+  form.append('file', new Blob([new Uint8Array(data)], { type: 'image/png' }), 'skin.png')
+  const profile = await services<ServicesProfile>(uuid, '/minecraft/profile/skins', { method: 'POST', body: form })
+  return profileDetails(uuid, profile ?? (await services<ServicesProfile>(uuid, '/minecraft/profile'))!)
+}
+
+/** 恢复默认皮肤（Steve / Alex 等） */
+export async function resetMsSkin(uuid: string): Promise<MsSkinProfile> {
+  await services(uuid, '/minecraft/profile/skins/active', { method: 'DELETE' })
+  return getMsSkinProfile(uuid)
+}
+
+/** 显示某个披风；capeId 为 null 时不显示披风 */
+export async function setMsCape(uuid: string, capeId: string | null): Promise<MsSkinProfile> {
+  if (capeId) {
+    await services(uuid, '/minecraft/profile/capes/active', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ capeId })
+    })
+  } else {
+    await services(uuid, '/minecraft/profile/capes/active', { method: 'DELETE' })
+  }
+  return getMsSkinProfile(uuid)
 }

@@ -1,5 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
+  MsSkinProfile,
   AppSettings,
   FabricLoaderVersion,
   ForgeVersionInfo,
@@ -200,6 +201,14 @@ declare global {
       getMicrosoftLoginStatus: () => Promise<MsLoginStatus>
       /** 复制代码并打开登录网页 */
       openMicrosoftLoginPage: () => Promise<void>
+      /** 读取正版账号的皮肤与披风 */
+      getMsSkinProfile: (uuid: string) => Promise<MsSkinProfile>
+      /** 选择 PNG 上传为正版皮肤；取消时返回 null */
+      uploadMsSkin: (uuid: string, variant: 'classic' | 'slim') => Promise<MsSkinProfile | null>
+      /** 恢复默认皮肤 */
+      resetMsSkin: (uuid: string) => Promise<MsSkinProfile>
+      /** 选择显示的披风，null 表示不显示 */
+      setMsCape: (uuid: string, capeId: string | null) => Promise<MsSkinProfile>
       onMicrosoftLogin: (callback: (status: MsLoginStatus) => void) => () => void
       getGameDirInfo: () => Promise<GameDirInfo>
       setGameDir: (dir: string) => Promise<GameDirInfo>

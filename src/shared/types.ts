@@ -600,6 +600,25 @@ export interface MicrosoftAccount {
   skinModel: SkinModel
 }
 
+/** 正版账号拥有的披风 */
+export interface MsCape {
+  id: string
+  /** 披风名称，例如 Migrator、Vanilla */
+  alias: string
+  active: boolean
+  /** 披风贴图（PNG 的 data URL） */
+  image: string
+}
+
+/** 正版账号的皮肤与披风 */
+export interface MsSkinProfile {
+  uuid: string
+  name: string
+  skin: string
+  skinModel: SkinModel
+  capes: MsCape[]
+}
+
 /** 外置登录账号（authlib-injector，例如 LittleSkin 皮肤站） */
 export interface ExternalAccount {
   /** 账号标识：ygg:<角色 UUID>@<验证服务器地址> */
