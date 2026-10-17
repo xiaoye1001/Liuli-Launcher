@@ -7,7 +7,8 @@ const PHASE_LABELS = {
   dependencies: '正在下载依赖库与资源文件',
   processing: '正在运行模组加载器安装程序，可能需要几分钟',
   java: '正在下载 Java 运行环境',
-  modpack: '正在下载整合包的模组与配置文件'
+  modpack: '正在下载整合包的模组',
+  unpack: '正在解压整合包里的文件'
 }
 
 /** 任务类型对应的动词（标题用） */
@@ -67,7 +68,7 @@ function InstallProgressCard({ status, onCancel, onRetry, onDismiss }: InstallPr
         {running && (
           <div className="text-right">
             <div className="font-mono text-lg font-bold text-emerald-300">{percent.toFixed(1)}%</div>
-            {status.phase !== 'processing' && (
+            {status.phase !== 'processing' && status.phase !== 'unpack' && (
               <div className="font-mono text-xs text-white/50">{formatBytes(status.speed)}/s</div>
             )}
           </div>

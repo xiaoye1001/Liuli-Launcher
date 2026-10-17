@@ -196,7 +196,7 @@ export type InstallKind = 'install' | 'repair' | 'java'
 export type InstallState = 'running' | 'success' | 'failed' | 'cancelled'
 
 /** 安装阶段：游戏本体（版本 json 与客户端 jar） → 依赖库与资源文件（并行下载） → 运行模组加载器安装程序 */
-export type InstallPhase = 'version' | 'dependencies' | 'processing' | 'java' | 'modpack'
+export type InstallPhase = 'version' | 'dependencies' | 'processing' | 'java' | 'modpack' | 'unpack'
 
 /** 安装进度，由主进程实时推送到界面 */
 export interface InstallStatus {
@@ -780,8 +780,12 @@ export interface ModpackInfo {
   fileCount: number
   /** 下载文件的总大小（字节），CurseForge 整合包在安装时才知道，为 0 */
   totalSize: number
-  /** overrides 中的文件数（配置文件等） */
+  /** overrides 中的文件数（配置文件等，不含游戏资源文件） */
   overrideCount: number
+  /** 整合包里已经带着的模组（mods 文件夹中的 .jar）数量 */
+  includedMods?: number
+  /** 整合包里带着的游戏资源文件（assets、libraries）数量，安装时直接使用、不再下载 */
+  includedGameFiles?: number
 }
 
 /** 下载页的社区资源类型（与 Modrinth 的项目类型一致） */

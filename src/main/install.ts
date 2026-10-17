@@ -82,6 +82,7 @@ function forgeMavenHosts(source: DownloadSource): string[] {
 /** 根据任务路径判断当前阶段，例如 install.version.jar、install.dependencies.assets.asset */
 function phaseOf(path: string): InstallPhase {
   if (path.includes('installJava')) return 'java'
+  if (path.includes('modpackOverrides') || path.includes('modpackGameFiles')) return 'unpack'
   if (path.includes('modpack')) return 'modpack'
   if (path.includes('postProcessing') || path.includes('installOptifine')) return 'processing'
   return path.includes('dependencies') || path.includes('installForge') || path.includes('downloadOptifine')
@@ -338,7 +339,10 @@ async function exists(path: string): Promise<boolean> {
  * 安装完成后的附加步骤（例如整合包：下载模组、解压配置），在同一个任务中运行，进度与取消一并处理。
  * gameDir 为该版本实际使用的游戏目录（遵循版本隔离设置）
  */
-export type InstallExtraStep = (context: TaskContext, gameDir: string) => Promise<void>
+export type InstallExtraStep = ((context: TaskContext, gameDir: string) => Promise<void>) & {
+  /** 在安装原版之前执行（例如解压整合包自带的游戏资源，让之后的下载直接跳过） */
+  before?: (context: TaskContext) => Promise<void>
+}
 
 /** 附加步骤中可以 yield 子任务，让进度计入总进度 */
 export interface TaskContext {
@@ -416,6 +420,7 @@ export async function startCustomInstall(
   lastExtra = extra ?? null
   lastJavaComponent = null
   const installAll = createTask('custom', async function () {
+    if (extra?.before) await extra.before(this)
     await this.yield(installTask(meta, settings.gameDir, options))
     if (isPlainVanilla) return
 

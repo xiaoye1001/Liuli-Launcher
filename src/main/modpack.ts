@@ -1,9 +1,12 @@
 import { BrowserWindow, dialog } from 'electron'
 import { DownloadMultipleTask } from '@xmcl/installer'
-import { task as createTask } from '@xmcl/task'
-import { open, readAllEntries, readEntry } from '@xmcl/unzip'
-import { mkdir, stat, writeFile } from 'fs/promises'
+import { AbortableTask, CancelledError } from '@xmcl/task'
+import { open, openEntryReadStream, readAllEntries, readEntry } from '@xmcl/unzip'
+import { createWriteStream } from 'fs'
+import { mkdir, stat } from 'fs/promises'
 import { basename, dirname, isAbsolute, relative, resolve } from 'path'
+import type { Readable } from 'stream'
+import { pipeline } from 'stream/promises'
 import { startCustomInstall, type InstallExtraStep } from './install'
 import { downloadModpackFile, modrinthFileUrls, MODRINTH_USER_AGENT } from './modrinth'
 import { getSettings } from './config'
@@ -28,9 +31,33 @@ interface ParsedModpack {
   curseFileIds: number[]
   /** 压缩包中要复制到游戏目录的文件夹前缀，按顺序复制（后面的覆盖前面的） */
   overridePrefixes: string[]
+  /** 要复制的文件（同一路径只保留最后一个前缀里的） */
+  overrides: OverrideFile[]
+}
+
+interface OverrideFile {
+  /** 压缩包里的完整路径 */
+  entryName: string
+  /** 相对游戏目录的路径 */
+  rel: string
+  size: number
+}
+
+/**
+ * 整合包里属于公共游戏目录的文件夹（有些网盘「完整包」把整个 .minecraft 都打包进来了）：
+ * 安装前解压到游戏目录根部，安装原版和加载器时校验通过就不再下载
+ */
+const SHARED_FOLDERS = ['assets/', 'libraries/']
+/** 不解压的文件夹：版本文件由启动器自己生成 */
+const SKIPPED_FOLDERS = ['versions/']
+
+function isShared(rel: string): boolean {
+  return SHARED_FOLDERS.some((f) => rel.startsWith(f))
 }
 
 type Loader = ModpackInfo['loader']
+/** 各格式解析的结果（之后统一整理要复制的文件） */
+type Parsed = Omit<ParsedModpack, 'overrides'>
 
 // ---------- 路径安全 ----------
 
@@ -68,7 +95,7 @@ function countUnder(names: string[], prefixes: string[]): number {
   return names.filter((n) => !n.endsWith('/') && prefixes.some((p) => n.startsWith(p))).length
 }
 
-async function parseModrinth(zip: ZipListing, fileName: string): Promise<ParsedModpack> {
+async function parseModrinth(zip: ZipListing, fileName: string): Promise<Parsed> {
   const index = parseJson<{
     game: string
     versionId: string
@@ -116,7 +143,7 @@ function parseLoaderId(id: string | undefined): { loader: Loader; version: strin
   return match ? { loader: match[1] as Loader, version: match[2] } : { loader: null, version: '' }
 }
 
-async function parseCurseForge(zip: ZipListing, fileName: string): Promise<ParsedModpack> {
+async function parseCurseForge(zip: ZipListing, fileName: string): Promise<Parsed> {
   const manifest = parseJson<{
     manifestType?: string
     name?: string
@@ -153,7 +180,7 @@ async function parseCurseForge(zip: ZipListing, fileName: string): Promise<Parse
   }
 }
 
-async function parseMcbbs(zip: ZipListing, fileName: string): Promise<ParsedModpack> {
+async function parseMcbbs(zip: ZipListing, fileName: string): Promise<Parsed> {
   const meta = parseJson<{
     name?: string
     version?: string
@@ -194,7 +221,7 @@ const MMC_LOADERS: Record<string, Exclude<Loader, null>> = {
   'org.quiltmc.quilt-loader': 'quilt'
 }
 
-async function parseMultiMC(zip: ZipListing, fileName: string, packJson: string): Promise<ParsedModpack> {
+async function parseMultiMC(zip: ZipListing, fileName: string, packJson: string): Promise<Parsed> {
   // 实例可能在压缩包根目录，也可能在一个以实例名命名的文件夹里
   const root = packJson.slice(0, packJson.length - 'mmc-pack.json'.length)
   const pack = parseJson<{ components?: { uid: string; version?: string; cachedVersion?: string }[] }>(
@@ -258,7 +285,7 @@ async function parseModpack(path: string): Promise<ParsedModpack> {
       }
     }
     const fileName = basename(path)
-    let parsed: ParsedModpack
+    let parsed: Parsed
     if (byName.has('modrinth.index.json')) {
       parsed = await parseModrinth(listing, fileName)
     } else if (byName.has('mcbbs.packmeta')) {
@@ -274,13 +301,26 @@ async function parseModpack(path: string): Promise<ParsedModpack> {
       parsed = await parseMultiMC(listing, fileName, packJson)
     }
 
+    // 要复制的文件：按前缀顺序，后面的覆盖前面的
+    const overrideMap = new Map<string, OverrideFile>()
+    for (const prefix of parsed.overridePrefixes) {
+      for (const entry of entries) {
+        if (!entry.fileName.startsWith(prefix) || entry.fileName.endsWith('/')) continue
+        const rel = entry.fileName.slice(prefix.length)
+        if (!rel || SKIPPED_FOLDERS.some((f) => rel.startsWith(f))) continue
+        overrideMap.set(rel, { entryName: entry.fileName, rel, size: entry.uncompressedSize })
+      }
+    }
+    const overrides = [...overrideMap.values()]
+
     // 读取时就检查所有路径，有问题的整合包在开始安装前就拒绝
-    const overridePaths = listing.names
-      .filter((n) => !n.endsWith('/'))
-      .flatMap((n) => parsed.overridePrefixes.filter((p) => n.startsWith(p)).map((p) => n.slice(p.length)))
-    const unsafe = [...parsed.downloads.map((d) => d.path), ...overridePaths].find((p) => !isSafePath(p))
+    const unsafe = [...parsed.downloads.map((d) => d.path), ...overrides.map((o) => o.rel)].find((p) => !isSafePath(p))
     if (unsafe) throw new Error(`整合包中包含不安全的文件路径：${unsafe}，已拒绝安装`)
-    return parsed
+
+    parsed.info.includedMods = overrides.filter((o) => /^mods\/[^/]+\.jar$/i.test(o.rel)).length
+    parsed.info.includedGameFiles = overrides.filter((o) => isShared(o.rel)).length
+    parsed.info.overrideCount = overrides.length - parsed.info.includedGameFiles
+    return { ...parsed, overrides }
   } finally {
     zipFile.close()
   }
@@ -400,16 +440,73 @@ function toRequest(info: ModpackInfo, name: string): InstallRequest {
   return request
 }
 
-/** 下载整合包中的文件，并把压缩包里的 overrides / .minecraft 等文件夹复制到该版本的游戏目录 */
+/** 从整合包解压文件，进度按解压的字节数计算 */
+class ExtractTask extends AbortableTask<void> {
+  private aborted = false
+  private stream: Readable | null = null
+
+  constructor(
+    private readonly zipPath: string,
+    private readonly files: { entryName: string; target: string; size: number }[]
+  ) {
+    super()
+    this._total = files.reduce((sum, f) => sum + f.size, 0)
+  }
+
+  protected async process(): Promise<void> {
+    const zip = await open(this.zipPath)
+    try {
+      const byName = new Map((await readAllEntries(zip)).map((e) => [e.fileName, e]))
+      for (const file of this.files) {
+        if (this.aborted) throw new CancelledError()
+        const entry = byName.get(file.entryName)
+        if (!entry) continue
+        await mkdir(dirname(file.target), { recursive: true })
+        const stream = await openEntryReadStream(zip, entry)
+        this.stream = stream
+        stream.on('data', (chunk: Buffer) => this.update(chunk.length))
+        await pipeline(stream, createWriteStream(file.target))
+        this.stream = null
+      }
+    } finally {
+      zip.close()
+    }
+  }
+
+  protected abort(): void {
+    this.aborted = true
+    this.stream?.destroy(new CancelledError())
+  }
+
+  protected isAbortedError(e: unknown): boolean {
+    return this.aborted || e instanceof CancelledError
+  }
+}
+
+/**
+ * 整合包的安装步骤：
+ * - 安装原版之前：把整合包自带的 assets、libraries 解压到游戏目录根部，原版与加载器的文件校验通过就不再下载；
+ * - 安装之后：下载整合包列出的模组（压缩包里已经有的跳过），再把其余文件复制到该版本的游戏目录
+ */
 function modpackStep(path: string): InstallExtraStep {
-  return async (context, gameDir) => {
+  const step: InstallExtraStep = async (context, gameDir) => {
     const parsed = await parseModpack(path)
-    const downloads = [
-      ...(await Promise.all(
-        parsed.downloads.map(async (d) => ({ path: d.path, urls: await modrinthFileUrls(d.urls), sha1: d.sha1 }))
-      )),
-      ...(parsed.curseFileIds.length > 0 ? await resolveCurseFiles(parsed.curseFileIds) : [])
-    ]
+    const included = new Set(parsed.overrides.map((o) => o.rel.toLowerCase()))
+    const modrinthFiles = await Promise.all(
+      parsed.downloads
+        .filter((d) => !included.has(d.path.toLowerCase()))
+        .map(async (d) => ({ path: d.path, urls: await modrinthFileUrls(d.urls), sha1: d.sha1 }))
+    )
+    let curseFiles: { path: string; urls: string[]; sha1?: string }[] = []
+    if (parsed.curseFileIds.length > 0) {
+      try {
+        curseFiles = (await resolveCurseFiles(parsed.curseFileIds)).filter((f) => !included.has(f.path.toLowerCase()))
+      } catch (e) {
+        // 整合包已经带了全部模组时，查不到下载信息也可以继续安装
+        if ((parsed.info.includedMods ?? 0) < parsed.curseFileIds.length) throw e
+      }
+    }
+    const downloads = [...modrinthFiles, ...curseFiles]
     if (downloads.length > 0) {
       await context.yield(
         new DownloadMultipleTask(
@@ -423,25 +520,24 @@ function modpackStep(path: string): InstallExtraStep {
         ).setName('modpackFiles')
       )
     }
+    const files = parsed.overrides
+      .filter((o) => !isShared(o.rel))
+      .map((o) => ({ entryName: o.entryName, target: safeJoin(gameDir, o.rel), size: o.size }))
+    if (files.length > 0) await context.yield(new ExtractTask(path, files).setName('modpackOverrides'))
+  }
+  step.before = async (context) => {
+    const parsed = await parseModpack(path)
+    const shared = parsed.overrides.filter((o) => isShared(o.rel))
+    if (shared.length === 0) return
+    const root = (await getSettings()).gameDir
     await context.yield(
-      createTask('modpackOverrides', async () => {
-        const zip = await open(path)
-        try {
-          const entries = await readAllEntries(zip)
-          for (const prefix of parsed.overridePrefixes) {
-            for (const entry of entries) {
-              if (!entry.fileName.startsWith(prefix) || entry.fileName.endsWith('/')) continue
-              const target = safeJoin(gameDir, entry.fileName.slice(prefix.length))
-              await mkdir(dirname(target), { recursive: true })
-              await writeFile(target, await readEntry(zip, entry))
-            }
-          }
-        } finally {
-          zip.close()
-        }
-      })
+      new ExtractTask(
+        path,
+        shared.map((o) => ({ entryName: o.entryName, target: safeJoin(root, o.rel), size: o.size }))
+      ).setName('modpackGameFiles')
     )
   }
+  return step
 }
 
 /** 安装最近选择的整合包 */
