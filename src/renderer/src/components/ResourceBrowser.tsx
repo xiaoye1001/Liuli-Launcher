@@ -246,8 +246,8 @@ interface ResourceBrowserProps {
 
 const SOURCE_KEY = 'resourceSource'
 const SOURCES: [ResourceSource, string][] = [
-  ['modrinth', 'Modrinth'],
-  ['curseforge', 'CurseForge']
+  ['modrinth', '来源：Modrinth'],
+  ['curseforge', '来源：CurseForge']
 ]
 
 /** 社区资源浏览：搜索、筛选 Modrinth / CurseForge 上的模组 / 整合包 / 数据包 / 资源包 / 光影，选择版本后安装 */
@@ -459,22 +459,9 @@ function ResourceBrowser({
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">{meta.label}</h1>
-          <div className="mt-1 flex items-center gap-2">
-            <div className="flex shrink-0 rounded-lg bg-black/20 p-0.5 text-xs">
-              {SOURCES.map(([value, label]) => (
-                <button
-                  key={value}
-                  onClick={() => changeSource(value)}
-                  className={`rounded-md px-2.5 py-1 transition-colors ${
-                    source === value ? 'bg-white/20 text-white' : 'text-white/50 hover:text-white'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <p className="truncate text-xs text-white/50">{meta.desc}</p>
-          </div>
+          <p className="truncate text-xs text-white/50">
+            来自 {isCurse ? 'CurseForge' : 'Modrinth'} · {meta.desc}
+          </p>
         </div>
         {needsTarget ? (
           <div className="flex shrink-0 items-center gap-2">
@@ -546,6 +533,12 @@ function ResourceBrowser({
 
         {/* 筛选 */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
+          <FilterSelect
+            value={source}
+            onChange={(v) => changeSource(v as ResourceSource)}
+            options={SOURCES}
+            title="资源来源"
+          />
           <FilterSelect
             value={filters.gameVersion ?? ''}
             onChange={(v) => setFilter('gameVersion', v)}
