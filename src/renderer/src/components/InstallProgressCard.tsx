@@ -171,6 +171,11 @@ function InstallProgressCard({ status, onCancel, onRetry, onDismiss }: InstallPr
       )}
 
       {status.steps && status.steps.length > 1 && <StepList steps={status.steps} running={running} />}
+      {running && status.detail && (
+        <div className="mt-2 truncate text-xs text-white/50" title={status.detail}>
+          {status.detail}
+        </div>
+      )}
 
       {status.state === 'failed' && status.error && (
         <div className="mt-3 max-h-20 overflow-y-auto break-all rounded-lg bg-red-500/15 px-3 py-2 text-xs text-red-200">

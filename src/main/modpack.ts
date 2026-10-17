@@ -1,7 +1,6 @@
 import { createHash } from 'crypto'
 import { BrowserWindow, dialog } from 'electron'
-import { DownloadMultipleTask } from '@xmcl/installer'
-import { AbortableTask, CancelledError } from '@xmcl/task'
+import { AbortableTask } from '@xmcl/task'
 import { open, openEntryReadStream, readAllEntries, readEntry } from '@xmcl/unzip'
 import { createWriteStream } from 'fs'
 import { mkdir, stat } from 'fs/promises'
@@ -11,7 +10,7 @@ import { pipeline } from 'stream/promises'
 import { startCustomInstall, type InstallExtraStep } from './install'
 import { downloadModpackFile, modrinthFileUrls, MODRINTH_USER_AGENT } from './modrinth'
 import { getSettings } from './config'
-import { installDispatcher } from './network'
+import { abortedPause, AbortedError, WatchedDownloadTask } from './fileDownload'
 import type { InstallRequest, ModpackInfo } from '../shared/types'
 
 /**
@@ -483,18 +482,24 @@ class ExtractTask extends AbortableTask<void> {
   }
 
   protected async process(): Promise<void> {
+    if (this.aborted) return abortedPause()
     const zip = await open(this.zipPath)
     try {
       const byName = new Map((await readAllEntries(zip)).map((e) => [e.fileName, e]))
       for (const file of this.files) {
-        if (this.aborted) throw new CancelledError()
+        if (this.aborted) throw new AbortedError()
         const entry = byName.get(file.entryName)
         if (!entry) continue
         await mkdir(dirname(file.target), { recursive: true })
         const stream = await openEntryReadStream(zip, entry)
         this.stream = stream
-        stream.on('data', (chunk: Buffer) => this.update(chunk.length))
-        await pipeline(stream, createWriteStream(file.target))
+        stream.on('data', (chunk: Buffer) => {
+          this._progress += chunk.length
+          this.update(chunk.length)
+        })
+        await pipeline(stream, createWriteStream(file.target)).catch((e) => {
+          throw this.aborted ? new AbortedError() : e
+        })
         this.stream = null
       }
     } finally {
@@ -504,28 +509,11 @@ class ExtractTask extends AbortableTask<void> {
 
   protected abort(): void {
     this.aborted = true
-    this.stream?.destroy(new CancelledError())
+    this.stream?.destroy(new AbortedError())
   }
 
   protected isAbortedError(e: unknown): boolean {
-    return this.aborted || e instanceof CancelledError
-  }
-}
-
-/**
- * 一次下载多个文件，总大小一开始就按整合包里写的大小计算。
- * xmcl 只在每个文件开始下载后才知道它的大小，几百个模组时总大小会越下越大
- */
-class SizedDownloadTask extends DownloadMultipleTask {
-  constructor(
-    options: ConstructorParameters<typeof DownloadMultipleTask>[0],
-    private readonly expectedTotal: number
-  ) {
-    super(options)
-  }
-
-  get total(): number {
-    return Math.max(super.total, this.expectedTotal)
+    return e instanceof AbortedError
   }
 }
 
@@ -561,15 +549,9 @@ function modpackStep(path: string): InstallExtraStep {
     const downloads = [...modrinthFiles, ...curseFiles]
     if (downloads.length > 0) {
       await context.yield(
-        new SizedDownloadTask(
-          downloads.map((d) => ({
-            url: d.urls,
-            destination: safeJoin(gameDir, d.path),
-            validator: d.sha1 ? { algorithm: 'sha1', hash: d.sha1 } : undefined,
-            headers: { 'User-Agent': MODRINTH_USER_AGENT },
-            dispatcher: installDispatcher()
-          })),
-          downloads.reduce((sum, d) => sum + (d.size ?? 0), 0)
+        new WatchedDownloadTask(
+          downloads.map((d) => ({ urls: d.urls, destination: safeJoin(gameDir, d.path), sha1: d.sha1, size: d.size })),
+          { 'User-Agent': MODRINTH_USER_AGENT }
         ).setName('modpackFiles')
       )
     }

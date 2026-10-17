@@ -228,6 +228,8 @@ export interface InstallStatus {
   total: number
   /** 下载速度（字节/秒） */
   speed: number
+  /** 补充说明，例如「还剩 2 个文件：xxx.jar」 */
+  detail?: string
   /** 各个步骤的进度（与 PCL 类似，按开始的先后排列） */
   steps?: InstallStep[]
   /** 失败原因 */

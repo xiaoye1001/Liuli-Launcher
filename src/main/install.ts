@@ -118,6 +118,11 @@ function broadcast(): void {
   }
 }
 
+/** 进度卡片上的补充说明（例如还剩哪几个文件），下次推送进度时显示 */
+export function setInstallDetail(detail: string | undefined): void {
+  if (status && status.state === 'running') status.detail = detail
+}
+
 export function getInstallStatus(): InstallStatus | null {
   return status
 }
@@ -155,10 +160,12 @@ function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): Pr
     const result = new Map<InstallPhase, InstallStep>()
     for (const [leaf, phase] of leaves) {
       const step = result.get(phase) ?? { phase, progress: 0, total: 0, done: true }
-      const progress = Math.max(0, leaf.progress)
-      step.progress += progress
-      step.total += Math.max(leaf.total, progress, 0)
-      step.done = step.done && (finished || leaf.state === TaskState.Succeed)
+      const done = finished || leaf.state === TaskState.Succeed
+      const total = Math.max(leaf.total, leaf.progress, 0)
+      // 已完成的任务按全部完成计算：文件已经存在、校验通过时 xmcl 不会报告下载进度
+      step.progress += done ? total : Math.max(0, leaf.progress)
+      step.total += total
+      step.done = step.done && done
       result.set(phase, step)
     }
     return [...result.values()]
@@ -173,9 +180,10 @@ function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): Pr
     const instant = (bytesInWindow * 1000) / Math.max(1, now - lastTick)
     // 平滑处理，避免速度数字跳动太厉害
     status.speed = status.speed === 0 ? instant : status.speed * 0.6 + instant * 0.4
-    status.progress = task.progress
-    status.total = task.total
+    // 总进度按各步骤累加（xmcl 不会把已存在、校验通过的文件算进进度，重新安装时进度会一直很低）
     status.steps = steps(false)
+    status.progress = status.steps.reduce((sum, step) => sum + step.progress, 0)
+    status.total = status.steps.reduce((sum, step) => sum + step.total, 0)
     bytesInWindow = 0
     lastTick = now
     broadcast()
@@ -198,7 +206,9 @@ function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): Pr
       }
     })
     .then(() => {
-      status = { ...status!, state: 'success', progress: task.total, total: task.total, speed: 0, steps: steps(true) }
+      const finalSteps = steps(true)
+      const total = finalSteps.reduce((sum, step) => sum + step.total, 0)
+      status = { ...status!, state: 'success', progress: total, total, speed: 0, steps: finalSteps }
       return true
     })
     .catch((e: unknown) => {
