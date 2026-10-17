@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, Clock, EyeOff, Play } from 'lucide-react'
-import GrassBlockIcon from './GrassBlockIcon'
+import VersionIcon from './VersionIcon'
 import { formatDuration, formatRelative } from '../utils/format'
 import type { GameStatus, InstalledVersion, PlayStats } from '../../../shared/types'
 
@@ -73,6 +73,7 @@ function RecentPlays({
       <div className={`grid grid-cols-4 gap-3 ${collapsed ? 'hidden' : ''}`}>
         {recent.map((id) => {
           const v = stats.versions[id]
+          const info = versions.find((x) => x.id === id)
           return (
             <button
               key={id}
@@ -82,7 +83,7 @@ function RecentPlays({
               className="group flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/10 p-4 text-left shadow-xl backdrop-blur-xl transition-colors hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <div className="flex items-center gap-2">
-                <GrassBlockIcon className="h-8 w-8 shrink-0" />
+                <VersionIcon icon={info?.icon} iconUrl={info?.iconUrl} className="h-8 w-8" />
                 <span className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/80 opacity-0 transition-opacity group-hover:opacity-100 group-disabled:opacity-0">
                   <Play className="h-4 w-4 fill-current" />
                 </span>

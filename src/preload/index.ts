@@ -113,6 +113,10 @@ const api = {
   setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) =>
     ipcRenderer.invoke('versions:setConfig', versionId, patch),
   listMods: (versionId: string) => ipcRenderer.invoke('mods:list', versionId),
+  setVersionFavorite: (versionId: string, favorite: boolean) =>
+    ipcRenderer.invoke('version:setFavorite', versionId, favorite),
+  setVersionIcon: (versionId: string, icon: string | null) => ipcRenderer.invoke('version:setIcon', versionId, icon),
+  pickVersionIcon: (versionId: string) => ipcRenderer.invoke('version:pickIcon', versionId),
   checkModIssues: (versionId: string) => ipcRenderer.invoke('mods:issues', versionId),
   setModEnabled: (versionId: string, fileName: string, enabled: boolean) =>
     ipcRenderer.invoke('mods:setEnabled', versionId, fileName, enabled),

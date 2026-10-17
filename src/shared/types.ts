@@ -273,6 +273,19 @@ export interface InstalledVersion {
   minecraftVersion: string
   /** 是否有自己的版本设置（与全局设置不同） */
   customized: boolean
+  /** 是否收藏（收藏的版本排在前面） */
+  favorite: boolean
+  /** 图标：内置图标名，或 custom 表示自定义图片；没有时用默认图标 */
+  icon?: string
+  /** 自定义图标（PNG 的 data URL） */
+  iconUrl?: string
+}
+
+/** 版本的收藏与图标 */
+export interface VersionDisplay {
+  favorite: boolean
+  icon?: string
+  iconUrl?: string
 }
 
 /** 单个版本的设置，保存在 versions/<版本名>/liuli-version.json，未设置的项跟随全局设置 */

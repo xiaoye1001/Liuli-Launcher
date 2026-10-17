@@ -22,6 +22,7 @@ import type {
   OptiFineVersionInfo,
   ModList,
   ModIssue,
+  VersionDisplay,
   AccountsInfo,
   MsLoginStatus,
   ModrinthInstallResult,
@@ -168,6 +169,11 @@ declare global {
       getVersionConfig: (versionId: string) => Promise<VersionConfig>
       setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) => Promise<VersionConfig>
       listMods: (versionId: string) => Promise<ModList>
+      setVersionFavorite: (versionId: string, favorite: boolean) => Promise<VersionDisplay>
+      /** 使用内置图标，null 恢复默认 */
+      setVersionIcon: (versionId: string, icon: string | null) => Promise<VersionDisplay>
+      /** 选择图片作为版本图标，取消时返回 null */
+      pickVersionIcon: (versionId: string) => Promise<VersionDisplay | null>
       /** 检查模组问题：缺少前置、重复模组 */
       checkModIssues: (versionId: string) => Promise<ModIssue[]>
       /** 返回修改后的文件名 */

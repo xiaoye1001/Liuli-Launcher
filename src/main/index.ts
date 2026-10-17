@@ -25,6 +25,7 @@ import {
 } from './install'
 import { getGameLogs, getGameStatus, launchGame, listInstalledVersions, previewMemory } from './launch'
 import { closeLogWindow, openLogWindow } from './logWindow'
+import { pickVersionIcon, setVersionFavorite, setVersionIcon } from './versionDisplay'
 import { shareCrashLogs, shareGameLog, shareLatestLog } from './logShare'
 import { getGameDirInfo, openGameDir, pickGameDir, removeGameDir, renameGameDir, setGameDir } from './gameDir'
 import { assertSafeId, deleteVersion, openVersionDir } from './versionManage'
@@ -222,6 +223,15 @@ function registerIpc(): void {
   ipcMain.handle('versions:getConfig', (_, versionId: string) => getVersionConfig(versionId))
   ipcMain.handle('versions:setConfig', (_, versionId: string, patch: Partial<VersionConfig>) =>
     setVersionConfig(versionId, patch)
+  )
+  ipcMain.handle('version:setFavorite', (_, versionId: string, favorite: boolean) =>
+    setVersionFavorite(versionId, favorite === true)
+  )
+  ipcMain.handle('version:setIcon', (_, versionId: string, icon: string | null) =>
+    setVersionIcon(versionId, typeof icon === 'string' ? icon : null)
+  )
+  ipcMain.handle('version:pickIcon', (event, versionId: string) =>
+    pickVersionIcon(versionId, BrowserWindow.fromWebContents(event.sender))
   )
   ipcMain.handle('mods:list', (_, versionId: string) => listMods(versionId))
   ipcMain.handle('mods:issues', (_, versionId: string) => checkModIssues(versionId))
