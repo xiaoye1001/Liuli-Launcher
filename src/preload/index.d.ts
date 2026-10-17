@@ -1,5 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
+  NetworkCheck,
   WorldBackup,
   MemoryPlan,
   MsSkinProfile,
@@ -64,6 +65,8 @@ declare global {
       getSettings: () => Promise<AppSettings>
       updateSettings: (patch: Partial<AppSettings>) => Promise<AppSettings>
       getSystemInfo: () => Promise<SystemInfo>
+      /** 测试常用服务器能否连接（使用当前的代理设置） */
+      checkNetwork: () => Promise<NetworkCheck>
       /** 预览某个版本自动分配的内存；版本无法读取时返回 null */
       previewMemory: (versionId: string) => Promise<MemoryPlan | null>
       getVersionList: (force?: boolean) => Promise<VersionManifest>

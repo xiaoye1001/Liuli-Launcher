@@ -28,6 +28,7 @@ const api = {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch: Partial<AppSettings>) => ipcRenderer.invoke('settings:update', patch),
   getSystemInfo: () => ipcRenderer.invoke('system:info'),
+  checkNetwork: () => ipcRenderer.invoke('network:check'),
   previewMemory: (versionId: string) => ipcRenderer.invoke('memory:preview', versionId),
   getVersionList: (force = false) => ipcRenderer.invoke('versions:list', force),
   startInstall: (request: InstallRequest) => ipcRenderer.invoke('install:start', request),

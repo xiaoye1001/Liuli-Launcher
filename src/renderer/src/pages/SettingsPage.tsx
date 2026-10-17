@@ -16,6 +16,8 @@ import {
   Globe,
   Loader2,
   MemoryStick,
+  Network,
+  XCircle,
   ShieldCheck,
   Monitor,
   Moon,
@@ -37,6 +39,8 @@ import type {
   JavaInfo,
   JavaRuntimeInfo,
   MemoryPlan,
+  NetworkCheck,
+  ProxyMode,
   ThemeMode,
   UpdateInfo,
   VersionIsolation
@@ -811,12 +815,178 @@ function SettingsPage(): JSX.Element {
         </div>
       </section>
 
+      {/* 下载与网络 */}
+      <NetworkSection settings={settings} onSettings={setSettings} />
+
       {/* 关于与更新 */}
       <AboutSection
         autoCheck={settings.autoCheckUpdate}
         onAutoCheckChange={(value) => update({ autoCheckUpdate: value })}
       />
     </div>
+  )
+}
+
+const PROXY_MODES: { key: ProxyMode; label: string; desc: string }[] = [
+  { key: 'none', label: '不使用代理', desc: '直接连接' },
+  { key: 'system', label: '系统代理', desc: '跟随系统的代理设置' },
+  { key: 'custom', label: '手动设置', desc: '填写 HTTP 代理地址' }
+]
+
+/** 下载与网络：同时下载数、代理、测试连接 */
+function NetworkSection({
+  settings,
+  onSettings
+}: {
+  settings: AppSettings
+  onSettings: (settings: AppSettings) => void
+}): JSX.Element {
+  const [threads, setThreads] = useState(settings.downloadThreads)
+  const [proxyUrl, setProxyUrl] = useState(settings.proxyUrl)
+  const [error, setError] = useState('')
+  const [checking, setChecking] = useState(false)
+  const [check, setCheck] = useState<NetworkCheck | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout>>()
+
+  useEffect(() => () => clearTimeout(timer.current), [])
+
+  const save = async (patch: Partial<AppSettings>): Promise<boolean> => {
+    setError('')
+    setCheck(null)
+    try {
+      onSettings(await window.api.updateSettings(patch))
+      return true
+    } catch (e) {
+      setError(cleanError(e))
+      return false
+    }
+  }
+
+  const onThreads = (value: number): void => {
+    setThreads(value)
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => save({ downloadThreads: value }), 400)
+  }
+
+  // 保存后显示整理过的地址（例如自动补上 http://）
+  useEffect(() => setProxyUrl(settings.proxyUrl), [settings.proxyUrl])
+
+  const commitProxyUrl = async (): Promise<void> => {
+    if (proxyUrl !== settings.proxyUrl) await save({ proxyUrl })
+  }
+
+  const runCheck = async (): Promise<void> => {
+    setChecking(true)
+    setError('')
+    try {
+      setCheck(await window.api.checkNetwork())
+    } catch (e) {
+      setError(cleanError(e))
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
+      <div className="flex items-center gap-3">
+        <Network className="h-5 w-5 text-sky-300" />
+        <div>
+          <h2 className="text-lg font-semibold">下载与网络</h2>
+          <p className="text-xs text-white/50">下载速度慢或连不上服务器时，可以调整同时下载数或设置代理</p>
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <div className="flex items-center justify-between text-sm">
+          <span>同时下载数</span>
+          <span className="font-mono text-sky-300">{threads}</span>
+        </div>
+        <input
+          type="range"
+          min={1}
+          max={64}
+          value={threads}
+          onChange={(e) => onThreads(Number(e.target.value))}
+          aria-label="同时下载数"
+          className="mt-2 w-full cursor-pointer accent-sky-400"
+        />
+        <p className="mt-1 text-xs text-white/40">
+          每个服务器同时下载的文件数，默认 16。网络不稳定、经常下载失败时可以调低
+        </p>
+      </div>
+
+      <div className="mt-5 text-sm">代理</div>
+      <div className="mt-2 grid grid-cols-3 gap-3">
+        {PROXY_MODES.map((mode) => {
+          const active = settings.proxyMode === mode.key
+          return (
+            <button
+              key={mode.key}
+              onClick={() => save({ proxyMode: mode.key })}
+              className={`flex items-center justify-between gap-2 rounded-xl border px-4 py-3 text-left transition-colors ${
+                active ? 'border-emerald-400/50 bg-emerald-500/15' : 'border-white/5 bg-black/20 hover:bg-black/30'
+              }`}
+            >
+              <div className="min-w-0">
+                <div className="text-sm font-medium">{mode.label}</div>
+                <div className="text-xs text-white/50">{mode.desc}</div>
+              </div>
+              {active && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
+            </button>
+          )
+        })}
+      </div>
+      {settings.proxyMode === 'custom' && (
+        <div className="mt-3">
+          <input
+            value={proxyUrl}
+            onChange={(e) => setProxyUrl(e.target.value)}
+            onBlur={commitProxyUrl}
+            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            placeholder="例如 http://127.0.0.1:7890"
+            spellCheck={false}
+            aria-label="代理地址"
+            className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-2.5 font-mono text-sm outline-none placeholder:text-white/30 focus:border-sky-400/60"
+          />
+          <p className="mt-1 text-xs text-white/40">
+            只支持 HTTP 代理。Clash、v2rayN 等软件一般提供 HTTP 端口（如 7890、10809）；需要密码时写成
+            http://用户名:密码@地址:端口
+          </p>
+        </div>
+      )}
+
+      {error && <div className="mt-3 rounded-xl bg-red-500/20 px-4 py-2.5 text-sm text-red-200">{error}</div>}
+
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          onClick={runCheck}
+          disabled={checking}
+          className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-50"
+        >
+          {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+          测试连接
+        </button>
+        {check && <span className="text-xs text-white/50">{check.proxy ? `通过代理 ${check.proxy}` : '直接连接'}</span>}
+      </div>
+      {check && (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {check.results.map((r) => (
+            <div key={r.name} className="flex items-center gap-2 rounded-xl bg-black/20 px-3 py-2 text-sm">
+              {r.ok ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+              ) : (
+                <XCircle className="h-4 w-4 shrink-0 text-red-400" />
+              )}
+              <span className="flex-1 truncate">{r.name}</span>
+              <span className={`truncate text-xs ${r.ok ? 'text-white/50' : 'text-red-300'}`} title={r.error}>
+                {r.ok ? `${r.ms} ms` : (r.error ?? '无法连接')}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
 

@@ -1,11 +1,11 @@
 import { app } from 'electron'
-import { getDefaultAgent } from '@xmcl/file-transfer'
 import { installJavaRuntimeTask, type JavaRuntimeManifest, type JavaRuntimes } from '@xmcl/installer'
 import { task as createTask, type Task } from '@xmcl/task'
 import { chmod, mkdir, readFile, rm, symlink, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { getSettings } from './config'
 import { resolveJava, scanJava } from './java'
+import { downloadDispatcher } from './network'
 import type { JavaInfo, JavaRuntimeInfo } from '../shared/types'
 
 /**
@@ -135,7 +135,7 @@ export async function createJavaInstallTask(component: string): Promise<Task<str
         destination,
         manifest,
         apiHost: mirror ? [BMCLAPI_HOST] : undefined,
-        dispatcher: getDefaultAgent({ maxRetries: 3 }),
+        dispatcher: downloadDispatcher(),
         throwErrorImmediately: false
       })
     )

@@ -28,7 +28,8 @@
     "@xmcl/system": "2.2.9",
     "@xmcl/task": "4.1.1",
     "@xmcl/unzip": "2.1.2",
-    "@xmcl/user": "4.3.0"
+    "@xmcl/user": "4.3.0",
+    "undici": "7.2.3"
   },
   "devDependencies": {
     "@types/node": "22.18.0",

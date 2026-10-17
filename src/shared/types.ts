@@ -32,6 +32,15 @@ export interface OfflineAccount {
   skinModel: SkinModel
 }
 
+export type ProxyMode = 'none' | 'system' | 'custom'
+
+/** 网络连通性测试结果 */
+export interface NetworkCheck {
+  /** 正在使用的代理（隐藏密码），null 为直连 */
+  proxy: string | null
+  results: { name: string; ok: boolean; ms: number; status?: number; error?: string }[]
+}
+
 /** 启动器设置，保存在 userData/settings.json */
 export interface AppSettings {
   /** 选中的 java 可执行文件路径，空字符串表示未选择 */
@@ -46,6 +55,12 @@ export interface AppSettings {
   checkFiles: boolean
   /** 下载源 */
   downloadSource: DownloadSource
+  /** 每个服务器同时下载的文件数（1~64） */
+  downloadThreads: number
+  /** 代理：不使用 / 系统代理 / 手动设置 */
+  proxyMode: ProxyMode
+  /** 手动设置的 HTTP 代理地址，例如 http://127.0.0.1:7890 */
+  proxyUrl: string
   /** 游戏目录（.minecraft） */
   gameDir: string
   /** 当前离线账号的玩家名（与 offlineAccounts 中 activeOffline 对应的账号同步） */

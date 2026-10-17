@@ -71,6 +71,7 @@ import { getPlayStats } from './playStats'
 import { exportModpack, getModpackExportInfo, showExportedModpack } from './modpackExport'
 import { copyScreenshot, deleteScreenshot, listScreenshots, openScreenshotsDir, showScreenshot } from './screenshots'
 import { copyVersion, createDesktopShortcut, launchArgOf, renameVersion } from './versionOps'
+import { applyNetworkSettings, checkNetwork, validateProxyUrl } from './network'
 import { addOfflineAccount, removeOfflineAccount, renameOfflineAccount, selectOfflineAccount } from './offline'
 import { loginExternal, removeExternalAccount, selectExternalProfile } from './yggdrasil'
 import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
@@ -153,11 +154,22 @@ function registerIpc(): void {
   ipcMain.handle('java:runtimes', () => listJavaRuntimes())
   ipcMain.handle('java:download', (_, component: string) => startJavaInstall(component))
   ipcMain.handle('settings:get', () => getSettings())
-  ipcMain.handle('settings:update', (_, patch: Partial<AppSettings>) => {
+  ipcMain.handle('settings:update', async (_, patch: Partial<AppSettings>) => {
     // 修改主题时同步给 Electron，所有窗口的 prefers-color-scheme 会随之变化
     if (patch.theme) nativeTheme.themeSource = patch.theme
-    return updateSettings(patch).then(broadcastSettings)
+    if (typeof patch.proxyUrl === 'string' && patch.proxyUrl.trim()) {
+      patch = { ...patch, proxyUrl: validateProxyUrl(patch.proxyUrl) }
+    }
+    if (patch.downloadThreads !== undefined) {
+      const threads = Number(patch.downloadThreads)
+      patch = { ...patch, downloadThreads: Number.isInteger(threads) ? Math.min(64, Math.max(1, threads)) : 16 }
+    }
+    const next = await updateSettings(patch)
+    // 代理与下载线程数立即生效
+    if ('proxyMode' in patch || 'proxyUrl' in patch || 'downloadThreads' in patch) await applyNetworkSettings()
+    return broadcastSettings(next)
   })
+  ipcMain.handle('network:check', () => checkNetwork())
   ipcMain.handle('appearance:pickBackground', (event) =>
     pickBackground(BrowserWindow.fromWebContents(event.sender)).then(broadcastSettings)
   )
@@ -378,6 +390,7 @@ app.whenReady().then(async () => {
   registerBackgroundProtocol()
   // 先应用保存的主题，再创建窗口，避免启动时闪烁
   nativeTheme.themeSource = (await getSettings()).theme
+  await applyNetworkSettings().catch((e) => console.error('应用网络设置失败：', e))
   createWindow()
   const shortcutVersion = launchArgOf(process.argv)
   if (shortcutVersion) void launchFromShortcut(shortcutVersion)

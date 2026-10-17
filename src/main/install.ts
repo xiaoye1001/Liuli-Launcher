@@ -1,6 +1,5 @@
 import { app, BrowserWindow } from 'electron'
 import { MinecraftFolder, Version, type ResolvedVersion } from '@xmcl/core'
-import { getDefaultAgent } from '@xmcl/file-transfer'
 import { access, copyFile, mkdir, readdir, readFile, rm, writeFile } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import {
@@ -26,6 +25,7 @@ import { neoforgeProject } from './neoforge'
 import { optiFineInstallerUrl } from './optifine'
 import { createJavaInstallTask, javaExecutable, pickJava, requirementOf } from './javaRuntime'
 import { isIsolated, versionGameDir } from './isolation'
+import { downloadDispatcher } from './network'
 import type { MissingFiles } from './fileCheck'
 import type {
   DownloadSource,
@@ -122,7 +122,7 @@ async function downloadOptions(): Promise<Options> {
   const settings = await getSettings()
   return {
     ...mirrorOptions(settings.downloadSource),
-    dispatcher: getDefaultAgent({ maxRetries: 3 }),
+    dispatcher: downloadDispatcher(),
     headers: { 'User-Agent': 'LiuliLauncher/0.1.0' },
     throwErrorImmediately: false
   }

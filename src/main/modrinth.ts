@@ -1,9 +1,10 @@
-import { download, getDefaultAgent } from '@xmcl/file-transfer'
+import { download } from '@xmcl/file-transfer'
 import { app, shell } from 'electron'
 import { mkdir, readdir, rename, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import { getSettings } from './config'
 import { assertGameStopped, fileSha1, listModFiles, modsContextOf, type ModsContext } from './mods'
+import { downloadDispatcher } from './network'
 import type {
   ModrinthInstallResult,
   ModUpdate,
@@ -171,7 +172,7 @@ async function downloadVersionFile(version: ModrinthVersion, dir: string): Promi
   await download({
     url: urls,
     destination: join(dir, file.filename),
-    dispatcher: getDefaultAgent({ maxRetries: 3 }),
+    dispatcher: downloadDispatcher(),
     headers: { 'User-Agent': USER_AGENT },
     validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
   })
@@ -323,7 +324,7 @@ export async function downloadModpackFile(versionId: string): Promise<string> {
   await download({
     url: await modrinthFileUrls([file.url]),
     destination,
-    dispatcher: getDefaultAgent({ maxRetries: 3 }),
+    dispatcher: downloadDispatcher(),
     headers: { 'User-Agent': USER_AGENT },
     validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
   })
@@ -395,7 +396,7 @@ export async function installResource(
   await download({
     url: await modrinthFileUrls([file.url]),
     destination: join(dir, basename(file.filename)),
-    dispatcher: getDefaultAgent({ maxRetries: 3 }),
+    dispatcher: downloadDispatcher(),
     headers: { 'User-Agent': USER_AGENT },
     validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
   })
