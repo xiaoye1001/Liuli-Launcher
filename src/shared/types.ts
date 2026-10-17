@@ -497,10 +497,34 @@ export interface MicrosoftAccount {
   skinModel: SkinModel
 }
 
+/** 外置登录账号（authlib-injector，例如 LittleSkin 皮肤站） */
+export interface ExternalAccount {
+  /** 账号标识：ygg:<角色 UUID>@<验证服务器地址> */
+  id: string
+  uuid: string
+  /** 角色名 */
+  name: string
+  skin: string
+  skinModel: SkinModel
+  /** 验证服务器名称，例如 LittleSkin */
+  serverName: string
+  /** 验证服务器 API 地址 */
+  serverUrl: string
+  /** 登录用的邮箱或用户名（只用于显示） */
+  username: string
+}
+
+/** 外置登录的结果：直接成功，或需要从多个角色中选择一个 */
+export type ExternalLoginResult =
+  | { account: ExternalAccount }
+  | { pendingId: string; profiles: { id: string; name: string }[] }
+
 export interface AccountsInfo {
-  /** 当前使用的账号：'offline' 或微软账号的 UUID */
+  /** 当前使用的账号：'offline'、微软账号的 UUID 或外置账号的 id */
   active: string
   accounts: MicrosoftAccount[]
+  /** 外置登录账号 */
+  external: ExternalAccount[]
   /** 当前构建是否开启了微软登录（构建时配置了 Client ID） */
   loginAvailable: boolean
 }

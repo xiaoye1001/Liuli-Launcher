@@ -125,7 +125,8 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
   }, [])
 
   // 使用微软账号时玩家名来自正版档案，不需要输入
-  const msAccount = accounts?.accounts.find((a) => a.uuid === accounts.active)
+  const external = accounts?.external.find((a) => a.id === accounts.active)
+  const msAccount = accounts?.accounts.find((a) => a.uuid === accounts.active) ?? external
   const nameValid = msAccount ? true : NAME_PATTERN.test(name)
   const displayName = msAccount ? msAccount.name : name
   const busy = game.state === 'launching' || game.state === 'running'
@@ -171,7 +172,9 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
         <div className="mt-6 flex flex-wrap items-end gap-4">
           {msAccount ? (
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs text-white/50">微软账号（在账号页切换）</span>
+              <span className="text-xs text-white/50">
+                {external ? `外置账号 · ${external.serverName}` : '微软账号（在账号页切换）'}
+              </span>
               <div className="flex w-44 items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 py-2.5">
                 <SkinHead skin={msAccount.skin} size={24} />
                 <span className="truncate text-sm font-medium">{msAccount.name}</span>

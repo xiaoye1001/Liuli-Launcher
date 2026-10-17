@@ -113,6 +113,11 @@ const api = {
   getAccounts: () => ipcRenderer.invoke('accounts:list'),
   setActiveAccount: (id: string) => ipcRenderer.invoke('accounts:setActive', id),
   removeAccount: (uuid: string) => ipcRenderer.invoke('accounts:remove', uuid),
+  loginExternal: (server: string, username: string, password: string) =>
+    ipcRenderer.invoke('external:login', server, username, password),
+  selectExternalProfile: (pendingId: string, profileId: string) =>
+    ipcRenderer.invoke('external:selectProfile', pendingId, profileId),
+  removeExternalAccount: (id: string) => ipcRenderer.invoke('external:remove', id),
   startMicrosoftLogin: () => ipcRenderer.invoke('ms:login'),
   cancelMicrosoftLogin: () => ipcRenderer.invoke('ms:cancel'),
   getMicrosoftLoginStatus: () => ipcRenderer.invoke('ms:status'),

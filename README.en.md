@@ -61,6 +61,7 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 ### Accounts
 - **Offline accounts**: upload a skin and preview it on an animated 3D model
 - **Microsoft login**: sign in by entering a code on Microsoft's website, so the launcher never sees your password; switch between multiple accounts, with sessions refreshed automatically at launch
+- **External login**: accounts from LittleSkin and other authlib-injector skin sites (just enter the site's address); authlib-injector is downloaded automatically at launch. Only encrypted login tokens are stored, never your password
 
 ### Interface
 - Glass-style design with page transition animations

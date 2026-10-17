@@ -61,6 +61,7 @@ import { exportCrashInfo, openCrashFile } from './crashReport'
 import { deleteServer, importGameServers, listServers, moveServer, saveServer } from './servers'
 import { pingServer } from './serverPing'
 import { checkUpdate, openUpdateLink } from './updater'
+import { loginExternal, removeExternalAccount, selectExternalProfile } from './yggdrasil'
 import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
 import {
   cancelMicrosoftLogin,
@@ -211,6 +212,16 @@ function registerIpc(): void {
   ipcMain.handle('accounts:list', () => getAccounts())
   ipcMain.handle('accounts:setActive', (_, id: string) => setActiveAccount(id))
   ipcMain.handle('accounts:remove', (_, uuid: string) => removeAccount(uuid))
+  ipcMain.handle('external:login', (_, server: string, username: string, password: string) =>
+    loginExternal(server, username, password)
+  )
+  ipcMain.handle('external:selectProfile', (_, pendingId: string, profileId: string) =>
+    selectExternalProfile(pendingId, profileId)
+  )
+  ipcMain.handle('external:remove', async (_, id: string) => {
+    await removeExternalAccount(id)
+    return getAccounts()
+  })
   ipcMain.handle('ms:login', () => startMicrosoftLogin())
   ipcMain.handle('ms:cancel', () => cancelMicrosoftLogin())
   ipcMain.handle('ms:status', () => getLoginStatus())

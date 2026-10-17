@@ -14,6 +14,7 @@ import { resolveJava } from './java'
 import { openLogWindow } from './logWindow'
 import { collectCrash } from './crashReport'
 import { parseAddress } from './serverPing'
+import { ensureAuthlibInjector } from './authlibInjector'
 import type { GameLogEvent, GameStatus, InstalledVersion, JavaInfo, ModLoader } from '../shared/types'
 
 /** 根据版本 json 的启动类与依赖库判断模组加载器 */
@@ -248,7 +249,21 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       }
     }
     launcherLog(`Java ${java.version}：${java.path}`)
-    launcherLog(`${auth.microsoft ? '微软账号' : '离线账号'} ${auth.name}，最大内存 ${maxMemory} MB`)
+    const accountLabel = auth.microsoft
+      ? '微软账号'
+      : 'yggdrasil' in auth && auth.yggdrasil
+        ? `外置账号（${auth.yggdrasil.serverName}）`
+        : '离线账号'
+    launcherLog(`${accountLabel} ${auth.name}，最大内存 ${maxMemory} MB`)
+    // 外置登录：通过 authlib-injector 让游戏使用皮肤站的验证服务器
+    const yggdrasilAgent =
+      'yggdrasil' in auth && auth.yggdrasil
+        ? {
+            jar: await ensureAuthlibInjector(launcherLog),
+            server: auth.yggdrasil.server,
+            prefetched: auth.yggdrasil.prefetched
+          }
+        : undefined
     if (isCustomized(config)) launcherLog('已应用该版本的独立设置')
     // 版本隔离：模组、存档、配置放在版本自己的文件夹里，依赖库与资源文件仍从游戏目录读取
     const isolated = isolatedWith(config, settings.versionIsolation, detectLoader(version))
@@ -266,6 +281,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       accessToken: auth.accessToken,
       // 官方启动器给微软账号传的是 msa，xmcl 的类型定义还没有这个值
       userType: auth.userType as 'legacy' | 'mojang',
+      yggdrasilAgent,
       launcherName: 'liuli-launcher',
       launcherBrand: 'Liuli Launcher',
       versionType: 'Liuli Launcher',

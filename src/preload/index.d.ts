@@ -33,7 +33,9 @@ import type {
   WorldList,
   SavedServer,
   ServerStatus,
-  UpdateInfo
+  UpdateInfo,
+  ExternalAccount,
+  ExternalLoginResult
 } from '../shared/types'
 
 declare global {
@@ -155,6 +157,11 @@ declare global {
       /** id 为 'offline' 或微软账号 UUID */
       setActiveAccount: (id: string) => Promise<AccountsInfo>
       removeAccount: (uuid: string) => Promise<AccountsInfo>
+      /** 外置登录（authlib-injector 验证服务器，例如 LittleSkin） */
+      loginExternal: (server: string, username: string, password: string) => Promise<ExternalLoginResult>
+      /** 账号下有多个角色时选择一个 */
+      selectExternalProfile: (pendingId: string, profileId: string) => Promise<ExternalAccount>
+      removeExternalAccount: (id: string) => Promise<AccountsInfo>
       /** 获取设备代码后立即返回，之后的进度通过 onMicrosoftLogin 推送 */
       startMicrosoftLogin: () => Promise<MsLoginStatus>
       cancelMicrosoftLogin: () => Promise<void>
