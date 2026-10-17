@@ -18,9 +18,11 @@ import type {
   MsLoginStatus,
   ModrinthInstallResult,
   ModpackInfo,
-  ModrinthModpack,
-  ModpackSearchFilters,
-  ModrinthModpackVersion,
+  ModrinthProjectHit,
+  ResourceSearchFilters,
+  ResourceTarget,
+  ResourceType,
+  ModrinthProjectVersion,
   ModrinthSearchResult,
   SystemInfo,
   VersionManifest
@@ -71,12 +73,18 @@ declare global {
       installModpack: (name: string) => Promise<void>
       /** 读取拖入窗口的 .mrpack 文件 */
       loadModpackFile: (path: string) => Promise<ModpackInfo>
-      searchModpacks: (
+      /** 在 Modrinth 搜索某类社区资源 */
+      searchResources: (
+        type: ResourceType,
         query: string,
         offset: number,
-        filters: ModpackSearchFilters
-      ) => Promise<{ hits: ModrinthModpack[]; total: number }>
-      getModpackVersions: (projectId: string) => Promise<ModrinthModpackVersion[]>
+        filters: ResourceSearchFilters
+      ) => Promise<{ hits: ModrinthProjectHit[]; total: number }>
+      getResourceVersions: (projectId: string, type: ResourceType) => Promise<ModrinthProjectVersion[]>
+      /** 安装模组 / 资源包 / 光影 / 数据包的某个版本到指定游戏版本 */
+      installResource: (target: ResourceTarget, type: ResourceType, versionId: string) => Promise<ModrinthInstallResult>
+      /** 某个版本的存档列表 */
+      listWorlds: (versionId: string) => Promise<string[]>
       /** 从 Modrinth 下载整合包的某个版本并读取信息 */
       downloadModpack: (versionId: string) => Promise<ModpackInfo>
       /** 拖入窗口的文件在本机的路径 */

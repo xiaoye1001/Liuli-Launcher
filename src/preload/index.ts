@@ -6,7 +6,9 @@ import type {
   GameStatus,
   InstallRequest,
   InstallStatus,
-  ModpackSearchFilters,
+  ResourceSearchFilters,
+  ResourceTarget,
+  ResourceType,
   MsLoginStatus
 } from '../shared/types'
 
@@ -52,9 +54,13 @@ const api = {
   pickModpack: () => ipcRenderer.invoke('modpack:pick'),
   installModpack: (name: string) => ipcRenderer.invoke('modpack:install', name),
   loadModpackFile: (path: string) => ipcRenderer.invoke('modpack:loadFile', path),
-  searchModpacks: (query: string, offset: number, filters: ModpackSearchFilters) =>
-    ipcRenderer.invoke('modpack:search', query, offset, filters),
-  getModpackVersions: (projectId: string) => ipcRenderer.invoke('modpack:versions', projectId),
+  searchResources: (type: ResourceType, query: string, offset: number, filters: ResourceSearchFilters) =>
+    ipcRenderer.invoke('resource:search', type, query, offset, filters),
+  getResourceVersions: (projectId: string, type: ResourceType) =>
+    ipcRenderer.invoke('resource:versions', projectId, type),
+  installResource: (target: ResourceTarget, type: ResourceType, versionId: string) =>
+    ipcRenderer.invoke('resource:install', target, type, versionId),
+  listWorlds: (versionId: string) => ipcRenderer.invoke('resource:worlds', versionId),
   downloadModpack: (versionId: string) => ipcRenderer.invoke('modpack:download', versionId),
   /** 拖入窗口的文件在本机的路径 */
   getPathForFile: (file: File) => webUtils.getPathForFile(file),

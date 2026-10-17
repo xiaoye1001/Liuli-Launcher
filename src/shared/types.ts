@@ -84,6 +84,8 @@ export interface SystemInfo {
   totalMemory: number
   /** 免安装版的数据文件夹（exe 旁边），安装版为 null */
   portableDir: string | null
+  /** Windows 上是否以管理员身份运行（此时无法从资源管理器拖入文件） */
+  elevated: boolean
 }
 
 /** 版本类型：正式版 / 快照 / 远古 Beta / 远古 Alpha */
@@ -148,6 +150,8 @@ export interface InstalledVersion {
   loader?: ModLoader
   /** 是否使用独立的游戏目录（版本隔离） */
   isolated: boolean
+  /** 原版 Minecraft 版本号 */
+  minecraftVersion: string
 }
 
 /** 游戏运行状态：空闲 / 启动中 / 窗口已出现 / 正常退出 / 崩溃或启动失败 */
@@ -367,11 +371,14 @@ export interface ModpackInfo {
   overrideCount: number
 }
 
-/** 整合包搜索的筛选条件 */
-export interface ModpackSearchFilters {
+/** 下载页的社区资源类型（与 Modrinth 的项目类型一致） */
+export type ResourceType = 'mod' | 'modpack' | 'datapack' | 'resourcepack' | 'shader'
+
+/** 社区资源搜索的筛选条件 */
+export interface ResourceSearchFilters {
   /** Minecraft 版本，例如 1.20.1 */
   gameVersion?: string
-  /** 模组加载器：fabric / forge / neoforge / quilt */
+  /** 加载器：模组与整合包为 fabric / forge / neoforge / quilt，光影为 iris / optifine 等 */
   loader?: string
   /** Modrinth 分类，例如 optimization */
   category?: string
@@ -379,8 +386,8 @@ export interface ModpackSearchFilters {
   sort?: string
 }
 
-/** Modrinth 上的整合包（搜索结果） */
-export interface ModrinthModpack {
+/** Modrinth 上的项目（搜索结果） */
+export interface ModrinthProjectHit {
   projectId: string
   title: string
   description: string
@@ -393,8 +400,8 @@ export interface ModrinthModpack {
   latestGameVersion: string
 }
 
-/** 整合包的一个版本 */
-export interface ModrinthModpackVersion {
+/** 项目的一个版本 */
+export interface ModrinthProjectVersion {
   id: string
   name: string
   versionNumber: string
@@ -402,6 +409,15 @@ export interface ModrinthModpackVersion {
   gameVersions: string[]
   loaders: string[]
   datePublished: string
-  /** .mrpack 文件大小（字节） */
+  /** 主文件名 */
+  fileName: string
+  /** 主文件大小（字节） */
   fileSize: number
+}
+
+/** 社区资源安装到哪里：某个已安装的版本（数据包还需要选择存档） */
+export interface ResourceTarget {
+  versionId: string
+  /** 数据包安装到的存档文件夹名 */
+  world?: string
 }

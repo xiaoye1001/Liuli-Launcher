@@ -27,7 +27,15 @@ import { closeLogWindow, openLogWindow } from './logWindow'
 import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
 import { deleteVersion, openVersionDir } from './versionManage'
 import { addMods, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
-import { getModpackVersions, installFromModrinth, searchModpacks, searchModrinth } from './modrinth'
+import {
+  getProjectVersions,
+  installFromModrinth,
+  installResource,
+  listWorlds,
+  searchModrinth,
+  searchProjects
+} from './modrinth'
+import { isElevated } from './elevation'
 import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
 import {
   cancelMicrosoftLogin,
@@ -38,7 +46,14 @@ import {
   setActiveAccount,
   startMicrosoftLogin
 } from './microsoft'
-import type { AppSettings, InstallRequest, ModpackSearchFilters, SystemInfo } from '../shared/types'
+import type {
+  AppSettings,
+  InstallRequest,
+  ResourceSearchFilters,
+  ResourceTarget,
+  ResourceType,
+  SystemInfo
+} from '../shared/types'
 
 /** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
 function broadcastSettings(settings: AppSettings): AppSettings {
@@ -139,10 +154,16 @@ function registerIpc(): void {
   ipcMain.handle('modpack:pick', (event) => pickModpack(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('modpack:install', (_, name: string) => installModpack(name))
   ipcMain.handle('modpack:loadFile', (_, path: string) => loadModpackFile(path))
-  ipcMain.handle('modpack:search', (_, query: string, offset: number, filters: ModpackSearchFilters) =>
-    searchModpacks(query, offset, filters)
+  ipcMain.handle(
+    'resource:search',
+    (_, type: ResourceType, query: string, offset: number, filters: ResourceSearchFilters) =>
+      searchProjects(type, query, offset, filters)
   )
-  ipcMain.handle('modpack:versions', (_, projectId: string) => getModpackVersions(projectId))
+  ipcMain.handle('resource:versions', (_, projectId: string, type: ResourceType) => getProjectVersions(projectId, type))
+  ipcMain.handle('resource:install', (_, target: ResourceTarget, type: ResourceType, versionId: string) =>
+    installResource(target, type, versionId)
+  )
+  ipcMain.handle('resource:worlds', (_, versionId: string) => listWorlds(versionId))
   ipcMain.handle('modpack:download', (_, versionId: string) => downloadModpack(versionId))
   ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>
     searchModrinth(versionId, query, offset)
@@ -164,7 +185,11 @@ function registerIpc(): void {
   })
   ipcMain.handle(
     'system:info',
-    (): SystemInfo => ({ totalMemory: Math.floor(totalmem() / 1024 / 1024), portableDir })
+    async (): Promise<SystemInfo> => ({
+      totalMemory: Math.floor(totalmem() / 1024 / 1024),
+      portableDir,
+      elevated: await isElevated()
+    })
   )
 }
 

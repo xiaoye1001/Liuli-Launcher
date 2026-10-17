@@ -25,9 +25,16 @@ Glass-style UI · Dark & light themes · Fast downloads via mirrors · One-click
 - Choose a custom version name and attach a mod loader before installing:
   - **Forge**, **NeoForge** or **Fabric** (pick one)
   - **OptiFine** (on its own, or together with Forge)
-- **Modpacks**: search, filter and download Modrinth modpacks inside the launcher, or import a local modpack (just drag it onto the window). Modrinth (`.mrpack`), CurseForge, MultiMC / Prism and MCBBS (`.zip`) formats are supported; the matching Minecraft version and mod loader, every mod, and the bundled config files are installed in one go
+- Import local modpacks (pick a file, or just drag it onto the window): Modrinth (`.mrpack`), CurseForge, MultiMC / Prism and MCBBS (`.zip`) formats are supported; the matching Minecraft version and mod loader, every mod, and the bundled config files are installed in one go
 - "Check & repair" installed versions: only missing or corrupted files are downloaded again
 - Before deleting a version, the launcher checks whether other versions depend on it, and warns you if its folder contains worlds
+
+### Community resources
+The **Download** page has a side menu with **Vanilla** and **Community resources** (mods, modpacks, data packs, resource packs, shader packs), all from Modrinth:
+- Search every resource type and filter by Minecraft version, loader and category, or sort by downloads, last update and more
+- Expand a project to see all of its versions, with the ones matching your filters listed first, and pick exactly which one to download
+- Choose which installed game version to install into, and the filters follow that version's Minecraft version and loader
+- Mods go to `mods` (required dependencies are installed too), resource packs to `resourcepacks`, shader packs to `shaderpacks`, and data packs to the chosen world's `datapacks`; modpacks open the install page after downloading
 
 ### Launching
 - **Automatic Java**: picks the right Java for each game version and downloads it automatically when missing (the same Java runtimes as the official launcher); Java 8 / 17 / 21 / 25 can also be downloaded from Settings with one click, or chosen manually

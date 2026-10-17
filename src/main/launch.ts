@@ -45,7 +45,9 @@ export async function listInstalledVersions(): Promise<InstalledVersion[]> {
         type: json.type ?? '',
         releaseTime: json.releaseTime ?? '',
         loader,
-        isolated: isIsolated(versionIsolation, loader)
+        isolated: isIsolated(versionIsolation, loader),
+        // 加载器版本继承自原版，原版版本的 id 就是版本号
+        minecraftVersion: json.inheritsFrom ?? json.id ?? id
       })
     } catch {
       // 没有 json 或 json 损坏的目录不是有效版本
