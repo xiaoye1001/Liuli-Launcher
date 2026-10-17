@@ -12,6 +12,7 @@ import { startJavaInstall } from './install'
 import { onGameEnded, onGameWindowReady } from './windows'
 import { resolveJava } from './java'
 import { openLogWindow } from './logWindow'
+import { collectCrash } from './crashReport'
 import type { GameLogEvent, GameStatus, InstalledVersion, JavaInfo, ModLoader } from '../shared/types'
 
 /** 根据版本 json 的启动类与依赖库判断模组加载器 */
@@ -169,6 +170,7 @@ export async function launchGame(versionId: string): Promise<void> {
   const settings = await getSettings()
   resetLogs()
   setStatus({ state: 'launching', versionId })
+  const startedAt = Date.now()
   openLogWindow()
   launcherLog(`正在启动 ${versionId}`)
 
@@ -274,11 +276,31 @@ export async function launchGame(versionId: string): Promise<void> {
     watcher.on('error', (e) => {
       setStatus({ state: 'crashed', versionId, error: describeLaunchError(e) })
     })
-    watcher.on('minecraft-exit', ({ code, crashReportLocation }) => {
+    watcher.on('minecraft-exit', async ({ code, crashReportLocation }) => {
       launcherLog(`游戏进程已退出，退出码 ${code}`)
       if (code === 0) {
         setStatus({ state: 'exited', versionId, exitCode: code })
       } else {
+        // 等待剩余的输出写完，再分析崩溃原因
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        const analysis = await collectCrash({
+          versionId,
+          gamePath,
+          startedAt,
+          exitCode: code,
+          crashReportLocation,
+          logs: [...logs],
+          context: {
+            javaMajor: java?.majorVersion,
+            javaPath: java?.path,
+            maxMemory,
+            customJvmArgs: jvmArgs.length > 0
+          }
+        }).catch((e) => {
+          launcherLog(`崩溃分析失败：${e instanceof Error ? e.message : String(e)}`)
+          return undefined
+        })
+        if (analysis?.causes.length) launcherLog(`崩溃分析：${analysis.causes.map((c) => c.title).join('、')}`)
         const lastLines = logs
           .filter((line) => !line.startsWith('[启动器]'))
           .slice(-5)
@@ -289,7 +311,8 @@ export async function launchGame(versionId: string): Promise<void> {
           exitCode: code,
           error: crashReportLocation
             ? `游戏崩溃，崩溃报告：${crashReportLocation}`
-            : `游戏异常退出（退出码 ${code}）${lastLines ? `\n${lastLines}` : ''}`
+            : `游戏异常退出（退出码 ${code}）${lastLines ? `\n${lastLines}` : ''}`,
+          analysis
         })
       }
     })

@@ -57,6 +57,7 @@ import {
   openWorldDatapacksDir,
   openWorldDir
 } from './worlds'
+import { exportCrashInfo, openCrashFile } from './crashReport'
 import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
 import {
   cancelMicrosoftLogin,
@@ -234,6 +235,8 @@ function registerIpc(): void {
   ipcMain.handle('game:status', () => getGameStatus())
   ipcMain.handle('game:logs', () => getGameLogs())
   ipcMain.handle('logs:open', () => openLogWindow())
+  ipcMain.handle('crash:open', (_, kind: 'report' | 'native') => openCrashFile(kind))
+  ipcMain.handle('crash:export', (event) => exportCrashInfo(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('gamedir:info', () => getGameDirInfo())
   ipcMain.handle('gamedir:set', (_, dir: string) => setGameDir(dir))
   ipcMain.handle('gamedir:open', () => openGameDir())

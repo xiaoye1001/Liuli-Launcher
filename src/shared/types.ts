@@ -186,6 +186,30 @@ export interface GameStatus {
   exitCode?: number | null
   /** 启动失败或崩溃的原因 */
   error?: string
+  /** 崩溃分析结果（游戏进程异常退出时） */
+  analysis?: CrashAnalysis
+}
+
+/** 崩溃原因对应的界面操作：打开版本设置 / 到「版本」页（修复、管理模组） */
+export type CrashAction = 'versionSettings' | 'versions'
+
+export interface CrashCause {
+  title: string
+  detail: string
+  /** 相关的模组（缺少的前置、冲突或出错的模组） */
+  mods?: string[]
+  suggestions: string[]
+  action?: CrashAction
+}
+
+export interface CrashAnalysis {
+  /** 识别出的原因，按可能性排列；为空表示没能识别 */
+  causes: CrashCause[]
+  /** 没识别出原因时，从日志中找到的关键错误 */
+  keyError?: string
+  exitCode: number | null
+  hasCrashReport: boolean
+  hasNativeLog: boolean
 }
 
 /** 推送到日志窗口的一批日志 */

@@ -88,6 +88,10 @@ declare global {
       deleteWorldDatapack: (versionId: string, folder: string, fileName: string) => Promise<void>
       addWorldDatapacks: (versionId: string, folder: string) => Promise<number>
       openWorldDatapacksDir: (versionId: string, folder: string) => Promise<void>
+      /** 打开最近一次崩溃的崩溃报告 / Java 崩溃日志 */
+      openCrashFile: (kind: 'report' | 'native') => Promise<void>
+      /** 导出崩溃信息 zip，返回保存路径；取消时返回 null */
+      exportCrashInfo: () => Promise<string | null>
       /** 版本设置（未设置的项跟随全局设置） */
       getVersionConfig: (versionId: string) => Promise<VersionConfig>
       setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) => Promise<VersionConfig>

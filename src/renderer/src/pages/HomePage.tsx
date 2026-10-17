@@ -12,6 +12,7 @@ import {
   Terminal,
   UserRound
 } from 'lucide-react'
+import CrashCard from '../components/CrashCard'
 import SkinHead from '../components/SkinHead'
 import type { AccountsInfo, AppSettings, GameStatus, InstallStatus, InstalledVersion } from '../../../shared/types'
 
@@ -90,6 +91,8 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
   const [accounts, setAccounts] = useState<AccountsInfo | null>(null)
   /** 启动时自动下载 Java 的进度 */
   const [javaTask, setJavaTask] = useState<InstallStatus | null>(null)
+  /** 关闭崩溃提示，下次启动后重新显示 */
+  const [crashDismissed, setCrashDismissed] = useState(false)
 
   useEffect(() => {
     const init = async (): Promise<void> => {
@@ -111,7 +114,10 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
     }
     init()
     const offInstall = window.api.onInstallStatus((status) => setJavaTask(status?.kind === 'java' ? status : null))
-    const offGame = window.api.onGameStatus(setGame)
+    const offGame = window.api.onGameStatus((status) => {
+      setGame(status)
+      setCrashDismissed(false)
+    })
     return () => {
       offInstall()
       offGame()
@@ -143,21 +149,14 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
   return (
     <div className="flex h-full flex-col justify-end gap-4">
       <AnimatePresence>
-        {game.state === 'crashed' && game.error && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 12 }}
-            className="flex items-start gap-3 rounded-2xl border border-red-400/20 bg-red-500/20 px-5 py-4 text-sm text-red-100 backdrop-blur-xl"
-          >
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-300" />
-            <div className="min-w-0">
-              <div className="font-semibold">{game.versionId} 启动失败</div>
-              <pre className="mt-1 max-h-32 overflow-y-auto whitespace-pre-wrap break-all font-sans text-xs text-red-200/90">
-                {game.error}
-              </pre>
-            </div>
-          </motion.div>
+        {game.state === 'crashed' && game.error && !crashDismissed && (
+          <CrashCard
+            game={game}
+            onDismiss={() => setCrashDismissed(true)}
+            onAction={(action) =>
+              action === 'versionSettings' ? onOpenVersionSettings(game.versionId) : onManageVersions()
+            }
+          />
         )}
       </AnimatePresence>
 

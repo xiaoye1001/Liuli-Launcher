@@ -70,6 +70,8 @@ const api = {
     ipcRenderer.invoke('worlds:addDatapacks', versionId, folder),
   openWorldDatapacksDir: (versionId: string, folder: string) =>
     ipcRenderer.invoke('worlds:openDatapacks', versionId, folder),
+  openCrashFile: (kind: 'report' | 'native') => ipcRenderer.invoke('crash:open', kind),
+  exportCrashInfo: () => ipcRenderer.invoke('crash:export'),
   getVersionConfig: (versionId: string) => ipcRenderer.invoke('versions:getConfig', versionId),
   setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) =>
     ipcRenderer.invoke('versions:setConfig', versionId, patch),
