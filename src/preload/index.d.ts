@@ -72,6 +72,8 @@ declare global {
       cancelInstall: () => Promise<void>
       getInstallStatus: () => Promise<InstallStatus | null>
       getFabricLoaders: (minecraftVersion: string) => Promise<FabricLoaderVersion[]>
+      /** 某个 Minecraft 版本可用的 Quilt 加载器版本，不支持时为空 */
+      getQuiltLoaders: (minecraftVersion: string) => Promise<FabricLoaderVersion[]>
       getForgeVersions: (minecraftVersion: string) => Promise<ForgeVersionInfo[]>
       getNeoForgeVersions: (minecraftVersion: string) => Promise<NeoForgeVersionInfo[]>
       getOptiFineVersions: (minecraftVersion: string) => Promise<OptiFineVersionInfo[]>

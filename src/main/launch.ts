@@ -23,8 +23,9 @@ import type { GameLogEvent, GameStatus, InstalledVersion, JavaInfo, MemoryPlan, 
 /** 根据版本 json 的启动类与依赖库判断模组加载器 */
 export function detectLoader(json: { mainClass?: string; libraries?: { name?: string }[] }): ModLoader | undefined {
   const text = `${json.mainClass ?? ''} ${(json.libraries ?? []).map((l) => l.name ?? '').join(' ')}`
-  if (/net\.fabricmc/.test(text)) return 'fabric'
+  // Quilt 版本也会用到 Fabric 的 intermediary 映射库，所以先判断 Quilt
   if (/org\.quiltmc/.test(text)) return 'quilt'
+  if (/net\.fabricmc/.test(text)) return 'fabric'
   if (/net\.neoforged/.test(text)) return 'neoforge'
   if (/net\.minecraftforge|cpw\.mods/.test(text)) return 'forge'
   if (/(^|\s)optifine:/i.test(text)) return 'optifine'

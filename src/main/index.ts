@@ -16,6 +16,7 @@ import { getOptiFineVersions } from './optifine'
 import {
   cancelInstall,
   getFabricLoaders,
+  getQuiltLoaders,
   getInstallStatus,
   retryLastInstall,
   startCustomInstall,
@@ -170,6 +171,7 @@ function registerIpc(): void {
   ipcMain.handle('install:cancel', () => cancelInstall())
   ipcMain.handle('install:status', () => getInstallStatus())
   ipcMain.handle('fabric:loaders', (_, minecraftVersion: string) => getFabricLoaders(minecraftVersion))
+  ipcMain.handle('quilt:loaders', (_, minecraftVersion: string) => getQuiltLoaders(minecraftVersion))
   ipcMain.handle('forge:versions', (_, minecraftVersion: string) => getForgeVersions(minecraftVersion))
   ipcMain.handle('neoforge:versions', (_, minecraftVersion: string) => getNeoForgeVersions(minecraftVersion))
   ipcMain.handle('optifine:versions', (_, minecraftVersion: string) => getOptiFineVersions(minecraftVersion))

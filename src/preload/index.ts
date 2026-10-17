@@ -35,6 +35,7 @@ const api = {
   cancelInstall: () => ipcRenderer.invoke('install:cancel'),
   getInstallStatus: () => ipcRenderer.invoke('install:status'),
   getFabricLoaders: (minecraftVersion: string) => ipcRenderer.invoke('fabric:loaders', minecraftVersion),
+  getQuiltLoaders: (minecraftVersion: string) => ipcRenderer.invoke('quilt:loaders', minecraftVersion),
   getForgeVersions: (minecraftVersion: string) => ipcRenderer.invoke('forge:versions', minecraftVersion),
   getNeoForgeVersions: (minecraftVersion: string) => ipcRenderer.invoke('neoforge:versions', minecraftVersion),
   getOptiFineVersions: (minecraftVersion: string) => ipcRenderer.invoke('optifine:versions', minecraftVersion),

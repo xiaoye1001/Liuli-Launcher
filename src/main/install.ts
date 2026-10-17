@@ -40,6 +40,7 @@ import type {
 const BMCLAPI = 'https://bmclapi2.bangbang93.com'
 const FABRIC_META = 'https://meta.fabricmc.net'
 const FABRIC_MAVEN = 'https://maven.fabricmc.net/'
+const QUILT_META = 'https://meta.quiltmc.org'
 const FORGE_MAVEN = 'https://maven.minecraftforge.net/'
 const NEOFORGE_MAVEN = 'https://maven.neoforged.net/releases/'
 
@@ -279,6 +280,34 @@ export async function getFabricLoaders(minecraftVersion: string): Promise<Fabric
   return list.map((item) => ({ version: item.loader.version, stable: item.loader.stable }))
 }
 
+/** 获取某个 Minecraft 版本可用的 Quilt 加载器版本（新版本在前）；不支持的版本返回空列表 */
+export async function getQuiltLoaders(minecraftVersion: string): Promise<FabricLoaderVersion[]> {
+  const response = await fetch(`${QUILT_META}/v3/versions/loader/${encodeURIComponent(minecraftVersion)}`, {
+    signal: AbortSignal.timeout(15000)
+  })
+  if (response.status === 404 || response.status === 400) return []
+  if (!response.ok) throw new Error(`HTTP ${response.status}：Quilt 版本列表`)
+  const list = (await response.json()) as { loader?: { version?: unknown } }[]
+  if (!Array.isArray(list)) return []
+  return list
+    .map((item) => item?.loader?.version)
+    .filter((version): version is string => typeof version === 'string')
+    .map((version) => ({ version, stable: !/-(beta|alpha|pre|rc)/i.test(version) }))
+}
+
+/** Quilt 的版本配置（继承原版，列出 Quilt 需要的依赖库） */
+async function getQuiltProfile(minecraftVersion: string, loader: string): Promise<Record<string, unknown>> {
+  const url = `${QUILT_META}/v3/versions/loader/${encodeURIComponent(minecraftVersion)}/${encodeURIComponent(loader)}/profile/json`
+  const response = await fetchChecked(url).catch((e) => {
+    throw new Error(`获取 Quilt ${loader} 失败：${e instanceof Error ? e.message : String(e)}`)
+  })
+  const json = (await response.json()) as Record<string, unknown>
+  if (typeof json?.mainClass !== 'string' || !Array.isArray(json.libraries)) {
+    throw new Error(`Quilt ${loader} 的版本配置无效`)
+  }
+  return json
+}
+
 /** 检查版本名是否可用作 versions 下的文件夹名 */
 function validateName(name: string): void {
   if (!name) throw new Error('版本名不能为空')
@@ -322,13 +351,13 @@ export async function startCustomInstall(
   extra?: InstallExtraStep
 ): Promise<void> {
   assertIdle()
-  const { minecraftVersion, fabricLoader, forgeVersion, neoforgeVersion, optifine } = request
+  const { minecraftVersion, fabricLoader, quiltLoader, forgeVersion, neoforgeVersion, optifine } = request
   const name = request.name
   validateName(name)
-  if ([fabricLoader, forgeVersion, neoforgeVersion].filter(Boolean).length > 1) {
-    throw new Error('Fabric、Forge、NeoForge 只能选择其中一个')
+  if ([fabricLoader, quiltLoader, forgeVersion, neoforgeVersion].filter(Boolean).length > 1) {
+    throw new Error('Fabric、Quilt、Forge、NeoForge 只能选择其中一个')
   }
-  if (optifine && (fabricLoader || neoforgeVersion)) {
+  if (optifine && (fabricLoader || quiltLoader || neoforgeVersion)) {
     throw new Error('OptiFine 只能单独安装或与 Forge 一起安装')
   }
 
@@ -338,7 +367,13 @@ export async function startCustomInstall(
     throw new Error(`安装 ${javaUser} 需要运行 Java，请先到「设置」页选择 Java，或开启「自动选择 Java」`)
   }
   const isPlainVanilla =
-    !extra && !fabricLoader && !forgeVersion && !neoforgeVersion && !optifine && name === minecraftVersion
+    !extra &&
+    !fabricLoader &&
+    !quiltLoader &&
+    !forgeVersion &&
+    !neoforgeVersion &&
+    !optifine &&
+    name === minecraftVersion
   if (!isPlainVanilla) {
     if (name === minecraftVersion) {
       throw new Error('安装模组加载器时，版本名不能与原版相同')
@@ -358,6 +393,7 @@ export async function startCustomInstall(
   const fabricArtifact = fabricLoader
     ? await getFabricLoaderArtifact(minecraftVersion, fabricLoader, { fetch: fabricFetch })
     : null
+  const quiltProfile = quiltLoader ? await getQuiltProfile(minecraftVersion, quiltLoader) : null
 
   /** 下载 OptiFine 安装器（缓存在启动器数据目录），返回文件路径与下载任务 */
   const optiFineDownload = (ref: OptiFineVersionRef): { path: string; task: AnyInstallTask } => {
@@ -448,6 +484,10 @@ export async function startCustomInstall(
       )
     } else if (fabricArtifact) {
       await installFabricByLoaderArtifact(fabricArtifact, settings.gameDir, { versionId: name })
+    } else if (quiltProfile) {
+      const dir = join(settings.gameDir, 'versions', name)
+      await mkdir(dir, { recursive: true })
+      await writeFile(join(dir, `${name}.json`), JSON.stringify({ ...quiltProfile, id: name }, null, 2))
     } else {
       // 只改名：写一个继承原版的版本配置，游戏文件与原版共用
       const now = new Date().toJSON()
@@ -466,7 +506,15 @@ export async function startCustomInstall(
     await this.yield(installDependenciesTask(resolved, options))
 
     if (extra) {
-      const loader = forgeVersion ? 'forge' : neoforgeVersion ? 'neoforge' : fabricLoader ? 'fabric' : undefined
+      const loader = forgeVersion
+        ? 'forge'
+        : neoforgeVersion
+          ? 'neoforge'
+          : fabricLoader
+            ? 'fabric'
+            : quiltLoader
+              ? 'quilt'
+              : undefined
       await extra(this, versionGameDir(settings.gameDir, name, isIsolated(settings.versionIsolation, loader)))
     }
   })

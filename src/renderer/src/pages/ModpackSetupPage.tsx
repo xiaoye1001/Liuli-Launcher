@@ -47,7 +47,6 @@ function ModpackSetupPage({ modpack, installedIds, busy, onBack, onStarted }: Mo
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const nameError = validateName(name, installedIds)
-  const unsupported = modpack.loader === 'quilt'
 
   const start = async (): Promise<void> => {
     setSubmitting(true)
@@ -119,12 +118,6 @@ function ModpackSetupPage({ modpack, installedIds, busy, onBack, onStarted }: Mo
         </div>
       </section>
 
-      {unsupported && (
-        <div className="flex items-start gap-3 rounded-xl bg-amber-500/20 px-4 py-3 text-sm text-amber-100">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          暂不支持 Quilt 整合包。
-        </div>
-      )}
       {error && (
         <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -139,7 +132,7 @@ function ModpackSetupPage({ modpack, installedIds, busy, onBack, onStarted }: Mo
       <div className="mt-auto flex justify-center pb-2">
         <button
           onClick={start}
-          disabled={busy || submitting || !!nameError || unsupported}
+          disabled={busy || submitting || !!nameError}
           title={busy ? '已有安装任务在进行中' : undefined}
           className="flex items-center gap-2.5 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 px-8 py-3.5 text-base font-semibold shadow-xl shadow-emerald-500/30 disabled:cursor-not-allowed disabled:from-slate-600 disabled:to-slate-500 disabled:shadow-none"
         >

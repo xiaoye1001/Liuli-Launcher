@@ -19,9 +19,9 @@
 - 两个下载源可选：**BMCLAPI 镜像**（国内推荐）或 **Mojang 官方源**，镜像失败时自动回退到官方
 - 多线程下载，实时显示进度和速度；安装过程中可以取消，失败后可以重试
 - 安装前可以自定义版本名，并选择要附加的模组加载器：
-  - **Forge**、**NeoForge**、**Fabric**（三选一）
+  - **Forge**、**NeoForge**、**Fabric**、**Quilt**（四选一）
   - **OptiFine**（可以单独安装，也可以和 Forge 一起安装）
-- 导入本地整合包（点按钮选择，或直接拖进窗口）：支持 Modrinth（`.mrpack`）、CurseForge、MultiMC / Prism、MCBBS（`.zip`）格式，自动安装对应的 Minecraft 与模组加载器、下载全部模组并放好配置文件
+- 导入本地整合包（点按钮选择，或直接拖进窗口）：支持 Modrinth（`.mrpack`）、CurseForge、MultiMC / Prism、MCBBS（`.zip`）格式，自动安装对应的 Minecraft 与模组加载器（Forge / NeoForge / Fabric / Quilt）、下载全部模组并放好配置文件
 - **导出整合包**：把版本导出为 Modrinth（`.mrpack`）、CurseForge、MultiMC / Prism、MCBBS 格式，自由勾选要带上的模组、配置、资源包、存档等；Modrinth 格式可以把 Modrinth 上能找到的文件改为下载地址，整合包更小
 - 已安装版本可以「检查并修复」，只重新下载缺失或损坏的文件
 - 删除版本前会检查是否有其他版本依赖它；版本文件夹里有存档时会特别提醒

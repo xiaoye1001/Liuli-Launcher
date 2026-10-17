@@ -386,7 +386,7 @@ export async function downloadModpack(modrinthVersionId: string): Promise<Modpac
 function toRequest(info: ModpackInfo, name: string): InstallRequest {
   const mc = info.minecraftVersion
   const request: InstallRequest = { minecraftVersion: mc, name }
-  if (info.loader === 'quilt') throw new Error('暂不支持 Quilt 整合包')
+  if (info.loader === 'quilt') request.quiltLoader = info.loaderVersion
   if (info.loader === 'fabric') request.fabricLoader = info.loaderVersion
   if (info.loader === 'forge') {
     // 有的整合包写成「1.20.1-47.2.0」，统一为 Forge 版本号本身
