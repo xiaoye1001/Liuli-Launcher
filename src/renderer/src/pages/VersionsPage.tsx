@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence } from 'framer-motion'
 import {
   AlertTriangle,
@@ -13,6 +14,7 @@ import {
   Loader2,
   MonitorSmartphone,
   MoreHorizontal,
+  PackageOpen,
   PenLine,
   Puzzle,
   RefreshCw,
@@ -22,12 +24,14 @@ import {
   Wrench
 } from 'lucide-react'
 import GrassBlockIcon from '../components/GrassBlockIcon'
+import { formatDuration } from '../utils/format'
 import InstallProgressCard from '../components/InstallProgressCard'
 import LocalResourcesPage from './LocalResourcesPage'
 import ModsPage from './ModsPage'
 import VersionSettingsPage from './VersionSettingsPage'
 import WorldsPage from './WorldsPage'
-import type { InstalledVersion, InstallStatus, ModLoader, ResourceType } from '../../../shared/types'
+import ExportModpackPage from './ExportModpackPage'
+import type { InstalledVersion, InstallStatus, ModLoader, PlayStats, ResourceType } from '../../../shared/types'
 
 const LOADER_LABELS: Record<ModLoader, { label: string; className: string }> = {
   fabric: { label: 'Fabric', className: 'bg-amber-500/20 text-amber-300' },
@@ -74,6 +78,7 @@ function MoreMenu({
   onRename,
   onCopy,
   onShortcut,
+  onExport,
   onOpenFolder,
   onRepair,
   onDelete
@@ -83,6 +88,7 @@ function MoreMenu({
   onRename: () => void
   onCopy: () => void
   onShortcut: () => void
+  onExport: () => void
   onOpenFolder: () => void
   onRepair: () => void
   onDelete: () => void
@@ -135,6 +141,7 @@ function MoreMenu({
           {item(<PenLine className="h-4 w-4" />, '重命名', onRename, false, busy)}
           {item(<Copy className="h-4 w-4" />, '复制版本', onCopy, false, busy)}
           {item(<MonitorSmartphone className="h-4 w-4" />, '创建桌面快捷方式', onShortcut)}
+          {item(<PackageOpen className="h-4 w-4" />, '导出整合包', onExport)}
           <div className="my-1 border-t border-white/10" />
           {item(<FolderOpen className="h-4 w-4" />, '打开版本文件夹', onOpenFolder)}
           {item(<Wrench className="h-4 w-4" />, '检查并修复', onRepair, false, busy)}
@@ -176,7 +183,8 @@ function NameDialog({
     }
   }
 
-  return (
+  // 挂到 body 上，覆盖整个窗口
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div
         className="w-[28rem] rounded-2xl border border-white/15 popover-background p-5 shadow-2xl"
@@ -231,7 +239,8 @@ function NameDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -253,6 +262,7 @@ function VersionsPage({
   onDownloadResources
 }: VersionsPageProps): JSX.Element {
   const [installed, setInstalled] = useState<InstalledVersion[] | null>(null)
+  const [stats, setStats] = useState<PlayStats | null>(null)
   const [selected, setSelected] = useState('')
   const [gameDir, setGameDir] = useState('')
   const [keyword, setKeyword] = useState('')
@@ -266,12 +276,17 @@ function VersionsPage({
   const [settingsFor, setSettingsFor] = useState<InstalledVersion | null>(null)
   const [resourcesFor, setResourcesFor] = useState<InstalledVersion | null>(null)
   const [worldsFor, setWorldsFor] = useState<InstalledVersion | null>(null)
+  const [exportFor, setExportFor] = useState<InstalledVersion | null>(null)
   const lastState = useRef<string | undefined>(undefined)
 
   const load = useCallback(async (): Promise<InstalledVersion[]> => {
     const [list, settings] = await Promise.all([window.api.getInstalledVersions(), window.api.getSettings()])
     setInstalled(list)
     setSelected(settings.selectedVersion)
+    window.api
+      .getPlayStats()
+      .then(setStats)
+      .catch(() => undefined)
     setGameDir(settings.gameDir)
     return list
   }, [])
@@ -352,6 +367,11 @@ function VersionsPage({
           <VersionSettingsPage version={settingsFor} onBack={() => setSettingsFor(null)} onChanged={load} />
         </div>
       )}
+      {exportFor && (
+        <div key={exportFor.id} className="h-full animate-slide-in">
+          <ExportModpackPage version={exportFor} onBack={() => setExportFor(null)} />
+        </div>
+      )}
       {worldsFor && (
         <div key={worldsFor.id} className="h-full animate-slide-in">
           <WorldsPage
@@ -376,7 +396,7 @@ function VersionsPage({
         </div>
       )}
       <div
-        className={`flex h-full flex-col gap-5 ${settingsFor || modsFor || resourcesFor || worldsFor ? 'hidden' : ''}`}
+        className={`flex h-full flex-col gap-5 ${settingsFor || modsFor || resourcesFor || worldsFor || exportFor ? 'hidden' : ''}`}
       >
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
@@ -532,6 +552,14 @@ function VersionsPage({
                             隔离
                           </span>
                         )}
+                        {stats?.versions[version.id] && (
+                          <span
+                            title={`启动 ${stats.versions[version.id].launches} 次`}
+                            className="shrink-0 text-white/40"
+                          >
+                            已玩 {formatDuration(stats.versions[version.id].totalMs)}
+                          </span>
+                        )}
                         {version.customized && (
                           <span
                             title="该版本有自己的设置（内存、Java 等）"
@@ -584,6 +612,7 @@ function VersionsPage({
                         setNotice(`已在桌面创建快捷方式：${path.split(/[\\/]/).pop()}，双击即可直接启动 ${version.id}`)
                       })
                     }
+                    onExport={() => setExportFor(version)}
                     onOpenFolder={() => window.api.openVersionDir(version.id)}
                     onRepair={() => repair(version.id)}
                     onDelete={() => remove(version.id)}

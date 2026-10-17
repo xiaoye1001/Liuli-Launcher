@@ -29,8 +29,12 @@ export interface AppSettings {
   javaPath: string
   /** 自动选择 Java：按游戏版本的要求挑选合适的 Java，没有时自动下载 */
   javaAuto: boolean
-  /** 游戏最大内存（MB） */
+  /** 游戏最大内存（MB），手动分配时使用 */
   maxMemory: number
+  /** 自动分配内存：按可用内存和模组数量决定 */
+  memoryAuto: boolean
+  /** 启动前检查游戏文件，自动补全缺失或损坏的文件 */
+  checkFiles: boolean
   /** 下载源 */
   downloadSource: DownloadSource
   /** 游戏目录（.minecraft） */
@@ -204,6 +208,8 @@ export type GameState = 'idle' | 'launching' | 'running' | 'exited' | 'crashed'
 export interface GameStatus {
   state: GameState
   versionId: string
+  /** 游戏进程开始的时间（毫秒时间戳），用于显示本次游玩时长 */
+  startedAt?: number
   /** 进程退出码 */
   exitCode?: number | null
   /** 启动失败或崩溃的原因 */
@@ -473,6 +479,91 @@ export interface ServerStatus {
   favicon?: string
 }
 
+/** 游戏截图 */
+export interface Screenshot {
+  fileName: string
+  size: number
+  /** 修改时间（毫秒时间戳） */
+  time: number
+}
+
+export interface ScreenshotList {
+  versionId: string
+  /** screenshots 文件夹 */
+  dir: string
+  items: Screenshot[]
+}
+
+/** 某个版本的游玩统计 */
+export interface VersionPlayStats {
+  /** 累计游玩时长（毫秒） */
+  totalMs: number
+  /** 启动次数 */
+  launches: number
+  /** 最后游玩时间（毫秒时间戳） */
+  lastPlayed: number
+}
+
+/** 一次游玩记录 */
+export interface PlaySession {
+  versionId: string
+  start: number
+  durationMs: number
+  /** 是否异常退出 */
+  crashed: boolean
+}
+
+export interface PlayStats {
+  versions: Record<string, VersionPlayStats>
+  /** 最近的游玩记录（最新的在前） */
+  sessions: PlaySession[]
+}
+
+/** 导出整合包的格式 */
+export type ModpackExportFormat = 'modrinth' | 'curseforge' | 'multimc' | 'mcbbs'
+
+/** 可以放进整合包的内容（游戏目录第一层的文件或文件夹） */
+export interface ExportableEntry {
+  name: string
+  isDirectory: boolean
+  /** 总大小（字节） */
+  size: number
+  /** 文件数量 */
+  files: number
+  /** 默认是否勾选 */
+  recommended: boolean
+}
+
+export interface ModpackExportInfo {
+  versionId: string
+  minecraftVersion: string
+  loader: 'fabric' | 'forge' | 'neoforge' | 'quilt' | null
+  loaderVersion: string
+  entries: ExportableEntry[]
+}
+
+export interface ModpackExportOptions {
+  versionId: string
+  format: ModpackExportFormat
+  name: string
+  version: string
+  author: string
+  description: string
+  /** 要放进整合包的内容（ExportableEntry.name） */
+  include: string[]
+  /** Modrinth 格式：Modrinth 上能找到的模组等文件只写下载地址，不打包文件本身 */
+  useModrinthLinks: boolean
+}
+
+export interface ModpackExportResult {
+  path: string
+  /** 打包进去的文件数 */
+  files: number
+  /** 只写了下载地址的文件数 */
+  linked: number
+  size: number
+}
+
 /** Modrinth 搜索结果中的一个模组 */
 export interface ModrinthProject {
   projectId: string
@@ -511,6 +602,40 @@ export interface MicrosoftAccount {
   /** 正版皮肤（PNG 的 data URL），没有自定义皮肤时为空 */
   skin: string
   skinModel: SkinModel
+}
+
+/** 自动分配内存的结果（单位 MB） */
+export interface MemoryPlan {
+  /** 本次分配的最大内存 */
+  memory: number
+  /** 按版本和模组数量算出的建议值 */
+  recommended: number
+  total: number
+  /** 当前可用内存；macOS 上无法准确获取，为 null */
+  free: number | null
+  /** 启用的模组数量 */
+  mods: number
+  /** 是否因为可用内存不足而少分配了 */
+  limited: boolean
+}
+
+/** 正版账号拥有的披风 */
+export interface MsCape {
+  id: string
+  /** 披风名称，例如 Migrator、Vanilla */
+  alias: string
+  active: boolean
+  /** 披风贴图（PNG 的 data URL） */
+  image: string
+}
+
+/** 正版账号的皮肤与披风 */
+export interface MsSkinProfile {
+  uuid: string
+  name: string
+  skin: string
+  skinModel: SkinModel
+  capes: MsCape[]
 }
 
 /** 外置登录账号（authlib-injector，例如 LittleSkin 皮肤站） */

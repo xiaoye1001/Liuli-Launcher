@@ -1,5 +1,5 @@
 import { app, BrowserWindow } from 'electron'
-import { Version } from '@xmcl/core'
+import { MinecraftFolder, Version, type ResolvedVersion } from '@xmcl/core'
 import { getDefaultAgent } from '@xmcl/file-transfer'
 import { access, copyFile, mkdir, readdir, readFile, rm, writeFile } from 'fs/promises'
 import { basename, dirname, join } from 'path'
@@ -9,7 +9,11 @@ import {
   getLoaderArtifactListFor,
   installDependenciesTask,
   installFabricByLoaderArtifact,
+  InstallJarTask,
+  installAssetsTask,
   installForgeTask,
+  installResolvedAssetsTask,
+  installResolvedLibrariesTask,
   installNeoForgedTask,
   installOptifineTask,
   installTask,
@@ -22,6 +26,7 @@ import { neoforgeProject } from './neoforge'
 import { optiFineInstallerUrl } from './optifine'
 import { createJavaInstallTask, javaExecutable, pickJava, requirementOf } from './javaRuntime'
 import { isIsolated, versionGameDir } from './isolation'
+import type { MissingFiles } from './fileCheck'
 import type {
   DownloadSource,
   FabricLoaderVersion,
@@ -202,6 +207,49 @@ export async function startRepair(versionId: string): Promise<void> {
     throw new Error(`无法解析 ${versionId} 的版本文件，请删除后重新安装`)
   }
   runTask(versionId, 'repair', installDependenciesTask(resolved, options))
+}
+
+/**
+ * 启动前补全缺失的文件：只下载检查出有问题的文件，进度显示在「下载」页。
+ * 完成后返回，失败或取消时抛出错误。
+ */
+export async function completeMissingFiles(
+  versionId: string,
+  version: ResolvedVersion,
+  missing: MissingFiles
+): Promise<void> {
+  assertIdle()
+  const options = await downloadOptions()
+  const folder = MinecraftFolder.from(version.minecraftDirectory)
+  // 本体放在没有继承的版本自己的文件夹里，有继承时放在原版的文件夹里（与 xmcl 的检查一致）
+  const jarId = version.inheritances.length === 1 ? version.id : version.minecraftVersion
+  const task = createTask('dependencies', async function () {
+    if (missing.jar && version.downloads.client) {
+      await this.yield(
+        new InstallJarTask(
+          { ...version, id: jarId, downloads: version.downloads as Required<ResolvedVersion>['downloads'] },
+          folder,
+          options
+        )
+      )
+    }
+    if (missing.assetIndex) {
+      await this.yield(installAssetsTask(version, options))
+    } else if (missing.assets.length > 0) {
+      await this.yield(installResolvedAssetsTask(missing.assets, folder, options))
+    }
+    if (missing.libraries.length > 0) {
+      await this.yield(installResolvedLibrariesTask(missing.libraries, folder, options))
+    }
+  })
+  const ok = await runTask(versionId, 'repair', task as AnyInstallTask)
+  if (!ok) {
+    throw new Error(
+      status?.state === 'cancelled'
+        ? '已取消补全游戏文件'
+        : `补全游戏文件失败，请检查网络或切换下载源后重试（${status?.error ?? '未知错误'}）`
+    )
+  }
 }
 
 /** 带超时与状态码检查的 fetch */
@@ -435,7 +483,8 @@ export async function startJavaInstall(component: string): Promise<string> {
   lastJavaComponent = component
   const javaTask = await createJavaInstallTask(component)
   const ok = await runTask(label, 'java', javaTask as AnyInstallTask)
-  if (!ok) throw new Error(status?.state === 'cancelled' ? `已取消下载 ${label}` : `${label} 下载失败：${status?.error ?? ''}`)
+  if (!ok)
+    throw new Error(status?.state === 'cancelled' ? `已取消下载 ${label}` : `${label} 下载失败：${status?.error ?? ''}`)
   return javaExecutable(component)
 }
 

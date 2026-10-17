@@ -12,7 +12,8 @@ import type {
   MsLoginStatus,
   VersionConfig,
   LocalResourceKind,
-  SavedServer
+  SavedServer,
+  ModpackExportOptions
 } from '../shared/types'
 
 const api = {
@@ -27,6 +28,7 @@ const api = {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch: Partial<AppSettings>) => ipcRenderer.invoke('settings:update', patch),
   getSystemInfo: () => ipcRenderer.invoke('system:info'),
+  previewMemory: (versionId: string) => ipcRenderer.invoke('memory:preview', versionId),
   getVersionList: (force = false) => ipcRenderer.invoke('versions:list', force),
   startInstall: (request: InstallRequest) => ipcRenderer.invoke('install:start', request),
   retryInstall: () => ipcRenderer.invoke('install:retry'),
@@ -80,6 +82,21 @@ const api = {
   copyVersion: (versionId: string, newId: string, includeSaves: boolean) =>
     ipcRenderer.invoke('versions:copy', versionId, newId, includeSaves),
   createDesktopShortcut: (versionId: string) => ipcRenderer.invoke('versions:shortcut', versionId),
+  listScreenshots: (versionId: string) => ipcRenderer.invoke('screenshots:list', versionId),
+  deleteScreenshot: (versionId: string, fileName: string) =>
+    ipcRenderer.invoke('screenshots:delete', versionId, fileName),
+  copyScreenshot: (versionId: string, fileName: string) => ipcRenderer.invoke('screenshots:copy', versionId, fileName),
+  showScreenshot: (versionId: string, fileName: string) => ipcRenderer.invoke('screenshots:show', versionId, fileName),
+  openScreenshotsDir: (versionId: string) => ipcRenderer.invoke('screenshots:open', versionId),
+  getPlayStats: () => ipcRenderer.invoke('stats:get'),
+  getModpackExportInfo: (versionId: string) => ipcRenderer.invoke('export:info', versionId),
+  exportModpack: (options: ModpackExportOptions) => ipcRenderer.invoke('export:run', options),
+  showExportedModpack: () => ipcRenderer.invoke('export:show'),
+  onExportProgress: (callback: (progress: { done: number; total: number }) => void) => {
+    const listener = (_: unknown, progress: { done: number; total: number }): void => callback(progress)
+    ipcRenderer.on('export:progress', listener)
+    return () => ipcRenderer.removeListener('export:progress', listener)
+  },
   getVersionConfig: (versionId: string) => ipcRenderer.invoke('versions:getConfig', versionId),
   setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) =>
     ipcRenderer.invoke('versions:setConfig', versionId, patch),
@@ -129,6 +146,10 @@ const api = {
   cancelMicrosoftLogin: () => ipcRenderer.invoke('ms:cancel'),
   getMicrosoftLoginStatus: () => ipcRenderer.invoke('ms:status'),
   openMicrosoftLoginPage: () => ipcRenderer.invoke('ms:openLoginPage'),
+  getMsSkinProfile: (uuid: string) => ipcRenderer.invoke('ms:skinProfile', uuid),
+  uploadMsSkin: (uuid: string, variant: 'classic' | 'slim') => ipcRenderer.invoke('ms:uploadSkin', uuid, variant),
+  resetMsSkin: (uuid: string) => ipcRenderer.invoke('ms:resetSkin', uuid),
+  setMsCape: (uuid: string, capeId: string | null) => ipcRenderer.invoke('ms:setCape', uuid, capeId),
   onMicrosoftLogin: (callback: (status: MsLoginStatus) => void) => {
     const listener = (_: Electron.IpcRendererEvent, status: MsLoginStatus): void => callback(status)
     ipcRenderer.on('ms:login', listener)

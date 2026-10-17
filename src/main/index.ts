@@ -22,7 +22,7 @@ import {
   startJavaInstall,
   startRepair
 } from './install'
-import { getGameLogs, getGameStatus, launchGame, listInstalledVersions } from './launch'
+import { getGameLogs, getGameStatus, launchGame, listInstalledVersions, previewMemory } from './launch'
 import { closeLogWindow, openLogWindow } from './logWindow'
 import { getGameDirInfo, openGameDir, pickGameDir, setGameDir } from './gameDir'
 import { assertSafeId, deleteVersion, openVersionDir } from './versionManage'
@@ -63,6 +63,9 @@ import { exportCrashInfo, openCrashFile } from './crashReport'
 import { deleteServer, importGameServers, listServers, moveServer, saveServer } from './servers'
 import { pingServer } from './serverPing'
 import { checkUpdate, openUpdateLink } from './updater'
+import { getPlayStats } from './playStats'
+import { exportModpack, getModpackExportInfo, showExportedModpack } from './modpackExport'
+import { copyScreenshot, deleteScreenshot, listScreenshots, openScreenshotsDir, showScreenshot } from './screenshots'
 import { copyVersion, createDesktopShortcut, launchArgOf, renameVersion } from './versionOps'
 import { loginExternal, removeExternalAccount, selectExternalProfile } from './yggdrasil'
 import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
@@ -70,10 +73,14 @@ import {
   cancelMicrosoftLogin,
   getAccounts,
   getLoginStatus,
+  getMsSkinProfile,
   openLoginPage,
   removeAccount,
+  resetMsSkin,
   setActiveAccount,
-  startMicrosoftLogin
+  setMsCape,
+  startMicrosoftLogin,
+  uploadMsSkin
 } from './microsoft'
 import type {
   AppSettings,
@@ -84,7 +91,8 @@ import type {
   SystemInfo,
   VersionConfig,
   LocalResourceKind,
-  SavedServer
+  SavedServer,
+  ModpackExportOptions
 } from '../shared/types'
 
 /** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
@@ -220,6 +228,13 @@ function registerIpc(): void {
   ipcMain.handle('worlds:openDatapacks', (_, versionId: string, folder: string) =>
     openWorldDatapacksDir(versionId, folder)
   )
+  ipcMain.handle('screenshots:list', (_, versionId: string) => listScreenshots(versionId))
+  ipcMain.handle('screenshots:delete', (_, versionId: string, fileName: string) =>
+    deleteScreenshot(versionId, fileName)
+  )
+  ipcMain.handle('screenshots:copy', (_, versionId: string, fileName: string) => copyScreenshot(versionId, fileName))
+  ipcMain.handle('screenshots:show', (_, versionId: string, fileName: string) => showScreenshot(versionId, fileName))
+  ipcMain.handle('screenshots:open', (_, versionId: string) => openScreenshotsDir(versionId))
   ipcMain.handle('local:open', (_, versionId: string, kind: LocalResourceKind) => openLocalResourceDir(versionId, kind))
   ipcMain.handle('accounts:list', () => getAccounts())
   ipcMain.handle('accounts:setActive', (_, id: string) => setActiveAccount(id))
@@ -238,6 +253,12 @@ function registerIpc(): void {
   ipcMain.handle('ms:cancel', () => cancelMicrosoftLogin())
   ipcMain.handle('ms:status', () => getLoginStatus())
   ipcMain.handle('ms:openLoginPage', () => openLoginPage())
+  ipcMain.handle('ms:skinProfile', (_, uuid: string) => getMsSkinProfile(uuid))
+  ipcMain.handle('ms:uploadSkin', (event, uuid: string, variant: 'classic' | 'slim') =>
+    uploadMsSkin(uuid, variant === 'slim' ? 'slim' : 'classic', BrowserWindow.fromWebContents(event.sender))
+  )
+  ipcMain.handle('ms:resetSkin', (_, uuid: string) => resetMsSkin(uuid))
+  ipcMain.handle('ms:setCape', (_, uuid: string, capeId: string | null) => setMsCape(uuid, capeId))
   ipcMain.handle('modpack:pick', (event) => pickModpack(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('modpack:install', (_, name: string) => installModpack(name))
   ipcMain.handle('modpack:loadFile', (_, path: string) => loadModpackFile(path))
@@ -268,6 +289,12 @@ function registerIpc(): void {
   ipcMain.handle('servers:import', () => importGameServers())
   ipcMain.handle('servers:ping', (_, address: string) => pingServer(address))
   ipcMain.handle('game:status', () => getGameStatus())
+  ipcMain.handle('stats:get', () => getPlayStats())
+  ipcMain.handle('export:show', () => showExportedModpack())
+  ipcMain.handle('export:info', (_, versionId: string) => getModpackExportInfo(versionId))
+  ipcMain.handle('export:run', (event, options: ModpackExportOptions) =>
+    exportModpack(options, BrowserWindow.fromWebContents(event.sender))
+  )
   ipcMain.handle('game:logs', () => getGameLogs())
   ipcMain.handle('logs:open', () => openLogWindow())
   ipcMain.handle('crash:open', (_, kind: 'report' | 'native') => openCrashFile(kind))
@@ -280,6 +307,7 @@ function registerIpc(): void {
     const dir = await pickGameDir(BrowserWindow.fromWebContents(event.sender))
     return dir ? setGameDir(dir) : null
   })
+  ipcMain.handle('memory:preview', (_, versionId: string) => previewMemory(versionId))
   ipcMain.handle(
     'system:info',
     async (): Promise<SystemInfo> => ({

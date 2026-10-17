@@ -1,5 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
+  MemoryPlan,
+  MsSkinProfile,
   AppSettings,
   FabricLoaderVersion,
   ForgeVersionInfo,
@@ -36,7 +38,12 @@ import type {
   UpdateInfo,
   ExternalAccount,
   ExternalLoginResult,
-  ModUpdate
+  ModUpdate,
+  ScreenshotList,
+  PlayStats,
+  ModpackExportInfo,
+  ModpackExportOptions,
+  ModpackExportResult
 } from '../shared/types'
 
 declare global {
@@ -56,6 +63,8 @@ declare global {
       getSettings: () => Promise<AppSettings>
       updateSettings: (patch: Partial<AppSettings>) => Promise<AppSettings>
       getSystemInfo: () => Promise<SystemInfo>
+      /** 预览某个版本自动分配的内存；版本无法读取时返回 null */
+      previewMemory: (versionId: string) => Promise<MemoryPlan | null>
       getVersionList: (force?: boolean) => Promise<VersionManifest>
       startInstall: (request: InstallRequest) => Promise<void>
       retryInstall: () => Promise<void>
@@ -107,6 +116,23 @@ declare global {
       copyVersion: (versionId: string, newId: string, includeSaves: boolean) => Promise<void>
       /** 在桌面创建直接启动该版本的快捷方式，返回快捷方式路径 */
       createDesktopShortcut: (versionId: string) => Promise<string>
+      /** 版本的游戏截图（图片通过 liuli://screenshot/<版本>/<文件名> 读取） */
+      listScreenshots: (versionId: string) => Promise<ScreenshotList>
+      /** 删除截图（移到回收站） */
+      deleteScreenshot: (versionId: string, fileName: string) => Promise<void>
+      /** 复制截图到剪贴板 */
+      copyScreenshot: (versionId: string, fileName: string) => Promise<void>
+      showScreenshot: (versionId: string, fileName: string) => Promise<void>
+      openScreenshotsDir: (versionId: string) => Promise<void>
+      /** 游玩时长统计与最近游玩记录 */
+      getPlayStats: () => Promise<PlayStats>
+      /** 导出整合包：版本信息与可以导出的内容 */
+      getModpackExportInfo: (versionId: string) => Promise<ModpackExportInfo>
+      /** 导出整合包（弹出保存对话框），取消时返回 null */
+      exportModpack: (options: ModpackExportOptions) => Promise<ModpackExportResult | null>
+      /** 在文件夹中显示刚导出的整合包 */
+      showExportedModpack: () => Promise<void>
+      onExportProgress: (callback: (progress: { done: number; total: number }) => void) => () => void
       /** 版本设置（未设置的项跟随全局设置） */
       getVersionConfig: (versionId: string) => Promise<VersionConfig>
       setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) => Promise<VersionConfig>
@@ -178,6 +204,14 @@ declare global {
       getMicrosoftLoginStatus: () => Promise<MsLoginStatus>
       /** 复制代码并打开登录网页 */
       openMicrosoftLoginPage: () => Promise<void>
+      /** 读取正版账号的皮肤与披风 */
+      getMsSkinProfile: (uuid: string) => Promise<MsSkinProfile>
+      /** 选择 PNG 上传为正版皮肤；取消时返回 null */
+      uploadMsSkin: (uuid: string, variant: 'classic' | 'slim') => Promise<MsSkinProfile | null>
+      /** 恢复默认皮肤 */
+      resetMsSkin: (uuid: string) => Promise<MsSkinProfile>
+      /** 选择显示的披风，null 表示不显示 */
+      setMsCape: (uuid: string, capeId: string | null) => Promise<MsSkinProfile>
       onMicrosoftLogin: (callback: (status: MsLoginStatus) => void) => () => void
       getGameDirInfo: () => Promise<GameDirInfo>
       setGameDir: (dir: string) => Promise<GameDirInfo>

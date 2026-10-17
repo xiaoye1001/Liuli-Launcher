@@ -35,10 +35,12 @@ interface SkinViewer3DProps {
   animation: SkinAnimation
   autoRotate: boolean
   nameTag: string
+  /** 披风 data URL，空字符串不显示 */
+  cape?: string
 }
 
 /** 基于 skinview3d 的 3D 皮肤预览，支持鼠标拖动旋转、滚轮缩放 */
-function SkinViewer3D({ skin, model, animation, autoRotate, nameTag }: SkinViewer3DProps): JSX.Element {
+function SkinViewer3D({ skin, model, animation, autoRotate, nameTag, cape = '' }: SkinViewer3DProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const viewerRef = useRef<SkinViewer | null>(null)
@@ -82,6 +84,16 @@ function SkinViewer3D({ skin, model, animation, autoRotate, nameTag }: SkinViewe
       viewer.loadSkin(createDefaultSkin(), { model })
     }
   }, [skin, model])
+
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+    if (cape) {
+      viewer.loadCape(cape).catch((e: unknown) => console.error('加载披风失败：', e))
+    } else {
+      viewer.loadCape(null)
+    }
+  }, [cape])
 
   useEffect(() => {
     if (viewerRef.current) viewerRef.current.animation = createAnimation(animation)

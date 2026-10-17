@@ -47,18 +47,23 @@ async function walk(root: string, skip: (rel: string) => boolean, rel = ''): Pro
   return result
 }
 
+/** zip 中的一项：name 以 / 结尾表示文件夹；file 为磁盘上的文件，data 为直接写入的内容 */
+export interface ZipEntry {
+  name: string
+  file?: string
+  data?: Buffer
+}
+
 /**
- * 把文件夹打包成 zip（zip 内的文件放在 rootName 文件夹下）。
- * 先写临时文件，完成后再改名，中途失败不会留下损坏的 zip
+ * 写出 zip 文件。先写临时文件，完成后再改名，中途失败不会留下损坏的 zip。
+ * onProgress 在每写完一项后调用
  */
-export async function zipDirectory(
-  srcDir: string,
+export async function writeZip(
   destFile: string,
-  rootName: string,
-  skip: (rel: string) => boolean = () => false
+  entries: ZipEntry[],
+  onProgress?: (done: number, total: number) => void
 ): Promise<{ files: number; size: number }> {
-  const paths = await walk(srcDir, skip)
-  if (paths.length + 1 > MAX_ENTRIES) throw new Error('文件太多，无法打包，请手动备份')
+  if (entries.length > MAX_ENTRIES) throw new Error('文件太多，无法打包')
   const tmp = `${destFile}.tmp`
   const handle = await open(tmp, 'w')
   const central: CentralEntry[] = []
@@ -67,16 +72,17 @@ export async function zipDirectory(
   const write = async (buf: Buffer): Promise<void> => {
     await handle.write(buf)
     offset += buf.length
-    if (offset > MAX_OFFSET) throw new Error('存档太大（超过 4 GB），请手动备份')
+    if (offset > MAX_OFFSET) throw new Error('文件太大（超过 4 GB），无法打包')
   }
 
   try {
-    for (const rel of [`${rootName}/`, ...paths.map((p) => `${rootName}/${p}`)]) {
-      const directory = rel.endsWith('/')
-      const source = join(srcDir, rel.slice(rootName.length + 1))
-      const info = await stat(source)
-      const data = directory ? Buffer.alloc(0) : await readFile(source)
-      if (data.length > MAX_OFFSET) throw new Error('存档中有超过 4 GB 的文件，请手动备份')
+    for (const [index, entry] of entries.entries()) {
+      const directory = entry.name.endsWith('/')
+      const info = entry.file ? await stat(entry.file) : null
+      const data = directory
+        ? Buffer.alloc(0)
+        : (entry.data ?? (entry.file ? await readFile(entry.file) : Buffer.alloc(0)))
+      if (data.length > MAX_OFFSET) throw new Error('有超过 4 GB 的文件，无法打包')
       const crc = directory ? 0 : crc32(data)
       let body = data
       let method = 0
@@ -87,8 +93,8 @@ export async function zipDirectory(
           method = 8
         }
       }
-      const name = Buffer.from(rel, 'utf-8')
-      const { time, date } = dosDateTime(info.mtime)
+      const name = Buffer.from(entry.name, 'utf-8')
+      const { time, date } = dosDateTime(info?.mtime ?? new Date())
       const header = Buffer.alloc(30)
       header.writeUInt32LE(0x04034b50, 0)
       header.writeUInt16LE(20, 4)
@@ -101,21 +107,12 @@ export async function zipDirectory(
       header.writeUInt32LE(data.length, 22)
       header.writeUInt16LE(name.length, 26)
       header.writeUInt16LE(0, 28)
-      central.push({
-        name,
-        method,
-        crc,
-        compressedSize: body.length,
-        size: data.length,
-        time,
-        date,
-        offset,
-        directory
-      })
+      central.push({ name, method, crc, compressedSize: body.length, size: data.length, time, date, offset, directory })
       await write(header)
       await write(name)
       if (body.length > 0) await write(body)
       if (!directory) files++
+      onProgress?.(index + 1, entries.length)
     }
 
     const centralStart = offset
@@ -150,6 +147,34 @@ export async function zipDirectory(
   } catch (e) {
     await handle.close().catch(() => undefined)
     await rm(tmp, { force: true })
+    throw e
+  }
+}
+
+/** 把文件夹里的内容转成 zip 项（放在 prefix 下，prefix 为空或以 / 结尾） */
+export async function directoryEntries(
+  srcDir: string,
+  prefix: string,
+  skip: (rel: string) => boolean = () => false
+): Promise<ZipEntry[]> {
+  const paths = await walk(srcDir, skip)
+  return paths.map((p) => (p.endsWith('/') ? { name: prefix + p } : { name: prefix + p, file: join(srcDir, p) }))
+}
+
+/** 把文件夹打包成 zip（zip 内的文件放在 rootName 文件夹下） */
+export async function zipDirectory(
+  srcDir: string,
+  destFile: string,
+  rootName: string,
+  skip: (rel: string) => boolean = () => false
+): Promise<{ files: number; size: number }> {
+  const entries = [{ name: `${rootName}/` }, ...(await directoryEntries(srcDir, `${rootName}/`, skip))]
+  if (entries.length > MAX_ENTRIES) throw new Error('文件太多，无法打包，请手动备份')
+  try {
+    return await writeZip(destFile, entries)
+  } catch (e) {
+    const message = (e as Error).message
+    if (/超过 4 GB/.test(message)) throw new Error('存档太大（超过 4 GB），请手动备份')
     throw e
   }
 }

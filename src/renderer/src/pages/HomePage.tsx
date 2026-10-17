@@ -13,6 +13,8 @@ import {
   UserRound
 } from 'lucide-react'
 import CrashCard from '../components/CrashCard'
+import RecentPlays from '../components/RecentPlays'
+import { formatClock } from '../utils/format'
 import SkinHead from '../components/SkinHead'
 import type { AccountsInfo, AppSettings, GameStatus, InstallStatus, InstalledVersion } from '../../../shared/types'
 
@@ -147,8 +149,25 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
     await window.api.launchGame(selected)
   }
 
+  /** 从「最近游玩」启动：先切换主页选择的版本 */
+  const launchRecent = async (id: string): Promise<void> => {
+    await saveName()
+    await selectVersion(id)
+    await window.api.launchGame(id)
+  }
+
+  // 游戏运行时每秒刷新「本次已玩」时长
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    if (game.state !== 'running') return
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [game.state])
+
   return (
     <div className="flex h-full flex-col justify-end gap-4">
+      {nameValid && <RecentPlays versions={versions} game={game} onLaunch={launchRecent} />}
+
       <AnimatePresence>
         {game.state === 'crashed' && game.error && !crashDismissed && (
           <CrashCard
@@ -240,7 +259,11 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
             {game.state === 'launching' && <Loader2 className="h-5 w-5 animate-spin" />}
             {game.state === 'running' && <Gamepad2 className="h-5 w-5" />}
             {!busy && <Play className="h-5 w-5 fill-current" />}
-            {game.state === 'launching' ? '正在启动...' : game.state === 'running' ? '游戏运行中' : '启动游戏'}
+            {game.state === 'launching'
+              ? '正在启动...'
+              : game.state === 'running'
+                ? `游戏运行中${game.startedAt ? ` · ${formatClock(now - game.startedAt)}` : ''}`
+                : '启动游戏'}
           </motion.button>
         </div>
         {javaTask?.state === 'running' && (

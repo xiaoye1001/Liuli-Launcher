@@ -16,6 +16,7 @@ import {
   Globe,
   Loader2,
   MemoryStick,
+  ShieldCheck,
   Monitor,
   Moon,
   Palette,
@@ -35,6 +36,7 @@ import type {
   InstallStatus,
   JavaInfo,
   JavaRuntimeInfo,
+  MemoryPlan,
   ThemeMode,
   UpdateInfo,
   VersionIsolation
@@ -88,6 +90,8 @@ function SettingsPage(): JSX.Element {
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [totalMemory, setTotalMemory] = useState(8192)
   const [memoryDraft, setMemoryDraft] = useState(MEMORY_MIN)
+  /** 当前选中版本自动分配的内存 */
+  const [memoryPlan, setMemoryPlan] = useState<MemoryPlan | null>(null)
   const [javaList, setJavaList] = useState<JavaInfo[]>([])
   const [scanning, setScanning] = useState(false)
   const [error, setError] = useState('')
@@ -189,6 +193,7 @@ function SettingsPage(): JSX.Element {
       setGameDir(dirInfo)
       setTotalMemory(info.totalMemory)
       setMemoryDraft(loaded.maxMemory)
+      if (loaded.selectedVersion) window.api.previewMemory(loaded.selectedVersion).then(setMemoryPlan)
       await scan(loaded)
     }
     init()
@@ -244,9 +249,7 @@ function SettingsPage(): JSX.Element {
                   active ? 'border-emerald-400/50' : 'border-white/5 bg-black/20 hover:bg-black/30'
                 }`}
               >
-                {active && (
-                  <div className="absolute inset-0 rounded-xl bg-emerald-500/15" />
-                )}
+                {active && <div className="absolute inset-0 rounded-xl bg-emerald-500/15" />}
                 <Icon className="relative z-10 h-4 w-4" />
                 <span className="relative z-10 font-medium">{theme.label}</span>
               </button>
@@ -610,34 +613,85 @@ function SettingsPage(): JSX.Element {
             <MemoryStick className="h-5 w-5 text-sky-300" />
             <div>
               <h2 className="text-lg font-semibold">游戏内存</h2>
-              <p className="text-xs text-white/50">本机物理内存 {formatMemory(totalMemory)}，建议分配 2 ~ 8 GB</p>
+              <p className="text-xs text-white/50">
+                {settings.memoryAuto
+                  ? '启动时根据电脑的可用内存和模组数量自动决定'
+                  : `本机物理内存 ${formatMemory(totalMemory)}，建议分配 2 ~ 8 GB`}
+              </p>
             </div>
           </div>
           <div className="rounded-xl bg-black/30 px-4 py-2 font-mono text-lg font-bold text-sky-300">
-            {formatMemory(memoryDraft)}
+            {settings.memoryAuto ? (memoryPlan ? formatMemory(memoryPlan.memory) : '自动') : formatMemory(memoryDraft)}
           </div>
         </div>
-        <input
-          type="range"
-          min={MEMORY_MIN}
-          max={memoryMax}
-          step={MEMORY_STEP}
-          value={Math.min(memoryDraft, memoryMax)}
-          onChange={(e) => onMemoryChange(Number(e.target.value))}
-          className="mt-6 w-full cursor-pointer accent-sky-400"
-        />
-        <div className="mt-1 flex justify-between text-xs text-white/40">
-          <span>{formatMemory(MEMORY_MIN)}</span>
-          <span>{formatMemory(memoryMax)}</span>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          {(
+            [
+              [true, '自动分配（推荐）', '按可用内存与模组数量分配'],
+              [false, '手动设置', '所有版本使用固定的内存']
+            ] as const
+          ).map(([auto, label, desc]) => {
+            const active = settings.memoryAuto === auto
+            return (
+              <button
+                key={label}
+                onClick={() => update({ memoryAuto: auto })}
+                className={`flex items-center justify-between gap-2 rounded-xl border px-4 py-3 text-left transition-colors ${
+                  active ? 'border-emerald-400/50 bg-emerald-500/15' : 'border-white/5 bg-black/20 hover:bg-black/30'
+                }`}
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">{label}</div>
+                  <div className="text-xs text-white/50">{desc}</div>
+                </div>
+                {active && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
+              </button>
+            )
+          })}
         </div>
+        {settings.memoryAuto ? (
+          <div className="mt-4 rounded-xl bg-black/20 px-4 py-3 text-xs leading-5 text-white/60">
+            {memoryPlan ? (
+              <>
+                启动「{settings.selectedVersion}」预计分配{' '}
+                <span className="font-medium text-white">{formatMemory(memoryPlan.memory)}</span>
+                {memoryPlan.mods > 0 ? `（${memoryPlan.mods} 个模组，` : '（'}建议{' '}
+                {formatMemory(memoryPlan.recommended)}
+                {memoryPlan.free !== null ? `，当前可用 ${formatMemory(memoryPlan.free)}` : ''}）
+                {memoryPlan.limited && (
+                  <div className="mt-1 text-amber-300">当前可用内存不足，会少分配一些，建议启动前关闭其他程序</div>
+                )}
+              </>
+            ) : (
+              '原版分配 2 GB；模组版本从 3 GB 起，模组越多分配越多（最多 12 GB），并给系统留出足够的内存'
+            )}
+            <div className="mt-1 text-white/40">在版本设置里可以为单个版本指定内存</div>
+          </div>
+        ) : (
+          <>
+            <input
+              type="range"
+              min={MEMORY_MIN}
+              max={memoryMax}
+              step={MEMORY_STEP}
+              value={Math.min(memoryDraft, memoryMax)}
+              onChange={(e) => onMemoryChange(Number(e.target.value))}
+              className="mt-6 w-full cursor-pointer accent-sky-400"
+            />
+            <div className="mt-1 flex justify-between text-xs text-white/40">
+              <span>{formatMemory(MEMORY_MIN)}</span>
+              <span>{formatMemory(memoryMax)}</span>
+            </div>
+          </>
+        )}
       </section>
 
-      {/* 启动游戏后 */}
+      {/* 启动游戏 */}
       <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <Rocket className="h-5 w-5 text-sky-300" />
           <div>
-            <h2 className="text-lg font-semibold">启动游戏后</h2>
+            <h2 className="text-lg font-semibold">启动游戏</h2>
             <p className="text-xs text-white/50">游戏窗口出现后，启动器窗口如何处理</p>
           </div>
         </div>
@@ -660,6 +714,30 @@ function SettingsPage(): JSX.Element {
               </button>
             )
           })}
+        </div>
+        <div className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="h-4 w-4 text-emerald-300" />
+            <div>
+              <div className="text-sm font-medium">启动前检查游戏文件</div>
+              <div className="text-xs text-white/50">发现缺失或损坏的依赖库、资源文件时自动下载补全，避免启动失败</div>
+            </div>
+          </div>
+          <button
+            role="switch"
+            aria-checked={settings.checkFiles}
+            aria-label="启动前检查游戏文件"
+            onClick={() => update({ checkFiles: !settings.checkFiles })}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+              settings.checkFiles ? 'bg-emerald-500' : 'bg-white/20'
+            }`}
+          >
+            <span
+              className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                settings.checkFiles ? 'left-6' : 'left-1'
+              }`}
+            />
+          </button>
         </div>
       </section>
 
@@ -719,9 +797,7 @@ function SettingsPage(): JSX.Element {
                   active ? 'border-emerald-400/50' : 'border-white/5 bg-black/20 hover:bg-black/30'
                 }`}
               >
-                {active && (
-                  <div className="absolute inset-0 rounded-xl bg-emerald-500/15" />
-                )}
+                {active && <div className="absolute inset-0 rounded-xl bg-emerald-500/15" />}
                 <div className="relative z-10 flex items-center justify-between">
                   <div>
                     <div className="text-sm font-medium">{source.label}</div>

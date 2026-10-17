@@ -3,7 +3,8 @@ import { motion } from 'framer-motion'
 import { RotateCcw, RotateCw, Shirt, Upload, UserRound } from 'lucide-react'
 import SkinViewer3D, { type SkinAnimation } from '../components/SkinViewer3D'
 import AccountList from '../components/AccountList'
-import type { AccountsInfo, AppSettings, SkinModel } from '../../../shared/types'
+import MsSkinPanel from '../components/MsSkinPanel'
+import type { AccountsInfo, AppSettings, MsSkinProfile, SkinModel } from '../../../shared/types'
 
 const ANIMATIONS: { key: SkinAnimation; label: string }[] = [
   { key: 'idle', label: '站立' },
@@ -55,6 +56,7 @@ function AccountPage(): JSX.Element {
   const [animation, setAnimation] = useState<SkinAnimation>('walk')
   const [autoRotate, setAutoRotate] = useState(true)
   const [error, setError] = useState('')
+  const [msProfile, setMsProfile] = useState<MsSkinProfile | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -86,6 +88,9 @@ function AccountPage(): JSX.Element {
   const external = accounts.external.find((a) => a.id === accounts.active)
   /** 正版或外置账号：皮肤与名字来自服务器 */
   const msAccount = microsoft ?? external
+  // 正版档案读取后用最新皮肤，并显示当前披风
+  const liveProfile = microsoft && msProfile?.uuid === microsoft.uuid ? msProfile : null
+  const activeCape = liveProfile?.capes.find((c) => c.active)
 
   return (
     <div className="flex h-full gap-6">
@@ -96,8 +101,9 @@ function AccountPage(): JSX.Element {
         </div>
         <div className="min-h-0 flex-1">
           <SkinViewer3D
-            skin={msAccount ? msAccount.skin : settings.skinDataUrl}
-            model={msAccount ? msAccount.skinModel : settings.skinModel}
+            skin={liveProfile ? liveProfile.skin : msAccount ? msAccount.skin : settings.skinDataUrl}
+            model={liveProfile ? liveProfile.skinModel : msAccount ? msAccount.skinModel : settings.skinModel}
+            cape={activeCape?.image ?? ''}
             animation={animation}
             autoRotate={autoRotate}
             nameTag={msAccount ? msAccount.name : settings.offlineName}
@@ -112,9 +118,7 @@ function AccountPage(): JSX.Element {
                 animation === a.key ? 'text-white' : 'text-white/50 hover:text-white'
               }`}
             >
-              {animation === a.key && (
-                <div className="absolute inset-0 rounded-lg bg-white/15" />
-              )}
+              {animation === a.key && <div className="absolute inset-0 rounded-lg bg-white/15" />}
               <span className="relative z-10">{a.label}</span>
             </button>
           ))}
@@ -140,11 +144,7 @@ function AccountPage(): JSX.Element {
               <p className="text-xs text-white/50">点击切换启动游戏使用的账号</p>
             </div>
           </div>
-          <AccountList
-            settings={settings}
-            accounts={accounts}
-            onAccountsChange={setAccounts}
-          />
+          <AccountList settings={settings} accounts={accounts} onAccountsChange={setAccounts} />
         </section>
 
         <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
@@ -166,14 +166,16 @@ function AccountPage(): JSX.Element {
 
           {external ? (
             <p className="mt-4 text-xs leading-5 text-white/40">
-              外置账号的皮肤由 {external.serverName} 提供，在使用同一皮肤站的服务器里，其他玩家都能看到。可以在皮肤站网站上修改，
+              外置账号的皮肤由 {external.serverName}{' '}
+              提供，在使用同一皮肤站的服务器里，其他玩家都能看到。可以在皮肤站网站上修改，
               修改后删除账号重新登录即可在这里看到。
             </p>
-          ) : msAccount ? (
-            <p className="mt-4 text-xs leading-5 text-white/40">
-              正版账号的皮肤由 Minecraft 官方服务器提供，所有玩家都能看到。可以在 minecraft.net
-              的个人资料中修改，修改后重新登录即可在这里看到。
-            </p>
+          ) : microsoft ? (
+            <MsSkinPanel
+              account={microsoft}
+              onProfile={setMsProfile}
+              onChanged={() => window.api.getAccounts().then(setAccounts)}
+            />
           ) : (
             <>
               <div className="mt-5 grid grid-cols-2 gap-3">

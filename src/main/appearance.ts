@@ -3,13 +3,14 @@ import { copyFile, mkdir, rm } from 'fs/promises'
 import { basename, extname, join } from 'path'
 import { pathToFileURL } from 'url'
 import { getSettings, updateSettings } from './config'
+import { screenshotResponse } from './screenshots'
 import type { AppSettings } from '../shared/types'
 
 /** 自定义背景图片存放在用户数据目录下 */
 const BACKGROUND_DIR = join(app.getPath('userData'), 'backgrounds')
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp']
 
-// 界面通过 liuli://background/<文件名> 读取背景图片。
+// 界面通过 liuli://background/<文件名> 读取背景图片，liuli://screenshot/<版本>/<文件名> 读取游戏截图。
 // 自定义协议必须在程序就绪前注册（本模块在 index.ts 中被导入时执行）
 protocol.registerSchemesAsPrivileged([{ scheme: 'liuli', privileges: { standard: true, secure: true } }])
 
@@ -17,6 +18,7 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'liuli', privileges: { standard:
 export function registerBackgroundProtocol(): void {
   protocol.handle('liuli', (request) => {
     const url = new URL(request.url)
+    if (url.hostname === 'screenshot') return screenshotResponse(url)
     const name = decodeURIComponent(url.pathname.replace(/^\//, ''))
     if (url.hostname !== 'background' || !name || name !== basename(name)) {
       return new Response('Not found', { status: 404 })
