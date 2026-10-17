@@ -13,7 +13,8 @@ function downloadSummary(modpack: ModpackInfo): string {
   }
   const skip = included > 0 ? '，整合包里已有的跳过' : ''
   if (modpack.format === 'curseforge') return `${modpack.fileCount} 个模组（MCIM 镜像${skip}）`
-  return `${modpack.fileCount} 个文件 · ${formatBytes(modpack.totalSize)}${skip}`
+  const skipped = modpack.skippedDownloads ? `（另有 ${modpack.skippedDownloads} 个整合包里已有，不用下载）` : ''
+  return `${modpack.fileCount} 个文件 · ${formatBytes(modpack.totalSize)}${skipped}`
 }
 
 function formatBytes(bytes: number): string {

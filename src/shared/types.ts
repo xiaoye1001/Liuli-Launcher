@@ -782,6 +782,8 @@ export interface ModpackInfo {
   totalSize: number
   /** overrides 中的文件数（配置文件等，不含游戏资源文件） */
   overrideCount: number
+  /** 列在整合包清单里、但压缩包里已经有了而不用下载的文件数 */
+  skippedDownloads?: number
   /** 整合包里已经带着的模组（mods 文件夹中的 .jar）数量 */
   includedMods?: number
   /** 整合包里带着的游戏资源文件（assets、libraries）数量，安装时直接使用、不再下载 */

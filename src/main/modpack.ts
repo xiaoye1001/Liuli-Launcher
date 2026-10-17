@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import { BrowserWindow, dialog } from 'electron'
 import { DownloadMultipleTask } from '@xmcl/installer'
 import { AbortableTask, CancelledError } from '@xmcl/task'
@@ -26,7 +27,7 @@ import type { InstallRequest, ModpackInfo } from '../shared/types'
 interface ParsedModpack {
   info: ModpackInfo
   /** 直接下载的文件（Modrinth） */
-  downloads: { path: string; urls: string[]; sha1: string }[]
+  downloads: { path: string; urls: string[]; sha1: string; size?: number }[]
   /** 需要查询下载地址的 CurseForge 文件 ID */
   curseFileIds: number[]
   /** 压缩包中要复制到游戏目录的文件夹前缀，按顺序复制（后面的覆盖前面的） */
@@ -131,7 +132,7 @@ async function parseModrinth(zip: ZipListing, fileName: string): Promise<Parsed>
       totalSize: files.reduce((sum, f) => sum + (f.fileSize ?? 0), 0),
       overrideCount: countUnder(zip.names, overridePrefixes)
     },
-    downloads: files.map((f) => ({ path: f.path, urls: f.downloads, sha1: f.hashes.sha1 })),
+    downloads: files.map((f) => ({ path: f.path, urls: f.downloads, sha1: f.hashes.sha1, size: f.fileSize })),
     curseFileIds: [],
     overridePrefixes
   }
@@ -317,6 +318,31 @@ async function parseModpack(path: string): Promise<ParsedModpack> {
     const unsafe = [...parsed.downloads.map((d) => d.path), ...overrides.map((o) => o.rel)].find((p) => !isSafePath(p))
     if (unsafe) throw new Error(`整合包中包含不安全的文件路径：${unsafe}，已拒绝安装`)
 
+    // 整合包列出的下载文件如果压缩包里已经有了（同一路径，或内容相同但文件名不同），就不再下载。
+    // 内容相同但名字不同时如果还下载，mods 里会出现两份同一个模组，Forge 会报重复模组而无法启动
+    if (parsed.downloads.length > 0) {
+      const included = new Set(overrides.map((o) => o.rel.toLowerCase()))
+      const sizes = new Set(parsed.downloads.map((d) => d.size).filter((n): n is number => !!n))
+      const provided = new Set<string>()
+      for (const o of overrides) {
+        // 只计算大小与某个下载文件相同的条目的 SHA1，避免读取整个压缩包
+        if (!sizes.has(o.size)) continue
+        const entry = byName.get(o.entryName)
+        if (!entry) continue
+        provided.add(
+          createHash('sha1')
+            .update(await readEntry(zipFile, entry))
+            .digest('hex')
+        )
+      }
+      const remaining = parsed.downloads.filter(
+        (d) => !included.has(d.path.toLowerCase()) && !provided.has(d.sha1.toLowerCase())
+      )
+      parsed.info.skippedDownloads = parsed.downloads.length - remaining.length
+      parsed.info.fileCount = remaining.length
+      parsed.info.totalSize = remaining.reduce((sum, d) => sum + (d.size ?? 0), 0)
+      parsed.downloads = remaining
+    }
     parsed.info.includedMods = overrides.filter((o) => /^mods\/[^/]+\.jar$/i.test(o.rel)).length
     parsed.info.includedGameFiles = overrides.filter((o) => isShared(o.rel)).length
     parsed.info.overrideCount = overrides.length - parsed.info.includedGameFiles
