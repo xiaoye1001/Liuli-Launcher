@@ -245,11 +245,7 @@ function SettingsPage(): JSX.Element {
                 }`}
               >
                 {active && (
-                  <motion.div
-                    layoutId="theme-active"
-                    className="absolute inset-0 rounded-xl bg-emerald-500/15"
-                    transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                  />
+                  <div className="absolute inset-0 rounded-xl bg-emerald-500/15" />
                 )}
                 <Icon className="relative z-10 h-4 w-4" />
                 <span className="relative z-10 font-medium">{theme.label}</span>
@@ -724,11 +720,7 @@ function SettingsPage(): JSX.Element {
                 }`}
               >
                 {active && (
-                  <motion.div
-                    layoutId="source-active"
-                    className="absolute inset-0 rounded-xl bg-emerald-500/15"
-                    transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                  />
+                  <div className="absolute inset-0 rounded-xl bg-emerald-500/15" />
                 )}
                 <div className="relative z-10 flex items-center justify-between">
                   <div>

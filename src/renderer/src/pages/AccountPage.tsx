@@ -110,11 +110,7 @@ function AccountPage(): JSX.Element {
               }`}
             >
               {animation === a.key && (
-                <motion.div
-                  layoutId="skin-animation"
-                  className="absolute inset-0 rounded-lg bg-white/15"
-                  transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                />
+                <div className="absolute inset-0 rounded-lg bg-white/15" />
               )}
               <span className="relative z-10">{a.label}</span>
             </button>
