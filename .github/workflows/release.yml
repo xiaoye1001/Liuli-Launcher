@@ -15,6 +15,10 @@ on:
       version:
         description: 版本号（不带 v，例如 0.2.0）
         required: true
+      notes:
+        description: 更新说明（Markdown，可以留空），会显示在 Release 和启动器的新版本提示里
+        required: false
+        default: ''
 
 env:
   # 版本号：手动运行时取输入，发布 Release 时取标签（v0.2.0 → 0.2.0）
@@ -156,6 +160,8 @@ jobs:
           # 保留发布时填写的说明，在末尾追加下载与运行方法
           append_body: true
           body: |
+            ${{ inputs.notes }}
+
             ## 下载
 
             | 系统 | 文件 | 说明 |
