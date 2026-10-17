@@ -26,6 +26,7 @@ Glass-style UI · Dark & light themes · Fast downloads via mirrors · One-click
   - **Forge**, **NeoForge** or **Fabric** (pick one)
   - **OptiFine** (on its own, or together with Forge)
 - Import local modpacks (pick a file, or just drag it onto the window): Modrinth (`.mrpack`), CurseForge, MultiMC / Prism and MCBBS (`.zip`) formats are supported; the matching Minecraft version and mod loader, every mod, and the bundled config files are installed in one go
+- **Export modpacks**: export a version as a Modrinth (`.mrpack`), CurseForge, MultiMC / Prism or MCBBS pack, choosing which mods, configs, resource packs, worlds and so on to include; the Modrinth format can reference files available on Modrinth instead of bundling them, keeping the pack small
 - "Check & repair" installed versions: only missing or corrupted files are downloaded again
 - Before deleting a version, the launcher checks whether other versions depend on it, and warns you if its folder contains worlds
 

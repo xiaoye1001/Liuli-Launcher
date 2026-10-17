@@ -12,7 +12,8 @@ import type {
   MsLoginStatus,
   VersionConfig,
   LocalResourceKind,
-  SavedServer
+  SavedServer,
+  ModpackExportOptions
 } from '../shared/types'
 
 const api = {
@@ -87,6 +88,14 @@ const api = {
   showScreenshot: (versionId: string, fileName: string) => ipcRenderer.invoke('screenshots:show', versionId, fileName),
   openScreenshotsDir: (versionId: string) => ipcRenderer.invoke('screenshots:open', versionId),
   getPlayStats: () => ipcRenderer.invoke('stats:get'),
+  getModpackExportInfo: (versionId: string) => ipcRenderer.invoke('export:info', versionId),
+  exportModpack: (options: ModpackExportOptions) => ipcRenderer.invoke('export:run', options),
+  showExportedModpack: () => ipcRenderer.invoke('export:show'),
+  onExportProgress: (callback: (progress: { done: number; total: number }) => void) => {
+    const listener = (_: unknown, progress: { done: number; total: number }): void => callback(progress)
+    ipcRenderer.on('export:progress', listener)
+    return () => ipcRenderer.removeListener('export:progress', listener)
+  },
   getVersionConfig: (versionId: string) => ipcRenderer.invoke('versions:getConfig', versionId),
   setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) =>
     ipcRenderer.invoke('versions:setConfig', versionId, patch),

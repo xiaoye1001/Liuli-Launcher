@@ -27,7 +27,7 @@ interface ModrinthFile {
   filename: string
   primary: boolean
   size: number
-  hashes: { sha1?: string }
+  hashes: { sha1?: string; sha512?: string }
 }
 
 interface ModrinthVersion {
@@ -507,4 +507,22 @@ export async function updateMod(versionId: string, fileName: string, modrinthVer
     if (disabled) await rename(join(ctx.dir, newName), join(ctx.dir, finalName))
   }
   return finalName
+}
+
+/** 按 SHA1 查询 Modrinth 上对应的文件（导出整合包时用于写下载地址），返回 SHA1 → 文件信息 */
+export async function lookupModrinthFiles(
+  hashes: string[]
+): Promise<Map<string, { url: string; size: number; sha512?: string }>> {
+  const result = new Map<string, { url: string; size: number; sha512?: string }>()
+  for (let i = 0; i < hashes.length; i += 500) {
+    const batch = hashes.slice(i, i + 500)
+    const versions = await modrinthFetch<
+      Record<string, ModrinthVersion & { files: (ModrinthFile & { hashes: { sha512?: string } })[] }>
+    >('/version_files', { method: 'POST', body: JSON.stringify({ hashes: batch, algorithm: 'sha1' }) })
+    for (const hash of batch) {
+      const file = versions[hash]?.files.find((f) => f.hashes.sha1 === hash)
+      if (file) result.set(hash, { url: file.url, size: file.size, sha512: file.hashes.sha512 })
+    }
+  }
+  return result
 }

@@ -38,7 +38,10 @@ import type {
   ExternalLoginResult,
   ModUpdate,
   ScreenshotList,
-  PlayStats
+  PlayStats,
+  ModpackExportInfo,
+  ModpackExportOptions,
+  ModpackExportResult
 } from '../shared/types'
 
 declare global {
@@ -119,6 +122,13 @@ declare global {
       openScreenshotsDir: (versionId: string) => Promise<void>
       /** 游玩时长统计与最近游玩记录 */
       getPlayStats: () => Promise<PlayStats>
+      /** 导出整合包：版本信息与可以导出的内容 */
+      getModpackExportInfo: (versionId: string) => Promise<ModpackExportInfo>
+      /** 导出整合包（弹出保存对话框），取消时返回 null */
+      exportModpack: (options: ModpackExportOptions) => Promise<ModpackExportResult | null>
+      /** 在文件夹中显示刚导出的整合包 */
+      showExportedModpack: () => Promise<void>
+      onExportProgress: (callback: (progress: { done: number; total: number }) => void) => () => void
       /** 版本设置（未设置的项跟随全局设置） */
       getVersionConfig: (versionId: string) => Promise<VersionConfig>
       setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) => Promise<VersionConfig>

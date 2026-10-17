@@ -515,6 +515,51 @@ export interface PlayStats {
   sessions: PlaySession[]
 }
 
+/** 导出整合包的格式 */
+export type ModpackExportFormat = 'modrinth' | 'curseforge' | 'multimc' | 'mcbbs'
+
+/** 可以放进整合包的内容（游戏目录第一层的文件或文件夹） */
+export interface ExportableEntry {
+  name: string
+  isDirectory: boolean
+  /** 总大小（字节） */
+  size: number
+  /** 文件数量 */
+  files: number
+  /** 默认是否勾选 */
+  recommended: boolean
+}
+
+export interface ModpackExportInfo {
+  versionId: string
+  minecraftVersion: string
+  loader: 'fabric' | 'forge' | 'neoforge' | 'quilt' | null
+  loaderVersion: string
+  entries: ExportableEntry[]
+}
+
+export interface ModpackExportOptions {
+  versionId: string
+  format: ModpackExportFormat
+  name: string
+  version: string
+  author: string
+  description: string
+  /** 要放进整合包的内容（ExportableEntry.name） */
+  include: string[]
+  /** Modrinth 格式：Modrinth 上能找到的模组等文件只写下载地址，不打包文件本身 */
+  useModrinthLinks: boolean
+}
+
+export interface ModpackExportResult {
+  path: string
+  /** 打包进去的文件数 */
+  files: number
+  /** 只写了下载地址的文件数 */
+  linked: number
+  size: number
+}
+
 /** Modrinth 搜索结果中的一个模组 */
 export interface ModrinthProject {
   projectId: string

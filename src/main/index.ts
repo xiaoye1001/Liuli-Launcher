@@ -64,6 +64,7 @@ import { deleteServer, importGameServers, listServers, moveServer, saveServer } 
 import { pingServer } from './serverPing'
 import { checkUpdate, openUpdateLink } from './updater'
 import { getPlayStats } from './playStats'
+import { exportModpack, getModpackExportInfo, showExportedModpack } from './modpackExport'
 import { copyScreenshot, deleteScreenshot, listScreenshots, openScreenshotsDir, showScreenshot } from './screenshots'
 import { copyVersion, createDesktopShortcut, launchArgOf, renameVersion } from './versionOps'
 import { loginExternal, removeExternalAccount, selectExternalProfile } from './yggdrasil'
@@ -86,7 +87,8 @@ import type {
   SystemInfo,
   VersionConfig,
   LocalResourceKind,
-  SavedServer
+  SavedServer,
+  ModpackExportOptions
 } from '../shared/types'
 
 /** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
@@ -278,6 +280,11 @@ function registerIpc(): void {
   ipcMain.handle('servers:ping', (_, address: string) => pingServer(address))
   ipcMain.handle('game:status', () => getGameStatus())
   ipcMain.handle('stats:get', () => getPlayStats())
+  ipcMain.handle('export:show', () => showExportedModpack())
+  ipcMain.handle('export:info', (_, versionId: string) => getModpackExportInfo(versionId))
+  ipcMain.handle('export:run', (event, options: ModpackExportOptions) =>
+    exportModpack(options, BrowserWindow.fromWebContents(event.sender))
+  )
   ipcMain.handle('game:logs', () => getGameLogs())
   ipcMain.handle('logs:open', () => openLogWindow())
   ipcMain.handle('crash:open', (_, kind: 'report' | 'native') => openCrashFile(kind))

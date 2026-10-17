@@ -14,6 +14,7 @@ import {
   Loader2,
   MonitorSmartphone,
   MoreHorizontal,
+  PackageOpen,
   PenLine,
   Puzzle,
   RefreshCw,
@@ -29,6 +30,7 @@ import LocalResourcesPage from './LocalResourcesPage'
 import ModsPage from './ModsPage'
 import VersionSettingsPage from './VersionSettingsPage'
 import WorldsPage from './WorldsPage'
+import ExportModpackPage from './ExportModpackPage'
 import type { InstalledVersion, InstallStatus, ModLoader, PlayStats, ResourceType } from '../../../shared/types'
 
 const LOADER_LABELS: Record<ModLoader, { label: string; className: string }> = {
@@ -76,6 +78,7 @@ function MoreMenu({
   onRename,
   onCopy,
   onShortcut,
+  onExport,
   onOpenFolder,
   onRepair,
   onDelete
@@ -85,6 +88,7 @@ function MoreMenu({
   onRename: () => void
   onCopy: () => void
   onShortcut: () => void
+  onExport: () => void
   onOpenFolder: () => void
   onRepair: () => void
   onDelete: () => void
@@ -137,6 +141,7 @@ function MoreMenu({
           {item(<PenLine className="h-4 w-4" />, '重命名', onRename, false, busy)}
           {item(<Copy className="h-4 w-4" />, '复制版本', onCopy, false, busy)}
           {item(<MonitorSmartphone className="h-4 w-4" />, '创建桌面快捷方式', onShortcut)}
+          {item(<PackageOpen className="h-4 w-4" />, '导出整合包', onExport)}
           <div className="my-1 border-t border-white/10" />
           {item(<FolderOpen className="h-4 w-4" />, '打开版本文件夹', onOpenFolder)}
           {item(<Wrench className="h-4 w-4" />, '检查并修复', onRepair, false, busy)}
@@ -271,6 +276,7 @@ function VersionsPage({
   const [settingsFor, setSettingsFor] = useState<InstalledVersion | null>(null)
   const [resourcesFor, setResourcesFor] = useState<InstalledVersion | null>(null)
   const [worldsFor, setWorldsFor] = useState<InstalledVersion | null>(null)
+  const [exportFor, setExportFor] = useState<InstalledVersion | null>(null)
   const lastState = useRef<string | undefined>(undefined)
 
   const load = useCallback(async (): Promise<InstalledVersion[]> => {
@@ -361,6 +367,11 @@ function VersionsPage({
           <VersionSettingsPage version={settingsFor} onBack={() => setSettingsFor(null)} onChanged={load} />
         </div>
       )}
+      {exportFor && (
+        <div key={exportFor.id} className="h-full animate-slide-in">
+          <ExportModpackPage version={exportFor} onBack={() => setExportFor(null)} />
+        </div>
+      )}
       {worldsFor && (
         <div key={worldsFor.id} className="h-full animate-slide-in">
           <WorldsPage
@@ -385,7 +396,7 @@ function VersionsPage({
         </div>
       )}
       <div
-        className={`flex h-full flex-col gap-5 ${settingsFor || modsFor || resourcesFor || worldsFor ? 'hidden' : ''}`}
+        className={`flex h-full flex-col gap-5 ${settingsFor || modsFor || resourcesFor || worldsFor || exportFor ? 'hidden' : ''}`}
       >
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
@@ -601,6 +612,7 @@ function VersionsPage({
                         setNotice(`已在桌面创建快捷方式：${path.split(/[\\/]/).pop()}，双击即可直接启动 ${version.id}`)
                       })
                     }
+                    onExport={() => setExportFor(version)}
                     onOpenFolder={() => window.api.openVersionDir(version.id)}
                     onRepair={() => repair(version.id)}
                     onDelete={() => remove(version.id)}
