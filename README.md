@@ -28,8 +28,9 @@
 - 删除版本前会检查是否有其他版本依赖它；版本文件夹里有存档时会特别提醒
 
 ### 社区资源
-「下载」页左侧分为 **原版游戏** 和 **社区资源**（Mod、整合包、数据包、资源包、光影包），内容来自 Modrinth：
-- 每类资源都可以搜索，并按 Minecraft 版本、加载器、分类筛选，按下载量、更新时间等排序
+「下载」页左侧分为 **原版游戏** 和 **社区资源**（Mod、整合包、数据包、资源包、光影包），可以在 **Modrinth** 和 **CurseForge** 之间切换来源：
+- CurseForge 通过 MCIM 镜像访问，不需要 API Key；下载源选 BMCLAPI 时文件也优先从镜像下载
+- 每类资源都可以搜索，并按 Minecraft 版本、加载器、分类（仅 Modrinth）筛选，按下载量、更新时间等排序
 - 展开项目可以看到全部版本，符合筛选条件的排在前面，可以自己挑要下载的版本
 - 选好「安装到」哪个游戏版本后，筛选条件会自动跟随该版本的 Minecraft 版本和加载器
 - 模组放进 `mods`（自动安装前置模组），资源包放进 `resourcepacks`，光影包放进 `shaderpacks`，数据包放进所选存档的 `datapacks`；整合包下载后进入安装页
@@ -177,8 +178,8 @@ src/
 ## 致谢
 
 - [BMCLAPI](https://bmclapi2.bangbang93.com/)：国内下载镜像
-- [MCIM](https://mod.mcimirror.top/)：Modrinth 国内镜像
-- [Modrinth](https://modrinth.com/)：模组搜索与下载
+- [MCIM](https://mod.mcimirror.top/)：Modrinth 与 CurseForge 国内镜像
+- [Modrinth](https://modrinth.com/)、[CurseForge](https://www.curseforge.com/minecraft)：模组搜索与下载
 - [@xmcl / minecraft-launcher-core-node](https://github.com/Voxelum/minecraft-launcher-core-node)
 - [skinview3d](https://github.com/bs-community/skinview3d)
 

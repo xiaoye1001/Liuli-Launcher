@@ -838,7 +838,11 @@ export interface ResourceSearchFilters {
   category?: string
   /** 排序：relevance / downloads / follows / newest / updated，不填时有关键字按相关度、否则按下载量 */
   sort?: string
+  /** 资源来源，默认 Modrinth */
+  source?: ResourceSource
 }
+
+export type ResourceSource = 'modrinth' | 'curseforge'
 
 /** Modrinth 上的项目（搜索结果） */
 export interface ModrinthProjectHit {

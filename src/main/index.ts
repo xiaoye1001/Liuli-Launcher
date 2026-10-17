@@ -86,6 +86,7 @@ import { applyNetworkSettings, checkNetwork, validateProxyUrl } from './network'
 import { addOfflineAccount, removeOfflineAccount, renameOfflineAccount, selectOfflineAccount } from './offline'
 import { loginExternal, removeExternalAccount, selectExternalProfile } from './yggdrasil'
 import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
+import { getCurseForgeVersions, installCurseForgeResource, isCurseForgeId, searchCurseForge } from './curseforge'
 import {
   cancelMicrosoftLogin,
   getAccounts,
@@ -314,11 +315,17 @@ function registerIpc(): void {
   ipcMain.handle(
     'resource:search',
     (_, type: ResourceType, query: string, offset: number, filters: ResourceSearchFilters) =>
-      searchProjects(type, query, offset, filters)
+      filters?.source === 'curseforge'
+        ? searchCurseForge(type, query, offset, filters)
+        : searchProjects(type, query, offset, filters)
   )
-  ipcMain.handle('resource:versions', (_, projectId: string, type: ResourceType) => getProjectVersions(projectId, type))
+  ipcMain.handle('resource:versions', (_, projectId: string, type: ResourceType) =>
+    isCurseForgeId(projectId) ? getCurseForgeVersions(projectId, type) : getProjectVersions(projectId, type)
+  )
   ipcMain.handle('resource:install', (_, target: ResourceTarget, type: ResourceType, versionId: string) =>
-    installResource(target, type, versionId)
+    isCurseForgeId(versionId)
+      ? installCurseForgeResource(target, type, versionId)
+      : installResource(target, type, versionId)
   )
   ipcMain.handle('resource:worlds', (_, versionId: string) => listWorlds(versionId))
   ipcMain.handle('modpack:download', (_, versionId: string) => downloadModpack(versionId))

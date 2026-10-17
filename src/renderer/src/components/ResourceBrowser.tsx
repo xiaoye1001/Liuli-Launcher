@@ -19,6 +19,7 @@ import type {
   ModrinthProjectHit,
   ModrinthProjectVersion,
   ResourceSearchFilters,
+  ResourceSource,
   ResourceType
 } from '../../../shared/types'
 
@@ -243,7 +244,13 @@ interface ResourceBrowserProps {
   topExtra?: ReactNode
 }
 
-/** 社区资源浏览：搜索、筛选 Modrinth 上的模组 / 整合包 / 数据包 / 资源包 / 光影，选择版本后安装 */
+const SOURCE_KEY = 'resourceSource'
+const SOURCES: [ResourceSource, string][] = [
+  ['modrinth', 'Modrinth'],
+  ['curseforge', 'CurseForge']
+]
+
+/** 社区资源浏览：搜索、筛选 Modrinth / CurseForge 上的模组 / 整合包 / 数据包 / 资源包 / 光影，选择版本后安装 */
 function ResourceBrowser({
   type,
   installed,
@@ -267,6 +274,15 @@ function ResourceBrowser({
   /** 正在下载的版本 */
   const [downloading, setDownloading] = useState<string | null>(null)
   const [filters, setFilters] = useState<ResourceSearchFilters>({})
+  /** 资源来源：Modrinth 或 CurseForge（记住上次的选择） */
+  const [source, setSource] = useState<ResourceSource>(() => {
+    try {
+      return localStorage.getItem(SOURCE_KEY) === 'curseforge' ? 'curseforge' : 'modrinth'
+    } catch {
+      return 'modrinth'
+    }
+  })
+  const isCurse = source === 'curseforge'
   /** 正式版 Minecraft 版本（筛选用） */
   const [gameVersions, setGameVersions] = useState<string[]>([])
   /** 安装到哪个版本（整合包不需要） */
@@ -331,6 +347,26 @@ function ResourceBrowser({
   const setFilter = (key: keyof ResourceSearchFilters, value: string): void =>
     setFilters((prev) => ({ ...prev, [key]: value || undefined }))
 
+  const changeSource = (next: ResourceSource): void => {
+    if (next === source) return
+    try {
+      localStorage.setItem(SOURCE_KEY, next)
+    } catch {
+      // 记不住也没关系
+    }
+    setSource(next)
+    setHits([])
+    setTotal(0)
+    setExpanded(null)
+    setNotice('')
+    // 两边的分类不通用；CurseForge 的光影没有加载器分类
+    setFilters((prev) => ({
+      ...prev,
+      category: undefined,
+      loader: next === 'curseforge' && type === 'shader' ? undefined : prev.loader
+    }))
+  }
+
   const search = useCallback(
     async (query: string, offset: number, current: ResourceSearchFilters) => {
       const id = ++requestId.current
@@ -351,14 +387,15 @@ function ResourceBrowser({
   )
 
   useEffect(() => {
-    const timer = setTimeout(() => search(keyword, 0, filters), keyword ? 400 : 0)
+    const timer = setTimeout(() => search(keyword, 0, { ...filters, source }), keyword ? 400 : 0)
     return () => clearTimeout(timer)
-  }, [keyword, filters, search])
+  }, [keyword, filters, source, search])
 
   /** 版本是否符合当前的 Minecraft 版本与加载器筛选 */
   const matches = (v: ModrinthProjectVersion): boolean =>
     (!filters.gameVersion || v.gameVersions.includes(filters.gameVersion)) &&
-    (!filters.loader || v.loaders.includes(filters.loader))
+    // CurseForge 的资源包、整合包等文件不标注加载器，这时不按加载器筛选
+    (!filters.loader || v.loaders.includes(filters.loader) || (isCurse && v.loaders.length === 0))
 
   const toggle = async (projectId: string): Promise<void> => {
     if (expanded === projectId) {
@@ -422,7 +459,22 @@ function ResourceBrowser({
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight">{meta.label}</h1>
-          <p className="truncate text-xs text-white/50">来自 Modrinth · {meta.desc}</p>
+          <div className="mt-1 flex items-center gap-2">
+            <div className="flex shrink-0 rounded-lg bg-black/20 p-0.5 text-xs">
+              {SOURCES.map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => changeSource(value)}
+                  className={`rounded-md px-2.5 py-1 transition-colors ${
+                    source === value ? 'bg-white/20 text-white' : 'text-white/50 hover:text-white'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="truncate text-xs text-white/50">{meta.desc}</p>
+          </div>
         </div>
         {needsTarget ? (
           <div className="flex shrink-0 items-center gap-2">
@@ -499,18 +551,20 @@ function ResourceBrowser({
             onChange={(v) => setFilter('gameVersion', v)}
             options={versionOptions}
           />
-          {meta.loaders.length > 0 && (
+          {meta.loaders.length > 0 && !(isCurse && type === 'shader') && (
             <FilterSelect
               value={filters.loader ?? ''}
               onChange={(v) => setFilter('loader', v)}
               options={[['', type === 'shader' ? '全部光影加载器' : '全部加载器'], ...meta.loaders]}
             />
           )}
-          <FilterSelect
-            value={filters.category ?? ''}
-            onChange={(v) => setFilter('category', v)}
-            options={[['', '全部分类'], ...meta.categories]}
-          />
+          {!isCurse && (
+            <FilterSelect
+              value={filters.category ?? ''}
+              onChange={(v) => setFilter('category', v)}
+              options={[['', '全部分类'], ...meta.categories]}
+            />
+          )}
           <FilterSelect value={filters.sort ?? ''} onChange={(v) => setFilter('sort', v)} options={SORTS} />
           {hasFilter && (
             <button
@@ -664,7 +718,7 @@ function ResourceBrowser({
           })}
           {hits.length > 0 && hits.length < total && (
             <button
-              onClick={() => search(keyword, hits.length, filters)}
+              onClick={() => search(keyword, hits.length, { ...filters, source })}
               disabled={loading}
               className="w-full rounded-xl py-2.5 text-sm text-white/60 hover:bg-white/5 disabled:opacity-50"
             >

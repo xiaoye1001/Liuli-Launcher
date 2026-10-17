@@ -9,6 +9,7 @@ import type { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import { startCustomInstall, type InstallExtraStep } from './install'
 import { downloadModpackFile, modrinthFileUrls, MODRINTH_USER_AGENT } from './modrinth'
+import { downloadCurseForgeModpack, isCurseForgeId } from './curseforge'
 import { getSettings } from './config'
 import { abortedPause, AbortedError, WatchedDownloadTask } from './fileDownload'
 import type { InstallRequest, ModpackInfo } from '../shared/types'
@@ -446,8 +447,10 @@ export async function loadModpackFile(path: string): Promise<ModpackInfo> {
 }
 
 /** 从 Modrinth 下载整合包的某个版本并读取信息 */
-export async function downloadModpack(modrinthVersionId: string): Promise<ModpackInfo> {
-  return loadModpack(await downloadModpackFile(modrinthVersionId))
+export async function downloadModpack(versionId: string): Promise<ModpackInfo> {
+  return loadModpack(
+    isCurseForgeId(versionId) ? await downloadCurseForgeModpack(versionId) : await downloadModpackFile(versionId)
+  )
 }
 
 /** 整合包的加载器版本转换为安装请求 */
