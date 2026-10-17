@@ -1,5 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
+  UpdateDownload,
   NewsList,
   NetworkCheck,
   WorldBackup,
@@ -201,6 +202,13 @@ declare global {
       checkUpdate: () => Promise<UpdateInfo>
       /** 在浏览器中打开新版本的安装包或发布页面 */
       openUpdateLink: (kind: 'asset' | 'page') => Promise<void>
+      /** 在启动器里下载新版本（校验 SHA-256），进度通过 onUpdateDownload 推送 */
+      downloadUpdate: () => Promise<void>
+      getUpdateDownload: () => Promise<UpdateDownload>
+      cancelUpdateDownload: () => Promise<void>
+      /** 替换为新版本并重启启动器 */
+      installUpdate: () => Promise<void>
+      onUpdateDownload: (callback: (status: UpdateDownload) => void) => () => void
       listServers: () => Promise<SavedServer[]>
       /** 添加（没有 id）或修改服务器，返回新的列表 */
       saveServer: (server: Omit<SavedServer, 'id'> & { id?: string }) => Promise<SavedServer[]>

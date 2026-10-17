@@ -74,7 +74,7 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 - **Minecraft news**: the Home page shows official Java Edition news and update posts; click one to read it in your browser. When offline, the last fetched news is shown. You can turn it off on Home or in Settings
 - Glass-style design with page transition animations
 - Dark / light / follow-system themes
-- **Update check**: checks GitHub for new versions at startup and shows a notice in the bottom-right corner, with the release notes and a download link for the right installer for your system; check manually or turn this off under Settings → About
+- **Update check**: checks GitHub for new versions at startup and shows a notice in the bottom-right corner, with the release notes; click "Download and update" to download the new version inside the launcher (verified with SHA-256), then "Restart and update" to replace the launcher and reopen it automatically (portable, installer, AppImage and macOS builds), with no manual file replacing; check manually or turn this off under Settings → About
 
 | Install setup | Mod management |
 |---|---|

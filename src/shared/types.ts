@@ -139,6 +139,20 @@ export interface UpdateInfo {
   /** 适合本机的安装包文件名，没有时为空 */
   assetName: string
   assetSize: number
+  /** 是否可以在启动器里直接下载并替换更新（开发版本或无法识别运行方式时为 false） */
+  autoUpdate: boolean
+}
+
+/** 自动更新的下载状态 */
+export interface UpdateDownload {
+  state: 'idle' | 'downloading' | 'ready' | 'failed'
+  /** 正在下载 / 已下载的版本号 */
+  version: string
+  progress: number
+  total: number
+  /** 字节/秒 */
+  speed: number
+  error?: string
 }
 
 /** 主题色 */

@@ -68,7 +68,15 @@ import {
 import { exportCrashInfo, openCrashFile } from './crashReport'
 import { deleteServer, importGameServers, listServers, moveServer, saveServer } from './servers'
 import { pingServer } from './serverPing'
-import { checkUpdate, openUpdateLink } from './updater'
+import {
+  cancelUpdateDownload,
+  checkUpdate,
+  cleanUpdateFiles,
+  downloadUpdate,
+  getUpdateDownload,
+  installUpdate,
+  openUpdateLink
+} from './updater'
 import { getPlayStats } from './playStats'
 import { exportModpack, getModpackExportInfo, showExportedModpack } from './modpackExport'
 import { copyScreenshot, deleteScreenshot, listScreenshots, openScreenshotsDir, showScreenshot } from './screenshots'
@@ -323,6 +331,10 @@ function registerIpc(): void {
   ipcMain.handle('game:launch', (_, versionId: string, server?: string) => launchGame(versionId, server))
   ipcMain.handle('update:check', () => checkUpdate())
   ipcMain.handle('update:open', (_, kind: 'asset' | 'page') => openUpdateLink(kind))
+  ipcMain.handle('update:download', () => downloadUpdate())
+  ipcMain.handle('update:downloadStatus', () => getUpdateDownload())
+  ipcMain.handle('update:cancelDownload', () => cancelUpdateDownload())
+  ipcMain.handle('update:install', () => installUpdate())
   ipcMain.handle('servers:list', () => listServers())
   ipcMain.handle('servers:save', (_, server: Omit<SavedServer, 'id'> & { id?: string }) => saveServer(server))
   ipcMain.handle('servers:delete', (_, id: string) => deleteServer(id))
@@ -404,6 +416,8 @@ app.whenReady().then(async () => {
   nativeTheme.themeSource = (await getSettings()).theme
   await applyNetworkSettings().catch((e) => console.error('应用网络设置失败：', e))
   createWindow()
+  // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
+  setTimeout(() => void cleanUpdateFiles(), 60_000)
   const shortcutVersion = launchArgOf(process.argv)
   if (shortcutVersion) void launchFromShortcut(shortcutVersion)
 

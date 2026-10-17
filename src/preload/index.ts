@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
+  UpdateDownload,
   AppSettings,
   GameLogEvent,
   GameStatus,
@@ -137,6 +138,17 @@ const api = {
   launchGame: (versionId: string, server?: string) => ipcRenderer.invoke('game:launch', versionId, server),
   checkUpdate: () => ipcRenderer.invoke('update:check'),
   openUpdateLink: (kind: 'asset' | 'page') => ipcRenderer.invoke('update:open', kind),
+  downloadUpdate: () => ipcRenderer.invoke('update:download'),
+  getUpdateDownload: () => ipcRenderer.invoke('update:downloadStatus'),
+  cancelUpdateDownload: () => ipcRenderer.invoke('update:cancelDownload'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
+  onUpdateDownload: (callback: (status: UpdateDownload) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, status: UpdateDownload): void => callback(status)
+    ipcRenderer.on('update:download', listener)
+    return () => {
+      ipcRenderer.removeListener('update:download', listener)
+    }
+  },
   listServers: () => ipcRenderer.invoke('servers:list'),
   saveServer: (server: Omit<SavedServer, 'id'> & { id?: string }) => ipcRenderer.invoke('servers:save', server),
   deleteServer: (id: string) => ipcRenderer.invoke('servers:delete', id),

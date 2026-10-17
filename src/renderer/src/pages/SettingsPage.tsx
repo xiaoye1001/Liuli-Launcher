@@ -29,7 +29,7 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import { backgroundUrl } from '../utils/appearance'
-import { downloadLabel, ReleaseNotes } from '../components/UpdateNotice'
+import { ReleaseNotes, UpdateActions } from '../components/UpdateNotice'
 import type {
   AccentColor,
   AfterLaunch,
@@ -1086,21 +1086,13 @@ function AboutSection({
                 {info.publishedAt && ` · 发布于 ${new Date(info.publishedAt).toLocaleDateString('zh-CN')}`}
               </div>
             </div>
-            <button
-              onClick={() => window.api.openUpdateLink('asset')}
-              title={downloadLabel(info)}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2 text-sm font-medium"
-            >
-              <Download className="h-4 w-4" />
-              下载新版本
-            </button>
           </div>
           <div className="mt-3">
             <ReleaseNotes notes={info.notes} />
           </div>
-          <p className="mt-2 text-xs text-white/40">
-            会用浏览器下载{info.assetName ? `「${info.assetName}」` : ''}。安装新版本后，设置、账号和游戏文件都会保留。
-          </p>
+          <div className="mt-3">
+            <UpdateActions info={info} />
+          </div>
         </div>
       )}
 
