@@ -1,0 +1,364 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Download,
+  FolderOpen,
+  HardDrive,
+  Loader2,
+  Puzzle,
+  RefreshCw,
+  Search,
+  Settings2,
+  Trash2,
+  Wrench
+} from 'lucide-react'
+import GrassBlockIcon from '../components/GrassBlockIcon'
+import InstallProgressCard from '../components/InstallProgressCard'
+import ModsPage from './ModsPage'
+import VersionSettingsPage from './VersionSettingsPage'
+import type { InstalledVersion, InstallStatus, ModLoader } from '../../../shared/types'
+
+const LOADER_LABELS: Record<ModLoader, { label: string; className: string }> = {
+  fabric: { label: 'Fabric', className: 'bg-amber-500/20 text-amber-300' },
+  quilt: { label: 'Quilt', className: 'bg-fuchsia-500/20 text-fuchsia-300' },
+  forge: { label: 'Forge', className: 'bg-sky-500/20 text-sky-300' },
+  neoforge: { label: 'NeoForge', className: 'bg-rose-500/20 text-rose-300' },
+  optifine: { label: 'OptiFine', className: 'bg-violet-500/20 text-violet-300' }
+}
+const TYPE_LABELS: Record<string, { label: string; className: string }> = {
+  release: { label: '正式版', className: 'bg-emerald-500/20 text-emerald-300' },
+  snapshot: { label: '快照', className: 'bg-amber-500/20 text-amber-300' },
+  old_beta: { label: 'Beta', className: 'bg-fuchsia-500/20 text-fuchsia-300' },
+  old_alpha: { label: 'Alpha', className: 'bg-rose-500/20 text-rose-300' }
+}
+const OTHER_TYPE = { label: '其他', className: 'bg-sky-500/20 text-sky-300' }
+
+/** 可以加载模组的版本才显示「模组」按钮 */
+const MOD_LOADERS: ModLoader[] = ['fabric', 'quilt', 'forge', 'neoforge']
+
+type Filter = 'all' | 'vanilla' | 'modded'
+const FILTERS: [Filter, string][] = [
+  ['all', '全部'],
+  ['vanilla', '原版'],
+  ['modded', '模组版本']
+]
+
+function typeInfo(version: InstalledVersion): { label: string; className: string } {
+  if (version.loader) return LOADER_LABELS[version.loader]
+  return TYPE_LABELS[version.type] ?? OTHER_TYPE
+}
+
+function isModded(version: InstalledVersion): boolean {
+  return !!version.loader && MOD_LOADERS.includes(version.loader)
+}
+
+function cleanError(e: unknown): string {
+  return e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e)
+}
+
+interface VersionsPageProps {
+  /** 打开页面时直接进入某个版本的版本设置（从主页的齿轮按钮进入） */
+  openSettingsFor?: string | null
+  onSettingsOpened?: () => void
+  /** 跳转到下载页安装新版本 */
+  onInstallNew: () => void
+}
+
+/** 已安装版本的管理：选择启动版本、模组、版本设置、打开文件夹、检查修复、删除 */
+function VersionsPage({ openSettingsFor, onSettingsOpened, onInstallNew }: VersionsPageProps): JSX.Element {
+  const [installed, setInstalled] = useState<InstalledVersion[] | null>(null)
+  const [selected, setSelected] = useState('')
+  const [gameDir, setGameDir] = useState('')
+  const [keyword, setKeyword] = useState('')
+  const [filter, setFilter] = useState<Filter>('all')
+  const [install, setInstall] = useState<InstallStatus | null>(null)
+  const [actionError, setActionError] = useState('')
+  const [modsFor, setModsFor] = useState<InstalledVersion | null>(null)
+  const [settingsFor, setSettingsFor] = useState<InstalledVersion | null>(null)
+  const lastState = useRef<string | undefined>(undefined)
+
+  const load = useCallback(async (): Promise<InstalledVersion[]> => {
+    const [list, settings] = await Promise.all([window.api.getInstalledVersions(), window.api.getSettings()])
+    setInstalled(list)
+    setSelected(settings.selectedVersion)
+    setGameDir(settings.gameDir)
+    return list
+  }, [])
+
+  useEffect(() => {
+    load()
+    window.api.getInstallStatus().then(setInstall)
+    return window.api.onInstallStatus(setInstall)
+  }, [load])
+
+  // 从主页进入：打开指定版本的版本设置
+  useEffect(() => {
+    if (!openSettingsFor || !installed) return
+    const version = installed.find((v) => v.id === openSettingsFor)
+    if (version) {
+      setModsFor(null)
+      setSettingsFor(version)
+    }
+    onSettingsOpened?.()
+  }, [openSettingsFor, installed, onSettingsOpened])
+
+  // 修复或安装结束后刷新列表
+  useEffect(() => {
+    if (lastState.current === 'running' && install?.state !== 'running') load()
+    lastState.current = install?.state
+  }, [install, load])
+
+  const run = async (action: () => Promise<unknown>): Promise<void> => {
+    setActionError('')
+    try {
+      await action()
+    } catch (e) {
+      setActionError(cleanError(e))
+    }
+  }
+
+  const repair = (versionId: string): Promise<void> => run(() => window.api.repairVersion(versionId))
+  const remove = (versionId: string): Promise<void> =>
+    run(async () => {
+      if (await window.api.deleteVersion(versionId)) await load()
+    })
+  const select = (versionId: string): Promise<void> =>
+    run(async () => {
+      setSelected((await window.api.updateSettings({ selectedVersion: versionId })).selectedVersion)
+    })
+
+  const busy = install?.state === 'running'
+  const kw = keyword.trim().toLowerCase()
+  const visible = useMemo(
+    () =>
+      (installed ?? []).filter(
+        (v) =>
+          (!kw || v.id.toLowerCase().includes(kw) || v.minecraftVersion.toLowerCase().includes(kw)) &&
+          (filter === 'all' || (filter === 'modded') === isModded(v))
+      ),
+    [installed, kw, filter]
+  )
+
+  return (
+    <>
+      {settingsFor && (
+        <div key={settingsFor.id} className="h-full animate-slide-in">
+          <VersionSettingsPage version={settingsFor} onBack={() => setSettingsFor(null)} onChanged={load} />
+        </div>
+      )}
+      {modsFor && (
+        <div key={modsFor.id} className="h-full animate-slide-in">
+          <ModsPage version={modsFor} onBack={() => setModsFor(null)} />
+        </div>
+      )}
+      <div className={`flex h-full flex-col gap-5 ${settingsFor || modsFor ? 'hidden' : ''}`}>
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold tracking-tight">版本</h1>
+            <p className="mt-1 truncate text-xs text-white/50" title={gameDir}>
+              已安装 {installed?.length ?? 0} 个版本 · 游戏目录：{gameDir}
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-3">
+            <button
+              onClick={() => window.api.openGameDir()}
+              title="在文件管理器中打开游戏目录"
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+            >
+              <HardDrive className="h-4 w-4" />
+              游戏目录
+            </button>
+            <button
+              onClick={() => run(load)}
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+            >
+              <RefreshCw className="h-4 w-4" />
+              刷新
+            </button>
+            <button
+              onClick={onInstallNew}
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2 text-sm font-medium shadow-lg shadow-emerald-500/20"
+            >
+              <Download className="h-4 w-4" />
+              安装新版本
+            </button>
+          </div>
+        </div>
+
+        {/* 检查修复的进度 */}
+        <AnimatePresence>
+          {install && (
+            <InstallProgressCard
+              status={install}
+              onCancel={() => window.api.cancelInstall()}
+              onRetry={() =>
+                install.kind === 'repair' ? repair(install.versionId) : run(() => window.api.retryInstall())
+              }
+              onDismiss={() => setInstall(null)}
+            />
+          )}
+        </AnimatePresence>
+        {actionError && (
+          <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span className="break-all">{actionError}</span>
+          </div>
+        )}
+
+        <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
+          <div className="flex items-center gap-3">
+            <div className="flex rounded-xl bg-black/20 p-1">
+              {FILTERS.map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setFilter(key)}
+                  className={`rounded-lg px-4 py-1.5 text-sm transition-colors ${
+                    filter === key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-1 items-center gap-2 rounded-xl bg-black/20 px-3 py-2">
+              <Search className="h-4 w-4 text-white/40" />
+              <input
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                placeholder="搜索版本名或 Minecraft 版本"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-white/30"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            {installed === null && (
+              <div className="flex justify-center py-10 text-white/50">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            )}
+            {installed?.length === 0 && (
+              <div className="flex flex-col items-center gap-3 py-12 text-sm text-white/50">
+                还没有安装任何版本
+                <button
+                  onClick={onInstallNew}
+                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-white hover:bg-white/20"
+                >
+                  <Download className="h-4 w-4" />
+                  去下载
+                </button>
+              </div>
+            )}
+            {installed && installed.length > 0 && visible.length === 0 && (
+              <div className="py-10 text-center text-sm text-white/40">没有匹配的版本</div>
+            )}
+            {visible.map((version) => {
+              const info = typeInfo(version)
+              const current = version.id === selected
+              const repairing = busy && install?.versionId === version.id
+              return (
+                <div
+                  key={version.id}
+                  className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
+                    current
+                      ? 'border-emerald-400/40 bg-emerald-500/10'
+                      : 'border-transparent bg-black/20 hover:bg-black/30'
+                  }`}
+                >
+                  <GrassBlockIcon className="h-9 w-9 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate font-semibold" title={version.id}>
+                        {version.id}
+                      </span>
+                      {current && (
+                        <span className="flex shrink-0 items-center gap-1 text-xs text-emerald-300">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          启动版本
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                      <span className={`rounded-md px-2 py-0.5 ${info.className}`}>{info.label}</span>
+                      <span className="text-white/50">Minecraft {version.minecraftVersion}</span>
+                      {version.isolated && (
+                        <span
+                          title="模组、存档、配置放在该版本自己的文件夹里"
+                          className="rounded-md bg-white/10 px-2 py-0.5 text-white/60"
+                        >
+                          版本隔离
+                        </span>
+                      )}
+                      {version.customized && (
+                        <span
+                          title="该版本有自己的设置（内存、Java 等）"
+                          className="rounded-md bg-sky-500/15 px-2 py-0.5 text-sky-300"
+                        >
+                          独立设置
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {!current && (
+                    <button
+                      onClick={() => select(version.id)}
+                      title="主页的「启动游戏」将启动这个版本"
+                      className="shrink-0 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                    >
+                      设为启动版本
+                    </button>
+                  )}
+                  {isModded(version) && (
+                    <button
+                      onClick={() => setModsFor(version)}
+                      title="管理该版本的模组"
+                      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                    >
+                      <Puzzle className="h-3.5 w-3.5" />
+                      模组
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setSettingsFor(version)}
+                    title="版本设置：单独设置内存、Java、窗口大小等"
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                  >
+                    <Settings2 className="h-3.5 w-3.5" />
+                    设置
+                  </button>
+                  <button
+                    onClick={() => window.api.openVersionDir(version.id)}
+                    title="打开版本文件夹"
+                    className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => repair(version.id)}
+                    disabled={busy}
+                    title="检查并修复：校验文件，重新下载缺失或损坏的部分"
+                    className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {repairing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wrench className="h-4 w-4" />}
+                  </button>
+                  <button
+                    onClick={() => remove(version.id)}
+                    disabled={busy}
+                    title="删除该版本"
+                    className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-red-500/30 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      </div>
+    </>
+  )
+}
+
+export default VersionsPage

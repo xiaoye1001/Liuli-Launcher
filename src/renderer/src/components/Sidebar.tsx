@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Boxes, Download, House, Settings, UserRound, type LucideIcon } from 'lucide-react'
+import { Boxes, Download, House, Layers, Settings, UserRound, type LucideIcon } from 'lucide-react'
 
-export type PageKey = 'home' | 'account' | 'download' | 'settings'
+export type PageKey = 'home' | 'account' | 'versions' | 'download' | 'settings'
 
 interface NavItem {
   key: PageKey
@@ -13,6 +13,7 @@ interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { key: 'home', label: '主页', icon: House },
   { key: 'account', label: '账号', icon: UserRound },
+  { key: 'versions', label: '版本', icon: Layers },
   { key: 'download', label: '下载', icon: Download },
   { key: 'settings', label: '设置', icon: Settings }
 ]

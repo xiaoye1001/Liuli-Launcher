@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertTriangle, Box, Check, ChevronDown, Gamepad2, Loader2, Play, Terminal, UserRound } from 'lucide-react'
+import {
+  AlertTriangle,
+  Box,
+  Check,
+  ChevronDown,
+  Gamepad2,
+  Loader2,
+  Play,
+  Settings2,
+  Terminal,
+  UserRound
+} from 'lucide-react'
 import SkinHead from '../components/SkinHead'
 import type { AccountsInfo, AppSettings, GameStatus, InstallStatus, InstalledVersion } from '../../../shared/types'
 
@@ -65,7 +76,13 @@ function VersionSelect({ versions, value, onChange }: VersionSelectProps): JSX.E
   )
 }
 
-function HomePage(): JSX.Element {
+interface HomePageProps {
+  /** 打开某个版本的版本设置（跳转到「版本」页） */
+  onOpenVersionSettings: (versionId: string) => void
+  onManageVersions: () => void
+}
+
+function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): JSX.Element {
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [versions, setVersions] = useState<InstalledVersion[]>([])
   const [name, setName] = useState('')
@@ -183,8 +200,23 @@ function HomePage(): JSX.Element {
           )}
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-white/50">游戏版本</span>
-            <VersionSelect versions={versions} value={selected} onChange={selectVersion} />
+            <span className="flex items-center justify-between text-xs text-white/50">
+              游戏版本
+              <button onClick={onManageVersions} className="text-white/50 hover:text-white hover:underline">
+                管理版本
+              </button>
+            </span>
+            <div className="flex gap-2">
+              <VersionSelect versions={versions} value={selected} onChange={selectVersion} />
+              <button
+                onClick={() => onOpenVersionSettings(selected)}
+                disabled={!selected}
+                title="版本设置：单独设置这个版本的内存、Java、窗口大小等"
+                className="rounded-xl border border-white/10 bg-black/20 px-3 text-white/70 hover:bg-black/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Settings2 className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           <button

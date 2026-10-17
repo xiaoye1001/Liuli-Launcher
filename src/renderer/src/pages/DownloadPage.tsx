@@ -5,29 +5,21 @@ import {
   CheckCircle2,
   Download,
   FlaskConical,
-  FolderOpen,
   Gamepad2,
   Loader2,
   Package,
   PackagePlus,
-  Puzzle,
   RefreshCw,
   Search,
-  Settings2,
-  Sparkles,
-  Trash2,
-  Wrench
+  Sparkles
 } from 'lucide-react'
 import InstallProgressCard from '../components/InstallProgressCard'
 import InstallSetupPage from './InstallSetupPage'
-import ModsPage from './ModsPage'
-import VersionSettingsPage from './VersionSettingsPage'
 import ModpackSetupPage from './ModpackSetupPage'
 import ResourceBrowser, { RESOURCE_TYPES } from '../components/ResourceBrowser'
 import type {
   InstalledVersion,
   InstallStatus,
-  ModLoader,
   ModpackInfo,
   ResourceType,
   VersionEntry,
@@ -40,10 +32,9 @@ type Section = 'vanilla' | ResourceType
 /** 页面左侧的分类：原版游戏 + 社区资源 */
 const RESOURCE_SECTIONS: ResourceType[] = ['mod', 'modpack', 'datapack', 'resourcepack', 'shader']
 
-type Filter = 'installed' | 'release' | 'snapshot' | 'old'
+type Filter = 'release' | 'snapshot' | 'old'
 
 const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'installed', label: '已安装' },
   { key: 'release', label: '正式版' },
   { key: 'snapshot', label: '快照版' },
   { key: 'old', label: '远古版' }
@@ -54,24 +45,6 @@ const TYPE_LABELS: Record<VersionType, { label: string; className: string }> = {
   snapshot: { label: '快照', className: 'bg-amber-500/20 text-amber-300' },
   old_beta: { label: 'Beta', className: 'bg-fuchsia-500/20 text-fuchsia-300' },
   old_alpha: { label: 'Alpha', className: 'bg-rose-500/20 text-rose-300' }
-}
-
-const OTHER_TYPE = { label: '其他', className: 'bg-sky-500/20 text-sky-300' }
-const LOADER_LABELS: Record<ModLoader, { label: string; className: string }> = {
-  fabric: { label: 'Fabric', className: 'bg-amber-500/20 text-amber-300' },
-  quilt: { label: 'Quilt', className: 'bg-fuchsia-500/20 text-fuchsia-300' },
-  forge: { label: 'Forge', className: 'bg-sky-500/20 text-sky-300' },
-  neoforge: { label: 'NeoForge', className: 'bg-rose-500/20 text-rose-300' },
-  optifine: { label: 'OptiFine', className: 'bg-violet-500/20 text-violet-300' }
-}
-
-/** 可以加载模组的版本才显示「模组」按钮 */
-const MOD_LOADERS: ModLoader[] = ['fabric', 'quilt', 'forge', 'neoforge']
-
-/** 已安装版本的类型标签：装了模组加载器的版本显示加载器名称 */
-function installedTypeInfo(version: InstalledVersion): { label: string; className: string } {
-  if (version.loader) return LOADER_LABELS[version.loader]
-  return TYPE_LABELS[version.type as VersionType] ?? OTHER_TYPE
 }
 
 const SOURCE_LABELS = { bmclapi: 'BMCLAPI 镜像', mojang: '官方源' }
@@ -132,8 +105,6 @@ function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps 
   const [install, setInstall] = useState<InstallStatus | null>(null)
   const [actionError, setActionError] = useState('')
   const [setupFor, setSetupFor] = useState<VersionEntry | null>(null)
-  const [modsFor, setModsFor] = useState<InstalledVersion | null>(null)
-  const [settingsFor, setSettingsFor] = useState<InstalledVersion | null>(null)
   const [modpack, setModpack] = useState<ModpackInfo | null>(null)
   const [section, setSection] = useState<Section>('vanilla')
   /** 打开过的资源分类保持挂载（隐藏），切回来时搜索结果和筛选条件还在 */
@@ -157,8 +128,6 @@ function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps 
   useEffect(() => {
     if (!incomingModpack) return
     setSetupFor(null)
-    setModsFor(null)
-    setSettingsFor(null)
     setModpack(incomingModpack)
     onModpackConsumed?.()
   }, [incomingModpack, onModpackConsumed])
@@ -191,7 +160,7 @@ function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 安装或修复结束后刷新已安装列表
+  // 安装结束后刷新已安装列表（用于标记「已安装」）
   useEffect(() => {
     if (lastState.current === 'running' && install?.state !== 'running') loadInstalled()
     lastState.current = install?.state
@@ -208,17 +177,13 @@ function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps 
 
   const retryInstall = (): Promise<void> => run(() => window.api.retryInstall())
   const repair = (versionId: string): Promise<void> => run(() => window.api.repairVersion(versionId))
-  const remove = (versionId: string): Promise<void> =>
-    run(async () => {
-      if (await window.api.deleteVersion(versionId)) await loadInstalled()
-    })
 
   const installedIds = useMemo(() => new Set(installed.map((v) => v.id)), [installed])
   const busy = install?.state === 'running'
   const kw = keyword.trim().toLowerCase()
 
   const visibleRemote = useMemo(() => {
-    if (!manifest || filter === 'installed') return []
+    if (!manifest) return []
     return manifest.versions.filter((v) => matchFilter(v, filter) && (!kw || v.id.toLowerCase().includes(kw)))
   }, [manifest, filter, kw])
 
@@ -228,11 +193,6 @@ function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps 
     const el = tabRefs.current[filter]
     if (el) setTabIndicator({ left: el.offsetLeft, width: el.offsetWidth })
   }, [filter])
-
-  const visibleInstalled = useMemo(
-    () => installed.filter((v) => !kw || v.id.toLowerCase().includes(kw)),
-    [installed, kw]
-  )
 
   const pickModpack = (): Promise<void> =>
     run(async () => {
@@ -286,16 +246,6 @@ function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps 
           />
         </div>
       )}
-      {settingsFor && (
-        <div key={settingsFor.id} className="h-full animate-slide-in">
-          <VersionSettingsPage version={settingsFor} onBack={() => setSettingsFor(null)} onChanged={loadInstalled} />
-        </div>
-      )}
-      {modsFor && (
-        <div key={modsFor.id} className="h-full animate-slide-in">
-          <ModsPage version={modsFor} onBack={() => setModsFor(null)} />
-        </div>
-      )}
       {setupFor && (
         <div key={setupFor.id} className="h-full animate-slide-in">
           <InstallSetupPage
@@ -307,7 +257,7 @@ function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps 
           />
         </div>
       )}
-      <div className={`flex h-full gap-4 ${setupFor || modsFor || modpack || settingsFor ? 'hidden' : ''}`}>
+      <div className={`flex h-full gap-4 ${setupFor || modpack ? 'hidden' : ''}`}>
         {/* 分类 */}
         <nav className="flex w-36 shrink-0 flex-col gap-1 rounded-2xl border border-white/10 bg-white/10 p-2 shadow-2xl backdrop-blur-xl">
           <SectionButton
@@ -448,147 +398,53 @@ function DownloadPage({ incomingModpack, onModpackConsumed }: DownloadPageProps 
               </div>
 
               <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
-                {filter === 'installed' ? (
-                  <>
-                    {visibleInstalled.length === 0 && (
-                      <div className="py-10 text-center text-sm text-white/40">
-                        {installed.length === 0 ? '还没有安装任何版本' : '没有匹配的版本'}
-                      </div>
-                    )}
-                    <div className="flex flex-col gap-1.5">
-                      {visibleInstalled.map((version) => {
-                        const typeInfo = installedTypeInfo(version)
-                        const repairing = busy && install?.versionId === version.id
-                        return (
-                          <div
-                            key={version.id}
-                            className="flex items-center gap-2 rounded-xl bg-black/20 px-4 py-2.5 transition-colors hover:bg-black/30"
-                          >
-                            <span className="w-36 shrink-0 truncate font-mono text-sm font-semibold" title={version.id}>
-                              {version.id}
-                            </span>
-                            <span
-                              className={`shrink-0 whitespace-nowrap rounded-md px-2 py-0.5 text-xs ${typeInfo.className}`}
-                            >
-                              {typeInfo.label}
-                            </span>
-                            {version.isolated && (
-                              <span
-                                title="模组、存档、配置放在该版本自己的文件夹里（点右侧「打开文件夹」查看）"
-                                className="shrink-0 whitespace-nowrap rounded-md bg-white/10 px-2 py-0.5 text-xs text-white/60"
-                              >
-                                隔离
-                              </span>
-                            )}
-                            {version.customized && (
-                              <span
-                                title="该版本有自己的设置（内存、Java 等），点右侧齿轮查看"
-                                className="shrink-0 whitespace-nowrap rounded-md bg-sky-500/15 px-2 py-0.5 text-xs text-sky-300"
-                              >
-                                独立设置
-                              </span>
-                            )}
-                            <span className="min-w-0 flex-1 truncate text-xs text-white/40">
-                              {formatDate(version.releaseTime)}
-                            </span>
-                            {version.loader && MOD_LOADERS.includes(version.loader) && (
-                              <button
-                                onClick={() => setModsFor(version)}
-                                title="管理该版本的模组"
-                                className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
-                              >
-                                <Puzzle className="h-3.5 w-3.5" />
-                                模组
-                              </button>
-                            )}
-                            <button
-                              onClick={() => setSettingsFor(version)}
-                              title="版本设置：单独设置内存、Java、窗口大小等"
-                              className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
-                            >
-                              <Settings2 className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => window.api.openVersionDir(version.id)}
-                              title="打开版本文件夹"
-                              className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
-                            >
-                              <FolderOpen className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => repair(version.id)}
-                              disabled={busy}
-                              title="检查并修复：校验文件，重新下载缺失或损坏的部分"
-                              className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              {repairing ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Wrench className="h-4 w-4" />
-                              )}
-                            </button>
-                            <button
-                              onClick={() => remove(version.id)}
-                              disabled={busy}
-                              title="删除该版本"
-                              className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-red-500/30 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        )
-                      })}
+                <>
+                  {loading && !manifest && (
+                    <div className="flex h-full items-center justify-center text-white/50">
+                      <Loader2 className="h-6 w-6 animate-spin" />
                     </div>
-                  </>
-                ) : (
-                  <>
-                    {loading && !manifest && (
-                      <div className="flex h-full items-center justify-center text-white/50">
-                        <Loader2 className="h-6 w-6 animate-spin" />
-                      </div>
-                    )}
-                    {error && (
-                      <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
-                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                        <span className="break-all">{error}</span>
-                      </div>
-                    )}
-                    {manifest && visibleRemote.length === 0 && (
-                      <div className="py-10 text-center text-sm text-white/40">没有匹配的版本</div>
-                    )}
-                    <div className="flex flex-col gap-1.5">
-                      {visibleRemote.map((version) => {
-                        const typeInfo = TYPE_LABELS[version.type] ?? TYPE_LABELS.release
-                        const isInstalled = installedIds.has(version.id)
-                        return (
-                          <div
-                            key={version.id}
-                            role="button"
-                            onClick={() => setSetupFor(version)}
-                            title="点击进入安装设置"
-                            className="group flex h-12 cursor-pointer items-center gap-4 rounded-xl bg-black/20 px-4 transition-colors hover:bg-black/30"
-                          >
-                            <span className="w-40 truncate font-mono text-sm font-semibold">{version.id}</span>
-                            <span className={`rounded-md px-2 py-0.5 text-xs ${typeInfo.className}`}>
-                              {typeInfo.label}
-                            </span>
-                            {isInstalled && (
-                              <span className="flex items-center gap-1 text-xs text-emerald-300">
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                已安装
-                              </span>
-                            )}
-                            <span className="flex-1 text-xs text-white/40">{formatDate(version.releaseTime)}</span>
-                            <span className="flex items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100">
-                              <Download className="h-3.5 w-3.5" />
-                              安装
-                            </span>
-                          </div>
-                        )
-                      })}
+                  )}
+                  {error && (
+                    <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span className="break-all">{error}</span>
                     </div>
-                  </>
-                )}
+                  )}
+                  {manifest && visibleRemote.length === 0 && (
+                    <div className="py-10 text-center text-sm text-white/40">没有匹配的版本</div>
+                  )}
+                  <div className="flex flex-col gap-1.5">
+                    {visibleRemote.map((version) => {
+                      const typeInfo = TYPE_LABELS[version.type] ?? TYPE_LABELS.release
+                      const isInstalled = installedIds.has(version.id)
+                      return (
+                        <div
+                          key={version.id}
+                          role="button"
+                          onClick={() => setSetupFor(version)}
+                          title="点击进入安装设置"
+                          className="group flex h-12 cursor-pointer items-center gap-4 rounded-xl bg-black/20 px-4 transition-colors hover:bg-black/30"
+                        >
+                          <span className="w-40 truncate font-mono text-sm font-semibold">{version.id}</span>
+                          <span className={`rounded-md px-2 py-0.5 text-xs ${typeInfo.className}`}>
+                            {typeInfo.label}
+                          </span>
+                          {isInstalled && (
+                            <span className="flex items-center gap-1 text-xs text-emerald-300">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              已安装
+                            </span>
+                          )}
+                          <span className="flex-1 text-xs text-white/40">{formatDate(version.releaseTime)}</span>
+                          <span className="flex items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100">
+                            <Download className="h-3.5 w-3.5" />
+                            安装
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
               </div>
             </section>
           </div>
