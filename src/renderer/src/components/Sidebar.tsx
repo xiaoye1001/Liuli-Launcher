@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import MiniPlayer from './MiniPlayer'
+import { DEFAULT_SUBTITLE, DEFAULT_TITLE, useAppearance } from '../utils/appearance'
 import { Boxes, Download, House, Layers, Server, Settings, UserRound, type LucideIcon } from 'lucide-react'
 
 export type PageKey = 'home' | 'account' | 'versions' | 'servers' | 'download' | 'settings'
@@ -27,6 +28,9 @@ interface SidebarProps {
 
 function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
   const [portableDir, setPortableDir] = useState<string | null>(null)
+  const { launcherTitle, launcherSubtitle, hiddenPages } = useAppearance()
+  const title = launcherTitle || DEFAULT_TITLE
+  const subtitle = launcherSubtitle || DEFAULT_SUBTITLE
 
   useEffect(() => {
     window.api.getSystemInfo().then((info) => setPortableDir(info.portableDir))
@@ -38,14 +42,18 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 shadow-lg shadow-emerald-500/30">
           <Boxes className="h-6 w-6 text-white" />
         </div>
-        <div>
-          <div className="text-base font-bold leading-tight">琉璃启动器</div>
-          <div className="text-xs text-white/50">Liuli Launcher</div>
+        <div className="min-w-0">
+          <div className="truncate text-base font-bold leading-tight" title={title}>
+            {title}
+          </div>
+          <div className="truncate text-xs text-white/50" title={subtitle}>
+            {subtitle}
+          </div>
         </div>
       </div>
 
       <nav className="flex flex-col gap-1">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => !hiddenPages.includes(item.key)).map((item) => {
           const active = item.key === current
           const Icon = item.icon
           return (

@@ -14,7 +14,15 @@ export type Appearance = Pick<
   | 'backgroundBlur'
   | 'backgroundDim'
   | 'animations'
+  | 'launcherTitle'
+  | 'launcherSubtitle'
+  | 'hiddenPages'
+  | 'welcomeTitle'
+  | 'welcomeSubtitle'
 >
+
+export const DEFAULT_TITLE = '琉璃启动器'
+export const DEFAULT_SUBTITLE = 'Liuli Launcher'
 
 let current: Appearance = {
   accentColor: 'emerald',
@@ -25,7 +33,12 @@ let current: Appearance = {
   backgroundFit: 'cover',
   backgroundBlur: 0,
   backgroundDim: 30,
-  animations: true
+  animations: true,
+  launcherTitle: '',
+  launcherSubtitle: '',
+  hiddenPages: [],
+  welcomeTitle: '',
+  welcomeSubtitle: ''
 }
 const listeners = new Set<() => void>()
 
@@ -39,8 +52,15 @@ function apply(settings: AppSettings): void {
     backgroundFit: settings.backgroundFit ?? 'cover',
     backgroundBlur: settings.backgroundBlur,
     backgroundDim: settings.backgroundDim,
-    animations: settings.animations
+    animations: settings.animations,
+    launcherTitle: settings.launcherTitle ?? '',
+    launcherSubtitle: settings.launcherSubtitle ?? '',
+    hiddenPages: Array.isArray(settings.hiddenPages) ? settings.hiddenPages : [],
+    welcomeTitle: settings.welcomeTitle ?? '',
+    welcomeSubtitle: settings.welcomeSubtitle ?? ''
   }
+  // 主窗口的标题跟随自定义的启动器名称（日志窗口有自己的标题）
+  if (window.location.hash !== '#logs') document.title = current.launcherTitle || DEFAULT_TITLE
   const html = document.documentElement
   html.dataset.accent = settings.accentColor
   // 自定义主题色：把算好的色阶写到 <html> 上；换回预设时清掉

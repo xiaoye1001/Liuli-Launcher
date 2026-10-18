@@ -34,6 +34,7 @@ import { ReleaseNotes, UpdateActions } from '../components/UpdateNotice'
 import GameDirSection from '../components/GameDirSection'
 import FontPicker from '../components/FontPicker'
 import MusicSettings from '../components/MusicSettings'
+import LayoutSettings from '../components/LayoutSettings'
 import { UI_SCALES } from '../../../shared/types'
 import type {
   AccentColor,
@@ -670,6 +671,9 @@ function SettingsPage(): JSX.Element {
             <div className="mt-1.5 text-xs text-white/40">
               也可以按 Ctrl + 加号 / 减号 或 Ctrl + 鼠标滚轮调整，Ctrl + 0 恢复 100%
             </div>
+
+            {/* 侧边栏与主页 */}
+            <LayoutSettings settings={settings} update={update} updateSlider={updateSlider} />
 
             {/* 背景音乐 */}
             <MusicSettings settings={settings} update={update} updateSlider={updateSlider} />

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import WindowControls from './components/WindowControls'
 import Sidebar, { NAV_ITEMS, type PageKey } from './components/Sidebar'
@@ -80,6 +80,13 @@ function App(): JSX.Element {
     setPage('versions')
   }, [])
   const appearance = useAppearance()
+  // 在设置里隐藏了当前所在的页面时回到主页（从其它页面跳转过去仍然可以打开）
+  // 依赖用字符串：其它设置变化时数组会重新生成，不能因此跳走
+  const hiddenKey = appearance.hiddenPages.join(',')
+  useEffect(() => {
+    const hidden = hiddenKey.split(',')
+    setPage((current) => (hidden.includes(current) ? 'home' : current))
+  }, [hiddenKey])
 
   return (
     // 关闭动画时，framer-motion 的位移、缩放等动画也一并关闭

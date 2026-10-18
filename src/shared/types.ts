@@ -147,6 +147,16 @@ export interface AppSettings {
   musicOrder: MusicOrder
   /** 游戏运行时暂停背景音乐，游戏退出后继续 */
   musicPauseInGame: boolean
+  /** 侧边栏显示的启动器名称（空字符串为默认「琉璃启动器」），同时作为窗口标题 */
+  launcherTitle: string
+  /** 侧边栏名称下面的小字（空字符串为默认「Liuli Launcher」） */
+  launcherSubtitle: string
+  /** 侧边栏隐藏的页面（取值见 HIDEABLE_PAGES） */
+  hiddenPages: string[]
+  /** 主页欢迎语标题，支持 {name} {greeting} {version} {tip}；空字符串为默认 */
+  welcomeTitle: string
+  /** 主页欢迎语副标题，同上 */
+  welcomeSubtitle: string
   /** 游戏窗口出现后启动器的行为 */
   afterLaunch: AfterLaunch
   /** 启动时自动检查更新 */
@@ -229,6 +239,9 @@ export type SkinModel = 'default' | 'slim'
 
 /** 系统信息 */
 export type UpdateSource = 'auto' | 'official' | 'github'
+
+/** 可以在侧边栏隐藏的页面（主页和设置始终显示） */
+export const HIDEABLE_PAGES = ['account', 'versions', 'servers', 'download']
 
 /** 可选的界面缩放比例（%） */
 export const UI_SCALES = [80, 90, 100, 110, 125, 150]

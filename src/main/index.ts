@@ -128,8 +128,16 @@ import type {
   ModpackExportOptions,
   GameDirInfo
 } from '../shared/types'
+import { HIDEABLE_PAGES } from '../shared/types'
 
 /** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
+/** 用户输入的一行文字：去掉控制字符、首尾空白，限制长度 */
+function limitText(value: unknown, max: number): string {
+  return typeof value === 'string'
+    ? [...value.replace(/[\u0000-\u001f\u007f]/g, ' ').trim()].slice(0, max).join('')
+    : ''
+}
+
 function broadcastSettings(settings: AppSettings): AppSettings {
   applyUiScaleToAll(settings)
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('settings:changed', settings)
@@ -207,6 +215,19 @@ function registerIpc(): void {
     if ('musicVolume' in patch) {
       const volume = Number(patch.musicVolume)
       patch = { ...patch, musicVolume: Number.isFinite(volume) ? Math.round(Math.min(100, Math.max(0, volume))) : 40 }
+    }
+    // 自定义文字：去掉换行等控制字符并限制长度
+    for (const [key, max] of [
+      ['launcherTitle', 20],
+      ['launcherSubtitle', 30],
+      ['welcomeTitle', 60],
+      ['welcomeSubtitle', 120]
+    ] as const) {
+      if (key in patch) patch = { ...patch, [key]: limitText(patch[key], max) }
+    }
+    if ('hiddenPages' in patch) {
+      const pages = Array.isArray(patch.hiddenPages) ? patch.hiddenPages : []
+      patch = { ...patch, hiddenPages: HIDEABLE_PAGES.filter((p) => pages.includes(p)) }
     }
     if ('fontFamily' in patch) patch = { ...patch, fontFamily: sanitizeFontFamily(patch.fontFamily) }
     const next = await updateSettings(patch)
