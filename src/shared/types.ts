@@ -113,6 +113,12 @@ export interface AppSettings {
   activeAccount: string
   /** 主题色 */
   accentColor: AccentColor
+  /** 自定义主题色（#rrggbb），accentColor 为 custom 时使用 */
+  customAccent: string
+  /** 面板不透明度（%），0~60 */
+  panelOpacity: number
+  /** 面板背景模糊（px），0~40 */
+  panelBlur: number
   /** 自定义背景图片（用户数据目录 backgrounds 下的文件名），空字符串表示使用默认渐变背景 */
   backgroundImage: string
   /** 背景模糊程度（像素，0~20） */
@@ -175,7 +181,19 @@ export interface UpdateResult {
 }
 
 /** 主题色 */
-export type AccentColor = 'emerald' | 'sky' | 'violet' | 'rose' | 'amber'
+export type AccentColor =
+  | 'emerald'
+  | 'sky'
+  | 'violet'
+  | 'rose'
+  | 'amber'
+  | 'teal'
+  | 'indigo'
+  | 'red'
+  | 'lime'
+  | 'slate'
+  /** 自定义颜色（customAccent） */
+  | 'custom'
 
 /** 游戏启动后：保持不变 / 最小化 / 隐藏（游戏退出后都会恢复） */
 export type AfterLaunch = 'keep' | 'minimize' | 'hide'

@@ -21,6 +21,7 @@ import {
   Monitor,
   Moon,
   Palette,
+  Pipette,
   RefreshCw,
   RotateCcw,
   SlidersHorizontal,
@@ -53,13 +54,54 @@ const SOURCES: { key: DownloadSource; label: string; desc: string }[] = [
 ]
 
 /** 主题色：色块显示主色到副色的渐变（与 index.css 中的变量一致） */
-const ACCENTS: { key: AccentColor; label: string; from: string; to: string }[] = [
+const ACCENTS: { key: Exclude<AccentColor, 'custom'>; label: string; from: string; to: string }[] = [
   { key: 'emerald', label: '翡翠绿', from: '#10b981', to: '#06b6d4' },
+  { key: 'teal', label: '薄荷青', from: '#14b8a6', to: '#84cc16' },
   { key: 'sky', label: '天空蓝', from: '#0ea5e9', to: '#6366f1' },
+  { key: 'indigo', label: '靛青蓝', from: '#6366f1', to: '#0ea5e9' },
   { key: 'violet', label: '星辰紫', from: '#8b5cf6', to: '#d946ef' },
   { key: 'rose', label: '樱花粉', from: '#f43f5e', to: '#f97316' },
-  { key: 'amber', label: '琥珀橙', from: '#f59e0b', to: '#f97316' }
+  { key: 'red', label: '中国红', from: '#ef4444', to: '#f59e0b' },
+  { key: 'amber', label: '琥珀橙', from: '#f59e0b', to: '#f97316' },
+  { key: 'lime', label: '青柠绿', from: '#84cc16', to: '#10b981' },
+  { key: 'slate', label: '石墨灰', from: '#64748b', to: '#0ea5e9' }
 ]
+
+/** 一些常用的自定义颜色，点一下就能用 */
+const CUSTOM_SWATCHES = [
+  '#e11d48',
+  '#db2777',
+  '#9333ea',
+  '#2563eb',
+  '#0891b2',
+  '#059669',
+  '#ca8a04',
+  '#ea580c',
+  '#78716c'
+]
+
+/** 十六进制颜色输入框：输入完整的 #rrggbb 后才保存 */
+function HexInput({ value, onChange }: { value: string; onChange: (hex: string) => void }): JSX.Element {
+  const [draft, setDraft] = useState(value)
+  useEffect(() => setDraft(value), [value])
+  const commit = (): void => {
+    const text = draft.trim().replace(/^#?/, '#')
+    if (/^#[0-9a-f]{6}$/i.test(text)) onChange(text.toLowerCase())
+    else setDraft(value)
+  }
+  return (
+    <input
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === 'Enter' && commit()}
+      maxLength={7}
+      aria-label="颜色代码"
+      spellCheck={false}
+      className="w-24 rounded-lg border border-white/10 bg-black/20 px-2.5 py-1.5 font-mono text-sm uppercase outline-none focus:border-emerald-400/50"
+    />
+  )
+}
 
 const AFTER_LAUNCH: { key: AfterLaunch; label: string; desc: string }[] = [
   { key: 'keep', label: '保持不变', desc: '启动器窗口保持原样' },
@@ -131,6 +173,7 @@ function SettingsPage(): JSX.Element {
   const [error, setError] = useState('')
   const memoryTimer = useRef<ReturnType<typeof setTimeout>>()
   const sliderTimer = useRef<ReturnType<typeof setTimeout>>()
+  const pendingSlider = useRef<Partial<AppSettings>>({})
   const [backgroundError, setBackgroundError] = useState('')
   const [runtimes, setRuntimes] = useState<JavaRuntimeInfo[] | null>(null)
   const [runtimesError, setRuntimesError] = useState('')
@@ -145,8 +188,14 @@ function SettingsPage(): JSX.Element {
   /** 拖动滑块时先更新界面，停止拖动 150 毫秒后再保存，避免频繁写入设置文件 */
   const updateSlider = (patch: Partial<AppSettings>): void => {
     setSettings((prev) => (prev ? { ...prev, ...patch } : prev))
+    // 合并这段时间内所有滑块的改动，一起保存（只保存最后一次会丢掉其他滑块的改动）
+    pendingSlider.current = { ...pendingSlider.current, ...patch }
     clearTimeout(sliderTimer.current)
-    sliderTimer.current = setTimeout(() => update(patch), 150)
+    sliderTimer.current = setTimeout(() => {
+      const pending = pendingSlider.current
+      pendingSlider.current = {}
+      void update(pending)
+    }, 150)
   }
 
   const changeBackground = async (action: () => Promise<AppSettings>): Promise<void> => {
@@ -288,7 +337,7 @@ function SettingsPage(): JSX.Element {
 
             {/* 主题色 */}
             <div className="mt-6 text-sm font-medium">主题色</div>
-            <div className="mt-3 flex flex-wrap gap-4">
+            <div className="mt-3 grid grid-cols-6 gap-x-2 gap-y-4 sm:grid-cols-11">
               {ACCENTS.map((accent) => {
                 const active = settings.accentColor === accent.key
                 return (
@@ -309,7 +358,106 @@ function SettingsPage(): JSX.Element {
                   </button>
                 )
               })}
+              {/* 自定义颜色 */}
+              <button
+                onClick={() => update({ accentColor: 'custom' })}
+                className="flex flex-col items-center gap-1.5"
+                title="使用自己挑的颜色"
+              >
+                <span
+                  className={`flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-transparent transition ${
+                    settings.accentColor === 'custom' ? 'ring-white/80' : 'ring-transparent hover:ring-white/30'
+                  }`}
+                  style={{
+                    background:
+                      settings.accentColor === 'custom'
+                        ? settings.customAccent
+                        : 'conic-gradient(#ef4444, #f59e0b, #84cc16, #10b981, #06b6d4, #6366f1, #d946ef, #ef4444)'
+                  }}
+                >
+                  {settings.accentColor === 'custom' ? (
+                    <CheckCircle2 className="h-5 w-5 text-[#fff]" />
+                  ) : (
+                    <Pipette className="h-4 w-4 text-[#fff] drop-shadow" />
+                  )}
+                </span>
+                <span className={`text-xs ${settings.accentColor === 'custom' ? 'text-white' : 'text-white/50'}`}>
+                  自定义
+                </span>
+              </button>
             </div>
+            {settings.accentColor === 'custom' && (
+              <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-black/20 px-4 py-3">
+                <label className="relative h-9 w-9 shrink-0 cursor-pointer overflow-hidden rounded-lg ring-1 ring-white/20">
+                  <span className="absolute inset-0" style={{ background: settings.customAccent }} />
+                  <input
+                    type="color"
+                    aria-label="选择主题色"
+                    value={/^#[0-9a-f]{6}$/i.test(settings.customAccent) ? settings.customAccent : '#10b981'}
+                    onChange={(e) => updateSlider({ customAccent: e.target.value })}
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  />
+                </label>
+                <HexInput value={settings.customAccent} onChange={(hex) => update({ customAccent: hex })} />
+                <div className="flex flex-wrap gap-1.5">
+                  {CUSTOM_SWATCHES.map((hex) => (
+                    <button
+                      key={hex}
+                      onClick={() => update({ customAccent: hex })}
+                      title={hex}
+                      aria-label={`使用 ${hex}`}
+                      className={`h-6 w-6 rounded-md ring-1 transition hover:scale-110 ${
+                        settings.customAccent.toLowerCase() === hex ? 'ring-2 ring-white/80' : 'ring-white/20'
+                      }`}
+                      style={{ background: hex }}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs text-white/50">太亮或太暗的颜色会自动调整，保证文字看得清</span>
+              </div>
+            )}
+
+            {/* 面板质感 */}
+            <div className="mt-6 text-sm font-medium">面板质感</div>
+            <div className="mt-3 grid grid-cols-2 gap-6">
+              <label className="block">
+                <div className="flex justify-between text-xs text-white/60">
+                  <span>不透明度</span>
+                  <span>{settings.panelOpacity}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={60}
+                  value={settings.panelOpacity}
+                  onChange={(e) => updateSlider({ panelOpacity: Number(e.target.value) })}
+                  className="mt-2 w-full accent-emerald-500"
+                />
+              </label>
+              <label className="block">
+                <div className="flex justify-between text-xs text-white/60">
+                  <span>毛玻璃模糊</span>
+                  <span>{settings.panelBlur} px</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={40}
+                  value={settings.panelBlur}
+                  onChange={(e) => updateSlider({ panelBlur: Number(e.target.value) })}
+                  className="mt-2 w-full accent-emerald-500"
+                />
+              </label>
+            </div>
+            {(settings.panelOpacity !== 10 || settings.panelBlur !== 24) && (
+              <button
+                onClick={() => update({ panelOpacity: 10, panelBlur: 24 })}
+                className="mt-2 flex items-center gap-1.5 text-xs text-white/50 hover:text-white"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                恢复默认质感
+              </button>
+            )}
 
             {/* 背景图片 */}
             <div className="mt-6 text-sm font-medium">背景图片</div>
