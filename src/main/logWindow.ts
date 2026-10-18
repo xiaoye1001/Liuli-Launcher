@@ -1,6 +1,7 @@
 import { BrowserWindow, nativeTheme, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
+import { frameOptions, watchMaximize } from './windowFrame'
 
 let logWindow: BrowserWindow | null = null
 
@@ -20,6 +21,7 @@ export function openLogWindow(): void {
     title: '游戏日志 - 琉璃启动器',
     show: false,
     autoHideMenuBar: true,
+    ...frameOptions(),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0b1120' : '#f8fafc',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -27,6 +29,7 @@ export function openLogWindow(): void {
     }
   })
 
+  watchMaximize(logWindow)
   logWindow.on('ready-to-show', () => logWindow?.show())
   // 链接（例如分享日志得到的 mclo.gs 链接）用系统浏览器打开
   logWindow.webContents.setWindowOpenHandler((details) => {

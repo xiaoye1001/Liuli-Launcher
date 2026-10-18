@@ -26,6 +26,7 @@ import {
 import { getGameLogs, getGameStatus, launchGame, listInstalledVersions, previewMemory } from './launch'
 import { closeLogWindow, openLogWindow } from './logWindow'
 import { pickVersionIcon, setVersionFavorite, setVersionIcon } from './versionDisplay'
+import { frameOptions, registerWindowControls, watchMaximize } from './windowFrame'
 import { shareCrashLogs, shareGameLog, shareLatestLog } from './logShare'
 import { getGameDirInfo, openGameDir, pickGameDir, removeGameDir, renameGameDir, setGameDir } from './gameDir'
 import { assertSafeId, deleteVersion, openVersionDir } from './versionManage'
@@ -137,6 +138,7 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
+    ...frameOptions(),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0f172a' : '#e0f2fe',
     // Windows 使用安装包里 exe 的图标；Linux 与开发模式需要单独指定
     ...(process.platform === 'linux' || is.dev ? { icon } : {}),
@@ -147,6 +149,7 @@ function createWindow(): void {
   })
 
   setMainWindow(mainWindow)
+  watchMaximize(mainWindow)
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -172,6 +175,7 @@ function createWindow(): void {
 }
 
 function registerIpc(): void {
+  registerWindowControls()
   ipcMain.handle('java:scan', async () => scanJava(await downloadedJavaPaths()))
   ipcMain.handle('java:runtimes', () => listJavaRuntimes())
   ipcMain.handle('java:download', (_, component: string) => startJavaInstall(component))

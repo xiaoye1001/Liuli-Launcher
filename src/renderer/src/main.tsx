@@ -8,6 +8,7 @@ import './index.css'
 
 initTheme()
 initAppearance()
+if (window.api.customTitleBar) document.documentElement.classList.add('custom-titlebar')
 
 // 日志窗口与主窗口共用同一个页面，通过地址中的 #logs 区分
 const isLogWindow = window.location.hash === '#logs'

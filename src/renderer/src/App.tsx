@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
+import WindowControls from './components/WindowControls'
 import Sidebar, { NAV_ITEMS, type PageKey } from './components/Sidebar'
 import AccountPage from './pages/AccountPage'
 import DownloadPage from './pages/DownloadPage'
@@ -102,6 +103,10 @@ function App(): JSX.Element {
             />
           </>
         )}
+        {/* 窗口顶部的拖动区域（Windows、Linux 隐藏了系统标题栏） */}
+        <div className="titlebar-drag fixed inset-x-0 top-0 z-30">
+          <WindowControls className="absolute right-0 top-0" />
+        </div>
         <Sidebar current={page} onChange={setPage} />
         <UpdateNotice />
         <DropOverlay

@@ -18,6 +18,17 @@ import type {
 } from '../shared/types'
 
 const api = {
+  /** Windows 和 Linux 隐藏了系统标题栏，界面顶部要留出拖动区域和窗口按钮的位置 */
+  customTitleBar: process.platform === 'win32' || process.platform === 'linux',
+  windowControl: (action: 'minimize' | 'maximize' | 'close') => ipcRenderer.invoke('window:control', action),
+  isWindowMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+  onWindowMaximized: (callback: (maximized: boolean) => void) => {
+    const listener = (_: unknown, maximized: boolean): void => callback(maximized)
+    ipcRenderer.on('window:maximized', listener)
+    return () => {
+      ipcRenderer.removeListener('window:maximized', listener)
+    }
+  },
   versions: {
     electron: process.versions.electron,
     chrome: process.versions.chrome,

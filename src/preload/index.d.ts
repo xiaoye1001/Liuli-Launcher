@@ -58,6 +58,11 @@ declare global {
   interface Window {
     electron: ElectronAPI
     api: {
+      customTitleBar: boolean
+      /** 界面上的窗口按钮：最小化、最大化 / 还原、关闭 */
+      windowControl: (action: 'minimize' | 'maximize' | 'close') => Promise<void>
+      isWindowMaximized: () => Promise<boolean>
+      onWindowMaximized: (callback: (maximized: boolean) => void) => () => void
       versions: {
         electron: string
         chrome: string

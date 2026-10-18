@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowDownToLine, Check, Copy, Search, Terminal, Trash2 } from 'lucide-react'
 import type { GameState, GameStatus } from '../../shared/types'
 import { ShareButton, ShareStatus, useLogShare } from './components/LogShare'
+import WindowControls from './components/WindowControls'
 
 const MAX_LINES = 5000
 
@@ -85,6 +86,9 @@ function LogWindow(): JSX.Element {
 
   return (
     <div className="flex h-full flex-col log-background text-white">
+      <div className="titlebar-drag relative shrink-0">
+        <WindowControls className="absolute right-0 top-0" />
+      </div>
       <header className="flex items-center gap-3 border-b border-white/10 bg-white/5 px-4 py-3 backdrop-blur-xl">
         <Terminal className="h-5 w-5 text-emerald-300" />
         <div className="font-semibold">游戏日志</div>
