@@ -165,6 +165,10 @@ Minecraft 的登录接口只允许 **经过 Mojang 审核的 Azure 应用** 使�
 - `.minecraft/`：默认游戏目录（可以在「设置」中添加官方启动器的目录或任意文件夹并切换）
 - `cache/`：OptiFine 安装器等缓存
 
+## 官网
+
+`website/` 是启动器的官网（纯静态网页，自动显示最新版本和下载按钮）。部署到自己的服务器（宝塔面板）的方法见 [deploy/README.md](deploy/README.md)：服务器上的脚本会定时检查新版本，自动下载安装包并更新网页。
+
 ## 技术栈
 
 - [Electron](https://www.electronjs.org/) + [electron-vite](https://electron-vite.org/)
