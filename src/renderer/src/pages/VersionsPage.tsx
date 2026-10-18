@@ -457,7 +457,7 @@ function VersionsPage({
                   value={dirs.find((d) => d.current)?.path ?? gameDir}
                   onChange={(e) => switchGameDir(e.target.value)}
                   aria-label="切换游戏目录"
-                  title={`${gameDir}\n可以在设置中添加、重命名游戏目录`}
+                  title={`${gameDir}\n可以在「设置 → 启动」中添加、重命名游戏目录`}
                   className="min-w-0 max-w-xs cursor-pointer rounded-lg border border-white/10 bg-black/20 px-2 py-1 text-xs text-white/80 outline-none hover:bg-black/30"
                 >
                   {dirs.map((d) => (

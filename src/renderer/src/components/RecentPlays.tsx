@@ -64,7 +64,7 @@ function RecentPlays({
         <span className="ml-auto shrink-0 text-xs text-white/40">累计游玩 {formatDuration(total)}</span>
         <button
           onClick={onHide}
-          title="不再显示最近游玩（可以在设置的「外观」中重新打开）"
+          title="不再显示最近游玩（可以在「设置 → 个性化」中重新打开）"
           className="rounded-lg p-1 text-white/50 hover:bg-white/10 hover:text-white"
         >
           <EyeOff className="h-3.5 w-3.5" />

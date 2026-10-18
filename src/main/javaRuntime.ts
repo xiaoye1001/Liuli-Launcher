@@ -150,7 +150,7 @@ export async function createJavaInstallTask(component: string): Promise<Task<str
       }
     }
     const java = javaExecutable(component)
-    if (!(await resolveJava(java))) throw new Error('Java 下载完成，但无法运行，请在设置中重新下载')
+    if (!(await resolveJava(java))) throw new Error('Java 下载完成，但无法运行，请在「设置 → 启动」中重新下载')
     await writeFile(markerOf(component), target.version.name)
     return java
   })

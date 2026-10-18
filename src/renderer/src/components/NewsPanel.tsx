@@ -50,7 +50,7 @@ function NewsPanel({ onHide }: { onHide: () => void }): JSX.Element {
         </button>
         <button
           onClick={onHide}
-          title="不再显示新闻（可以在设置的「外观」中重新打开）"
+          title="不再显示新闻（可以在「设置 → 个性化」中重新打开）"
           className="rounded-lg p-1.5 text-white/50 hover:bg-white/10 hover:text-white"
         >
           <EyeOff className="h-3.5 w-3.5" />
