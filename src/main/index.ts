@@ -25,9 +25,12 @@ import {
 } from './install'
 import { getGameLogs, getGameStatus, launchGame, listInstalledVersions, previewMemory } from './launch'
 import { closeLogWindow, openLogWindow } from './logWindow'
+import { pickVersionIcon, setVersionFavorite, setVersionIcon } from './versionDisplay'
+import { frameOptions, registerWindowControls, watchMaximize } from './windowFrame'
+import { shareCrashLogs, shareGameLog, shareLatestLog } from './logShare'
 import { getGameDirInfo, openGameDir, pickGameDir, removeGameDir, renameGameDir, setGameDir } from './gameDir'
 import { assertSafeId, deleteVersion, openVersionDir } from './versionManage'
-import { addMods, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
+import { addMods, checkModIssues, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
 import {
   checkModUpdates,
   getProjectVersions,
@@ -61,6 +64,7 @@ import {
   importWorld,
   listWorldDatapacks,
   listWorldInfos,
+  getWorldDetails,
   openBackupsDir,
   openWorldDatapacksDir,
   openWorldDir
@@ -75,6 +79,9 @@ import {
   downloadUpdate,
   getUpdateDownload,
   installUpdate,
+  OFFICIAL_SITE,
+  getLastUpdateResult,
+  showUpdateLog,
   openUpdateLink
 } from './updater'
 import { getPlayStats } from './playStats'
@@ -134,6 +141,7 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
+    ...frameOptions(),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0f172a' : '#e0f2fe',
     // Windows 使用安装包里 exe 的图标；Linux 与开发模式需要单独指定
     ...(process.platform === 'linux' || is.dev ? { icon } : {}),
@@ -144,6 +152,7 @@ function createWindow(): void {
   })
 
   setMainWindow(mainWindow)
+  watchMaximize(mainWindow)
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -169,6 +178,7 @@ function createWindow(): void {
 }
 
 function registerIpc(): void {
+  registerWindowControls()
   ipcMain.handle('java:scan', async () => scanJava(await downloadedJavaPaths()))
   ipcMain.handle('java:runtimes', () => listJavaRuntimes())
   ipcMain.handle('java:download', (_, component: string) => startJavaInstall(component))
@@ -222,7 +232,17 @@ function registerIpc(): void {
   ipcMain.handle('versions:setConfig', (_, versionId: string, patch: Partial<VersionConfig>) =>
     setVersionConfig(versionId, patch)
   )
+  ipcMain.handle('version:setFavorite', (_, versionId: string, favorite: boolean) =>
+    setVersionFavorite(versionId, favorite === true)
+  )
+  ipcMain.handle('version:setIcon', (_, versionId: string, icon: string | null) =>
+    setVersionIcon(versionId, typeof icon === 'string' ? icon : null)
+  )
+  ipcMain.handle('version:pickIcon', (event, versionId: string) =>
+    pickVersionIcon(versionId, BrowserWindow.fromWebContents(event.sender))
+  )
   ipcMain.handle('mods:list', (_, versionId: string) => listMods(versionId))
+  ipcMain.handle('mods:issues', (_, versionId: string) => checkModIssues(versionId))
   ipcMain.handle('mods:setEnabled', (_, versionId: string, fileName: string, enabled: boolean) =>
     setModEnabled(versionId, fileName, enabled)
   )
@@ -257,6 +277,7 @@ function registerIpc(): void {
     addLocalResources(versionId, kind, BrowserWindow.fromWebContents(event.sender))
   )
   ipcMain.handle('worlds:list', (_, versionId: string) => listWorldInfos(versionId))
+  ipcMain.handle('worlds:details', (_, versionId: string, folder: string) => getWorldDetails(versionId, folder))
   ipcMain.handle('worlds:delete', (_, versionId: string, folder: string) => deleteWorld(versionId, folder))
   ipcMain.handle('worlds:backup', (_, versionId: string, folder: string) => backupWorld(versionId, folder))
   ipcMain.handle('worlds:open', (_, versionId: string, folder?: string) => openWorldDir(versionId, folder))
@@ -349,6 +370,8 @@ function registerIpc(): void {
   ipcMain.handle('update:downloadStatus', () => getUpdateDownload())
   ipcMain.handle('update:cancelDownload', () => cancelUpdateDownload())
   ipcMain.handle('update:install', () => installUpdate())
+  ipcMain.handle('update:lastResult', () => getLastUpdateResult())
+  ipcMain.handle('update:showLog', () => showUpdateLog())
   ipcMain.handle('servers:list', () => listServers())
   ipcMain.handle('servers:save', (_, server: Omit<SavedServer, 'id'> & { id?: string }) => saveServer(server))
   ipcMain.handle('servers:delete', (_, id: string) => deleteServer(id))
@@ -364,6 +387,9 @@ function registerIpc(): void {
   )
   ipcMain.handle('game:logs', () => getGameLogs())
   ipcMain.handle('logs:open', () => openLogWindow())
+  ipcMain.handle('logs:shareGame', () => shareGameLog())
+  ipcMain.handle('logs:shareCrash', () => shareCrashLogs())
+  ipcMain.handle('logs:shareLatest', (_, versionId: string) => shareLatestLog(versionId))
   ipcMain.handle('crash:open', (_, kind: 'report' | 'native') => openCrashFile(kind))
   ipcMain.handle('crash:export', (event) => exportCrashInfo(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('gamedir:info', () => getGameDirInfo())
@@ -382,7 +408,8 @@ function registerIpc(): void {
     async (): Promise<SystemInfo> => ({
       totalMemory: Math.floor(totalmem() / 1024 / 1024),
       portableDir,
-      elevated: await isElevated()
+      elevated: await isElevated(),
+      officialSite: OFFICIAL_SITE
     })
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   CheckCircle2,
+  Clock,
   Coffee,
   ExternalLink,
   Download,
@@ -22,6 +23,7 @@ import {
   Palette,
   RefreshCw,
   RotateCcw,
+  SlidersHorizontal,
   Sun,
   type LucideIcon
 } from 'lucide-react'
@@ -41,6 +43,7 @@ import type {
   ProxyMode,
   ThemeMode,
   UpdateInfo,
+  UpdateSource,
   VersionIsolation
 } from '../../../shared/types'
 
@@ -88,8 +91,37 @@ function cleanError(e: unknown): string {
   return e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e)
 }
 
+type SettingsTab = 'personal' | 'launch' | 'other'
+const SETTINGS_TABS: { key: SettingsTab; label: string; icon: LucideIcon }[] = [
+  { key: 'personal', label: '个性化', icon: Palette },
+  { key: 'launch', label: '启动', icon: Rocket },
+  { key: 'other', label: '其它', icon: SlidersHorizontal }
+]
+const TAB_KEY = 'settingsTab'
+
 function SettingsPage(): JSX.Element {
+  /** 当前分类（记住上次打开的） */
+  const [tab, setTab] = useState<SettingsTab>(() => {
+    try {
+      const saved = localStorage.getItem(TAB_KEY)
+      return SETTINGS_TABS.some((t) => t.key === saved) ? (saved as SettingsTab) : 'personal'
+    } catch {
+      return 'personal'
+    }
+  })
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const changeTab = (next: SettingsTab): void => {
+    setTab(next)
+    scrollRef.current?.scrollTo({ top: 0 })
+    try {
+      localStorage.setItem(TAB_KEY, next)
+    } catch {
+      // 记不住也没关系
+    }
+  }
   const [settings, setSettings] = useState<AppSettings | null>(null)
+  /** 官网地址（构建时配置），没有时不显示更新来源选项 */
+  const [officialSite, setOfficialSite] = useState('')
   const [totalMemory, setTotalMemory] = useState(8192)
   const [memoryDraft, setMemoryDraft] = useState(MEMORY_MIN)
   /** 当前选中版本自动分配的内存 */
@@ -168,6 +200,7 @@ function SettingsPage(): JSX.Element {
       const [loaded, info] = await Promise.all([window.api.getSettings(), window.api.getSystemInfo()])
       setSettings(loaded)
       setTotalMemory(info.totalMemory)
+      setOfficialSite(info.officialSite)
       setMemoryDraft(loaded.maxMemory)
       if (loaded.selectedVersion) window.api.previewMemory(loaded.selectedVersion).then(setMemoryPlan)
       await scan(loaded)
@@ -201,559 +234,629 @@ function SettingsPage(): JSX.Element {
   }
 
   return (
-    <div className="flex h-full flex-col gap-6 overflow-y-auto pb-4 pr-1">
-      <h1 className="text-3xl font-bold tracking-tight">设置</h1>
-
-      {/* 外观 */}
-      <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-center gap-3">
-          <Palette className="h-5 w-5 text-fuchsia-300" />
-          <div>
-            <h2 className="text-lg font-semibold">外观</h2>
-            <p className="text-xs text-white/50">主题、主题色、背景图片与界面动画</p>
-          </div>
-        </div>
-        <div className="mt-5 grid grid-cols-3 gap-3">
-          {THEMES.map((theme) => {
-            const active = settings.theme === theme.key
-            const Icon = theme.icon
-            return (
-              <button
-                key={theme.key}
-                onClick={() => update({ theme: theme.key })}
-                className={`relative flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm transition-colors ${
-                  active ? 'border-emerald-400/50' : 'border-white/5 bg-black/20 hover:bg-black/30'
-                }`}
-              >
-                {active && <div className="absolute inset-0 rounded-xl bg-emerald-500/15" />}
-                <Icon className="relative z-10 h-4 w-4" />
-                <span className="relative z-10 font-medium">{theme.label}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* 主题色 */}
-        <div className="mt-6 text-sm font-medium">主题色</div>
-        <div className="mt-3 flex flex-wrap gap-4">
-          {ACCENTS.map((accent) => {
-            const active = settings.accentColor === accent.key
-            return (
-              <button
-                key={accent.key}
-                onClick={() => update({ accentColor: accent.key })}
-                className="flex flex-col items-center gap-1.5"
-              >
-                <span
-                  className={`flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-transparent transition ${
-                    active ? 'ring-white/80' : 'ring-transparent hover:ring-white/30'
-                  }`}
-                  style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}
-                >
-                  {active && <CheckCircle2 className="h-5 w-5 text-[#fff]" />}
-                </span>
-                <span className={`text-xs ${active ? 'text-white' : 'text-white/50'}`}>{accent.label}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* 背景图片 */}
-        <div className="mt-6 text-sm font-medium">背景图片</div>
-        <div className="mt-3 flex items-center gap-4">
-          <div
-            className="h-16 w-28 shrink-0 rounded-lg border border-white/10 bg-cover bg-center app-background"
-            style={
-              settings.backgroundImage
-                ? { backgroundImage: `url("${backgroundUrl(settings.backgroundImage)}")` }
-                : undefined
-            }
-          />
-          <div className="flex flex-wrap gap-3">
+    <div className="flex h-full flex-col gap-5">
+      <div className="flex items-center gap-4">
+        <h1 className="text-3xl font-bold tracking-tight">设置</h1>
+        <div className="flex rounded-xl bg-black/20 p-1" role="tablist">
+          {SETTINGS_TABS.map((t) => (
             <button
-              onClick={() => changeBackground(() => window.api.pickBackground())}
-              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+              key={t.key}
+              role="tab"
+              aria-selected={tab === t.key}
+              onClick={() => changeTab(t.key)}
+              className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm transition-colors ${
+                tab === t.key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
+              }`}
             >
-              <ImageIcon className="h-4 w-4" />
-              选择图片...
+              <t.icon className="h-4 w-4" />
+              {t.label}
             </button>
-            {settings.backgroundImage && (
-              <button
-                onClick={() => changeBackground(() => window.api.clearBackground())}
-                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
-              >
-                <RotateCcw className="h-4 w-4" />
-                恢复默认
-              </button>
-            )}
-          </div>
+          ))}
         </div>
-        {settings.backgroundImage && (
-          <div className="mt-4 grid grid-cols-2 gap-6">
-            <label className="block">
-              <div className="flex justify-between text-xs text-white/60">
-                <span>模糊</span>
-                <span>{settings.backgroundBlur} px</span>
+      </div>
+
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pb-4 pr-1">
+        <div className={tab === 'personal' ? 'flex flex-col gap-6' : 'hidden'}>
+          {/* 外观 */}
+          <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <Palette className="h-5 w-5 text-fuchsia-300" />
+              <div>
+                <h2 className="text-lg font-semibold">外观</h2>
+                <p className="text-xs text-white/50">主题、主题色、背景图片与界面动画</p>
               </div>
-              <input
-                type="range"
-                min={0}
-                max={20}
-                value={settings.backgroundBlur}
-                onChange={(e) => updateSlider({ backgroundBlur: Number(e.target.value) })}
-                className="mt-2 w-full accent-emerald-500"
-              />
-            </label>
-            <label className="block">
-              <div className="flex justify-between text-xs text-white/60">
-                <span>遮罩</span>
-                <span>{settings.backgroundDim}%</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={80}
-                value={settings.backgroundDim}
-                onChange={(e) => updateSlider({ backgroundDim: Number(e.target.value) })}
-                className="mt-2 w-full accent-emerald-500"
-              />
-            </label>
-          </div>
-        )}
-        {backgroundError && (
-          <div className="mt-3 rounded-xl bg-red-500/20 px-4 py-2.5 text-sm text-red-200">{backgroundError}</div>
-        )}
-
-        {/* 界面动画 */}
-        <div className="mt-6 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Sparkles className="h-4 w-4 text-emerald-300" />
-            <div>
-              <div className="text-sm font-medium">界面动画</div>
-              <div className="text-xs text-white/50">关闭后页面切换与按钮效果不再有动画，适合配置较低的电脑</div>
             </div>
-          </div>
-          <button
-            role="switch"
-            aria-checked={settings.animations}
-            onClick={() => update({ animations: !settings.animations })}
-            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-              settings.animations ? 'bg-emerald-500' : 'bg-white/20'
-            }`}
-          >
-            <span
-              className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
-                settings.animations ? 'left-6' : 'left-1'
-              }`}
-            />
-          </button>
-        </div>
-        {/* 主页新闻 */}
-        <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Newspaper className="h-4 w-4 text-emerald-300" />
-            <div>
-              <div className="text-sm font-medium">主页显示 Minecraft 新闻</div>
-              <div className="text-xs text-white/50">在主页显示 Minecraft 官方发布的新闻与更新公告（英文）</div>
-            </div>
-          </div>
-          <button
-            role="switch"
-            aria-checked={settings.showNews}
-            aria-label="主页显示 Minecraft 新闻"
-            onClick={() => update({ showNews: !settings.showNews })}
-            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-              settings.showNews ? 'bg-emerald-500' : 'bg-white/20'
-            }`}
-          >
-            <span
-              className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
-                settings.showNews ? 'left-6' : 'left-1'
-              }`}
-            />
-          </button>
-        </div>
-      </section>
-
-      {/* 游戏目录 */}
-      <GameDirSection
-        onChanged={() =>
-          window.api.getSettings().then((loaded) => {
-            setSettings(loaded)
-            if (loaded.selectedVersion) window.api.previewMemory(loaded.selectedVersion).then(setMemoryPlan)
-            else setMemoryPlan(null)
-          })
-        }
-      />
-
-      {/* Java 运行环境 */}
-      <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Coffee className="h-5 w-5 text-amber-300" />
-            <div>
-              <h2 className="text-lg font-semibold">Java 运行环境</h2>
-              <p className="text-xs text-white/50">不同的游戏版本需要不同的 Java，推荐让启动器自动选择</p>
-            </div>
-          </div>
-          <motion.button
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.96 }}
-            onClick={() => scan(settings)}
-            disabled={scanning}
-            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-60"
-          >
-            {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            {scanning ? '扫描中...' : '重新扫描'}
-          </motion.button>
-        </div>
-
-        {/* 自动选择 */}
-        <div className="mt-5 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
-          <div>
-            <div className="text-sm font-medium">自动选择 Java（推荐）</div>
-            <div className="text-xs text-white/50">
-              启动和安装时按游戏版本挑选合适的 Java，本机没有时自动下载。关闭后始终使用下方选中的 Java
-            </div>
-          </div>
-          <button
-            role="switch"
-            aria-checked={settings.javaAuto}
-            onClick={() => update({ javaAuto: !settings.javaAuto })}
-            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-              settings.javaAuto ? 'bg-emerald-500' : 'bg-white/20'
-            }`}
-          >
-            <span
-              className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
-                settings.javaAuto ? 'left-6' : 'left-1'
-              }`}
-            />
-          </button>
-        </div>
-
-        <div className="mt-4 text-sm font-medium">
-          本机的 Java
-          <span className="ml-2 text-xs font-normal text-white/40">
-            {settings.javaAuto ? '点击可以改为手动指定' : '点击选择启动游戏使用的 Java'}
-          </span>
-        </div>
-        <div className="mt-2 flex flex-col gap-2">
-          {error && <div className="rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">扫描失败：{error}</div>}
-          {!scanning && !error && javaList.length === 0 && (
-            <div className="rounded-xl bg-black/20 px-4 py-6 text-center text-sm text-white/50">
-              未找到任何 Java，可以在下方一键下载
-            </div>
-          )}
-          <AnimatePresence>
-            {javaList.map((java, index) => {
-              const active = !settings.javaAuto && java.path === settings.javaPath
-              return (
-                <motion.button
-                  key={java.path}
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  onClick={() => update({ javaPath: java.path, javaAuto: false })}
-                  className={`flex items-center gap-4 rounded-xl border px-4 py-3 text-left transition-colors ${
-                    active ? 'border-emerald-400/50 bg-emerald-500/15' : 'border-white/5 bg-black/20 hover:bg-black/30'
-                  }`}
-                >
-                  <div className="flex h-10 w-12 shrink-0 items-center justify-center rounded-lg bg-white/10 font-mono text-lg font-bold">
-                    {java.majorVersion}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium">Java {java.version}</div>
-                    <div className="truncate font-mono text-xs text-white/50" title={java.path}>
-                      {java.path}
-                    </div>
-                  </div>
-                  {active && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
-                </motion.button>
-              )
-            })}
-          </AnimatePresence>
-        </div>
-
-        {/* 下载 Java */}
-        <div className="mt-5 text-sm font-medium">
-          下载 Java
-          <span className="ml-2 text-xs font-normal text-white/40">
-            与官方启动器相同的 Java 运行环境，保存在启动器数据目录
-          </span>
-        </div>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          {runtimes === null && !runtimesError && (
-            <div className="col-span-2 flex items-center gap-2 px-1 py-2 text-xs text-white/50">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              正在获取可下载的 Java…
-            </div>
-          )}
-          {runtimes?.map((runtime) => {
-            const label = `Java ${runtime.majorVersion}`
-            const current = task?.kind === 'java' && task.versionId === label ? task : null
-            const downloading = current?.state === 'running'
-            const percent = current && current.total > 0 ? Math.round((current.progress / current.total) * 100) : 0
-            const busy = task?.state === 'running'
-            return (
-              <div key={runtime.component} className="flex items-center gap-3 rounded-xl bg-black/20 px-4 py-3">
-                <div className="flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10 font-mono font-bold">
-                  {runtime.majorVersion}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium">{label}</div>
-                  <div className="text-xs text-white/50">
-                    {downloading
-                      ? `下载中 ${percent}%`
-                      : runtime.installed
-                        ? `已下载 · ${runtime.version}`
-                        : runtime.version}
-                  </div>
-                  {downloading && (
-                    <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10">
-                      <div className="h-full rounded-full bg-emerald-400" style={{ width: `${percent}%` }} />
-                    </div>
-                  )}
-                </div>
-                {runtime.installed && !downloading ? (
-                  <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
-                ) : (
+            <div className="mt-5 grid grid-cols-3 gap-3">
+              {THEMES.map((theme) => {
+                const active = settings.theme === theme.key
+                const Icon = theme.icon
+                return (
                   <button
-                    onClick={() => downloadJava(runtime.component)}
-                    disabled={busy}
-                    title={busy && !downloading ? '有下载任务正在进行' : undefined}
-                    className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500 disabled:opacity-40"
+                    key={theme.key}
+                    onClick={() => update({ theme: theme.key })}
+                    className={`relative flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm transition-colors ${
+                      active ? 'border-emerald-400/50' : 'border-white/5 bg-black/20 hover:bg-black/30'
+                    }`}
                   >
-                    {downloading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Download className="h-3.5 w-3.5" />
-                    )}
-                    下载
+                    {active && <div className="absolute inset-0 rounded-xl bg-emerald-500/15" />}
+                    <Icon className="relative z-10 h-4 w-4" />
+                    <span className="relative z-10 font-medium">{theme.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 主题色 */}
+            <div className="mt-6 text-sm font-medium">主题色</div>
+            <div className="mt-3 flex flex-wrap gap-4">
+              {ACCENTS.map((accent) => {
+                const active = settings.accentColor === accent.key
+                return (
+                  <button
+                    key={accent.key}
+                    onClick={() => update({ accentColor: accent.key })}
+                    className="flex flex-col items-center gap-1.5"
+                  >
+                    <span
+                      className={`flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-transparent transition ${
+                        active ? 'ring-white/80' : 'ring-transparent hover:ring-white/30'
+                      }`}
+                      style={{ background: `linear-gradient(135deg, ${accent.from}, ${accent.to})` }}
+                    >
+                      {active && <CheckCircle2 className="h-5 w-5 text-[#fff]" />}
+                    </span>
+                    <span className={`text-xs ${active ? 'text-white' : 'text-white/50'}`}>{accent.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 背景图片 */}
+            <div className="mt-6 text-sm font-medium">背景图片</div>
+            <div className="mt-3 flex items-center gap-4">
+              <div
+                className="h-16 w-28 shrink-0 rounded-lg border border-white/10 bg-cover bg-center app-background"
+                style={
+                  settings.backgroundImage
+                    ? { backgroundImage: `url("${backgroundUrl(settings.backgroundImage)}")` }
+                    : undefined
+                }
+              />
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => changeBackground(() => window.api.pickBackground())}
+                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  选择图片...
+                </button>
+                {settings.backgroundImage && (
+                  <button
+                    onClick={() => changeBackground(() => window.api.clearBackground())}
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    恢复默认
                   </button>
                 )}
               </div>
-            )
-          })}
-        </div>
-        {runtimesError && (
-          <div className="mt-2 rounded-xl bg-red-500/20 px-4 py-2.5 text-sm text-red-200">{runtimesError}</div>
-        )}
-      </section>
-
-      {/* 内存分配 */}
-      <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <MemoryStick className="h-5 w-5 text-sky-300" />
-            <div>
-              <h2 className="text-lg font-semibold">游戏内存</h2>
-              <p className="text-xs text-white/50">
-                {settings.memoryAuto
-                  ? '启动时根据电脑的可用内存和模组数量自动决定'
-                  : `本机物理内存 ${formatMemory(totalMemory)}，建议分配 2 ~ 8 GB`}
-              </p>
             </div>
-          </div>
-          <div className="rounded-xl bg-black/30 px-4 py-2 font-mono text-lg font-bold text-sky-300">
-            {settings.memoryAuto ? (memoryPlan ? formatMemory(memoryPlan.memory) : '自动') : formatMemory(memoryDraft)}
-          </div>
-        </div>
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          {(
-            [
-              [true, '自动分配（推荐）', '按可用内存与模组数量分配'],
-              [false, '手动设置', '所有版本使用固定的内存']
-            ] as const
-          ).map(([auto, label, desc]) => {
-            const active = settings.memoryAuto === auto
-            return (
-              <button
-                key={label}
-                onClick={() => update({ memoryAuto: auto })}
-                className={`flex items-center justify-between gap-2 rounded-xl border px-4 py-3 text-left transition-colors ${
-                  active ? 'border-emerald-400/50 bg-emerald-500/15' : 'border-white/5 bg-black/20 hover:bg-black/30'
-                }`}
-              >
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">{label}</div>
-                  <div className="text-xs text-white/50">{desc}</div>
-                </div>
-                {active && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
-              </button>
-            )
-          })}
-        </div>
-        {settings.memoryAuto ? (
-          <div className="mt-4 rounded-xl bg-black/20 px-4 py-3 text-xs leading-5 text-white/60">
-            {memoryPlan ? (
-              <>
-                启动「{settings.selectedVersion}」预计分配{' '}
-                <span className="font-medium text-white">{formatMemory(memoryPlan.memory)}</span>
-                {memoryPlan.mods > 0 ? `（${memoryPlan.mods} 个模组，` : '（'}建议{' '}
-                {formatMemory(memoryPlan.recommended)}
-                {memoryPlan.free !== null ? `，当前可用 ${formatMemory(memoryPlan.free)}` : ''}）
-                {memoryPlan.limited && (
-                  <div className="mt-1 text-amber-300">当前可用内存不足，会少分配一些，建议启动前关闭其他程序</div>
-                )}
-              </>
-            ) : (
-              '原版分配 2 GB；模组版本从 3 GB 起，模组越多分配越多（最多 12 GB），并给系统留出足够的内存'
-            )}
-            <div className="mt-1 text-white/40">在版本设置里可以为单个版本指定内存</div>
-          </div>
-        ) : (
-          <>
-            <input
-              type="range"
-              min={MEMORY_MIN}
-              max={memoryMax}
-              step={MEMORY_STEP}
-              value={Math.min(memoryDraft, memoryMax)}
-              onChange={(e) => onMemoryChange(Number(e.target.value))}
-              className="mt-6 w-full cursor-pointer accent-sky-400"
-            />
-            <div className="mt-1 flex justify-between text-xs text-white/40">
-              <span>{formatMemory(MEMORY_MIN)}</span>
-              <span>{formatMemory(memoryMax)}</span>
-            </div>
-          </>
-        )}
-      </section>
-
-      {/* 启动游戏 */}
-      <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-center gap-3">
-          <Rocket className="h-5 w-5 text-sky-300" />
-          <div>
-            <h2 className="text-lg font-semibold">启动游戏</h2>
-            <p className="text-xs text-white/50">游戏窗口出现后，启动器窗口如何处理</p>
-          </div>
-        </div>
-        <div className="mt-5 grid grid-cols-3 gap-3">
-          {AFTER_LAUNCH.map((option) => {
-            const active = settings.afterLaunch === option.key
-            return (
-              <button
-                key={option.key}
-                onClick={() => update({ afterLaunch: option.key })}
-                className={`flex items-center justify-between gap-2 rounded-xl border px-4 py-3 text-left transition-colors ${
-                  active ? 'border-emerald-400/50 bg-emerald-500/15' : 'border-white/5 bg-black/20 hover:bg-black/30'
-                }`}
-              >
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">{option.label}</div>
-                  <div className="text-xs text-white/50">{option.desc}</div>
-                </div>
-                {active && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
-              </button>
-            )
-          })}
-        </div>
-        <div className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <ShieldCheck className="h-4 w-4 text-emerald-300" />
-            <div>
-              <div className="text-sm font-medium">启动前检查游戏文件</div>
-              <div className="text-xs text-white/50">发现缺失或损坏的依赖库、资源文件时自动下载补全，避免启动失败</div>
-            </div>
-          </div>
-          <button
-            role="switch"
-            aria-checked={settings.checkFiles}
-            aria-label="启动前检查游戏文件"
-            onClick={() => update({ checkFiles: !settings.checkFiles })}
-            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-              settings.checkFiles ? 'bg-emerald-500' : 'bg-white/20'
-            }`}
-          >
-            <span
-              className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
-                settings.checkFiles ? 'left-6' : 'left-1'
-              }`}
-            />
-          </button>
-        </div>
-      </section>
-
-      {/* 版本隔离 */}
-      <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-center gap-3">
-          <Layers className="h-5 w-5 text-violet-300" />
-          <div>
-            <h2 className="text-lg font-semibold">版本隔离</h2>
-            <p className="text-xs text-white/50">
-              隔离的版本把模组、存档、配置放在 versions/版本名 文件夹里，不同版本的模组互不干扰
-            </p>
-          </div>
-        </div>
-        <div className="mt-5 grid grid-cols-3 gap-3">
-          {ISOLATIONS.map((option) => {
-            const active = settings.versionIsolation === option.key
-            return (
-              <button
-                key={option.key}
-                onClick={() => update({ versionIsolation: option.key })}
-                className={`flex items-center justify-between gap-2 rounded-xl border px-4 py-3 text-left transition-colors ${
-                  active ? 'border-emerald-400/50 bg-emerald-500/15' : 'border-white/5 bg-black/20 hover:bg-black/30'
-                }`}
-              >
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">{option.label}</div>
-                  <div className="text-xs text-white/50">{option.desc}</div>
-                </div>
-                {active && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
-              </button>
-            )
-          })}
-        </div>
-        <p className="mt-3 text-xs leading-5 text-white/40">
-          修改后从下次启动开始生效。开启前放在游戏目录 mods 文件夹里的模组，需要手动移到对应版本的文件夹中。
-        </p>
-      </section>
-
-      {/* 下载源 */}
-      <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-center gap-3">
-          <Globe className="h-5 w-5 text-emerald-300" />
-          <div>
-            <h2 className="text-lg font-semibold">下载源</h2>
-            <p className="text-xs text-white/50">下载游戏本体、依赖库与资源文件时使用的服务器</p>
-          </div>
-        </div>
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          {SOURCES.map((source) => {
-            const active = settings.downloadSource === source.key
-            return (
-              <button
-                key={source.key}
-                onClick={() => update({ downloadSource: source.key })}
-                className={`relative rounded-xl border px-4 py-3 text-left transition-colors ${
-                  active ? 'border-emerald-400/50' : 'border-white/5 bg-black/20 hover:bg-black/30'
-                }`}
-              >
-                {active && <div className="absolute inset-0 rounded-xl bg-emerald-500/15" />}
-                <div className="relative z-10 flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-medium">{source.label}</div>
-                    <div className="text-xs text-white/50">{source.desc}</div>
+            {settings.backgroundImage && (
+              <div className="mt-4 grid grid-cols-2 gap-6">
+                <label className="block">
+                  <div className="flex justify-between text-xs text-white/60">
+                    <span>模糊</span>
+                    <span>{settings.backgroundBlur} px</span>
                   </div>
-                  {active && <CheckCircle2 className="h-5 w-5 text-emerald-400" />}
+                  <input
+                    type="range"
+                    min={0}
+                    max={20}
+                    value={settings.backgroundBlur}
+                    onChange={(e) => updateSlider({ backgroundBlur: Number(e.target.value) })}
+                    className="mt-2 w-full accent-emerald-500"
+                  />
+                </label>
+                <label className="block">
+                  <div className="flex justify-between text-xs text-white/60">
+                    <span>遮罩</span>
+                    <span>{settings.backgroundDim}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={80}
+                    value={settings.backgroundDim}
+                    onChange={(e) => updateSlider({ backgroundDim: Number(e.target.value) })}
+                    className="mt-2 w-full accent-emerald-500"
+                  />
+                </label>
+              </div>
+            )}
+            {backgroundError && (
+              <div className="mt-3 rounded-xl bg-red-500/20 px-4 py-2.5 text-sm text-red-200">{backgroundError}</div>
+            )}
+
+            {/* 界面动画 */}
+            <div className="mt-6 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Sparkles className="h-4 w-4 text-emerald-300" />
+                <div>
+                  <div className="text-sm font-medium">界面动画</div>
+                  <div className="text-xs text-white/50">关闭后页面切换与按钮效果不再有动画，适合配置较低的电脑</div>
                 </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.animations}
+                onClick={() => update({ animations: !settings.animations })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.animations ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.animations ? 'left-6' : 'left-1'
+                  }`}
+                />
               </button>
-            )
-          })}
+            </div>
+            {/* 主页新闻 */}
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Newspaper className="h-4 w-4 text-emerald-300" />
+                <div>
+                  <div className="text-sm font-medium">主页显示 Minecraft 新闻</div>
+                  <div className="text-xs text-white/50">在主页显示 Minecraft 官方发布的新闻与更新公告（英文）</div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.showNews}
+                aria-label="主页显示 Minecraft 新闻"
+                onClick={() => update({ showNews: !settings.showNews })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.showNews ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.showNews ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+            {/* 主页最近游玩 */}
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Clock className="h-4 w-4 text-emerald-300" />
+                <div>
+                  <div className="text-sm font-medium">主页显示最近游玩</div>
+                  <div className="text-xs text-white/50">在主页显示最近玩过的版本和游玩时长，点击直接启动</div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.showRecentPlays}
+                aria-label="主页显示最近游玩"
+                onClick={() => update({ showRecentPlays: !settings.showRecentPlays })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.showRecentPlays ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.showRecentPlays ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </section>
         </div>
-      </section>
 
-      {/* 下载与网络 */}
-      <NetworkSection settings={settings} onSettings={setSettings} />
+        <div className={tab === 'launch' ? 'flex flex-col gap-6' : 'hidden'}>
+          {/* 游戏目录 */}
+          <GameDirSection
+            onChanged={() =>
+              window.api.getSettings().then((loaded) => {
+                setSettings(loaded)
+                if (loaded.selectedVersion) window.api.previewMemory(loaded.selectedVersion).then(setMemoryPlan)
+                else setMemoryPlan(null)
+              })
+            }
+          />
 
-      {/* 关于与更新 */}
-      <AboutSection
-        autoCheck={settings.autoCheckUpdate}
-        onAutoCheckChange={(value) => update({ autoCheckUpdate: value })}
-      />
+          {/* Java 运行环境 */}
+          <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Coffee className="h-5 w-5 text-amber-300" />
+                <div>
+                  <h2 className="text-lg font-semibold">Java 运行环境</h2>
+                  <p className="text-xs text-white/50">不同的游戏版本需要不同的 Java，推荐让启动器自动选择</p>
+                </div>
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => scan(settings)}
+                disabled={scanning}
+                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-60"
+              >
+                {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {scanning ? '扫描中...' : '重新扫描'}
+              </motion.button>
+            </div>
+
+            {/* 自动选择 */}
+            <div className="mt-5 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div>
+                <div className="text-sm font-medium">自动选择 Java（推荐）</div>
+                <div className="text-xs text-white/50">
+                  启动和安装时按游戏版本挑选合适的 Java，本机没有时自动下载。关闭后始终使用下方选中的 Java
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.javaAuto}
+                onClick={() => update({ javaAuto: !settings.javaAuto })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.javaAuto ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.javaAuto ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            <div className="mt-4 text-sm font-medium">
+              本机的 Java
+              <span className="ml-2 text-xs font-normal text-white/40">
+                {settings.javaAuto ? '点击可以改为手动指定' : '点击选择启动游戏使用的 Java'}
+              </span>
+            </div>
+            <div className="mt-2 flex flex-col gap-2">
+              {error && (
+                <div className="rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">扫描失败：{error}</div>
+              )}
+              {!scanning && !error && javaList.length === 0 && (
+                <div className="rounded-xl bg-black/20 px-4 py-6 text-center text-sm text-white/50">
+                  未找到任何 Java，可以在下方一键下载
+                </div>
+              )}
+              <AnimatePresence>
+                {javaList.map((java, index) => {
+                  const active = !settings.javaAuto && java.path === settings.javaPath
+                  return (
+                    <motion.button
+                      key={java.path}
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      onClick={() => update({ javaPath: java.path, javaAuto: false })}
+                      className={`flex items-center gap-4 rounded-xl border px-4 py-3 text-left transition-colors ${
+                        active
+                          ? 'border-emerald-400/50 bg-emerald-500/15'
+                          : 'border-white/5 bg-black/20 hover:bg-black/30'
+                      }`}
+                    >
+                      <div className="flex h-10 w-12 shrink-0 items-center justify-center rounded-lg bg-white/10 font-mono text-lg font-bold">
+                        {java.majorVersion}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium">Java {java.version}</div>
+                        <div className="truncate font-mono text-xs text-white/50" title={java.path}>
+                          {java.path}
+                        </div>
+                      </div>
+                      {active && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
+                    </motion.button>
+                  )
+                })}
+              </AnimatePresence>
+            </div>
+
+            {/* 下载 Java */}
+            <div className="mt-5 text-sm font-medium">
+              下载 Java
+              <span className="ml-2 text-xs font-normal text-white/40">
+                与官方启动器相同的 Java 运行环境，保存在启动器数据目录
+              </span>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {runtimes === null && !runtimesError && (
+                <div className="col-span-2 flex items-center gap-2 px-1 py-2 text-xs text-white/50">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  正在获取可下载的 Java…
+                </div>
+              )}
+              {runtimes?.map((runtime) => {
+                const label = `Java ${runtime.majorVersion}`
+                const current = task?.kind === 'java' && task.versionId === label ? task : null
+                const downloading = current?.state === 'running'
+                const percent = current && current.total > 0 ? Math.round((current.progress / current.total) * 100) : 0
+                const busy = task?.state === 'running'
+                return (
+                  <div key={runtime.component} className="flex items-center gap-3 rounded-xl bg-black/20 px-4 py-3">
+                    <div className="flex h-9 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10 font-mono font-bold">
+                      {runtime.majorVersion}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium">{label}</div>
+                      <div className="text-xs text-white/50">
+                        {downloading
+                          ? `下载中 ${percent}%`
+                          : runtime.installed
+                            ? `已下载 · ${runtime.version}`
+                            : runtime.version}
+                      </div>
+                      {downloading && (
+                        <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10">
+                          <div className="h-full rounded-full bg-emerald-400" style={{ width: `${percent}%` }} />
+                        </div>
+                      )}
+                    </div>
+                    {runtime.installed && !downloading ? (
+                      <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
+                    ) : (
+                      <button
+                        onClick={() => downloadJava(runtime.component)}
+                        disabled={busy}
+                        title={busy && !downloading ? '有下载任务正在进行' : undefined}
+                        className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500 disabled:opacity-40"
+                      >
+                        {downloading ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Download className="h-3.5 w-3.5" />
+                        )}
+                        下载
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            {runtimesError && (
+              <div className="mt-2 rounded-xl bg-red-500/20 px-4 py-2.5 text-sm text-red-200">{runtimesError}</div>
+            )}
+          </section>
+
+          {/* 内存分配 */}
+          <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <MemoryStick className="h-5 w-5 text-sky-300" />
+                <div>
+                  <h2 className="text-lg font-semibold">游戏内存</h2>
+                  <p className="text-xs text-white/50">
+                    {settings.memoryAuto
+                      ? '启动时根据电脑的可用内存和模组数量自动决定'
+                      : `本机物理内存 ${formatMemory(totalMemory)}，建议分配 2 ~ 8 GB`}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-xl bg-black/30 px-4 py-2 font-mono text-lg font-bold text-sky-300">
+                {settings.memoryAuto
+                  ? memoryPlan
+                    ? formatMemory(memoryPlan.memory)
+                    : '自动'
+                  : formatMemory(memoryDraft)}
+              </div>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              {(
+                [
+                  [true, '自动分配（推荐）', '按可用内存与模组数量分配'],
+                  [false, '手动设置', '所有版本使用固定的内存']
+                ] as const
+              ).map(([auto, label, desc]) => {
+                const active = settings.memoryAuto === auto
+                return (
+                  <button
+                    key={label}
+                    onClick={() => update({ memoryAuto: auto })}
+                    className={`flex items-center justify-between gap-2 rounded-xl border px-4 py-3 text-left transition-colors ${
+                      active
+                        ? 'border-emerald-400/50 bg-emerald-500/15'
+                        : 'border-white/5 bg-black/20 hover:bg-black/30'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">{label}</div>
+                      <div className="text-xs text-white/50">{desc}</div>
+                    </div>
+                    {active && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
+                  </button>
+                )
+              })}
+            </div>
+            {settings.memoryAuto ? (
+              <div className="mt-4 rounded-xl bg-black/20 px-4 py-3 text-xs leading-5 text-white/60">
+                {memoryPlan ? (
+                  <>
+                    启动「{settings.selectedVersion}」预计分配{' '}
+                    <span className="font-medium text-white">{formatMemory(memoryPlan.memory)}</span>
+                    {memoryPlan.mods > 0 ? `（${memoryPlan.mods} 个模组，` : '（'}建议{' '}
+                    {formatMemory(memoryPlan.recommended)}
+                    {memoryPlan.free !== null ? `，当前可用 ${formatMemory(memoryPlan.free)}` : ''}）
+                    {memoryPlan.limited && (
+                      <div className="mt-1 text-amber-300">当前可用内存不足，会少分配一些，建议启动前关闭其他程序</div>
+                    )}
+                  </>
+                ) : (
+                  '原版分配 2 GB；模组版本从 3 GB 起，模组越多分配越多（最多 12 GB），并给系统留出足够的内存'
+                )}
+                <div className="mt-1 text-white/40">在版本设置里可以为单个版本指定内存</div>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="range"
+                  min={MEMORY_MIN}
+                  max={memoryMax}
+                  step={MEMORY_STEP}
+                  value={Math.min(memoryDraft, memoryMax)}
+                  onChange={(e) => onMemoryChange(Number(e.target.value))}
+                  className="mt-6 w-full cursor-pointer accent-sky-400"
+                />
+                <div className="mt-1 flex justify-between text-xs text-white/40">
+                  <span>{formatMemory(MEMORY_MIN)}</span>
+                  <span>{formatMemory(memoryMax)}</span>
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* 启动游戏 */}
+          <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <Rocket className="h-5 w-5 text-sky-300" />
+              <div>
+                <h2 className="text-lg font-semibold">启动游戏</h2>
+                <p className="text-xs text-white/50">游戏窗口出现后，启动器窗口如何处理</p>
+              </div>
+            </div>
+            <div className="mt-5 grid grid-cols-3 gap-3">
+              {AFTER_LAUNCH.map((option) => {
+                const active = settings.afterLaunch === option.key
+                return (
+                  <button
+                    key={option.key}
+                    onClick={() => update({ afterLaunch: option.key })}
+                    className={`flex items-center justify-between gap-2 rounded-xl border px-4 py-3 text-left transition-colors ${
+                      active
+                        ? 'border-emerald-400/50 bg-emerald-500/15'
+                        : 'border-white/5 bg-black/20 hover:bg-black/30'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">{option.label}</div>
+                      <div className="text-xs text-white/50">{option.desc}</div>
+                    </div>
+                    {active && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <ShieldCheck className="h-4 w-4 text-emerald-300" />
+                <div>
+                  <div className="text-sm font-medium">启动前检查游戏文件</div>
+                  <div className="text-xs text-white/50">
+                    发现缺失或损坏的依赖库、资源文件时自动下载补全，避免启动失败
+                  </div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.checkFiles}
+                aria-label="启动前检查游戏文件"
+                onClick={() => update({ checkFiles: !settings.checkFiles })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.checkFiles ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.checkFiles ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </section>
+
+          {/* 版本隔离 */}
+          <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <Layers className="h-5 w-5 text-violet-300" />
+              <div>
+                <h2 className="text-lg font-semibold">版本隔离</h2>
+                <p className="text-xs text-white/50">
+                  隔离的版本把模组、存档、配置放在 versions/版本名 文件夹里，不同版本的模组互不干扰
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 grid grid-cols-3 gap-3">
+              {ISOLATIONS.map((option) => {
+                const active = settings.versionIsolation === option.key
+                return (
+                  <button
+                    key={option.key}
+                    onClick={() => update({ versionIsolation: option.key })}
+                    className={`flex items-center justify-between gap-2 rounded-xl border px-4 py-3 text-left transition-colors ${
+                      active
+                        ? 'border-emerald-400/50 bg-emerald-500/15'
+                        : 'border-white/5 bg-black/20 hover:bg-black/30'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">{option.label}</div>
+                      <div className="text-xs text-white/50">{option.desc}</div>
+                    </div>
+                    {active && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-3 text-xs leading-5 text-white/40">
+              修改后从下次启动开始生效。开启前放在游戏目录 mods 文件夹里的模组，需要手动移到对应版本的文件夹中。
+            </p>
+          </section>
+        </div>
+
+        <div className={tab === 'other' ? 'flex flex-col gap-6' : 'hidden'}>
+          {/* 下载源 */}
+          <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <Globe className="h-5 w-5 text-emerald-300" />
+              <div>
+                <h2 className="text-lg font-semibold">下载源</h2>
+                <p className="text-xs text-white/50">下载游戏本体、依赖库与资源文件时使用的服务器</p>
+              </div>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              {SOURCES.map((source) => {
+                const active = settings.downloadSource === source.key
+                return (
+                  <button
+                    key={source.key}
+                    onClick={() => update({ downloadSource: source.key })}
+                    className={`relative rounded-xl border px-4 py-3 text-left transition-colors ${
+                      active ? 'border-emerald-400/50' : 'border-white/5 bg-black/20 hover:bg-black/30'
+                    }`}
+                  >
+                    {active && <div className="absolute inset-0 rounded-xl bg-emerald-500/15" />}
+                    <div className="relative z-10 flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-medium">{source.label}</div>
+                        <div className="text-xs text-white/50">{source.desc}</div>
+                      </div>
+                      {active && <CheckCircle2 className="h-5 w-5 text-emerald-400" />}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+
+          {/* 下载与网络 */}
+          <NetworkSection settings={settings} onSettings={setSettings} />
+
+          {/* 关于与更新 */}
+          <AboutSection
+            autoCheck={settings.autoCheckUpdate}
+            onAutoCheckChange={(value) => update({ autoCheckUpdate: value })}
+            officialSite={officialSite}
+            updateSource={settings.updateSource}
+            onUpdateSourceChange={(value) => update({ updateSource: value })}
+          />
+        </div>
+      </div>
     </div>
   )
 }
@@ -922,12 +1025,24 @@ function NetworkSection({
 }
 
 /** 关于：当前版本、检查更新 */
+const UPDATE_SOURCES: { key: UpdateSource; label: string; desc: string }[] = [
+  { key: 'auto', label: '自动', desc: '先从官网获取，连不上时用 GitHub（推荐）' },
+  { key: 'official', label: '官网', desc: '只从官网获取，国内下载快' },
+  { key: 'github', label: 'GitHub', desc: '只从 GitHub 获取' }
+]
+
 function AboutSection({
   autoCheck,
-  onAutoCheckChange
+  onAutoCheckChange,
+  officialSite,
+  updateSource,
+  onUpdateSourceChange
 }: {
   autoCheck: boolean
   onAutoCheckChange: (value: boolean) => void
+  officialSite: string
+  updateSource: UpdateSource
+  onUpdateSourceChange: (value: UpdateSource) => void
 }): JSX.Element {
   const [checking, setChecking] = useState(false)
   const [info, setInfo] = useState<UpdateInfo | null>(null)
@@ -956,8 +1071,19 @@ function AboutSection({
           </div>
         </div>
         <div className="flex gap-2">
+          {officialSite && (
+            <a
+              href={`${officialSite}/`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+            >
+              <Globe className="h-4 w-4" />
+              官网
+            </a>
+          )}
           <button
-            onClick={() => window.api.openUpdateLink('page')}
+            onClick={() => window.open('https://github.com/xiaoye1001/Liuli-Launcher', '_blank')}
             className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
           >
             <ExternalLink className="h-4 w-4" />
@@ -989,6 +1115,7 @@ function AboutSection({
               <div className="text-xs text-white/50">
                 当前版本 v{info.current}
                 {info.publishedAt && ` · 发布于 ${new Date(info.publishedAt).toLocaleDateString('zh-CN')}`}
+                {` · 来自${info.source === 'official' ? '官网' : ' GitHub'}`}
               </div>
             </div>
           </div>
@@ -1017,6 +1144,34 @@ function AboutSection({
           />
         </button>
       </div>
+
+      {officialSite && (
+        <div className="mt-3 rounded-xl bg-black/20 px-4 py-3">
+          <div className="text-sm font-medium">更新来源</div>
+          <div className="text-xs text-white/50">从哪里检查和下载新版本，下载的安装包都会校验 SHA-256</div>
+          <div className="mt-3 grid grid-cols-3 gap-2" role="radiogroup" aria-label="更新来源">
+            {UPDATE_SOURCES.map((option) => (
+              <button
+                key={option.key}
+                role="radio"
+                aria-checked={updateSource === option.key}
+                onClick={() => {
+                  onUpdateSourceChange(option.key)
+                  setInfo(null)
+                }}
+                className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                  updateSource === option.key
+                    ? 'border-emerald-400/50 bg-emerald-500/15'
+                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <div className="text-sm font-medium">{option.label}</div>
+                <div className="text-xs text-white/50">{option.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   )
 }

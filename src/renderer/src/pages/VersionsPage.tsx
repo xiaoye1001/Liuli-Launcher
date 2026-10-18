@@ -14,6 +14,8 @@ import {
   Loader2,
   MonitorSmartphone,
   MoreHorizontal,
+  Share2,
+  Star,
   PackageOpen,
   PenLine,
   Puzzle,
@@ -23,7 +25,7 @@ import {
   Trash2,
   Wrench
 } from 'lucide-react'
-import GrassBlockIcon from '../components/GrassBlockIcon'
+import VersionIconPicker from '../components/VersionIconPicker'
 import { formatDuration } from '../utils/format'
 import InstallProgressCard from '../components/InstallProgressCard'
 import LocalResourcesPage from './LocalResourcesPage'
@@ -31,13 +33,15 @@ import ModsPage from './ModsPage'
 import VersionSettingsPage from './VersionSettingsPage'
 import WorldsPage from './WorldsPage'
 import ExportModpackPage from './ExportModpackPage'
+import { ShareStatus, useLogShare } from '../components/LogShare'
 import type {
   GameDirSummary,
   InstalledVersion,
   InstallStatus,
   ModLoader,
   PlayStats,
-  ResourceType
+  ResourceType,
+  VersionDisplay
 } from '../../../shared/types'
 
 const LOADER_LABELS: Record<ModLoader, { label: string; className: string }> = {
@@ -58,9 +62,10 @@ const OTHER_TYPE = { label: '其他', className: 'bg-sky-500/20 text-sky-300' }
 /** 可以加载模组的版本才显示「模组」按钮 */
 const MOD_LOADERS: ModLoader[] = ['fabric', 'quilt', 'forge', 'neoforge']
 
-type Filter = 'all' | 'vanilla' | 'modded'
+type Filter = 'all' | 'favorite' | 'vanilla' | 'modded'
 const FILTERS: [Filter, string][] = [
   ['all', '全部'],
+  ['favorite', '收藏'],
   ['vanilla', '原版'],
   ['modded', '模组版本']
 ]
@@ -86,6 +91,7 @@ function MoreMenu({
   onCopy,
   onShortcut,
   onExport,
+  onShareLog,
   onOpenFolder,
   onRepair,
   onDelete
@@ -96,6 +102,7 @@ function MoreMenu({
   onCopy: () => void
   onShortcut: () => void
   onExport: () => void
+  onShareLog: () => void
   onOpenFolder: () => void
   onRepair: () => void
   onDelete: () => void
@@ -149,6 +156,7 @@ function MoreMenu({
           {item(<Copy className="h-4 w-4" />, '复制版本', onCopy, false, busy)}
           {item(<MonitorSmartphone className="h-4 w-4" />, '创建桌面快捷方式', onShortcut)}
           {item(<PackageOpen className="h-4 w-4" />, '导出整合包', onExport)}
+          {item(<Share2 className="h-4 w-4" />, '分享最近的日志', onShareLog)}
           <div className="my-1 border-t border-white/10" />
           {item(<FolderOpen className="h-4 w-4" />, '打开版本文件夹', onOpenFolder)}
           {item(<Wrench className="h-4 w-4" />, '检查并修复', onRepair, false, busy)}
@@ -287,6 +295,9 @@ function VersionsPage({
   const [worldsFor, setWorldsFor] = useState<InstalledVersion | null>(null)
   const [exportFor, setExportFor] = useState<InstalledVersion | null>(null)
   const lastState = useRef<string | undefined>(undefined)
+  /** 分享哪个版本的 latest.log */
+  const shareTarget = useRef('')
+  const share = useLogShare(() => window.api.shareLatestLog(shareTarget.current))
 
   const load = useCallback(async (): Promise<InstalledVersion[]> => {
     const [list, settings] = await Promise.all([window.api.getInstalledVersions(), window.api.getSettings()])
@@ -339,6 +350,19 @@ function VersionsPage({
     }
   }
 
+  /** 更新列表中某个版本的收藏与图标 */
+  const updateDisplay = (id: string, display: VersionDisplay): void =>
+    setInstalled(
+      (prev) =>
+        prev &&
+        prev.map((v) =>
+          v.id === id ? { ...v, favorite: display.favorite, icon: display.icon, iconUrl: display.iconUrl } : v
+        )
+    )
+
+  const toggleFavorite = (version: InstalledVersion): Promise<void> =>
+    run(async () => updateDisplay(version.id, await window.api.setVersionFavorite(version.id, !version.favorite)))
+
   /** 切换到另一个游戏目录，并刷新版本列表 */
   const switchGameDir = (path: string): Promise<void> =>
     run(async () => {
@@ -362,11 +386,14 @@ function VersionsPage({
   const kw = keyword.trim().toLowerCase()
   const visible = useMemo(
     () =>
-      (installed ?? []).filter(
-        (v) =>
-          (!kw || v.id.toLowerCase().includes(kw) || v.minecraftVersion.toLowerCase().includes(kw)) &&
-          (filter === 'all' || (filter === 'modded') === isModded(v))
-      ),
+      (installed ?? [])
+        .filter(
+          (v) =>
+            (!kw || v.id.toLowerCase().includes(kw) || v.minecraftVersion.toLowerCase().includes(kw)) &&
+            (filter === 'all' || (filter === 'favorite' ? v.favorite : (filter === 'modded') === isModded(v)))
+        )
+        // 收藏的版本排在前面，其余保持原来的顺序
+        .sort((a, b) => Number(b.favorite) - Number(a.favorite)),
     [installed, kw, filter]
   )
 
@@ -430,7 +457,7 @@ function VersionsPage({
                   value={dirs.find((d) => d.current)?.path ?? gameDir}
                   onChange={(e) => switchGameDir(e.target.value)}
                   aria-label="切换游戏目录"
-                  title={`${gameDir}\n可以在设置中添加、重命名游戏目录`}
+                  title={`${gameDir}\n可以在「设置 → 启动」中添加、重命名游戏目录`}
                   className="min-w-0 max-w-xs cursor-pointer rounded-lg border border-white/10 bg-black/20 px-2 py-1 text-xs text-white/80 outline-none hover:bg-black/30"
                 >
                   {dirs.map((d) => (
@@ -485,6 +512,7 @@ function VersionsPage({
             />
           )}
         </AnimatePresence>
+        <ShareStatus control={share} />
         {notice && (
           <div className="flex items-start gap-3 rounded-xl bg-emerald-500/15 px-4 py-3 text-sm text-emerald-200">
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
@@ -560,13 +588,17 @@ function VersionsPage({
                       : 'border-transparent bg-black/20 hover:bg-black/30'
                   }`}
                 >
-                  {/* 点击图标或名称设为启动版本 */}
+                  <VersionIconPicker
+                    version={version}
+                    onChanged={(display) => updateDisplay(version.id, display)}
+                    onError={setActionError}
+                  />
+                  {/* 点击名称设为启动版本 */}
                   <button
                     onClick={() => !current && select(version.id)}
                     title={current ? '主页的「启动游戏」会启动这个版本' : '点击设为启动版本'}
                     className={`group flex min-w-0 flex-1 items-center gap-3 text-left ${current ? 'cursor-default' : ''}`}
                   >
-                    <GrassBlockIcon className="h-9 w-9 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="truncate font-semibold">{version.id}</span>
@@ -612,6 +644,16 @@ function VersionsPage({
                       </div>
                     </div>
                   </button>
+                  <button
+                    onClick={() => toggleFavorite(version)}
+                    title={version.favorite ? '取消收藏' : '收藏：排在列表前面，主页的版本列表里也排在前面'}
+                    aria-pressed={version.favorite}
+                    className={`shrink-0 rounded-lg p-1.5 hover:bg-white/10 ${
+                      version.favorite ? 'text-amber-300' : 'text-white/30 hover:text-white/70'
+                    }`}
+                  >
+                    <Star className={`h-4 w-4 ${version.favorite ? 'fill-current' : ''}`} />
+                  </button>
                   {isModded(version) && (
                     <button onClick={() => setModsFor(version)} title="管理该版本的模组" className={actionClass}>
                       <Puzzle className="h-3.5 w-3.5" />
@@ -654,6 +696,10 @@ function VersionsPage({
                       })
                     }
                     onExport={() => setExportFor(version)}
+                    onShareLog={() => {
+                      shareTarget.current = version.id
+                      share.ask()
+                    }}
                     onOpenFolder={() => window.api.openVersionDir(version.id)}
                     onRepair={() => repair(version.id)}
                     onDelete={() => remove(version.id)}

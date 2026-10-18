@@ -77,6 +77,10 @@ export interface AppSettings {
   checkFiles: boolean
   /** 主页显示 Minecraft 新闻 */
   showNews: boolean
+  /** 主页显示「最近游玩」 */
+  showRecentPlays: boolean
+  /** 主页的「最近游玩」收起（只显示标题） */
+  recentPlaysCollapsed: boolean
   /** 下载源 */
   downloadSource: DownloadSource
   /** 每个服务器同时下载的文件数（1~64） */
@@ -121,6 +125,8 @@ export interface AppSettings {
   afterLaunch: AfterLaunch
   /** 启动时自动检查更新 */
   autoCheckUpdate: boolean
+  /** 更新来源：自动（先官网后 GitHub）/ 只用官网 / 只用 GitHub */
+  updateSource: UpdateSource
   /** 用户选择忽略的新版本（不再自动提示） */
   skippedVersion: string
 }
@@ -143,6 +149,8 @@ export interface UpdateInfo {
   assetSize: number
   /** 是否可以在启动器里直接下载并替换更新（开发版本或无法识别运行方式时为 false） */
   autoUpdate: boolean
+  /** 这次的版本信息来自哪里 */
+  source: 'official' | 'github'
 }
 
 /** 自动更新的下载状态 */
@@ -155,6 +163,15 @@ export interface UpdateDownload {
   /** 字节/秒 */
   speed: number
   error?: string
+}
+
+/** 上次自动更新的结果（Windows） */
+export interface UpdateResult {
+  ok: boolean
+  version: string
+  error?: string
+  /** 更新日志的位置 */
+  logFile: string
 }
 
 /** 主题色 */
@@ -173,7 +190,11 @@ export type ThemeMode = 'system' | 'dark' | 'light'
 export type SkinModel = 'default' | 'slim'
 
 /** 系统信息 */
+export type UpdateSource = 'auto' | 'official' | 'github'
+
 export interface SystemInfo {
+  /** 官网地址（构建时配置），没有配置时为空字符串 */
+  officialSite: string
   /** 物理内存总量（MB） */
   totalMemory: number
   /** 免安装版的数据文件夹（exe 旁边），安装版为 null */
@@ -269,6 +290,19 @@ export interface InstalledVersion {
   minecraftVersion: string
   /** 是否有自己的版本设置（与全局设置不同） */
   customized: boolean
+  /** 是否收藏（收藏的版本排在前面） */
+  favorite: boolean
+  /** 图标：内置图标名，或 custom 表示自定义图片；没有时用默认图标 */
+  icon?: string
+  /** 自定义图标（PNG 的 data URL） */
+  iconUrl?: string
+}
+
+/** 版本的收藏与图标 */
+export interface VersionDisplay {
+  favorite: boolean
+  icon?: string
+  iconUrl?: string
 }
 
 /** 单个版本的设置，保存在 versions/<版本名>/liuli-version.json，未设置的项跟随全局设置 */
@@ -492,7 +526,30 @@ export interface ModList {
   /** 版本的模组加载器 */
   loader?: ModLoader
   mods: ModInfo[]
+  /** 模组之间的问题（缺少前置、重复模组） */
+  issues: ModIssue[]
 }
+
+/** 模组之间的问题 */
+export type ModIssue =
+  | {
+      /** 缺少前置模组 */
+      kind: 'missing'
+      /** 缺少的模组 ID */
+      dependency: string
+      /** 也可以用这些模组代替 */
+      alternatives: string[]
+      /** 需要它的模组 */
+      requiredBy: { fileName: string; name: string; range: string }[]
+      /** 已经装了但被禁用了 */
+      disabled?: { fileName: string; name: string }
+    }
+  | {
+      /** 同一个模组装了多个 */
+      kind: 'duplicate'
+      modId: string
+      mods: { fileName: string; name: string; version: string }[]
+    }
 
 /** 版本游戏目录里的本地资源：资源包或光影包 */
 export type LocalResourceKind = 'resourcepack' | 'shader'
@@ -545,6 +602,33 @@ export interface WorldInfo {
   icon?: string
   /** level.dat 读取失败 */
   damaged: boolean
+}
+
+export type WorldDifficulty = 'peaceful' | 'easy' | 'normal' | 'hard'
+
+/** 存档详情（读取自 level.dat） */
+export interface WorldDetails {
+  folder: string
+  /** 世界种子（十进制字符串，64 位整数不能用普通数字表示） */
+  seed?: string
+  difficulty?: WorldDifficulty
+  difficultyLocked: boolean
+  /** 世界类型：normal / flat / large_biomes / amplified / single_biome / debug，或其他生成器的 ID */
+  worldType?: string
+  /** 游戏内第几天 */
+  day?: number
+  /** 游戏内时刻（例如 06:30） */
+  timeOfDay?: string
+  weather: 'clear' | 'rain' | 'thunder'
+  spawn?: { x: number; y: number; z: number }
+  /** 单人游戏的玩家信息 */
+  player?: { x: number; y: number; z: number; dimension: string; health?: number; food?: number; level?: number }
+  /** 游戏规则（按 level.dat 中的顺序） */
+  gameRules: { key: string; value: string }[]
+  /** 存档文件夹占用的空间（字节） */
+  size: number
+  /** 启用的数据包数量 */
+  datapacks: number
 }
 
 /** 存档备份（游戏目录 backups 文件夹里的 zip） */
@@ -902,4 +986,12 @@ export interface ResourceTarget {
   versionId: string
   /** 数据包安装到的存档文件夹名 */
   world?: string
+}
+
+/** 上传到 mclo.gs 的日志 */
+export interface SharedLog {
+  /** 日志的名字，例如「游戏日志」「崩溃报告」 */
+  label: string
+  /** 公开链接（https://mclo.gs/xxxx） */
+  url: string
 }

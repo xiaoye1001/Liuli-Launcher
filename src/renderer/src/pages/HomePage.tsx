@@ -9,11 +9,13 @@ import {
   Loader2,
   Play,
   Settings2,
+  Star,
   Terminal,
   UserRound
 } from 'lucide-react'
 import CrashCard from '../components/CrashCard'
 import RecentPlays from '../components/RecentPlays'
+import VersionIcon from '../components/VersionIcon'
 import NewsPanel from '../components/NewsPanel'
 import { formatClock } from '../utils/format'
 import SkinHead from '../components/SkinHead'
@@ -30,6 +32,9 @@ interface VersionSelectProps {
 function VersionSelect({ versions, value, onChange }: VersionSelectProps): JSX.Element {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  // 收藏的版本排在前面
+  const sorted = [...versions].sort((a, b) => Number(b.favorite) - Number(a.favorite))
+  const current = versions.find((v) => v.id === value)
 
   // 点击外部时关闭下拉框
   useEffect(() => {
@@ -47,7 +52,11 @@ function VersionSelect({ versions, value, onChange }: VersionSelectProps): JSX.E
         disabled={versions.length === 0}
         className="flex w-full items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-left text-sm hover:bg-black/30 disabled:opacity-50"
       >
-        <Box className="h-4 w-4 shrink-0 text-emerald-300" />
+        {current ? (
+          <VersionIcon icon={current.icon} iconUrl={current.iconUrl} className="h-5 w-5" />
+        ) : (
+          <Box className="h-4 w-4 shrink-0 text-emerald-300" />
+        )}
         <span className="flex-1 truncate font-mono">{value || '尚未安装任何版本'}</span>
         <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -60,7 +69,7 @@ function VersionSelect({ versions, value, onChange }: VersionSelectProps): JSX.E
             transition={{ duration: 0.15 }}
             className="absolute bottom-full z-20 mb-2 max-h-64 w-full overflow-y-auto rounded-xl border border-white/10 popover-background p-1 shadow-2xl backdrop-blur-xl"
           >
-            {versions.map((v) => (
+            {sorted.map((v) => (
               <button
                 key={v.id}
                 onClick={() => {
@@ -69,7 +78,9 @@ function VersionSelect({ versions, value, onChange }: VersionSelectProps): JSX.E
                 }}
                 className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-white/10"
               >
+                <VersionIcon icon={v.icon} iconUrl={v.iconUrl} className="h-5 w-5" />
                 <span className="flex-1 truncate font-mono">{v.id}</span>
+                {v.favorite && <Star className="h-3.5 w-3.5 shrink-0 fill-current text-amber-300" />}
                 {v.id === value && <Check className="h-4 w-4 text-emerald-400" />}
               </button>
             ))}
@@ -172,7 +183,18 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
           <NewsPanel onHide={async () => setSettings(await window.api.updateSettings({ showNews: false }))} />
         </div>
       )}
-      {nameValid && <RecentPlays versions={versions} game={game} onLaunch={launchRecent} />}
+      {nameValid && settings?.showRecentPlays && (
+        <RecentPlays
+          versions={versions}
+          game={game}
+          onLaunch={launchRecent}
+          collapsed={settings.recentPlaysCollapsed}
+          onToggleCollapsed={async () =>
+            setSettings(await window.api.updateSettings({ recentPlaysCollapsed: !settings.recentPlaysCollapsed }))
+          }
+          onHide={async () => setSettings(await window.api.updateSettings({ showRecentPlays: false }))}
+        />
+      )}
 
       <AnimatePresence>
         {game.state === 'crashed' && game.error && !crashDismissed && (

@@ -11,6 +11,7 @@ import {
   Terminal,
   X
 } from 'lucide-react'
+import { ShareButton, ShareStatus, useLogShare } from './LogShare'
 import type { CrashAction, GameStatus } from '../../../shared/types'
 
 const ACTION_LABELS: Record<CrashAction, string> = {
@@ -34,6 +35,7 @@ function CrashCard({ game, onAction, onDismiss }: CrashCardProps): JSX.Element {
   const analysis = game.analysis
   const [exporting, setExporting] = useState(false)
   const [message, setMessage] = useState('')
+  const share = useLogShare(() => window.api.shareCrashLogs())
 
   const run = async (action: () => Promise<unknown>): Promise<void> => {
     setMessage('')
@@ -151,6 +153,7 @@ function CrashCard({ game, onAction, onDismiss }: CrashCardProps): JSX.Element {
             Java 崩溃日志
           </button>
         )}
+        {analysis && <ShareButton control={share} className={buttonClass} />}
         {analysis && (
           <button onClick={exportInfo} disabled={exporting} className={`${buttonClass} disabled:opacity-50`}>
             {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileArchive className="h-3.5 w-3.5" />}
@@ -164,6 +167,7 @@ function CrashCard({ game, onAction, onDismiss }: CrashCardProps): JSX.Element {
           </span>
         )}
       </div>
+      <ShareStatus control={share} className="mx-5 mb-3" />
     </motion.div>
   )
 }

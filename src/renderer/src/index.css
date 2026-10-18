@@ -163,3 +163,21 @@ html.no-anim *::after {
   to { opacity: 1; transform: none; }
 }
 .animate-slide-in { animation: slide-in 0.2s ease-out; }
+
+/* 隐藏了系统标题栏时（Windows、Linux）：窗口顶部的拖动区域，右上角是系统画的窗口按钮 */
+.titlebar-drag {
+  -webkit-app-region: drag;
+  height: 32px;
+}
+html:not(.custom-titlebar) .titlebar-drag {
+  display: none;
+}
+/* 覆盖整个窗口的大图预览等：内容从标题栏下面开始，避免按钮被窗口按钮挡住 */
+html.custom-titlebar .pt-titlebar {
+  padding-top: 32px;
+}
+/* 拖动区域里的按钮、可能出现在窗口顶部的弹出框不能被当成拖动区域 */
+.titlebar-no-drag,
+.popover-background {
+  -webkit-app-region: no-drag;
+}

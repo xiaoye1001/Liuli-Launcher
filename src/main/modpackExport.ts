@@ -35,6 +35,8 @@ const EXCLUDED = new Set([
   '.mixin.out',
   '.optifine',
   'liuli-version.json',
+  'liuli-display.json',
+  'liuli-icon.png',
   'launcher_profiles.json',
   'launcher_accounts.json',
   'usercache.json',

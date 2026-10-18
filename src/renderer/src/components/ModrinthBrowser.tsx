@@ -31,11 +31,13 @@ interface ModrinthBrowserProps {
   versionId: string
   /** 安装了新模组后通知外层刷新已安装列表 */
   onInstalled: () => void
+  /** 外部要求搜索的关键字（nonce 变化时生效） */
+  preset?: { text: string; nonce: number }
 }
 
 /** 在 Modrinth 搜索并安装适用于当前版本的模组 */
-function ModrinthBrowser({ versionId, onInstalled }: ModrinthBrowserProps): JSX.Element {
-  const [keyword, setKeyword] = useState('')
+function ModrinthBrowser({ versionId, onInstalled, preset }: ModrinthBrowserProps): JSX.Element {
+  const [keyword, setKeyword] = useState(preset?.text ?? '')
   const [hits, setHits] = useState<ModrinthProject[]>([])
   const [total, setTotal] = useState(0)
   const [context, setContext] = useState('')
@@ -66,6 +68,10 @@ function ModrinthBrowser({ versionId, onInstalled }: ModrinthBrowserProps): JSX.
     },
     [versionId]
   )
+
+  useEffect(() => {
+    if (preset) setKeyword(preset.text)
+  }, [preset])
 
   // 输入停止 400 毫秒后自动搜索；关键字为空时显示下载量最高的模组
   useEffect(() => {

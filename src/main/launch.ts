@@ -19,6 +19,7 @@ import { collectCrash } from './crashReport'
 import { recordSession } from './playStats'
 import { parseAddress } from './serverPing'
 import { ensureAuthlibInjector } from './authlibInjector'
+import { readVersionDisplay } from './versionDisplay'
 import type { GameLogEvent, GameStatus, InstalledVersion, JavaInfo, MemoryPlan, ModLoader } from '../shared/types'
 
 /** 根据版本 json 的启动类与依赖库判断模组加载器 */
@@ -57,6 +58,7 @@ export async function listInstalledVersions(): Promise<InstalledVersion[]> {
         loader,
         isolated: isolatedWith(config, versionIsolation, loader),
         customized: isCustomized(config),
+        ...(await readVersionDisplay(gameDir, id)),
         // 加载器版本继承自原版，原版版本的 id 就是版本号
         minecraftVersion: json.inheritsFrom ?? json.liuliMinecraftVersion ?? json.id ?? id
       })

@@ -18,6 +18,7 @@ import {
   Trash2
 } from 'lucide-react'
 import GrassBlockIcon from '../components/GrassBlockIcon'
+import WorldDetailsPanel from '../components/WorldDetailsPanel'
 import type {
   InstalledVersion,
   WorldBackup,
@@ -195,6 +196,8 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
+  /** 展开的是详情还是数据包 */
+  const [panel, setPanel] = useState<'details' | 'datapacks'>('details')
   /** 正在操作的存档（备份可能需要一些时间） */
   const [pending, setPending] = useState<string | null>(null)
   const [tab, setTab] = useState<'worlds' | 'backups'>('worlds')
@@ -492,6 +495,13 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
             worlds.map((world) => {
               const mode = GAME_MODES[world.gameMode]
               const open = expanded === world.folder
+              const toggle = (next: 'details' | 'datapacks'): void => {
+                if (open && panel === next) setExpanded(null)
+                else {
+                  setExpanded(world.folder)
+                  setPanel(next)
+                }
+              }
               return (
                 <div key={world.folder} className="overflow-hidden rounded-xl bg-black/20">
                   <div className="flex items-center gap-3 px-4 py-3">
@@ -548,12 +558,26 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
                         )}
                       </div>
                     </div>
+                    {!world.damaged && (
+                      <button
+                        onClick={() => toggle('details')}
+                        title="种子、难度、游戏规则等"
+                        className="flex shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                      >
+                        详情
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 transition-transform ${open && panel === 'details' ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                    )}
                     <button
-                      onClick={() => setExpanded(open ? null : world.folder)}
+                      onClick={() => toggle('datapacks')}
                       className="flex shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
                     >
                       数据包
-                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+                      <ChevronDown
+                        className={`h-3.5 w-3.5 transition-transform ${open && panel === 'datapacks' ? 'rotate-180' : ''}`}
+                      />
                     </button>
                     <button
                       onClick={() =>
@@ -597,7 +621,8 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
-                  {open && (
+                  {open && panel === 'details' && <WorldDetailsPanel versionId={version.id} folder={world.folder} />}
+                  {open && panel === 'datapacks' && (
                     <DatapackPanel
                       versionId={version.id}
                       world={world}

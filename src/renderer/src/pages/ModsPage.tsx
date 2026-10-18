@@ -12,6 +12,7 @@ import {
   Trash2
 } from 'lucide-react'
 import ModrinthBrowser from '../components/ModrinthBrowser'
+import ModIssuesCard from '../components/ModIssuesCard'
 import type { InstalledVersion, ModInfo, ModKind, ModList, ModUpdate } from '../../../shared/types'
 
 const TABS: { key: 'installed' | 'modrinth'; label: string }[] = [
@@ -63,6 +64,8 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
   /** 检查更新的结果：文件名 → 新版本；null 表示还没有检查 */
   const [updates, setUpdates] = useState<Record<string, ModUpdate> | null>(null)
   const [checking, setChecking] = useState(false)
+  /** 从问题提示跳到「下载模组」时预先填好的搜索词 */
+  const [searchPreset, setSearchPreset] = useState<{ text: string; nonce: number } | undefined>()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -93,6 +96,14 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
     }
   }
 
+  /** 启用、禁用、删除模组后重新检查前置和重复模组 */
+  const refreshIssues = (): void => {
+    window.api
+      .checkModIssues(version.id)
+      .then((issues) => setList((prev) => prev && { ...prev, issues }))
+      .catch(() => undefined)
+  }
+
   const toggle = (mod: ModInfo): Promise<void> =>
     run(mod.fileName, async () => {
       const fileName = await window.api.setModEnabled(version.id, mod.fileName, !mod.enabled)
@@ -103,6 +114,7 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
             mods: prev.mods.map((m) => (m.fileName === mod.fileName ? { ...m, fileName, enabled: !mod.enabled } : m))
           }
       )
+      refreshIssues()
     })
 
   const remove = (mod: ModInfo): Promise<void> =>
@@ -110,6 +122,7 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
       await window.api.deleteMod(version.id, mod.fileName)
       setList((prev) => prev && { ...prev, mods: prev.mods.filter((m) => m.fileName !== mod.fileName) })
       setNotice(`已将 ${mod.name} 移到回收站`)
+      refreshIssues()
     })
 
   const add = (): Promise<void> =>
@@ -270,7 +283,7 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
         {/* 两个标签页都保持挂载，切换时保留搜索结果 */}
         {browserOpened && (
           <div className={`min-h-0 flex-1 flex-col ${tab === 'modrinth' ? 'flex' : 'hidden'}`}>
-            <ModrinthBrowser versionId={version.id} onInstalled={load} />
+            <ModrinthBrowser versionId={version.id} onInstalled={load} preset={searchPreset} />
           </div>
         )}
         <div className={`min-h-0 flex-1 flex-col ${tab === 'installed' ? 'flex' : 'hidden'}`}>
@@ -311,6 +324,22 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
               检查更新
             </button>
           </div>
+
+          {list && (
+            <ModIssuesCard
+              issues={list.issues}
+              busy={pending !== null}
+              onToggle={(fileName) => {
+                const mod = list.mods.find((m) => m.fileName === fileName)
+                if (mod) void toggle(mod)
+              }}
+              onSearch={(text) => {
+                setSearchPreset({ text, nonce: Date.now() })
+                setBrowserOpened(true)
+                setTab('modrinth')
+              }}
+            />
+          )}
 
           <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             {loading && !list && (

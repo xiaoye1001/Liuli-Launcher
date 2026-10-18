@@ -171,7 +171,7 @@ function ScreenshotsPanel({ versionId }: { versionId: string }): JSX.Element {
       {current &&
         preview !== null &&
         createPortal(
-          <div className="fixed inset-0 z-50 flex flex-col bg-black/90" onClick={() => setPreview(null)}>
+          <div className="pt-titlebar fixed inset-0 z-50 flex flex-col bg-black/90" onClick={() => setPreview(null)}>
             <div className="flex items-center gap-3 px-5 py-3 text-sm text-[#fff]" onClick={(e) => e.stopPropagation()}>
               <span className="min-w-0 flex-1 truncate">
                 {current.fileName}

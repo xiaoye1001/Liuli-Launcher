@@ -18,6 +18,17 @@ import type {
 } from '../shared/types'
 
 const api = {
+  /** Windows 和 Linux 隐藏了系统标题栏，界面顶部要留出拖动区域和窗口按钮的位置 */
+  customTitleBar: process.platform === 'win32' || process.platform === 'linux',
+  windowControl: (action: 'minimize' | 'maximize' | 'close') => ipcRenderer.invoke('window:control', action),
+  isWindowMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+  onWindowMaximized: (callback: (maximized: boolean) => void) => {
+    const listener = (_: unknown, maximized: boolean): void => callback(maximized)
+    ipcRenderer.on('window:maximized', listener)
+    return () => {
+      ipcRenderer.removeListener('window:maximized', listener)
+    }
+  },
   versions: {
     electron: process.versions.electron,
     chrome: process.versions.chrome,
@@ -69,6 +80,7 @@ const api = {
   openLocalResourceDir: (versionId: string, kind: LocalResourceKind) =>
     ipcRenderer.invoke('local:open', versionId, kind),
   listWorldInfos: (versionId: string) => ipcRenderer.invoke('worlds:list', versionId),
+  getWorldDetails: (versionId: string, folder: string) => ipcRenderer.invoke('worlds:details', versionId, folder),
   deleteWorld: (versionId: string, folder: string) => ipcRenderer.invoke('worlds:delete', versionId, folder),
   backupWorld: (versionId: string, folder: string) => ipcRenderer.invoke('worlds:backup', versionId, folder),
   openWorldDir: (versionId: string, folder?: string) => ipcRenderer.invoke('worlds:open', versionId, folder),
@@ -113,6 +125,11 @@ const api = {
   setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) =>
     ipcRenderer.invoke('versions:setConfig', versionId, patch),
   listMods: (versionId: string) => ipcRenderer.invoke('mods:list', versionId),
+  setVersionFavorite: (versionId: string, favorite: boolean) =>
+    ipcRenderer.invoke('version:setFavorite', versionId, favorite),
+  setVersionIcon: (versionId: string, icon: string | null) => ipcRenderer.invoke('version:setIcon', versionId, icon),
+  pickVersionIcon: (versionId: string) => ipcRenderer.invoke('version:pickIcon', versionId),
+  checkModIssues: (versionId: string) => ipcRenderer.invoke('mods:issues', versionId),
   setModEnabled: (versionId: string, fileName: string, enabled: boolean) =>
     ipcRenderer.invoke('mods:setEnabled', versionId, fileName, enabled),
   deleteMod: (versionId: string, fileName: string) => ipcRenderer.invoke('mods:delete', versionId, fileName),
@@ -142,6 +159,8 @@ const api = {
   getUpdateDownload: () => ipcRenderer.invoke('update:downloadStatus'),
   cancelUpdateDownload: () => ipcRenderer.invoke('update:cancelDownload'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
+  getLastUpdateResult: () => ipcRenderer.invoke('update:lastResult'),
+  showUpdateLog: () => ipcRenderer.invoke('update:showLog'),
   onUpdateDownload: (callback: (status: UpdateDownload) => void) => {
     const listener = (_: Electron.IpcRendererEvent, status: UpdateDownload): void => callback(status)
     ipcRenderer.on('update:download', listener)
@@ -208,6 +227,9 @@ const api = {
   removeGameDir: (dir: string) => ipcRenderer.invoke('gamedir:remove', dir),
   getGameLogs: () => ipcRenderer.invoke('game:logs'),
   openLogWindow: () => ipcRenderer.invoke('logs:open'),
+  shareGameLog: () => ipcRenderer.invoke('logs:shareGame'),
+  shareCrashLogs: () => ipcRenderer.invoke('logs:shareCrash'),
+  shareLatestLog: (versionId: string) => ipcRenderer.invoke('logs:shareLatest', versionId),
   /** 订阅游戏日志，返回取消订阅函数 */
   onGameLog: (callback: (event: GameLogEvent) => void) => {
     const listener = (_: Electron.IpcRendererEvent, event: GameLogEvent): void => callback(event)

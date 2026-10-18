@@ -10,6 +10,7 @@ import type {
   FabricLoaderVersion,
   ForgeVersionInfo,
   GameDirInfo,
+  SharedLog,
   GameLogEvent,
   GameStatus,
   InstalledVersion,
@@ -20,6 +21,8 @@ import type {
   NeoForgeVersionInfo,
   OptiFineVersionInfo,
   ModList,
+  ModIssue,
+  VersionDisplay,
   AccountsInfo,
   MsLoginStatus,
   ModrinthInstallResult,
@@ -37,9 +40,11 @@ import type {
   LocalResourceList,
   WorldDatapack,
   WorldList,
+  WorldDetails,
   SavedServer,
   ServerStatus,
   UpdateInfo,
+  UpdateResult,
   ExternalAccount,
   ExternalLoginResult,
   ModUpdate,
@@ -54,6 +59,11 @@ declare global {
   interface Window {
     electron: ElectronAPI
     api: {
+      customTitleBar: boolean
+      /** 界面上的窗口按钮：最小化、最大化 / 还原、关闭 */
+      windowControl: (action: 'minimize' | 'maximize' | 'close') => Promise<void>
+      isWindowMaximized: () => Promise<boolean>
+      onWindowMaximized: (callback: (maximized: boolean) => void) => () => void
       versions: {
         electron: string
         chrome: string
@@ -110,6 +120,8 @@ declare global {
       openLocalResourceDir: (versionId: string, kind: LocalResourceKind) => Promise<void>
       /** 版本的存档列表 */
       listWorldInfos: (versionId: string) => Promise<WorldList>
+      /** 存档详情：种子、难度、游戏规则等 */
+      getWorldDetails: (versionId: string, folder: string) => Promise<WorldDetails>
       /** 删除存档（移到回收站） */
       deleteWorld: (versionId: string, folder: string) => Promise<void>
       /** 备份存档为 zip，返回路径与大小 */
@@ -166,6 +178,13 @@ declare global {
       getVersionConfig: (versionId: string) => Promise<VersionConfig>
       setVersionConfig: (versionId: string, patch: Partial<VersionConfig>) => Promise<VersionConfig>
       listMods: (versionId: string) => Promise<ModList>
+      setVersionFavorite: (versionId: string, favorite: boolean) => Promise<VersionDisplay>
+      /** 使用内置图标，null 恢复默认 */
+      setVersionIcon: (versionId: string, icon: string | null) => Promise<VersionDisplay>
+      /** 选择图片作为版本图标，取消时返回 null */
+      pickVersionIcon: (versionId: string) => Promise<VersionDisplay | null>
+      /** 检查模组问题：缺少前置、重复模组 */
+      checkModIssues: (versionId: string) => Promise<ModIssue[]>
       /** 返回修改后的文件名 */
       setModEnabled: (versionId: string, fileName: string, enabled: boolean) => Promise<string>
       deleteMod: (versionId: string, fileName: string) => Promise<void>
@@ -208,6 +227,9 @@ declare global {
       cancelUpdateDownload: () => Promise<void>
       /** 替换为新版本并重启启动器 */
       installUpdate: () => Promise<void>
+      /** 上次自动更新的结果，只返回一次；没有时为 null */
+      getLastUpdateResult: () => Promise<UpdateResult | null>
+      showUpdateLog: () => Promise<void>
       onUpdateDownload: (callback: (status: UpdateDownload) => void) => () => void
       listServers: () => Promise<SavedServer[]>
       /** 添加（没有 id）或修改服务器，返回新的列表 */
@@ -265,6 +287,12 @@ declare global {
       removeGameDir: (dir: string) => Promise<GameDirInfo>
       getGameLogs: () => Promise<string[]>
       openLogWindow: () => Promise<void>
+      /** 上传到 mclo.gs：日志窗口里的游戏输出 */
+      shareGameLog: () => Promise<SharedLog[]>
+      /** 上传到 mclo.gs：最近一次崩溃的游戏输出和崩溃报告 */
+      shareCrashLogs: () => Promise<SharedLog[]>
+      /** 上传到 mclo.gs：某个版本的 logs/latest.log */
+      shareLatestLog: (versionId: string) => Promise<SharedLog[]>
       onGameLog: (callback: (event: GameLogEvent) => void) => () => void
     }
   }

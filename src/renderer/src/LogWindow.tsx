@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowDownToLine, Check, Copy, Search, Terminal, Trash2 } from 'lucide-react'
 import type { GameState, GameStatus } from '../../shared/types'
+import { ShareButton, ShareStatus, useLogShare } from './components/LogShare'
+import WindowControls from './components/WindowControls'
 
 const MAX_LINES = 5000
 
@@ -29,6 +31,7 @@ function LogWindow(): JSX.Element {
   const [autoScroll, setAutoScroll] = useState(true)
   const [copied, setCopied] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
+  const share = useLogShare(() => window.api.shareGameLog())
 
   useEffect(() => {
     document.title = '游戏日志 - 琉璃启动器'
@@ -83,6 +86,9 @@ function LogWindow(): JSX.Element {
 
   return (
     <div className="flex h-full flex-col log-background text-white">
+      <div className="titlebar-drag relative shrink-0">
+        <WindowControls className="absolute right-0 top-0" />
+      </div>
       <header className="flex items-center gap-3 border-b border-white/10 bg-white/5 px-4 py-3 backdrop-blur-xl">
         <Terminal className="h-5 w-5 text-emerald-300" />
         <div className="font-semibold">游戏日志</div>
@@ -107,6 +113,11 @@ function LogWindow(): JSX.Element {
           {copied ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
           {copied ? '已复制' : '复制'}
         </button>
+        <ShareButton
+          control={share}
+          label="分享"
+          className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+        />
         <button
           onClick={() => setLines([])}
           title="清空窗口中的日志"
@@ -116,6 +127,8 @@ function LogWindow(): JSX.Element {
           清屏
         </button>
       </header>
+
+      <ShareStatus control={share} className="mx-4 mt-3" />
 
       <div className="relative min-h-0 flex-1">
         <div
