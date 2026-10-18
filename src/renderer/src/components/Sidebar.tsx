@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
+import MiniPlayer from './MiniPlayer'
 import { Boxes, Download, House, Layers, Server, Settings, UserRound, type LucideIcon } from 'lucide-react'
 
 export type PageKey = 'home' | 'account' | 'versions' | 'servers' | 'download' | 'settings'
@@ -69,7 +70,9 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
         })}
       </nav>
 
-      <div className="mt-auto px-2 text-xs text-white/30" title={portableDir ? `数据保存在 ${portableDir}` : undefined}>
+      <div className="mt-auto" />
+      <MiniPlayer />
+      <div className="px-2 text-xs text-white/30" title={portableDir ? `数据保存在 ${portableDir}` : undefined}>
         v{__APP_VERSION__}
         {portableDir && ' · 免安装版'}
       </div>

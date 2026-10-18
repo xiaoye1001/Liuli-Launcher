@@ -249,6 +249,12 @@ declare global {
       addBackgrounds: () => Promise<AppSettings>
       /** 从背景库删除图片 */
       removeBackground: (name: string) => Promise<AppSettings>
+      /** 背景音乐列表（music 文件夹里的音频文件名） */
+      listMusic: () => Promise<string[]>
+      /** 添加背景音乐（可以多选），返回新的列表 */
+      addMusic: () => Promise<string[]>
+      removeMusic: (name: string) => Promise<string[]>
+      openMusicDir: () => Promise<void>
       /** 任意窗口修改设置后推送最新设置 */
       onSettingsChanged: (callback: (settings: AppSettings) => void) => () => void
       getAccounts: () => Promise<AccountsInfo>

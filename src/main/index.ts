@@ -33,6 +33,7 @@ import { getGameLogs, getGameStatus, launchGame, listInstalledVersions, previewM
 import { closeLogWindow, openLogWindow } from './logWindow'
 import { pickVersionIcon, setVersionFavorite, setVersionIcon } from './versionDisplay'
 import { frameOptions, registerWindowControls, watchMaximize } from './windowFrame'
+import { addMusic, listMusic, openMusicDir, removeMusic } from './music'
 import { applyUiScaleToAll, manageUiScale, normalizeScale, sanitizeFontFamily } from './uiScale'
 import { shareCrashLogs, shareGameLog, shareLatestLog } from './logShare'
 import { getGameDirInfo, openGameDir, pickGameDir, removeGameDir, renameGameDir, setGameDir } from './gameDir'
@@ -203,6 +204,10 @@ function registerIpc(): void {
       patch = { ...patch, downloadThreads: Number.isInteger(threads) ? Math.min(64, Math.max(1, threads)) : 16 }
     }
     if ('uiScale' in patch) patch = { ...patch, uiScale: normalizeScale(patch.uiScale) }
+    if ('musicVolume' in patch) {
+      const volume = Number(patch.musicVolume)
+      patch = { ...patch, musicVolume: Number.isFinite(volume) ? Math.round(Math.min(100, Math.max(0, volume))) : 40 }
+    }
     if ('fontFamily' in patch) patch = { ...patch, fontFamily: sanitizeFontFamily(patch.fontFamily) }
     const next = await updateSettings(patch)
     // 代理与下载线程数立即生效
@@ -221,6 +226,10 @@ function registerIpc(): void {
   ipcMain.handle('appearance:removeBackground', (_, name: string) =>
     removeBackground(String(name)).then(broadcastSettings)
   )
+  ipcMain.handle('music:list', () => listMusic())
+  ipcMain.handle('music:add', (event) => addMusic(BrowserWindow.fromWebContents(event.sender)))
+  ipcMain.handle('music:remove', (_, name: string) => removeMusic(name))
+  ipcMain.handle('music:openDir', () => openMusicDir())
   ipcMain.handle('versions:list', async (_, force: boolean) => {
     const settings = await getSettings()
     return getVersionManifest(settings.downloadSource, force)

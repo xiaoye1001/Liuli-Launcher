@@ -33,6 +33,7 @@ import { backgroundUrl } from '../utils/appearance'
 import { ReleaseNotes, UpdateActions } from '../components/UpdateNotice'
 import GameDirSection from '../components/GameDirSection'
 import FontPicker from '../components/FontPicker'
+import MusicSettings from '../components/MusicSettings'
 import { UI_SCALES } from '../../../shared/types'
 import type {
   AccentColor,
@@ -669,6 +670,9 @@ function SettingsPage(): JSX.Element {
             <div className="mt-1.5 text-xs text-white/40">
               也可以按 Ctrl + 加号 / 减号 或 Ctrl + 鼠标滚轮调整，Ctrl + 0 恢复 100%
             </div>
+
+            {/* 背景音乐 */}
+            <MusicSettings settings={settings} update={update} updateSlider={updateSlider} />
 
             {/* 界面动画 */}
             <div className="mt-6 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">

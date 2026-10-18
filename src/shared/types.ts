@@ -139,6 +139,14 @@ export interface AppSettings {
   fontFamily: string
   /** 界面缩放（%），取值见 UI_SCALES */
   uiScale: number
+  /** 是否播放背景音乐 */
+  musicEnabled: boolean
+  /** 背景音乐音量（0~100） */
+  musicVolume: number
+  /** 播放顺序 */
+  musicOrder: MusicOrder
+  /** 游戏运行时暂停背景音乐，游戏退出后继续 */
+  musicPauseInGame: boolean
   /** 游戏窗口出现后启动器的行为 */
   afterLaunch: AfterLaunch
   /** 启动时自动检查更新 */
@@ -224,6 +232,9 @@ export type UpdateSource = 'auto' | 'official' | 'github'
 
 /** 可选的界面缩放比例（%） */
 export const UI_SCALES = [80, 90, 100, 110, 125, 150]
+
+/** 背景音乐播放顺序：列表循环 / 随机播放 / 单曲循环 */
+export type MusicOrder = 'sequential' | 'shuffle' | 'single'
 
 export type BackgroundMode = 'off' | 'fixed' | 'random' | 'slideshow'
 /** 填充（裁剪铺满）/ 适应（完整显示）/ 拉伸 / 居中 / 平铺 */
