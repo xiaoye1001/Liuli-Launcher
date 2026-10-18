@@ -91,6 +91,8 @@ function defaultSettings(): AppSettings {
     backgroundBlur: 0,
     backgroundDim: 30,
     animations: true,
+    fontFamily: '',
+    uiScale: 100,
     afterLaunch: 'keep',
     autoCheckUpdate: true,
     updateSource: 'auto',

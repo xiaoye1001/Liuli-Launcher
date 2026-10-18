@@ -135,6 +135,10 @@ export interface AppSettings {
   backgroundDim: number
   /** 是否开启界面动画 */
   animations: boolean
+  /** 界面字体（字体名称），空字符串表示使用默认字体 */
+  fontFamily: string
+  /** 界面缩放（%），取值见 UI_SCALES */
+  uiScale: number
   /** 游戏窗口出现后启动器的行为 */
   afterLaunch: AfterLaunch
   /** 启动时自动检查更新 */
@@ -217,6 +221,9 @@ export type SkinModel = 'default' | 'slim'
 
 /** 系统信息 */
 export type UpdateSource = 'auto' | 'official' | 'github'
+
+/** 可选的界面缩放比例（%） */
+export const UI_SCALES = [80, 90, 100, 110, 125, 150]
 
 export type BackgroundMode = 'off' | 'fixed' | 'random' | 'slideshow'
 /** 填充（裁剪铺满）/ 适应（完整显示）/ 拉伸 / 居中 / 平铺 */

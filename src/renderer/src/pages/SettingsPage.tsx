@@ -32,6 +32,8 @@ import {
 import { backgroundUrl } from '../utils/appearance'
 import { ReleaseNotes, UpdateActions } from '../components/UpdateNotice'
 import GameDirSection from '../components/GameDirSection'
+import FontPicker from '../components/FontPicker'
+import { UI_SCALES } from '../../../shared/types'
 import type {
   AccentColor,
   AfterLaunch,
@@ -625,6 +627,48 @@ function SettingsPage(): JSX.Element {
             {backgroundError && (
               <div className="mt-3 rounded-xl bg-red-500/20 px-4 py-2.5 text-sm text-red-200">{backgroundError}</div>
             )}
+
+            {/* 字体与缩放 */}
+            <div className="mt-6 text-sm font-medium">界面字体</div>
+            <div className="mt-3 flex items-center gap-3">
+              <div className="flex-1">
+                <FontPicker value={settings.fontFamily ?? ''} onChange={(font) => update({ fontFamily: font })} />
+              </div>
+              {settings.fontFamily && (
+                <button
+                  onClick={() => update({ fontFamily: '' })}
+                  className="flex shrink-0 items-center gap-1.5 text-xs text-white/50 hover:text-white"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  恢复默认字体
+                </button>
+              )}
+            </div>
+
+            <div className="mt-6 text-sm font-medium">界面缩放</div>
+            <div className="mt-3 grid grid-cols-6 gap-2" role="radiogroup" aria-label="界面缩放">
+              {UI_SCALES.map((scale) => {
+                const active = (settings.uiScale || 100) === scale
+                return (
+                  <button
+                    key={scale}
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => update({ uiScale: scale })}
+                    className={`rounded-xl border px-2 py-2 text-center text-sm transition-colors ${
+                      active
+                        ? 'border-emerald-400/50 bg-emerald-500/15'
+                        : 'border-white/10 bg-white/5 hover:bg-white/10'
+                    }`}
+                  >
+                    {scale}%{scale === 100 && <span className="ml-1 text-xs text-white/50">默认</span>}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="mt-1.5 text-xs text-white/40">
+              也可以按 Ctrl + 加号 / 减号 或 Ctrl + 鼠标滚轮调整，Ctrl + 0 恢复 100%
+            </div>
 
             {/* 界面动画 */}
             <div className="mt-6 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">

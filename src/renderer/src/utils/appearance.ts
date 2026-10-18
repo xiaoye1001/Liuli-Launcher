@@ -54,6 +54,10 @@ function apply(settings: AppSettings): void {
   const blur = Number.isFinite(settings.panelBlur) ? Math.min(40, Math.max(0, settings.panelBlur)) : 24
   html.style.setProperty('--panel-alpha', String(opacity / 100))
   html.style.setProperty('--panel-blur', `${blur}px`)
+  // 界面字体：名称已由主进程清理过，这里再加引号作为一个整体
+  const font = (settings.fontFamily ?? '').replace(/["\\]/g, '').trim()
+  if (font) html.style.setProperty('--app-font', `"${font}"`)
+  else html.style.removeProperty('--app-font')
   html.classList.toggle('no-anim', !settings.animations)
   listeners.forEach((listener) => listener())
 }

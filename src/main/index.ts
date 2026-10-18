@@ -33,6 +33,7 @@ import { getGameLogs, getGameStatus, launchGame, listInstalledVersions, previewM
 import { closeLogWindow, openLogWindow } from './logWindow'
 import { pickVersionIcon, setVersionFavorite, setVersionIcon } from './versionDisplay'
 import { frameOptions, registerWindowControls, watchMaximize } from './windowFrame'
+import { applyUiScaleToAll, manageUiScale, normalizeScale, sanitizeFontFamily } from './uiScale'
 import { shareCrashLogs, shareGameLog, shareLatestLog } from './logShare'
 import { getGameDirInfo, openGameDir, pickGameDir, removeGameDir, renameGameDir, setGameDir } from './gameDir'
 import { assertSafeId, deleteVersion, openVersionDir } from './versionManage'
@@ -129,6 +130,7 @@ import type {
 
 /** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
 function broadcastSettings(settings: AppSettings): AppSettings {
+  applyUiScaleToAll(settings)
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('settings:changed', settings)
   return settings
 }
@@ -159,6 +161,7 @@ function createWindow(): void {
 
   setMainWindow(mainWindow)
   watchMaximize(mainWindow)
+  manageUiScale(mainWindow, [900, 600])
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -199,6 +202,8 @@ function registerIpc(): void {
       const threads = Number(patch.downloadThreads)
       patch = { ...patch, downloadThreads: Number.isInteger(threads) ? Math.min(64, Math.max(1, threads)) : 16 }
     }
+    if ('uiScale' in patch) patch = { ...patch, uiScale: normalizeScale(patch.uiScale) }
+    if ('fontFamily' in patch) patch = { ...patch, fontFamily: sanitizeFontFamily(patch.fontFamily) }
     const next = await updateSettings(patch)
     // 代理与下载线程数立即生效
     if ('proxyMode' in patch || 'proxyUrl' in patch || 'downloadThreads' in patch) await applyNetworkSettings()

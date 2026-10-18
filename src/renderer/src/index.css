@@ -144,7 +144,8 @@ body,
 }
 
 body {
-  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  /* --app-font 为设置里选择的界面字体，缺字时回落到默认字体 */
+  font-family: var(--app-font, 'Segoe UI'), 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
   user-select: none;
 }
 

@@ -3,6 +3,17 @@ module.exports = {
   content: ['./src/renderer/index.html', './src/renderer/src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      // font-sans 也跟随设置里选择的界面字体
+      fontFamily: {
+        sans: [
+          'var(--app-font, "Segoe UI")',
+          '"Segoe UI"',
+          '"PingFang SC"',
+          '"Microsoft YaHei"',
+          'system-ui',
+          'sans-serif'
+        ]
+      },
       colors: {
         // 主题色变量：深色模式下 white = 白色、black = 黑色；
         // 浅色模式下 white = 深色文字、black = 白色，现有的 text-white / bg-black/20 等类名会自动适配
