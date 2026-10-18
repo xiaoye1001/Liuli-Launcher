@@ -228,6 +228,8 @@ def main():
             {
                 'version': version,
                 'publishedAt': release.get('published_at', ''),
+                # 更新说明（Markdown），网页的「最新更新」显示这里的内容
+                'notes': str(release.get('body') or '')[:20000],
                 'files': files,
                 'updatedAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
             },

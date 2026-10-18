@@ -21,11 +21,109 @@
       Array.prototype.forEach.call(tabs, function (t) {
         t.setAttribute('aria-selected', t === tab ? 'true' : 'false')
       })
-      shotImage.src = 'images/' + key + '.webp'
-      shotImage.alt = tab.textContent + '截图'
-      shotCaption.textContent = SHOTS[key] || ''
+      shotImage.classList.add('fading')
+      setTimeout(function () {
+        shotImage.src = 'images/' + key + '.webp'
+        shotImage.alt = tab.textContent + '截图'
+        shotCaption.textContent = SHOTS[key] || ''
+      }, 180)
     })
   })
+
+  shotImage.addEventListener('load', function () {
+    shotImage.classList.remove('fading')
+  })
+
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  // ---------- 滚动出现 ----------
+  var revealObserver =
+    'IntersectionObserver' in window
+      ? new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (!entry.isIntersecting) return
+              entry.target.classList.add('visible')
+              revealObserver.unobserve(entry.target)
+              var counter = entry.target.querySelector('[data-count]')
+              if (counter) countUp(counter)
+            })
+          },
+          { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+        )
+      : null
+
+  function reveal(node) {
+    if (revealObserver) revealObserver.observe(node)
+    else node.classList.add('visible')
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.reveal'), reveal)
+
+  /** 数字从 0 滚动到目标值 */
+  function countUp(node) {
+    var target = Number(node.getAttribute('data-count')) || 0
+    if (reduceMotion || target <= 0) return
+    var start = null
+    var duration = 1200
+    function step(time) {
+      if (start === null) start = time
+      var t = Math.min(1, (time - start) / duration)
+      var eased = 1 - Math.pow(1 - t, 3)
+      node.textContent = String(Math.round(target * eased))
+      if (t < 1) requestAnimationFrame(step)
+    }
+    node.textContent = '0'
+    requestAnimationFrame(step)
+  }
+
+  // ---------- 支持列表无限滚动：复制一份接在后面 ----------
+  var track = document.querySelector('.marquee-track')
+  if (track) {
+    Array.prototype.slice.call(track.children).forEach(function (item) {
+      var copy = item.cloneNode(true)
+      copy.setAttribute('aria-hidden', 'true')
+      track.appendChild(copy)
+    })
+  }
+
+  // ---------- 首屏截图随鼠标倾斜 ----------
+  var tilt = document.getElementById('hero-tilt')
+  if (tilt && !reduceMotion && window.matchMedia('(pointer: fine)').matches) {
+    var area = tilt.parentElement
+    area.addEventListener('mousemove', function (e) {
+      var rect = area.getBoundingClientRect()
+      var x = (e.clientX - rect.left) / rect.width - 0.5
+      var y = (e.clientY - rect.top) / rect.height - 0.5
+      tilt.style.setProperty('--ry', (x * 10).toFixed(2) + 'deg')
+      tilt.style.setProperty('--rx', (-y * 8).toFixed(2) + 'deg')
+    })
+    area.addEventListener('mouseleave', function () {
+      tilt.style.setProperty('--ry', '0deg')
+      tilt.style.setProperty('--rx', '0deg')
+    })
+  }
+
+  // ---------- 导航阴影、回到顶部 ----------
+  var nav = document.querySelector('.nav')
+  var toTop = document.getElementById('to-top')
+  function onScroll() {
+    var y = window.scrollY || document.documentElement.scrollTop
+    nav.classList.toggle('scrolled', y > 8)
+    toTop.classList.toggle('show', y > 600)
+  }
+  window.addEventListener('scroll', onScroll, { passive: true })
+  onScroll()
+
+  // ---------- GitHub 星标数 ----------
+  fetch('https://api.github.com/repos/' + REPO)
+    .then(function (res) {
+      return res.ok ? res.json() : null
+    })
+    .then(function (repo) {
+      var stars = repo && Number(repo.stargazers_count)
+      if (stars > 0) document.querySelector('.nav-github').textContent = 'GitHub ★ ' + stars
+    })
+    .catch(function () {})
 
   // ---------- 提示 ----------
   var toastTimer
@@ -133,7 +231,13 @@
         return res.json()
       })
       .then(function (data) {
-        return { version: data.version, publishedAt: data.publishedAt, files: data.files || [], local: true }
+        return {
+          version: data.version,
+          publishedAt: data.publishedAt,
+          notes: data.notes || '',
+          files: data.files || [],
+          local: true
+        }
       })
       .catch(function () {
         return fetch('https://api.github.com/repos/' + REPO + '/releases/latest')
@@ -145,6 +249,7 @@
             return {
               version: String(data.tag_name || '').replace(/^v/i, ''),
               publishedAt: data.published_at,
+              notes: data.body || '',
               files: (data.assets || []).map(function (a) {
                 return { name: a.name, size: a.size, sha256: String(a.digest || '').replace(/^sha256:/, '') }
               }),
@@ -203,7 +308,12 @@
         card.appendChild(item)
         if (!primary && platform.key === os) primary = { href: main.href, label: '下载 ' + platform.name + ' 版' }
       })
-      if (card.querySelector('.file')) box.appendChild(card)
+      if (card.querySelector('.file')) {
+        card.classList.add('reveal')
+        card.style.setProperty('--i', String(box.children.length))
+        box.appendChild(card)
+        reveal(card)
+      }
     })
 
     var date = formatDate(release.publishedAt)
@@ -221,11 +331,54 @@
     }
   }
 
+  /** 行内的 `代码` 显示为代码，**加粗** 去掉标记 */
+  function appendInline(parent, text) {
+    text.split(/(`[^`]+`)/).forEach(function (part) {
+      if (/^`[^`]+`$/.test(part)) parent.appendChild(el('code', '', part.slice(1, -1)))
+      else if (part) parent.appendChild(document.createTextNode(part.replace(/\*\*/g, '')))
+    })
+  }
+
+  /** 显示更新说明：只取「下载」之前的部分，支持标题、列表和段落（全部按纯文本处理） */
+  function renderNotes(release) {
+    var body = document.getElementById('changelog-body')
+    var title = document.getElementById('changelog-title')
+    var date = formatDate(release.publishedAt)
+    title.textContent = 'v' + release.version + (date ? ' · ' + date : '')
+    var text = String(release.notes || '').split(/\n##\s*下载/)[0].replace(/^##\s*下载[\s\S]*$/, '')
+    var list = null
+    text.split(/\r?\n/).forEach(function (raw) {
+      var line = raw.trim()
+      if (!line) {
+        list = null
+        return
+      }
+      var heading = /^#{1,4}\s+(.*)$/.exec(line)
+      var item = /^[-*]\s+(.*)$/.exec(line)
+      if (heading) {
+        list = null
+        body.appendChild(el('h3', '', heading[1].replace(/\*\*/g, '')))
+      } else if (item) {
+        if (!list) list = body.appendChild(el('ul'))
+        var li = el('li')
+        appendInline(li, item[1])
+        list.appendChild(li)
+      } else {
+        list = null
+        var p = el('p')
+        appendInline(p, line)
+        body.appendChild(p)
+      }
+    })
+    if (!body.childNodes.length) body.appendChild(el('p', '', '这个版本没有填写更新说明。'))
+  }
+
   var os = detectOs()
   loadRelease()
     .then(function (release) {
       if (!release.version) throw new Error('no version')
       render(release, os)
+      renderNotes(release)
     })
     .catch(function () {
       var box = document.getElementById('downloads')
@@ -239,5 +392,6 @@
       msg.appendChild(document.createTextNode(' 下载。'))
       box.appendChild(msg)
       document.getElementById('download-version').textContent = ''
+      document.getElementById('changelog-title').textContent = '暂时无法获取更新说明'
     })
 })()
