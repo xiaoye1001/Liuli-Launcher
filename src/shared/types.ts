@@ -125,6 +125,8 @@ export interface AppSettings {
   afterLaunch: AfterLaunch
   /** 启动时自动检查更新 */
   autoCheckUpdate: boolean
+  /** 更新来源：自动（先官网后 GitHub）/ 只用官网 / 只用 GitHub */
+  updateSource: UpdateSource
   /** 用户选择忽略的新版本（不再自动提示） */
   skippedVersion: string
 }
@@ -147,6 +149,8 @@ export interface UpdateInfo {
   assetSize: number
   /** 是否可以在启动器里直接下载并替换更新（开发版本或无法识别运行方式时为 false） */
   autoUpdate: boolean
+  /** 这次的版本信息来自哪里 */
+  source: 'official' | 'github'
 }
 
 /** 自动更新的下载状态 */
@@ -186,7 +190,11 @@ export type ThemeMode = 'system' | 'dark' | 'light'
 export type SkinModel = 'default' | 'slim'
 
 /** 系统信息 */
+export type UpdateSource = 'auto' | 'official' | 'github'
+
 export interface SystemInfo {
+  /** 官网地址（构建时配置），没有配置时为空字符串 */
+  officialSite: string
   /** 物理内存总量（MB） */
   totalMemory: number
   /** 免安装版的数据文件夹（exe 旁边），安装版为 null */

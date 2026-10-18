@@ -43,6 +43,7 @@ import type {
   ProxyMode,
   ThemeMode,
   UpdateInfo,
+  UpdateSource,
   VersionIsolation
 } from '../../../shared/types'
 
@@ -119,6 +120,8 @@ function SettingsPage(): JSX.Element {
     }
   }
   const [settings, setSettings] = useState<AppSettings | null>(null)
+  /** 官网地址（构建时配置），没有时不显示更新来源选项 */
+  const [officialSite, setOfficialSite] = useState('')
   const [totalMemory, setTotalMemory] = useState(8192)
   const [memoryDraft, setMemoryDraft] = useState(MEMORY_MIN)
   /** 当前选中版本自动分配的内存 */
@@ -197,6 +200,7 @@ function SettingsPage(): JSX.Element {
       const [loaded, info] = await Promise.all([window.api.getSettings(), window.api.getSystemInfo()])
       setSettings(loaded)
       setTotalMemory(info.totalMemory)
+      setOfficialSite(info.officialSite)
       setMemoryDraft(loaded.maxMemory)
       if (loaded.selectedVersion) window.api.previewMemory(loaded.selectedVersion).then(setMemoryPlan)
       await scan(loaded)
@@ -847,6 +851,9 @@ function SettingsPage(): JSX.Element {
           <AboutSection
             autoCheck={settings.autoCheckUpdate}
             onAutoCheckChange={(value) => update({ autoCheckUpdate: value })}
+            officialSite={officialSite}
+            updateSource={settings.updateSource}
+            onUpdateSourceChange={(value) => update({ updateSource: value })}
           />
         </div>
       </div>
@@ -1018,12 +1025,24 @@ function NetworkSection({
 }
 
 /** 关于：当前版本、检查更新 */
+const UPDATE_SOURCES: { key: UpdateSource; label: string; desc: string }[] = [
+  { key: 'auto', label: '自动', desc: '先从官网获取，连不上时用 GitHub（推荐）' },
+  { key: 'official', label: '官网', desc: '只从官网获取，国内下载快' },
+  { key: 'github', label: 'GitHub', desc: '只从 GitHub 获取' }
+]
+
 function AboutSection({
   autoCheck,
-  onAutoCheckChange
+  onAutoCheckChange,
+  officialSite,
+  updateSource,
+  onUpdateSourceChange
 }: {
   autoCheck: boolean
   onAutoCheckChange: (value: boolean) => void
+  officialSite: string
+  updateSource: UpdateSource
+  onUpdateSourceChange: (value: UpdateSource) => void
 }): JSX.Element {
   const [checking, setChecking] = useState(false)
   const [info, setInfo] = useState<UpdateInfo | null>(null)
@@ -1052,8 +1071,19 @@ function AboutSection({
           </div>
         </div>
         <div className="flex gap-2">
+          {officialSite && (
+            <a
+              href={`${officialSite}/`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+            >
+              <Globe className="h-4 w-4" />
+              官网
+            </a>
+          )}
           <button
-            onClick={() => window.api.openUpdateLink('page')}
+            onClick={() => window.open('https://github.com/xiaoye1001/Liuli-Launcher', '_blank')}
             className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
           >
             <ExternalLink className="h-4 w-4" />
@@ -1085,6 +1115,7 @@ function AboutSection({
               <div className="text-xs text-white/50">
                 当前版本 v{info.current}
                 {info.publishedAt && ` · 发布于 ${new Date(info.publishedAt).toLocaleDateString('zh-CN')}`}
+                {` · 来自${info.source === 'official' ? '官网' : ' GitHub'}`}
               </div>
             </div>
           </div>
@@ -1113,6 +1144,34 @@ function AboutSection({
           />
         </button>
       </div>
+
+      {officialSite && (
+        <div className="mt-3 rounded-xl bg-black/20 px-4 py-3">
+          <div className="text-sm font-medium">更新来源</div>
+          <div className="text-xs text-white/50">从哪里检查和下载新版本，下载的安装包都会校验 SHA-256</div>
+          <div className="mt-3 grid grid-cols-3 gap-2" role="radiogroup" aria-label="更新来源">
+            {UPDATE_SOURCES.map((option) => (
+              <button
+                key={option.key}
+                role="radio"
+                aria-checked={updateSource === option.key}
+                onClick={() => {
+                  onUpdateSourceChange(option.key)
+                  setInfo(null)
+                }}
+                className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                  updateSource === option.key
+                    ? 'border-emerald-400/50 bg-emerald-500/15'
+                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <div className="text-sm font-medium">{option.label}</div>
+                <div className="text-xs text-white/50">{option.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   )
 }

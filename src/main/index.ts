@@ -79,6 +79,7 @@ import {
   downloadUpdate,
   getUpdateDownload,
   installUpdate,
+  OFFICIAL_SITE,
   getLastUpdateResult,
   showUpdateLog,
   openUpdateLink
@@ -407,7 +408,8 @@ function registerIpc(): void {
     async (): Promise<SystemInfo> => ({
       totalMemory: Math.floor(totalmem() / 1024 / 1024),
       portableDir,
-      elevated: await isElevated()
+      elevated: await isElevated(),
+      officialSite: OFFICIAL_SITE
     })
   )
 }

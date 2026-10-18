@@ -7,6 +7,7 @@ import { existsSync } from 'fs'
 import { appendFile, chmod, copyFile, mkdir, readFile, rename, rm, stat, writeFile } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import { parseUpdateLog, portableUpdateScript, psQuote } from './updateScript'
+import { getSettings } from './config'
 import { getGameStatus } from './launch'
 import { getInstallStatus } from './install'
 import { downloadDispatcher } from './network'
@@ -72,8 +73,105 @@ function isGithubUrl(url: string | undefined): url is string {
   }
 }
 
-/** 查询 GitHub 上的最新正式版 */
+/** 官网地址：构建时从 MAIN_VITE_OFFICIAL_SITE 读取，只接受 https；没有配置时只用 GitHub */
+export const OFFICIAL_SITE = normalizeSite(import.meta.env.MAIN_VITE_OFFICIAL_SITE ?? '')
+
+function normalizeSite(value: string): string {
+  try {
+    const url = new URL(value.trim())
+    if (url.protocol !== 'https:' || url.username || url.password) return ''
+    return (url.origin + url.pathname).replace(/\/+$/, '')
+  } catch {
+    return ''
+  }
+}
+
+/** 官网 downloads/latest.json 的内容（由服务器上的 update_site.py 生成） */
+interface OfficialLatest {
+  version?: unknown
+  publishedAt?: unknown
+  notes?: unknown
+  files?: { name?: unknown; size?: unknown; sha256?: unknown }[]
+}
+
+/** 查询官网上的最新版本：安装包从官网下载，同样用 SHA-256 校验 */
+async function checkOfficial(): Promise<UpdateInfo> {
+  let data: OfficialLatest
+  try {
+    const response = await fetch(`${OFFICIAL_SITE}/downloads/latest.json`, {
+      headers: { 'User-Agent': `LiuliLauncher/${__APP_VERSION__}`, 'Cache-Control': 'no-cache' },
+      signal: AbortSignal.timeout(TIMEOUT)
+    })
+    if (!response.ok) throw new Error(`官网返回错误（${response.status}）`)
+    data = (await response.json()) as OfficialLatest
+  } catch (e) {
+    if ((e as Error).name === 'TimeoutError') throw new Error('连接官网超时，请检查网络')
+    if (e instanceof SyntaxError) throw new Error('官网的版本信息格式不对')
+    if (e instanceof TypeError) throw new Error('无法连接官网，请检查网络')
+    throw e
+  }
+  const latest = typeof data.version === 'string' ? data.version.replace(/^v/i, '') : ''
+  if (!/^\d+(\.\d+)*$/.test(latest)) throw new Error('无法读取官网的版本信息')
+  // 只接受普通文件名、并且带 SHA-256 的安装包
+  const files = (Array.isArray(data.files) ? data.files : []).filter(
+    (f): f is { name: string; size: number; sha256: string } =>
+      !!f &&
+      typeof f.name === 'string' &&
+      /^[\w.+-]+$/.test(f.name) &&
+      typeof f.sha256 === 'string' &&
+      /^[0-9a-f]{64}$/i.test(f.sha256)
+  )
+  const assetName = pickAsset(files.map((f) => f.name)) ?? ''
+  const asset = files.find((f) => f.name === assetName)
+  const page = `${OFFICIAL_SITE}/`
+  const url = asset ? `${OFFICIAL_SITE}/downloads/${encodeURIComponent(asset.name)}` : page
+  lastLinks = { page, asset: url }
+  lastAsset = asset
+    ? {
+        version: latest,
+        name: assetName,
+        url,
+        size: typeof asset.size === 'number' ? asset.size : 0,
+        sha256: asset.sha256.toLowerCase()
+      }
+    : null
+  return {
+    current: __APP_VERSION__,
+    latest,
+    hasUpdate: compareVersions(latest, __APP_VERSION__) > 0,
+    name: `v${latest}`,
+    notes: typeof data.notes === 'string' ? data.notes.slice(0, 20000) : '',
+    publishedAt: typeof data.publishedAt === 'string' ? data.publishedAt : '',
+    assetName,
+    assetSize: lastAsset?.size ?? 0,
+    autoUpdate: !!asset && updateMode() !== null,
+    source: 'official'
+  }
+}
+
+/**
+ * 检查更新。更新来源：
+ * - 自动：先查官网（国内下载快），官网连不上时用 GitHub
+ * - 官网 / GitHub：只用其中一个
+ * 没有配置官网时只用 GitHub
+ */
 export async function checkUpdate(): Promise<UpdateInfo> {
+  const { updateSource } = await getSettings()
+  if (!OFFICIAL_SITE || updateSource === 'github') return checkGithub()
+  if (updateSource === 'official') return checkOfficial()
+  try {
+    return await checkOfficial()
+  } catch (officialError) {
+    try {
+      return await checkGithub()
+    } catch (githubError) {
+      throw new Error(`官网：${(officialError as Error).message}；GitHub：${(githubError as Error).message}`)
+    }
+  }
+}
+
+/** 查询 GitHub 上的最新正式版 */
+async function checkGithub(): Promise<UpdateInfo> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT)
   let release: GithubRelease
@@ -115,7 +213,8 @@ export async function checkUpdate(): Promise<UpdateInfo> {
     publishedAt: release.published_at ?? '',
     assetName,
     assetSize: asset?.size ?? 0,
-    autoUpdate: !!asset && updateMode() !== null
+    autoUpdate: !!asset && updateMode() !== null,
+    source: 'github'
   }
 }
 

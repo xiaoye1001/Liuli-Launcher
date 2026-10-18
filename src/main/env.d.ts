@@ -3,6 +3,8 @@
 interface ImportMetaEnv {
   /** 微软登录使用的 Azure 应用 Client ID，构建时注入（见 .env.example） */
   readonly MAIN_VITE_MS_CLIENT_ID?: string
+  /** 官网地址（https），启动器可以从官网检查和下载更新 */
+  readonly MAIN_VITE_OFFICIAL_SITE?: string
 }
 
 interface ImportMeta {

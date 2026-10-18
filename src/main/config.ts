@@ -86,6 +86,7 @@ function defaultSettings(): AppSettings {
     animations: true,
     afterLaunch: 'keep',
     autoCheckUpdate: true,
+    updateSource: 'auto',
     skippedVersion: ''
   }
 }

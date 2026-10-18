@@ -110,6 +110,22 @@ location ~* \.(webp|png|svg)$ {
 
 保存后宝塔会自动重载 Nginx。
 
+## 7. 让启动器从官网更新（可选）
+
+启动器默认从 GitHub 检查和下载新版本。官网部署好后，可以让启动器优先从官网下载，国内速度快很多：
+
+1. 打开 GitHub 仓库 →「Settings」→「Secrets and variables」→「Actions」→「Variables」标签 →「New repository variable」
+2. **Name** 填 `OFFICIAL_SITE_URL`，**Value** 填官网地址，例如 `https://mc.example.com`（必须是 https）
+3. 之后发布的新版本就会带上官网地址
+
+启动器「设置 → 其它 → 关于」里会出现「更新来源」：
+
+- **自动**（默认）：先从官网获取，官网连不上时用 GitHub
+- **官网**：只从官网获取
+- **GitHub**：只从 GitHub 获取
+
+从官网下载的安装包同样用 SHA-256 校验（校验值来自官网的 `downloads/latest.json`，由更新脚本从 GitHub 获取并校验后写入）。
+
 ---
 
 ## 常见问题

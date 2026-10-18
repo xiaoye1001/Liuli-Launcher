@@ -5,6 +5,8 @@
 # 全部上传到 Release，并在说明末尾追加下载与运行方法。
 # 微软登录的 Client ID 来自仓库 Secret（Settings → Secrets and variables → Actions → MS_CLIENT_ID），
 # 没有设置时打包出的版本只能使用离线账号。
+# 官网地址来自仓库变量（Settings → Secrets and variables → Actions → Variables → OFFICIAL_SITE_URL，
+# 例如 https://mc.example.com），填了以后启动器可以从官网检查和下载更新；不填时只用 GitHub。
 name: Release
 
 on:
@@ -56,6 +58,7 @@ jobs:
       - name: Build AppImage
         env:
           MAIN_VITE_MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
+          MAIN_VITE_OFFICIAL_SITE: ${{ vars.OFFICIAL_SITE_URL }}
         run: npm run build && npx electron-builder --linux AppImage --publish never
 
       - uses: actions/upload-artifact@v4
@@ -92,6 +95,7 @@ jobs:
       - name: Build installer and portable exe
         env:
           MAIN_VITE_MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
+          MAIN_VITE_OFFICIAL_SITE: ${{ vars.OFFICIAL_SITE_URL }}
         run: npm run build && npx electron-builder --win --publish never
 
       - uses: actions/upload-artifact@v4
@@ -127,6 +131,7 @@ jobs:
       - name: Build dmg
         env:
           MAIN_VITE_MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
+          MAIN_VITE_OFFICIAL_SITE: ${{ vars.OFFICIAL_SITE_URL }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run build && npx electron-builder --mac --arm64 --x64 --publish never
 
