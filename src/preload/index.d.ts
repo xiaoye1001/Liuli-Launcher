@@ -44,6 +44,7 @@ import type {
   SavedServer,
   ServerStatus,
   UpdateInfo,
+  UpdateResult,
   ExternalAccount,
   ExternalLoginResult,
   ModUpdate,
@@ -226,6 +227,9 @@ declare global {
       cancelUpdateDownload: () => Promise<void>
       /** 替换为新版本并重启启动器 */
       installUpdate: () => Promise<void>
+      /** 上次自动更新的结果，只返回一次；没有时为 null */
+      getLastUpdateResult: () => Promise<UpdateResult | null>
+      showUpdateLog: () => Promise<void>
       onUpdateDownload: (callback: (status: UpdateDownload) => void) => () => void
       listServers: () => Promise<SavedServer[]>
       /** 添加（没有 id）或修改服务器，返回新的列表 */

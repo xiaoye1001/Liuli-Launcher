@@ -161,6 +161,15 @@ export interface UpdateDownload {
   error?: string
 }
 
+/** 上次自动更新的结果（Windows） */
+export interface UpdateResult {
+  ok: boolean
+  version: string
+  error?: string
+  /** 更新日志的位置 */
+  logFile: string
+}
+
 /** 主题色 */
 export type AccentColor = 'emerald' | 'sky' | 'violet' | 'rose' | 'amber'
 

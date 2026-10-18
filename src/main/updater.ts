@@ -1,14 +1,16 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { download } from '@xmcl/file-transfer'
 import { spawn } from 'child_process'
-import { createHash } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 import { createReadStream } from 'fs'
-import { chmod, copyFile, mkdir, rename, rm, stat, writeFile } from 'fs/promises'
-import { dirname, join } from 'path'
+import { existsSync } from 'fs'
+import { appendFile, chmod, copyFile, mkdir, readFile, rename, rm, stat, writeFile } from 'fs/promises'
+import { basename, dirname, join } from 'path'
+import { parseUpdateLog, portableUpdateScript, psQuote } from './updateScript'
 import { getGameStatus } from './launch'
 import { getInstallStatus } from './install'
 import { downloadDispatcher } from './network'
-import type { UpdateDownload, UpdateInfo } from '../shared/types'
+import type { UpdateDownload, UpdateInfo, UpdateResult } from '../shared/types'
 
 const REPO = 'xiaoye1001/Liuli-Launcher'
 const LATEST_API = `https://api.github.com/repos/${REPO}/releases/latest`
@@ -229,11 +231,6 @@ export function cancelUpdateDownload(): void {
   downloadController?.abort()
 }
 
-/** PowerShell 单引号字符串 */
-function psQuote(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`
-}
-
 /** sh 单引号字符串 */
 function shQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`
@@ -242,6 +239,74 @@ function shQuote(value: string): string {
 /** 后台运行更新脚本：启动器退出后它继续运行 */
 function runDetached(command: string, args: string[]): void {
   spawn(command, args, { detached: true, stdio: 'ignore', windowsHide: true }).unref()
+}
+
+/** 更新日志：Windows 更新脚本的每一步都记在这里，新版本启动后据此提示更新结果 */
+const UPDATE_LOG = join(app.getPath('userData'), 'logs', 'update.log')
+
+function powershellPath(): string {
+  const path = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+  return existsSync(path) ? path : 'powershell.exe'
+}
+
+/**
+ * Windows：通过 WMI 启动程序。这样启动的程序不属于启动器的进程树，
+ * 启动器退出时不会被一起结束（直接启动的子进程在某些环境下会随启动器一起被关掉）
+ */
+function startOutsideTree(commandLine: string, cwd: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const child = spawn(
+      powershellPath(),
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-Command',
+        `$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = ${psQuote(commandLine)}; CurrentDirectory = ${psQuote(cwd)} }; exit [int]$r.ReturnValue`
+      ],
+      { stdio: 'ignore', windowsHide: true }
+    )
+    const timer = setTimeout(() => {
+      child.kill()
+      resolve(false)
+    }, 20_000)
+    child.on('error', () => {
+      clearTimeout(timer)
+      resolve(false)
+    })
+    child.on('exit', (code) => {
+      clearTimeout(timer)
+      resolve(code === 0)
+    })
+  })
+}
+
+/** 等更新脚本在日志里写下本次的标记，确认它已经开始运行 */
+async function waitForScript(token: string, timeoutMs: number): Promise<boolean> {
+  const end = Date.now() + timeoutMs
+  while (Date.now() < end) {
+    const text = await readFile(UPDATE_LOG, 'utf-8').catch(() => '')
+    if (text.includes(`STARTED ${token}`)) return true
+    await new Promise((resolve) => setTimeout(resolve, 300))
+  }
+  return false
+}
+
+/** 在文件管理器中显示更新日志 */
+export function showUpdateLog(): void {
+  shell.showItemInFolder(UPDATE_LOG)
+}
+
+/** 上次自动更新的结果（每次更新只提示一次） */
+export async function getLastUpdateResult(): Promise<UpdateResult | null> {
+  const text = await readFile(UPDATE_LOG, 'utf-8').catch(() => '')
+  const result = parseUpdateLog(text)
+  if (!result) return null
+  await appendFile(UPDATE_LOG, `[${new Date().toLocaleString('zh-CN')}] REPORTED\r\n`, 'utf-8').catch(() => undefined)
+  // 成功时只在确实运行着新版本时提示
+  if (result.ok && compareVersions(result.version, __APP_VERSION__) !== 0) return null
+  return { ...result, logFile: UPDATE_LOG }
 }
 
 /**
@@ -262,37 +327,43 @@ export async function installUpdate(): Promise<void> {
   const pid = process.pid
 
   if (mode === 'portable') {
-    const target = process.env.PORTABLE_EXECUTABLE_FILE!
+    const oldFile = process.env.PORTABLE_EXECUTABLE_FILE!
+    // 文件名带版本号时（例如 LiuliLauncher-Portable-0.2.4.exe），换成新版本的文件名，免得看起来像没更新
+    const versioned = /^LiuliLauncher-Portable-[\d.]+\.exe$/i
+    const target =
+      versioned.test(basename(oldFile)) && versioned.test(basename(file))
+        ? join(dirname(oldFile), basename(file))
+        : oldFile
+    const token = randomUUID()
     const script = join(UPDATES_DIR, 'update.ps1')
-    // 免安装版的外壳程序在启动器退出后才释放 exe，所以覆盖失败时多等一会儿再试
-    const lines = [
-      `$pidToWait = ${pid}`,
-      `$source = ${psQuote(file)}`,
-      `$target = ${psQuote(target)}`,
-      'while (Get-Process -Id $pidToWait -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 300 }',
-      '$ok = $false',
-      'for ($i = 0; $i -lt 60 -and -not $ok; $i++) {',
-      '  try { Copy-Item -LiteralPath $source -Destination $target -Force -ErrorAction Stop; $ok = $true }',
-      '  catch { Start-Sleep -Milliseconds 500 }',
-      '}',
-      'if ($ok) { Remove-Item -LiteralPath $source -ErrorAction SilentlyContinue }',
-      'Start-Process -FilePath $target',
-      'Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -ErrorAction SilentlyContinue'
-    ]
+    await mkdir(dirname(UPDATE_LOG), { recursive: true })
     // 带 BOM 的 UTF-8，PowerShell 才能正确读取中文路径
-    await writeFile(script, '\ufeff' + lines.join('\r\n'), 'utf-8')
-    runDetached('powershell.exe', [
-      '-NoProfile',
-      '-ExecutionPolicy',
-      'Bypass',
-      '-WindowStyle',
-      'Hidden',
-      '-File',
-      script
-    ])
+    const content = portableUpdateScript({
+      pid,
+      source: file,
+      target,
+      oldFile,
+      version: download_.version,
+      logFile: UPDATE_LOG,
+      token,
+      processName: basename(process.execPath, '.exe')
+    })
+    await writeFile(script, '\ufeff' + content, 'utf-8')
+    const ps = powershellPath()
+    const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', script]
+    const commandLine = [ps, ...args].map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ')
+    if (!(await startOutsideTree(commandLine, UPDATES_DIR))) runDetached(ps, args)
+    // 确认更新脚本已经运行起来再退出；没有运行时不退出，告诉用户怎么手动更新
+    if (!(await waitForScript(token, 20_000))) {
+      shell.showItemInFolder(file)
+      throw new Error(
+        `更新程序没有启动（可能被安全软件拦截）。可以手动更新：关闭启动器后，用已打开文件夹中的 ${basename(file)} 替换 ${oldFile}`
+      )
+    }
   } else if (mode === 'nsis') {
     // electron-builder 的安装程序：/S 静默安装到原来的位置，--force-run 安装完后打开启动器
-    runDetached(file, ['/S', '--updated', '--force-run'])
+    const args = ['/S', '--updated', '--force-run']
+    if (!(await startOutsideTree(`"${file}" ${args.join(' ')}`, UPDATES_DIR))) runDetached(file, args)
   } else if (mode === 'appimage') {
     const target = process.env.APPIMAGE!
     const temp = `${target}.new`

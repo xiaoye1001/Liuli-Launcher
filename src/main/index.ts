@@ -79,6 +79,8 @@ import {
   downloadUpdate,
   getUpdateDownload,
   installUpdate,
+  getLastUpdateResult,
+  showUpdateLog,
   openUpdateLink
 } from './updater'
 import { getPlayStats } from './playStats'
@@ -367,6 +369,8 @@ function registerIpc(): void {
   ipcMain.handle('update:downloadStatus', () => getUpdateDownload())
   ipcMain.handle('update:cancelDownload', () => cancelUpdateDownload())
   ipcMain.handle('update:install', () => installUpdate())
+  ipcMain.handle('update:lastResult', () => getLastUpdateResult())
+  ipcMain.handle('update:showLog', () => showUpdateLog())
   ipcMain.handle('servers:list', () => listServers())
   ipcMain.handle('servers:save', (_, server: Omit<SavedServer, 'id'> & { id?: string }) => saveServer(server))
   ipcMain.handle('servers:delete', (_, id: string) => deleteServer(id))

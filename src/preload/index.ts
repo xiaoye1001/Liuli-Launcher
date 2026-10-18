@@ -159,6 +159,8 @@ const api = {
   getUpdateDownload: () => ipcRenderer.invoke('update:downloadStatus'),
   cancelUpdateDownload: () => ipcRenderer.invoke('update:cancelDownload'),
   installUpdate: () => ipcRenderer.invoke('update:install'),
+  getLastUpdateResult: () => ipcRenderer.invoke('update:lastResult'),
+  showUpdateLog: () => ipcRenderer.invoke('update:showLog'),
   onUpdateDownload: (callback: (status: UpdateDownload) => void) => {
     const listener = (_: Electron.IpcRendererEvent, status: UpdateDownload): void => callback(status)
     ipcRenderer.on('update:download', listener)
