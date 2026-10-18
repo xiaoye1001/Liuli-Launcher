@@ -126,11 +126,11 @@ npm run build:win
 
 免安装版每次启动需要先解压，会比安装版慢几秒。exe 所在位置不可写时（例如放在 `C:\Program Files` 里），数据会改存到与安装版相同的位置。
 
-> 安装包没有代码签名证书，第一次运行时 Windows 可能提示「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」即可。
+> 安装包目前没有代码签名，第一次运行时 Windows 可能提示「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」即可。
 
 `build:mac` / `build:linux` 分别用于打包 macOS（dmg）和 Linux（AppImage），需要在对应系统上运行。
 
-发布新版本时，在仓库的 Actions → Release → Run workflow 中填写版本号（例如 `0.2.0`），会自动打包 Windows、macOS（Apple 芯片与 Intel）、Linux 三个平台并发布到 Releases。macOS 版本没有 Apple 开发者签名，第一次打开需要右键 →「打开」；提示「已损坏」时在终端运行 `xattr -cr /Applications/琉璃启动器.app`。
+发布新版本时，在仓库的 Actions → Release → Run workflow 中填写版本号（例如 `0.2.0`），会自动打包 Windows、macOS（Apple 芯片与 Intel）、Linux 三个平台并发布到 Releases。在仓库里配置好 Windows 代码签名证书、Apple 开发者证书后，发布时会自动签名（macOS 还会提交 Apple 公证），并自动检查签名是否有效，配置方法见 [代码签名](docs/code-signing.md)。没有配置时打包未签名的版本：macOS 第一次打开需要右键 →「打开」，提示「已损坏」时在终端运行 `xattr -cr /Applications/琉璃启动器.app`。
 
 ## 微软正版登录
 

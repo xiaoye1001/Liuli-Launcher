@@ -7,6 +7,8 @@
 # 没有设置时打包出的版本只能使用离线账号。
 # 官网地址来自仓库变量（Settings → Secrets and variables → Actions → Variables → OFFICIAL_SITE_URL，
 # 例如 https://mc.example.com），填了以后启动器可以从官网检查和下载更新；不填时只用 GitHub。
+# 代码签名（可选）：在仓库 Secrets / Variables 里配置证书后自动签名，没有配置时打包未签名的版本，
+# 需要配置哪些项见 docs/code-signing.md。
 name: Release
 
 on:
@@ -70,6 +72,8 @@ jobs:
   windows:
     name: Windows exe
     runs-on: windows-latest
+    outputs:
+      signed: ${{ steps.sign.outputs.signed }}
     defaults:
       run:
         shell: bash
@@ -91,12 +95,52 @@ jobs:
       - name: Set version
         run: npm version "${VERSION#v}" --no-git-tag-version --allow-same-version
 
-      # 同时生成安装版（NSIS）与免安装版（portable），配置见 electron-builder.yml
+      # 仓库里配置了证书才签名：pfx 证书（WIN_CSC_LINK）或 Azure Artifact Signing（AZURE_SIGN_*）
+      - name: Check code signing
+        id: sign
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          AZURE_SIGN_ENDPOINT: ${{ vars.AZURE_SIGN_ENDPOINT }}
+        run: |
+          if [ -n "$WIN_CSC_LINK" ] || [ -n "$AZURE_SIGN_ENDPOINT" ]; then
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "已配置 Windows 代码签名"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "没有配置 Windows 代码签名证书，打包未签名的版本"
+          fi
+
+      # 同时生成安装版（NSIS）与免安装版（portable），配置见 electron-builder.cjs
       - name: Build installer and portable exe
         env:
           MAIN_VITE_MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
           MAIN_VITE_OFFICIAL_SITE: ${{ vars.OFFICIAL_SITE_URL }}
+          # pfx 证书：base64 编码的证书文件与密码
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          # Azure Artifact Signing：应用的登录信息（Secrets）与签名账号（Variables）
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SIGN_ENDPOINT: ${{ vars.AZURE_SIGN_ENDPOINT }}
+          AZURE_SIGN_ACCOUNT: ${{ vars.AZURE_SIGN_ACCOUNT }}
+          AZURE_SIGN_PROFILE: ${{ vars.AZURE_SIGN_PROFILE }}
+          AZURE_SIGN_PUBLISHER: ${{ vars.AZURE_SIGN_PUBLISHER }}
         run: npm run build && npx electron-builder --win --publish never
+
+      # 签名后检查：安装版、免安装版和程序本身都必须是有效签名，否则不发布
+      - name: Verify signatures
+        if: steps.sign.outputs.signed == 'true'
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem dist/LiuliLauncher-Setup-*.exe, dist/LiuliLauncher-Portable-*.exe, dist/win-unpacked/LiuliLauncher.exe)
+          if ($files.Count -lt 3) { throw '没有找到打包好的 exe' }
+          foreach ($f in $files) {
+            $sig = Get-AuthenticodeSignature $f.FullName
+            Write-Host "$($f.Name)：$($sig.Status)  $($sig.SignerCertificate.Subject)"
+            if ($sig.Status -ne 'Valid') { throw "$($f.Name) 的签名无效：$($sig.StatusMessage)" }
+            if (-not $sig.TimeStamperCertificate) { throw "$($f.Name) 的签名没有时间戳，证书过期后会失效" }
+          }
 
       - uses: actions/upload-artifact@v4
         with:
@@ -110,6 +154,9 @@ jobs:
   mac:
     name: macOS dmg
     runs-on: macos-latest
+    outputs:
+      signed: ${{ steps.sign.outputs.signed }}
+      notarized: ${{ steps.sign.outputs.notarized }}
     steps:
       - uses: actions/checkout@v4
 
@@ -127,13 +174,75 @@ jobs:
       - name: Set version
         run: npm version "${VERSION#v}" --no-git-tag-version --allow-same-version
 
-      # 分别打包 Apple 芯片（arm64）与 Intel（x64）版本；没有开发者证书，使用临时签名，配置见 electron-builder.yml
+      # 配置了 Developer ID 证书（MAC_CSC_LINK）才正式签名；再配置了 App Store Connect API 密钥才公证
+      - name: Check code signing
+        id: sign
+        env:
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          if [ -z "$MAC_CSC_LINK" ]; then
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "没有配置 Apple 开发者证书，使用临时签名（ad-hoc）"
+            exit 0
+          fi
+          echo "MAC_SIGN=true" >> "$GITHUB_ENV"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+          if [ -n "$APPLE_API_KEY_CONTENT" ]; then
+            # 公证工具需要 .p8 密钥文件的路径
+            key="$RUNNER_TEMP/apple-api-key.p8"
+            printf '%s\n' "$APPLE_API_KEY_CONTENT" > "$key"
+            echo "APPLE_API_KEY=$key" >> "$GITHUB_ENV"
+            echo "notarized=true" >> "$GITHUB_OUTPUT"
+            echo "已配置 Apple 签名与公证"
+          else
+            echo "notarized=false" >> "$GITHUB_OUTPUT"
+            echo "已配置 Apple 签名，没有配置公证（用户打开时仍会被系统拦截）"
+          fi
+
+      # 分别打包 Apple 芯片（arm64）与 Intel（x64）版本，配置见 electron-builder.cjs
       - name: Build dmg
         env:
           MAIN_VITE_MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
           MAIN_VITE_OFFICIAL_SITE: ${{ vars.OFFICIAL_SITE_URL }}
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ steps.sign.outputs.signed == 'true' && 'true' || 'false' }}
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_API_KEY_ID: ${{ steps.sign.outputs.notarized == 'true' && secrets.APPLE_API_KEY_ID || '' }}
+          APPLE_API_ISSUER: ${{ steps.sign.outputs.notarized == 'true' && secrets.APPLE_API_ISSUER || '' }}
         run: npm run build && npx electron-builder --mac --arm64 --x64 --publish never
+
+      # electron-builder 公证的是 .app，dmg 本身也提交公证并附上公证票据，离线也能通过系统检查
+      - name: Notarize dmg
+        if: steps.sign.outputs.notarized == 'true'
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          for dmg in dist/*.dmg; do
+            xcrun notarytool submit "$dmg" --key "$APPLE_API_KEY" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
+            xcrun stapler staple "$dmg"
+          done
+
+      - name: Verify signatures
+        if: steps.sign.outputs.signed == 'true'
+        run: |
+          for app in dist/mac*/*.app; do
+            echo "检查 $app"
+            codesign --verify --deep --strict --verbose=2 "$app"
+            codesign -dv "$app" 2>&1 | grep -E '^(Authority|TeamIdentifier)='
+            if [ "${{ steps.sign.outputs.notarized }}" = 'true' ]; then
+              xcrun stapler validate "$app"
+              spctl --assess --type execute --verbose "$app"
+            fi
+          done
+          if [ "${{ steps.sign.outputs.notarized }}" = 'true' ]; then
+            for dmg in dist/*.dmg; do xcrun stapler validate "$dmg"; done
+          fi
+
+      - name: Remove API key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/apple-api-key.p8"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -155,6 +264,67 @@ jobs:
       # Release 只放启动器安装包，官网网页和服务器脚本不随 Release 发布
       - run: ls -la release
 
+      # 下载与运行说明随签名情况变化；更新说明经环境变量传入，不直接拼进脚本
+      - name: Write release notes
+        env:
+          NOTES: ${{ inputs.notes }}
+          WIN_SIGNED: ${{ needs.windows.outputs.signed }}
+          MAC_NOTARIZED: ${{ needs.mac.outputs.notarized }}
+          REPO: ${{ github.repository }}
+        run: |
+          {
+            if [ -n "$NOTES" ]; then printf '%s\n\n' "$NOTES"; fi
+            cat <<'EOF'
+          ## 下载
+
+          | 系统 | 文件 | 说明 |
+          |---|---|---|
+          | Windows | `LiuliLauncher-Setup-*.exe` | 安装版：可以选择安装位置，创建桌面与开始菜单快捷方式 |
+          | Windows | `LiuliLauncher-Portable-*.exe` | 免安装版：双击直接运行，数据保存在 exe 旁边的 `LiuliLauncher-Data` 文件夹 |
+          | macOS（Apple 芯片 M1 及以上） | `LiuliLauncher-*-arm64.dmg` | 打开后把「琉璃启动器」拖进「应用程序」 |
+          | macOS（Intel 芯片） | `LiuliLauncher-*-x64.dmg` | 同上 |
+          | Linux | `LiuliLauncher-*.AppImage` | 免安装版：添加执行权限后直接运行 |
+
+          ### Windows
+          EOF
+            if [ "$WIN_SIGNED" = 'true' ]; then
+              echo '- 安装包已经过代码签名。签名证书刚开始使用的一段时间里，Windows 仍可能提示「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」即可'
+            else
+              echo '- 安装包没有代码签名，首次运行如果提示「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」'
+            fi
+            cat <<'EOF'
+          - 安装版的数据保存在 `%APPDATA%\mc_launcher`，卸载时不会删除
+
+          ### macOS
+          EOF
+            if [ "$MAC_NOTARIZED" = 'true' ]; then
+              echo '- 已经过 Apple 签名与公证，双击打开即可'
+            else
+              cat <<'EOF'
+          - 没有 Apple 开发者签名，第一次打开如果提示「无法验证开发者」，在「应用程序」中右键点「琉璃启动器」→「打开」
+          - 如果提示「已损坏，无法打开」，在「终端」中运行下面的命令后再打开：
+            ```bash
+            xattr -cr /Applications/琉璃启动器.app
+            ```
+          EOF
+            fi
+            cat <<'EOF'
+          - 数据保存在 `~/Library/Application Support/mc_launcher`
+
+          ### Linux
+          ```bash
+          chmod +x LiuliLauncher-*.AppImage
+          ./LiuliLauncher-*.AppImage
+          ```
+          - 需要 FUSE 2。Ubuntu 22.04 及以上如果无法启动，请先安装：`sudo apt install libfuse2`（Ubuntu 24.04 为 `libfuse2t64`）
+          - Ubuntu 24.04 等系统如果提示沙盒（sandbox）相关错误，可以加参数运行：`./LiuliLauncher-*.AppImage --no-sandbox`
+          - 数据保存在 `~/.config/mc_launcher`
+
+          EOF
+            echo "运行游戏需要安装 Java（1.20.5 及以上需要 Java 21）。功能介绍与使用说明见 [README](https://github.com/$REPO#readme)。"
+          } > release-notes.md
+          cat release-notes.md
+
       - uses: softprops/action-gh-release@v2
         with:
           # 手动运行时创建新的标签与 Release（发布 Release 触发时这两项为空，沿用原来的 Release）
@@ -165,38 +335,4 @@ jobs:
           fail_on_unmatched_files: true
           # 保留发布时填写的说明，在末尾追加下载与运行方法
           append_body: true
-          body: |
-            ${{ inputs.notes }}
-
-            ## 下载
-
-            | 系统 | 文件 | 说明 |
-            |---|---|---|
-            | Windows | `LiuliLauncher-Setup-*.exe` | 安装版：可以选择安装位置，创建桌面与开始菜单快捷方式 |
-            | Windows | `LiuliLauncher-Portable-*.exe` | 免安装版：双击直接运行，数据保存在 exe 旁边的 `LiuliLauncher-Data` 文件夹 |
-            | macOS（Apple 芯片 M1 及以上） | `LiuliLauncher-*-arm64.dmg` | 打开后把「琉璃启动器」拖进「应用程序」 |
-            | macOS（Intel 芯片） | `LiuliLauncher-*-x64.dmg` | 同上 |
-            | Linux | `LiuliLauncher-*.AppImage` | 免安装版：添加执行权限后直接运行 |
-
-            ### Windows
-            - 安装包没有代码签名，首次运行如果提示「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」
-            - 安装版的数据保存在 `%APPDATA%\mc_launcher`，卸载时不会删除
-
-            ### macOS
-            - 没有 Apple 开发者签名，第一次打开如果提示「无法验证开发者」，在「应用程序」中右键点「琉璃启动器」→「打开」
-            - 如果提示「已损坏，无法打开」，在「终端」中运行下面的命令后再打开：
-              ```bash
-              xattr -cr /Applications/琉璃启动器.app
-              ```
-            - 数据保存在 `~/Library/Application Support/mc_launcher`
-
-            ### Linux
-            ```bash
-            chmod +x LiuliLauncher-*.AppImage
-            ./LiuliLauncher-*.AppImage
-            ```
-            - 需要 FUSE 2。Ubuntu 22.04 及以上如果无法启动，请先安装：`sudo apt install libfuse2`（Ubuntu 24.04 为 `libfuse2t64`）
-            - Ubuntu 24.04 等系统如果提示沙盒（sandbox）相关错误，可以加参数运行：`./LiuliLauncher-*.AppImage --no-sandbox`
-            - 数据保存在 `~/.config/mc_launcher`
-
-            运行游戏需要安装 Java（1.20.5 及以上需要 Java 21）。功能介绍与使用说明见 [README](https://github.com/${{ github.repository }}#readme)。
+          body_path: release-notes.md

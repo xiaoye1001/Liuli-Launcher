@@ -123,11 +123,11 @@ Two files are written to `dist/`:
 
 The portable version unpacks itself on every start, so it launches a few seconds slower than the installed one. If the exe's folder is not writable (e.g. inside `C:\Program Files`), data is stored in the same place as the installed version instead.
 
-> The installer is not code-signed, so Windows SmartScreen may show "Windows protected your PC" on first run. Click **More info** → **Run anyway**.
+> The installer is currently not code-signed, so Windows SmartScreen may show "Windows protected your PC" on first run. Click **More info** → **Run anyway**.
 
 `build:mac` / `build:linux` build a macOS dmg and a Linux AppImage respectively, and must be run on those systems.
 
-To publish a new version, go to Actions → Release → Run workflow and enter the version (e.g. `0.2.0`). Windows, macOS (Apple silicon and Intel) and Linux builds are created and published to Releases automatically. The macOS build is not signed with an Apple developer certificate: right-click → **Open** the first time, and if macOS says the app is damaged, run `xattr -cr /Applications/琉璃启动器.app` in Terminal.
+To publish a new version, go to Actions → Release → Run workflow and enter the version (e.g. `0.2.0`). Windows, macOS (Apple silicon and Intel) and Linux builds are created and published to Releases automatically. Once a Windows code signing certificate and an Apple developer certificate are configured in the repository, builds are signed automatically (macOS builds are also notarized by Apple) and the signatures are verified before publishing; see [Code signing](docs/code-signing.md) (Chinese). Without them, unsigned builds are published: on macOS, right-click → **Open** the first time, and if macOS says the app is damaged, run `xattr -cr /Applications/琉璃启动器.app` in Terminal.
 
 ## Microsoft login
 
