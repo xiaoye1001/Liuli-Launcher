@@ -113,14 +113,50 @@ export interface AppSettings {
   activeAccount: string
   /** 主题色 */
   accentColor: AccentColor
-  /** 自定义背景图片（用户数据目录 backgrounds 下的文件名），空字符串表示使用默认渐变背景 */
+  /** 自定义主题色（#rrggbb），accentColor 为 custom 时使用 */
+  customAccent: string
+  /** 面板不透明度（%），0~60 */
+  panelOpacity: number
+  /** 面板背景模糊（px），0~40 */
+  panelBlur: number
+  /** 当前（固定模式下）使用的背景图片（backgrounds 文件夹里的文件名），空字符串表示没有 */
   backgroundImage: string
+  /** 背景库：添加过的所有背景图片（backgrounds 文件夹里的文件名） */
+  backgroundImages: string[]
+  /** 背景模式：不使用 / 固定一张 / 每次启动随机 / 定时轮播 */
+  backgroundMode: BackgroundMode
+  /** 轮播间隔（分钟） */
+  backgroundInterval: number
+  /** 背景填充方式 */
+  backgroundFit: BackgroundFit
   /** 背景模糊程度（像素，0~20） */
   backgroundBlur: number
   /** 背景遮罩浓度（百分比，0~80），让文字在明亮的图片上也看得清 */
   backgroundDim: number
   /** 是否开启界面动画 */
   animations: boolean
+  /** 界面字体（字体名称），空字符串表示使用默认字体 */
+  fontFamily: string
+  /** 界面缩放（%），取值见 UI_SCALES */
+  uiScale: number
+  /** 是否播放背景音乐 */
+  musicEnabled: boolean
+  /** 背景音乐音量（0~100） */
+  musicVolume: number
+  /** 播放顺序 */
+  musicOrder: MusicOrder
+  /** 游戏运行时暂停背景音乐，游戏退出后继续 */
+  musicPauseInGame: boolean
+  /** 侧边栏显示的启动器名称（空字符串为默认「琉璃启动器」），同时作为窗口标题 */
+  launcherTitle: string
+  /** 侧边栏名称下面的小字（空字符串为默认「Liuli Launcher」） */
+  launcherSubtitle: string
+  /** 侧边栏隐藏的页面（取值见 HIDEABLE_PAGES） */
+  hiddenPages: string[]
+  /** 主页欢迎语标题，支持 {name} {greeting} {version} {tip}；空字符串为默认 */
+  welcomeTitle: string
+  /** 主页欢迎语副标题，同上 */
+  welcomeSubtitle: string
   /** 游戏窗口出现后启动器的行为 */
   afterLaunch: AfterLaunch
   /** 启动时自动检查更新 */
@@ -175,7 +211,19 @@ export interface UpdateResult {
 }
 
 /** 主题色 */
-export type AccentColor = 'emerald' | 'sky' | 'violet' | 'rose' | 'amber'
+export type AccentColor =
+  | 'emerald'
+  | 'sky'
+  | 'violet'
+  | 'rose'
+  | 'amber'
+  | 'teal'
+  | 'indigo'
+  | 'red'
+  | 'lime'
+  | 'slate'
+  /** 自定义颜色（customAccent） */
+  | 'custom'
 
 /** 游戏启动后：保持不变 / 最小化 / 隐藏（游戏退出后都会恢复） */
 export type AfterLaunch = 'keep' | 'minimize' | 'hide'
@@ -191,6 +239,19 @@ export type SkinModel = 'default' | 'slim'
 
 /** 系统信息 */
 export type UpdateSource = 'auto' | 'official' | 'github'
+
+/** 可以在侧边栏隐藏的页面（主页和设置始终显示） */
+export const HIDEABLE_PAGES = ['account', 'versions', 'servers', 'download']
+
+/** 可选的界面缩放比例（%） */
+export const UI_SCALES = [80, 90, 100, 110, 125, 150]
+
+/** 背景音乐播放顺序：列表循环 / 随机播放 / 单曲循环 */
+export type MusicOrder = 'sequential' | 'shuffle' | 'single'
+
+export type BackgroundMode = 'off' | 'fixed' | 'random' | 'slideshow'
+/** 填充（裁剪铺满）/ 适应（完整显示）/ 拉伸 / 居中 / 平铺 */
+export type BackgroundFit = 'cover' | 'contain' | 'stretch' | 'center' | 'tile'
 
 export interface SystemInfo {
   /** 官网地址（构建时配置），没有配置时为空字符串 */

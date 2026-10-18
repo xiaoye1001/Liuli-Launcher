@@ -60,6 +60,62 @@ html[data-accent='amber'] {
   --accent2-500: 249 115 22;
 }
 
+html[data-accent='teal'] {
+  --accent-bg: 19 78 74;
+  --accent-bg-light: 204 251 241;
+  --accent-200: 153 246 228;
+  --accent-300: 94 234 212;
+  --accent-400: 45 212 191;
+  --accent-500: 20 184 166;
+  --accent-600: 13 148 136;
+  --accent2-400: 163 230 53;
+  --accent2-500: 132 204 22;
+}
+html[data-accent='indigo'] {
+  --accent-bg: 49 46 129;
+  --accent-bg-light: 224 231 255;
+  --accent-200: 199 210 254;
+  --accent-300: 165 180 252;
+  --accent-400: 129 140 248;
+  --accent-500: 99 102 241;
+  --accent-600: 79 70 229;
+  --accent2-400: 56 189 248;
+  --accent2-500: 14 165 233;
+}
+html[data-accent='red'] {
+  --accent-bg: 127 29 29;
+  --accent-bg-light: 254 226 226;
+  --accent-200: 254 202 202;
+  --accent-300: 252 165 165;
+  --accent-400: 248 113 113;
+  --accent-500: 239 68 68;
+  --accent-600: 220 38 38;
+  --accent2-400: 251 191 36;
+  --accent2-500: 245 158 11;
+}
+html[data-accent='lime'] {
+  --accent-bg: 54 83 20;
+  --accent-bg-light: 236 252 203;
+  --accent-200: 217 249 157;
+  --accent-300: 190 242 100;
+  --accent-400: 163 230 53;
+  --accent-500: 132 204 22;
+  --accent-600: 101 163 13;
+  --accent2-400: 52 211 153;
+  --accent2-500: 16 185 129;
+}
+html[data-accent='slate'] {
+  --accent-bg: 30 41 59;
+  --accent-bg-light: 226 232 240;
+  --accent-200: 226 232 240;
+  --accent-300: 203 213 225;
+  --accent-400: 148 163 184;
+  --accent-500: 100 116 139;
+  --accent-600: 71 85 105;
+  --accent2-400: 56 189 248;
+  --accent2-500: 14 165 233;
+}
+
 /* 深色主题（默认） */
 :root {
   --c-ink: 255 255 255;
@@ -88,7 +144,8 @@ body,
 }
 
 body {
-  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  /* --app-font 为设置里选择的界面字体，缺字时回落到默认字体 */
+  font-family: var(--app-font, 'Segoe UI'), 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
   user-select: none;
 }
 
@@ -102,6 +159,22 @@ body {
 
 .popover-background {
   background-color: rgb(var(--c-popover) / 0.95);
+}
+
+/* 面板质感：大面板（毛玻璃卡片）的不透明度与模糊程度，可在设置中调整 */
+:root {
+  --panel-alpha: 0.1;
+  --panel-blur: 24px;
+}
+.backdrop-blur-xl.bg-white\/10 {
+  background-color: rgb(var(--c-ink) / var(--panel-alpha));
+}
+/* 浅色主题：面板用半透明白色，越不透明越白 */
+html.light .backdrop-blur-xl.bg-white\/10 {
+  background-color: rgb(255 255 255 / min(0.92, calc(var(--panel-alpha) * 3.5)));
+}
+.backdrop-blur-xl {
+  --tw-backdrop-blur: blur(var(--panel-blur));
 }
 
 /* 主题切换时颜色平滑过渡 */
@@ -159,10 +232,18 @@ html.no-anim *::after {
 }
 
 @keyframes slide-in {
-  from { opacity: 0; transform: translateX(24px); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
-.animate-slide-in { animation: slide-in 0.2s ease-out; }
+.animate-slide-in {
+  animation: slide-in 0.2s ease-out;
+}
 
 /* 隐藏了系统标题栏时（Windows、Linux）：窗口顶部的拖动区域，右上角是系统画的窗口按钮 */
 .titlebar-drag {
@@ -180,4 +261,20 @@ html.custom-titlebar .pt-titlebar {
 .titlebar-no-drag,
 .popover-background {
   -webkit-app-region: no-drag;
+}
+
+/* 背景音乐播放时侧边栏里跳动的音量条 */
+.music-bar {
+  height: 30%;
+  animation: music-bar 1s ease-in-out infinite;
+}
+
+@keyframes music-bar {
+  0%,
+  100% {
+    height: 30%;
+  }
+  50% {
+    height: 100%;
+  }
 }

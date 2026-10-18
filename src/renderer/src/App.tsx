@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import WindowControls from './components/WindowControls'
 import Sidebar, { NAV_ITEMS, type PageKey } from './components/Sidebar'
@@ -12,7 +12,8 @@ import SettingsPage from './pages/SettingsPage'
 import DropOverlay from './components/DropOverlay'
 import UpdateNotice from './components/UpdateNotice'
 import type { ModpackInfo, ResourceType } from '../../shared/types'
-import { backgroundUrl, useAppearance } from './utils/appearance'
+import { useAppearance } from './utils/appearance'
+import AppBackground from './components/AppBackground'
 
 interface PageContext {
   droppedModpack: ModpackInfo | null
@@ -79,30 +80,20 @@ function App(): JSX.Element {
     setPage('versions')
   }, [])
   const appearance = useAppearance()
-  const { backgroundImage, backgroundBlur, backgroundDim } = appearance
+  // 在设置里隐藏了当前所在的页面时回到主页（从其它页面跳转过去仍然可以打开）
+  // 依赖用字符串：其它设置变化时数组会重新生成，不能因此跳走
+  const hiddenKey = appearance.hiddenPages.join(',')
+  useEffect(() => {
+    const hidden = hiddenKey.split(',')
+    setPage((current) => (hidden.includes(current) ? 'home' : current))
+  }, [hiddenKey])
 
   return (
     // 关闭动画时，framer-motion 的位移、缩放等动画也一并关闭
     <MotionConfig reducedMotion={appearance.animations ? 'never' : 'always'}>
       <div className="relative isolate flex h-full overflow-hidden app-background text-white">
-        {/* 自定义背景：图片 + 模糊 + 遮罩（遮罩在深色主题下变暗，浅色主题下变亮） */}
-        {backgroundImage && (
-          <>
-            <div
-              className="pointer-events-none absolute inset-0 -z-10 bg-cover bg-center"
-              style={{
-                backgroundImage: `url("${backgroundUrl(backgroundImage)}")`,
-                filter: backgroundBlur > 0 ? `blur(${backgroundBlur}px)` : undefined,
-                // 模糊会让边缘变透明，稍微放大以遮住
-                transform: backgroundBlur > 0 ? 'scale(1.08)' : undefined
-              }}
-            />
-            <div
-              className="pointer-events-none absolute inset-0 -z-10 bg-black"
-              style={{ opacity: backgroundDim / 100 }}
-            />
-          </>
-        )}
+        {/* 自定义背景：图片 + 模糊 + 遮罩 */}
+        <AppBackground appearance={appearance} />
         {/* 窗口顶部的拖动区域（Windows、Linux 隐藏了系统标题栏） */}
         <div className="titlebar-drag fixed inset-x-0 top-0 z-30">
           <WindowControls className="absolute right-0 top-0" />

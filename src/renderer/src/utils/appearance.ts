@@ -1,18 +1,44 @@
 import { useSyncExternalStore } from 'react'
 import type { AppSettings } from '../../../shared/types'
+import { ACCENT_VARIABLE_NAMES, accentVariables } from './accent'
 
 /** 需要立即在界面上生效的外观设置 */
 export type Appearance = Pick<
   AppSettings,
-  'accentColor' | 'backgroundImage' | 'backgroundBlur' | 'backgroundDim' | 'animations'
+  | 'accentColor'
+  | 'backgroundImage'
+  | 'backgroundImages'
+  | 'backgroundMode'
+  | 'backgroundInterval'
+  | 'backgroundFit'
+  | 'backgroundBlur'
+  | 'backgroundDim'
+  | 'animations'
+  | 'launcherTitle'
+  | 'launcherSubtitle'
+  | 'hiddenPages'
+  | 'welcomeTitle'
+  | 'welcomeSubtitle'
 >
+
+export const DEFAULT_TITLE = '琉璃启动器'
+export const DEFAULT_SUBTITLE = 'Liuli Launcher'
 
 let current: Appearance = {
   accentColor: 'emerald',
   backgroundImage: '',
+  backgroundImages: [],
+  backgroundMode: 'off',
+  backgroundInterval: 10,
+  backgroundFit: 'cover',
   backgroundBlur: 0,
   backgroundDim: 30,
-  animations: true
+  animations: true,
+  launcherTitle: '',
+  launcherSubtitle: '',
+  hiddenPages: [],
+  welcomeTitle: '',
+  welcomeSubtitle: ''
 }
 const listeners = new Set<() => void>()
 
@@ -20,12 +46,38 @@ function apply(settings: AppSettings): void {
   current = {
     accentColor: settings.accentColor,
     backgroundImage: settings.backgroundImage,
+    backgroundImages: Array.isArray(settings.backgroundImages) ? settings.backgroundImages : [],
+    backgroundMode: settings.backgroundMode ?? 'off',
+    backgroundInterval: settings.backgroundInterval || 10,
+    backgroundFit: settings.backgroundFit ?? 'cover',
     backgroundBlur: settings.backgroundBlur,
     backgroundDim: settings.backgroundDim,
-    animations: settings.animations
+    animations: settings.animations,
+    launcherTitle: settings.launcherTitle ?? '',
+    launcherSubtitle: settings.launcherSubtitle ?? '',
+    hiddenPages: Array.isArray(settings.hiddenPages) ? settings.hiddenPages : [],
+    welcomeTitle: settings.welcomeTitle ?? '',
+    welcomeSubtitle: settings.welcomeSubtitle ?? ''
   }
+  // 主窗口的标题跟随自定义的启动器名称（日志窗口有自己的标题）
+  if (window.location.hash !== '#logs') document.title = current.launcherTitle || DEFAULT_TITLE
   const html = document.documentElement
   html.dataset.accent = settings.accentColor
+  // 自定义主题色：把算好的色阶写到 <html> 上；换回预设时清掉
+  const custom = settings.accentColor === 'custom' ? accentVariables(settings.customAccent ?? '') : null
+  for (const name of ACCENT_VARIABLE_NAMES) {
+    if (custom) html.style.setProperty(name, custom[name])
+    else html.style.removeProperty(name)
+  }
+  // 面板质感
+  const opacity = Number.isFinite(settings.panelOpacity) ? Math.min(60, Math.max(0, settings.panelOpacity)) : 10
+  const blur = Number.isFinite(settings.panelBlur) ? Math.min(40, Math.max(0, settings.panelBlur)) : 24
+  html.style.setProperty('--panel-alpha', String(opacity / 100))
+  html.style.setProperty('--panel-blur', `${blur}px`)
+  // 界面字体：名称已由主进程清理过，这里再加引号作为一个整体
+  const font = (settings.fontFamily ?? '').replace(/["\\]/g, '').trim()
+  if (font) html.style.setProperty('--app-font', `"${font}"`)
+  else html.style.removeProperty('--app-font')
   html.classList.toggle('no-anim', !settings.animations)
   listeners.forEach((listener) => listener())
 }

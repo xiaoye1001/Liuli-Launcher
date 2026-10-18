@@ -6,7 +6,8 @@ import {
   Coffee,
   ExternalLink,
   Download,
-  ImageIcon,
+  ImagePlus,
+  Trash2,
   Info,
   Rocket,
   Sparkles,
@@ -21,6 +22,7 @@ import {
   Monitor,
   Moon,
   Palette,
+  Pipette,
   RefreshCw,
   RotateCcw,
   SlidersHorizontal,
@@ -30,10 +32,16 @@ import {
 import { backgroundUrl } from '../utils/appearance'
 import { ReleaseNotes, UpdateActions } from '../components/UpdateNotice'
 import GameDirSection from '../components/GameDirSection'
+import FontPicker from '../components/FontPicker'
+import MusicSettings from '../components/MusicSettings'
+import LayoutSettings from '../components/LayoutSettings'
+import { UI_SCALES } from '../../../shared/types'
 import type {
   AccentColor,
   AfterLaunch,
   AppSettings,
+  BackgroundFit,
+  BackgroundMode,
   DownloadSource,
   InstallStatus,
   JavaInfo,
@@ -52,14 +60,74 @@ const SOURCES: { key: DownloadSource; label: string; desc: string }[] = [
   { key: 'mojang', label: '官方源', desc: 'Mojang 官方服务器' }
 ]
 
+/** 背景模式 */
+const BACKGROUND_MODES: { key: BackgroundMode; label: string; desc: string }[] = [
+  { key: 'off', label: '不使用', desc: '默认的渐变背景' },
+  { key: 'fixed', label: '固定一张', desc: '一直显示选中的图片' },
+  { key: 'random', label: '启动时随机', desc: '每次打开换一张' },
+  { key: 'slideshow', label: '定时轮播', desc: '按顺序淡入淡出切换' }
+]
+
+const BACKGROUND_FITS: { key: BackgroundFit; label: string }[] = [
+  { key: 'cover', label: '填充（裁剪铺满窗口）' },
+  { key: 'contain', label: '适应（完整显示图片）' },
+  { key: 'stretch', label: '拉伸' },
+  { key: 'center', label: '居中（原始大小）' },
+  { key: 'tile', label: '平铺' }
+]
+
+const BACKGROUND_INTERVALS = [1, 5, 10, 30]
+const MAX_BACKGROUNDS = 50
+
 /** 主题色：色块显示主色到副色的渐变（与 index.css 中的变量一致） */
-const ACCENTS: { key: AccentColor; label: string; from: string; to: string }[] = [
+const ACCENTS: { key: Exclude<AccentColor, 'custom'>; label: string; from: string; to: string }[] = [
   { key: 'emerald', label: '翡翠绿', from: '#10b981', to: '#06b6d4' },
+  { key: 'teal', label: '薄荷青', from: '#14b8a6', to: '#84cc16' },
   { key: 'sky', label: '天空蓝', from: '#0ea5e9', to: '#6366f1' },
+  { key: 'indigo', label: '靛青蓝', from: '#6366f1', to: '#0ea5e9' },
   { key: 'violet', label: '星辰紫', from: '#8b5cf6', to: '#d946ef' },
   { key: 'rose', label: '樱花粉', from: '#f43f5e', to: '#f97316' },
-  { key: 'amber', label: '琥珀橙', from: '#f59e0b', to: '#f97316' }
+  { key: 'red', label: '中国红', from: '#ef4444', to: '#f59e0b' },
+  { key: 'amber', label: '琥珀橙', from: '#f59e0b', to: '#f97316' },
+  { key: 'lime', label: '青柠绿', from: '#84cc16', to: '#10b981' },
+  { key: 'slate', label: '石墨灰', from: '#64748b', to: '#0ea5e9' }
 ]
+
+/** 一些常用的自定义颜色，点一下就能用 */
+const CUSTOM_SWATCHES = [
+  '#e11d48',
+  '#db2777',
+  '#9333ea',
+  '#2563eb',
+  '#0891b2',
+  '#059669',
+  '#ca8a04',
+  '#ea580c',
+  '#78716c'
+]
+
+/** 十六进制颜色输入框：输入完整的 #rrggbb 后才保存 */
+function HexInput({ value, onChange }: { value: string; onChange: (hex: string) => void }): JSX.Element {
+  const [draft, setDraft] = useState(value)
+  useEffect(() => setDraft(value), [value])
+  const commit = (): void => {
+    const text = draft.trim().replace(/^#?/, '#')
+    if (/^#[0-9a-f]{6}$/i.test(text)) onChange(text.toLowerCase())
+    else setDraft(value)
+  }
+  return (
+    <input
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === 'Enter' && commit()}
+      maxLength={7}
+      aria-label="颜色代码"
+      spellCheck={false}
+      className="w-24 rounded-lg border border-white/10 bg-black/20 px-2.5 py-1.5 font-mono text-sm uppercase outline-none focus:border-emerald-400/50"
+    />
+  )
+}
 
 const AFTER_LAUNCH: { key: AfterLaunch; label: string; desc: string }[] = [
   { key: 'keep', label: '保持不变', desc: '启动器窗口保持原样' },
@@ -131,6 +199,7 @@ function SettingsPage(): JSX.Element {
   const [error, setError] = useState('')
   const memoryTimer = useRef<ReturnType<typeof setTimeout>>()
   const sliderTimer = useRef<ReturnType<typeof setTimeout>>()
+  const pendingSlider = useRef<Partial<AppSettings>>({})
   const [backgroundError, setBackgroundError] = useState('')
   const [runtimes, setRuntimes] = useState<JavaRuntimeInfo[] | null>(null)
   const [runtimesError, setRuntimesError] = useState('')
@@ -145,8 +214,14 @@ function SettingsPage(): JSX.Element {
   /** 拖动滑块时先更新界面，停止拖动 150 毫秒后再保存，避免频繁写入设置文件 */
   const updateSlider = (patch: Partial<AppSettings>): void => {
     setSettings((prev) => (prev ? { ...prev, ...patch } : prev))
+    // 合并这段时间内所有滑块的改动，一起保存（只保存最后一次会丢掉其他滑块的改动）
+    pendingSlider.current = { ...pendingSlider.current, ...patch }
     clearTimeout(sliderTimer.current)
-    sliderTimer.current = setTimeout(() => update(patch), 150)
+    sliderTimer.current = setTimeout(() => {
+      const pending = pendingSlider.current
+      pendingSlider.current = {}
+      void update(pending)
+    }, 150)
   }
 
   const changeBackground = async (action: () => Promise<AppSettings>): Promise<void> => {
@@ -233,6 +308,9 @@ function SettingsPage(): JSX.Element {
     )
   }
 
+  const backgroundImages = Array.isArray(settings.backgroundImages) ? settings.backgroundImages : []
+  const backgroundMode: BackgroundMode = backgroundImages.length > 0 ? (settings.backgroundMode ?? 'off') : 'off'
+
   return (
     <div className="flex h-full flex-col gap-5">
       <div className="flex items-center gap-4">
@@ -288,7 +366,7 @@ function SettingsPage(): JSX.Element {
 
             {/* 主题色 */}
             <div className="mt-6 text-sm font-medium">主题色</div>
-            <div className="mt-3 flex flex-wrap gap-4">
+            <div className="mt-3 grid grid-cols-6 gap-x-2 gap-y-4 sm:grid-cols-11">
               {ACCENTS.map((accent) => {
                 const active = settings.accentColor === accent.key
                 return (
@@ -309,73 +387,296 @@ function SettingsPage(): JSX.Element {
                   </button>
                 )
               })}
+              {/* 自定义颜色 */}
+              <button
+                onClick={() => update({ accentColor: 'custom' })}
+                className="flex flex-col items-center gap-1.5"
+                title="使用自己挑的颜色"
+              >
+                <span
+                  className={`flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-transparent transition ${
+                    settings.accentColor === 'custom' ? 'ring-white/80' : 'ring-transparent hover:ring-white/30'
+                  }`}
+                  style={{
+                    background:
+                      settings.accentColor === 'custom'
+                        ? settings.customAccent
+                        : 'conic-gradient(#ef4444, #f59e0b, #84cc16, #10b981, #06b6d4, #6366f1, #d946ef, #ef4444)'
+                  }}
+                >
+                  {settings.accentColor === 'custom' ? (
+                    <CheckCircle2 className="h-5 w-5 text-[#fff]" />
+                  ) : (
+                    <Pipette className="h-4 w-4 text-[#fff] drop-shadow" />
+                  )}
+                </span>
+                <span className={`text-xs ${settings.accentColor === 'custom' ? 'text-white' : 'text-white/50'}`}>
+                  自定义
+                </span>
+              </button>
             </div>
+            {settings.accentColor === 'custom' && (
+              <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-black/20 px-4 py-3">
+                <label className="relative h-9 w-9 shrink-0 cursor-pointer overflow-hidden rounded-lg ring-1 ring-white/20">
+                  <span className="absolute inset-0" style={{ background: settings.customAccent }} />
+                  <input
+                    type="color"
+                    aria-label="选择主题色"
+                    value={/^#[0-9a-f]{6}$/i.test(settings.customAccent) ? settings.customAccent : '#10b981'}
+                    onChange={(e) => updateSlider({ customAccent: e.target.value })}
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  />
+                </label>
+                <HexInput value={settings.customAccent} onChange={(hex) => update({ customAccent: hex })} />
+                <div className="flex flex-wrap gap-1.5">
+                  {CUSTOM_SWATCHES.map((hex) => (
+                    <button
+                      key={hex}
+                      onClick={() => update({ customAccent: hex })}
+                      title={hex}
+                      aria-label={`使用 ${hex}`}
+                      className={`h-6 w-6 rounded-md ring-1 transition hover:scale-110 ${
+                        settings.customAccent.toLowerCase() === hex ? 'ring-2 ring-white/80' : 'ring-white/20'
+                      }`}
+                      style={{ background: hex }}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs text-white/50">太亮或太暗的颜色会自动调整，保证文字看得清</span>
+              </div>
+            )}
+
+            {/* 面板质感 */}
+            <div className="mt-6 text-sm font-medium">面板质感</div>
+            <div className="mt-3 grid grid-cols-2 gap-6">
+              <label className="block">
+                <div className="flex justify-between text-xs text-white/60">
+                  <span>不透明度</span>
+                  <span>{settings.panelOpacity}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={60}
+                  value={settings.panelOpacity}
+                  onChange={(e) => updateSlider({ panelOpacity: Number(e.target.value) })}
+                  className="mt-2 w-full accent-emerald-500"
+                />
+              </label>
+              <label className="block">
+                <div className="flex justify-between text-xs text-white/60">
+                  <span>毛玻璃模糊</span>
+                  <span>{settings.panelBlur} px</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={40}
+                  value={settings.panelBlur}
+                  onChange={(e) => updateSlider({ panelBlur: Number(e.target.value) })}
+                  className="mt-2 w-full accent-emerald-500"
+                />
+              </label>
+            </div>
+            {(settings.panelOpacity !== 10 || settings.panelBlur !== 24) && (
+              <button
+                onClick={() => update({ panelOpacity: 10, panelBlur: 24 })}
+                className="mt-2 flex items-center gap-1.5 text-xs text-white/50 hover:text-white"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                恢复默认质感
+              </button>
+            )}
 
             {/* 背景图片 */}
             <div className="mt-6 text-sm font-medium">背景图片</div>
-            <div className="mt-3 flex items-center gap-4">
-              <div
-                className="h-16 w-28 shrink-0 rounded-lg border border-white/10 bg-cover bg-center app-background"
-                style={
-                  settings.backgroundImage
-                    ? { backgroundImage: `url("${backgroundUrl(settings.backgroundImage)}")` }
-                    : undefined
-                }
-              />
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => changeBackground(() => window.api.pickBackground())}
-                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
-                >
-                  <ImageIcon className="h-4 w-4" />
-                  选择图片...
-                </button>
-                {settings.backgroundImage && (
+            <div className="mt-3 grid grid-cols-4 gap-2" role="radiogroup" aria-label="背景模式">
+              {BACKGROUND_MODES.map((option) => {
+                const active = backgroundMode === option.key
+                const disabled = option.key !== 'off' && backgroundImages.length === 0
+                return (
                   <button
-                    onClick={() => changeBackground(() => window.api.clearBackground())}
-                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+                    key={option.key}
+                    role="radio"
+                    aria-checked={active}
+                    disabled={disabled}
+                    title={disabled ? '先添加背景图片' : undefined}
+                    onClick={() => update({ backgroundMode: option.key })}
+                    className={`rounded-xl border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                      active
+                        ? 'border-emerald-400/50 bg-emerald-500/15'
+                        : 'border-white/10 bg-white/5 hover:bg-white/10'
+                    }`}
                   >
-                    <RotateCcw className="h-4 w-4" />
-                    恢复默认
+                    <div className="text-sm font-medium">{option.label}</div>
+                    <div className="text-xs text-white/50">{option.desc}</div>
                   </button>
-                )}
-              </div>
+                )
+              })}
             </div>
-            {settings.backgroundImage && (
-              <div className="mt-4 grid grid-cols-2 gap-6">
-                <label className="block">
-                  <div className="flex justify-between text-xs text-white/60">
-                    <span>模糊</span>
-                    <span>{settings.backgroundBlur} px</span>
+
+            {/* 背景库 */}
+            <div className="mt-3 grid grid-cols-4 gap-2" aria-label="背景库">
+              {backgroundImages.map((name) => {
+                const current = backgroundMode === 'fixed' && name === settings.backgroundImage
+                return (
+                  <div key={name} className="group relative" data-background-item={name}>
+                    <button
+                      onClick={() => update({ backgroundImage: name, backgroundMode: 'fixed' })}
+                      title="设为背景"
+                      aria-pressed={current}
+                      className={`block aspect-video w-full rounded-lg border-2 bg-cover bg-center transition-colors ${
+                        current ? 'border-emerald-400' : 'border-white/10 hover:border-white/30'
+                      }`}
+                      style={{ backgroundImage: `url("${backgroundUrl(name)}")` }}
+                    />
+                    {current && (
+                      <CheckCircle2 className="pointer-events-none absolute left-1.5 top-1.5 h-4 w-4 rounded-full bg-black/50 text-emerald-300" />
+                    )}
+                    <button
+                      onClick={() => changeBackground(() => window.api.removeBackground(name))}
+                      title="删除这张图片"
+                      aria-label="删除这张图片"
+                      className="absolute right-1.5 top-1.5 rounded-md bg-black/60 p-1 text-white/80 opacity-0 transition-opacity hover:bg-red-500/80 hover:text-white focus:opacity-100 group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={20}
-                    value={settings.backgroundBlur}
-                    onChange={(e) => updateSlider({ backgroundBlur: Number(e.target.value) })}
-                    className="mt-2 w-full accent-emerald-500"
-                  />
-                </label>
-                <label className="block">
-                  <div className="flex justify-between text-xs text-white/60">
-                    <span>遮罩</span>
-                    <span>{settings.backgroundDim}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={80}
-                    value={settings.backgroundDim}
-                    onChange={(e) => updateSlider({ backgroundDim: Number(e.target.value) })}
-                    className="mt-2 w-full accent-emerald-500"
-                  />
-                </label>
-              </div>
+                )
+              })}
+              {backgroundImages.length < MAX_BACKGROUNDS && (
+                <button
+                  onClick={() => changeBackground(() => window.api.addBackgrounds())}
+                  className="flex aspect-video w-full flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-white/15 text-xs text-white/50 hover:border-white/30 hover:text-white"
+                >
+                  <ImagePlus className="h-5 w-5" />
+                  添加图片…
+                </button>
+              )}
+            </div>
+            <div className="mt-1.5 text-xs text-white/40">
+              可以一次选多张，最多 {MAX_BACKGROUNDS} 张。点击缩略图设为固定背景，悬停可删除
+            </div>
+
+            {backgroundMode !== 'off' && backgroundImages.length > 0 && (
+              <>
+                <div className={`mt-4 grid gap-6 ${backgroundMode === 'slideshow' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  <label className="block">
+                    <div className="text-xs text-white/60">填充方式</div>
+                    <select
+                      value={settings.backgroundFit ?? 'cover'}
+                      onChange={(e) => update({ backgroundFit: e.target.value as BackgroundFit })}
+                      aria-label="填充方式"
+                      className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-emerald-400/50"
+                    >
+                      {BACKGROUND_FITS.map((option) => (
+                        <option key={option.key} value={option.key}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {backgroundMode === 'slideshow' && (
+                    <label className="block">
+                      <div className="text-xs text-white/60">切换间隔</div>
+                      <select
+                        value={settings.backgroundInterval || 10}
+                        onChange={(e) => update({ backgroundInterval: Number(e.target.value) })}
+                        aria-label="切换间隔"
+                        className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-emerald-400/50"
+                      >
+                        {BACKGROUND_INTERVALS.map((minutes) => (
+                          <option key={minutes} value={minutes}>
+                            每 {minutes} 分钟
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-6">
+                  <label className="block">
+                    <div className="flex justify-between text-xs text-white/60">
+                      <span>模糊</span>
+                      <span>{settings.backgroundBlur} px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={20}
+                      value={settings.backgroundBlur}
+                      onChange={(e) => updateSlider({ backgroundBlur: Number(e.target.value) })}
+                      className="mt-2 w-full accent-emerald-500"
+                    />
+                  </label>
+                  <label className="block">
+                    <div className="flex justify-between text-xs text-white/60">
+                      <span>遮罩</span>
+                      <span>{settings.backgroundDim}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={80}
+                      value={settings.backgroundDim}
+                      onChange={(e) => updateSlider({ backgroundDim: Number(e.target.value) })}
+                      className="mt-2 w-full accent-emerald-500"
+                    />
+                  </label>
+                </div>
+              </>
             )}
             {backgroundError && (
               <div className="mt-3 rounded-xl bg-red-500/20 px-4 py-2.5 text-sm text-red-200">{backgroundError}</div>
             )}
+
+            {/* 字体与缩放 */}
+            <div className="mt-6 text-sm font-medium">界面字体</div>
+            <div className="mt-3 flex items-center gap-3">
+              <div className="flex-1">
+                <FontPicker value={settings.fontFamily ?? ''} onChange={(font) => update({ fontFamily: font })} />
+              </div>
+              {settings.fontFamily && (
+                <button
+                  onClick={() => update({ fontFamily: '' })}
+                  className="flex shrink-0 items-center gap-1.5 text-xs text-white/50 hover:text-white"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  恢复默认字体
+                </button>
+              )}
+            </div>
+
+            <div className="mt-6 text-sm font-medium">界面缩放</div>
+            <div className="mt-3 grid grid-cols-6 gap-2" role="radiogroup" aria-label="界面缩放">
+              {UI_SCALES.map((scale) => {
+                const active = (settings.uiScale || 100) === scale
+                return (
+                  <button
+                    key={scale}
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => update({ uiScale: scale })}
+                    className={`rounded-xl border px-2 py-2 text-center text-sm transition-colors ${
+                      active
+                        ? 'border-emerald-400/50 bg-emerald-500/15'
+                        : 'border-white/10 bg-white/5 hover:bg-white/10'
+                    }`}
+                  >
+                    {scale}%{scale === 100 && <span className="ml-1 text-xs text-white/50">默认</span>}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="mt-1.5 text-xs text-white/40">
+              也可以按 Ctrl + 加号 / 减号 或 Ctrl + 鼠标滚轮调整，Ctrl + 0 恢复 100%
+            </div>
+
+            {/* 侧边栏与主页 */}
+            <LayoutSettings settings={settings} update={update} updateSlider={updateSlider} />
+
+            {/* 背景音乐 */}
+            <MusicSettings settings={settings} update={update} updateSlider={updateSlider} />
 
             {/* 界面动画 */}
             <div className="mt-6 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">

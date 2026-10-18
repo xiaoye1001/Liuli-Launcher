@@ -1,5 +1,11 @@
 import { portableDir } from './paths'
-import { clearBackground, pickBackground, registerBackgroundProtocol } from './appearance'
+import {
+  addBackgrounds,
+  clearBackground,
+  pickBackground,
+  registerBackgroundProtocol,
+  removeBackground
+} from './appearance'
 import { getMainWindow, setMainWindow } from './windows'
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
 import { join } from 'path'
@@ -27,6 +33,8 @@ import { getGameLogs, getGameStatus, launchGame, listInstalledVersions, previewM
 import { closeLogWindow, openLogWindow } from './logWindow'
 import { pickVersionIcon, setVersionFavorite, setVersionIcon } from './versionDisplay'
 import { frameOptions, registerWindowControls, watchMaximize } from './windowFrame'
+import { addMusic, listMusic, openMusicDir, removeMusic } from './music'
+import { applyUiScaleToAll, manageUiScale, normalizeScale, sanitizeFontFamily } from './uiScale'
 import { shareCrashLogs, shareGameLog, shareLatestLog } from './logShare'
 import { getGameDirInfo, openGameDir, pickGameDir, removeGameDir, renameGameDir, setGameDir } from './gameDir'
 import { assertSafeId, deleteVersion, openVersionDir } from './versionManage'
@@ -120,9 +128,18 @@ import type {
   ModpackExportOptions,
   GameDirInfo
 } from '../shared/types'
+import { HIDEABLE_PAGES } from '../shared/types'
 
 /** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
+/** 用户输入的一行文字：去掉控制字符、首尾空白，限制长度 */
+function limitText(value: unknown, max: number): string {
+  return typeof value === 'string'
+    ? [...value.replace(/[\u0000-\u001f\u007f]/g, ' ').trim()].slice(0, max).join('')
+    : ''
+}
+
 function broadcastSettings(settings: AppSettings): AppSettings {
+  applyUiScaleToAll(settings)
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('settings:changed', settings)
   return settings
 }
@@ -153,6 +170,7 @@ function createWindow(): void {
 
   setMainWindow(mainWindow)
   watchMaximize(mainWindow)
+  manageUiScale(mainWindow, [900, 600])
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -193,6 +211,25 @@ function registerIpc(): void {
       const threads = Number(patch.downloadThreads)
       patch = { ...patch, downloadThreads: Number.isInteger(threads) ? Math.min(64, Math.max(1, threads)) : 16 }
     }
+    if ('uiScale' in patch) patch = { ...patch, uiScale: normalizeScale(patch.uiScale) }
+    if ('musicVolume' in patch) {
+      const volume = Number(patch.musicVolume)
+      patch = { ...patch, musicVolume: Number.isFinite(volume) ? Math.round(Math.min(100, Math.max(0, volume))) : 40 }
+    }
+    // 自定义文字：去掉换行等控制字符并限制长度
+    for (const [key, max] of [
+      ['launcherTitle', 20],
+      ['launcherSubtitle', 30],
+      ['welcomeTitle', 60],
+      ['welcomeSubtitle', 120]
+    ] as const) {
+      if (key in patch) patch = { ...patch, [key]: limitText(patch[key], max) }
+    }
+    if ('hiddenPages' in patch) {
+      const pages = Array.isArray(patch.hiddenPages) ? patch.hiddenPages : []
+      patch = { ...patch, hiddenPages: HIDEABLE_PAGES.filter((p) => pages.includes(p)) }
+    }
+    if ('fontFamily' in patch) patch = { ...patch, fontFamily: sanitizeFontFamily(patch.fontFamily) }
     const next = await updateSettings(patch)
     // 代理与下载线程数立即生效
     if ('proxyMode' in patch || 'proxyUrl' in patch || 'downloadThreads' in patch) await applyNetworkSettings()
@@ -204,6 +241,16 @@ function registerIpc(): void {
     pickBackground(BrowserWindow.fromWebContents(event.sender)).then(broadcastSettings)
   )
   ipcMain.handle('appearance:clearBackground', () => clearBackground().then(broadcastSettings))
+  ipcMain.handle('appearance:addBackgrounds', (event) =>
+    addBackgrounds(BrowserWindow.fromWebContents(event.sender)).then(broadcastSettings)
+  )
+  ipcMain.handle('appearance:removeBackground', (_, name: string) =>
+    removeBackground(String(name)).then(broadcastSettings)
+  )
+  ipcMain.handle('music:list', () => listMusic())
+  ipcMain.handle('music:add', (event) => addMusic(BrowserWindow.fromWebContents(event.sender)))
+  ipcMain.handle('music:remove', (_, name: string) => removeMusic(name))
+  ipcMain.handle('music:openDir', () => openMusicDir())
   ipcMain.handle('versions:list', async (_, force: boolean) => {
     const settings = await getSettings()
     return getVersionManifest(settings.downloadSource, force)

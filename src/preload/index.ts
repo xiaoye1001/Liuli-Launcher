@@ -205,6 +205,12 @@ const api = {
   },
   pickBackground: () => ipcRenderer.invoke('appearance:pickBackground'),
   clearBackground: () => ipcRenderer.invoke('appearance:clearBackground'),
+  addBackgrounds: () => ipcRenderer.invoke('appearance:addBackgrounds'),
+  removeBackground: (name: string) => ipcRenderer.invoke('appearance:removeBackground', name),
+  listMusic: () => ipcRenderer.invoke('music:list'),
+  addMusic: () => ipcRenderer.invoke('music:add'),
+  removeMusic: (name: string) => ipcRenderer.invoke('music:remove', name),
+  openMusicDir: () => ipcRenderer.invoke('music:openDir'),
   onSettingsChanged: (callback: (settings: AppSettings) => void) => {
     const listener = (_: Electron.IpcRendererEvent, settings: AppSettings): void => callback(settings)
     ipcRenderer.on('settings:changed', listener)

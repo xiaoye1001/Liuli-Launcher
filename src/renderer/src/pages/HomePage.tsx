@@ -18,6 +18,8 @@ import RecentPlays from '../components/RecentPlays'
 import VersionIcon from '../components/VersionIcon'
 import NewsPanel from '../components/NewsPanel'
 import { formatClock } from '../utils/format'
+import { useAppearance } from '../utils/appearance'
+import { renderWelcome } from '../utils/welcome'
 import SkinHead from '../components/SkinHead'
 import type { AccountsInfo, AppSettings, GameStatus, InstallStatus, InstalledVersion } from '../../../shared/types'
 
@@ -145,6 +147,8 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
   const displayName = msAccount ? msAccount.name : name
   const busy = game.state === 'launching' || game.state === 'running'
   const selected = settings?.selectedVersion ?? ''
+  const { welcomeTitle, welcomeSubtitle } = useAppearance()
+  const welcomeValues = { name: nameValid ? displayName : '', version: selected }
 
   const saveName = async (): Promise<void> => {
     if (!msAccount && nameValid && settings && name !== settings.offlineName) {
@@ -209,11 +213,15 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
       </AnimatePresence>
 
       <div className="rounded-2xl border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
-        <h1 className="text-3xl font-bold tracking-tight">欢迎回来{nameValid ? `，${displayName}` : ''}</h1>
+        <h1 className="text-3xl font-bold tracking-tight">
+          {welcomeTitle ? renderWelcome(welcomeTitle, welcomeValues) : `欢迎回来${nameValid ? `，${displayName}` : ''}`}
+        </h1>
         <p className="mt-2 text-sm text-white/60">
-          {versions.length > 0
-            ? '选择版本后点击启动，开始你的冒险。'
-            : '还没有安装任何版本，请先到「下载」页安装游戏。'}
+          {versions.length === 0
+            ? '还没有安装任何版本，请先到「下载」页安装游戏。'
+            : welcomeSubtitle
+              ? renderWelcome(welcomeSubtitle, welcomeValues)
+              : '选择版本后点击启动，开始你的冒险。'}
         </p>
 
         <div className="mt-6 flex flex-wrap items-end gap-4">
