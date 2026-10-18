@@ -126,11 +126,11 @@ npm run build:win
 
 免安装版每次启动需要先解压，会比安装版慢几秒。exe 所在位置不可写时（例如放在 `C:\Program Files` 里），数据会改存到与安装版相同的位置。
 
-> 安装包没有代码签名证书，第一次运行时 Windows 可能提示「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」即可。
+> 安装包目前没有代码签名，第一次运行时 Windows 可能提示「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」即可。
 
 `build:mac` / `build:linux` 分别用于打包 macOS（dmg）和 Linux（AppImage），需要在对应系统上运行。
 
-发布新版本时，在仓库的 Actions → Release → Run workflow 中填写版本号（例如 `0.2.0`），会自动打包 Windows、macOS（Apple 芯片与 Intel）、Linux 三个平台并发布到 Releases。macOS 版本没有 Apple 开发者签名，第一次打开需要右键 →「打开」；提示「已损坏」时在终端运行 `xattr -cr /Applications/琉璃启动器.app`。
+发布新版本时，在仓库的 Actions → Release → Run workflow 中填写版本号（例如 `0.2.0`），会自动打包 Windows、macOS（Apple 芯片与 Intel）、Linux 三个平台并发布到 Releases。在仓库里配置好 Windows 代码签名证书、Apple 开发者证书后，发布时会自动签名（macOS 还会提交 Apple 公证），并自动检查签名是否有效，配置方法见 [代码签名](docs/code-signing.md)。没有配置时打包未签名的版本：macOS 第一次打开需要右键 →「打开」，提示「已损坏」时在终端运行 `xattr -cr /Applications/琉璃启动器.app`。
 
 ## 微软正版登录
 
@@ -184,6 +184,17 @@ src/
 ├── renderer/    # 界面（React）
 └── shared/      # 主进程与界面共用的类型定义
 ```
+
+## 代码签名策略
+
+Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
+
+Windows 版本的代码签名由 [SignPath.io](https://about.signpath.io/) 免费提供，证书由 [SignPath Foundation](https://signpath.org/) 签发（正在申请，通过前发布的版本没有签名）。
+
+- 提交者与审核者（Committers and reviewers）：[xiaoye1001](https://github.com/xiaoye1001)
+- 签名审批者（Approvers）：[xiaoye1001](https://github.com/xiaoye1001)
+- 所有安装包都由 GitHub Actions 从本仓库的源代码自动构建，构建流程见 [`.github/workflows/release.yml`](.github/workflows/release.yml)
+- 隐私：启动器不收集任何数据，只在使用相应功能时连接所需的服务，详见 [隐私政策](PRIVACY.md)
 
 ## 致谢
 
