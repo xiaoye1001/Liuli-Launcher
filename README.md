@@ -185,17 +185,6 @@ src/
 └── shared/      # 主进程与界面共用的类型定义
 ```
 
-## 代码签名策略
-
-Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
-
-Windows 版本的代码签名由 [SignPath.io](https://about.signpath.io/) 免费提供，证书由 [SignPath Foundation](https://signpath.org/) 签发（正在申请，通过前发布的版本没有签名）。
-
-- 提交者与审核者（Committers and reviewers）：[xiaoye1001](https://github.com/xiaoye1001)
-- 签名审批者（Approvers）：[xiaoye1001](https://github.com/xiaoye1001)
-- 所有安装包都由 GitHub Actions 从本仓库的源代码自动构建，构建流程见 [`.github/workflows/release.yml`](.github/workflows/release.yml)
-- 隐私：启动器不收集任何数据，只在使用相应功能时连接所需的服务，详见 [隐私政策](PRIVACY.md)
-
 ## 致谢
 
 - [BMCLAPI](https://bmclapi2.bangbang93.com/)：国内下载镜像
@@ -208,6 +197,8 @@ Windows 版本的代码签名由 [SignPath.io](https://about.signpath.io/) 免�
 ## 声明
 
 本项目与 Mojang Studios、Microsoft 没有任何关联。Minecraft 是 Mojang Studios 的商标。请购买正版游戏以支持开发者。
+
+启动器不收集任何数据，详见 [隐私政策](PRIVACY.md)。
 
 ## 许可证
 

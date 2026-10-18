@@ -178,15 +178,6 @@ src/
 └── shared/      # Types shared by the main process and the UI
 ```
 
-## Code signing policy
-
-Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/). (Application in progress; releases published before approval are unsigned.)
-
-- Committers and reviewers: [xiaoye1001](https://github.com/xiaoye1001)
-- Approvers: [xiaoye1001](https://github.com/xiaoye1001)
-- All release binaries are built automatically by GitHub Actions from the source code in this repository; see [`.github/workflows/release.yml`](.github/workflows/release.yml)
-- Privacy: the launcher collects no data and only connects to the services needed for the feature you use; see the [Privacy Policy](PRIVACY.md)
-
 ## Acknowledgements
 
 - [BMCLAPI](https://bmclapi2.bangbang93.com/): download mirror
@@ -198,6 +189,8 @@ Free code signing provided by [SignPath.io](https://about.signpath.io/), certifi
 ## Disclaimer
 
 This project is not affiliated with Mojang Studios or Microsoft. Minecraft is a trademark of Mojang Studios. Please buy the game to support its developers.
+
+The launcher collects no data; see the [Privacy Policy](PRIVACY.md).
 
 ## License
 

@@ -322,12 +322,6 @@ jobs:
 
           EOF
             echo "运行游戏需要安装 Java（1.20.5 及以上需要 Java 21）。功能介绍与使用说明见 [README](https://github.com/$REPO#readme)。"
-            echo
-            if [ "$WIN_SIGNED" = 'true' ]; then
-              echo "Windows 版本的代码签名由 SignPath.io 免费提供，证书由 SignPath Foundation 签发，详见 [代码签名策略](https://github.com/$REPO#代码签名策略)。隐私政策见 [PRIVACY.md](https://github.com/$REPO/blob/main/PRIVACY.md)。"
-            else
-              echo "Windows 版本正在申请 SignPath Foundation 的免费代码签名，详见 [代码签名策略](https://github.com/$REPO#代码签名策略)。隐私政策见 [PRIVACY.md](https://github.com/$REPO/blob/main/PRIVACY.md)。"
-            fi
           } > release-notes.md
           cat release-notes.md
 
