@@ -245,6 +245,10 @@ declare global {
       /** 选择背景图片，取消时返回原设置 */
       pickBackground: () => Promise<AppSettings>
       clearBackground: () => Promise<AppSettings>
+      /** 添加背景图片到背景库（可以多选） */
+      addBackgrounds: () => Promise<AppSettings>
+      /** 从背景库删除图片 */
+      removeBackground: (name: string) => Promise<AppSettings>
       /** 任意窗口修改设置后推送最新设置 */
       onSettingsChanged: (callback: (settings: AppSettings) => void) => () => void
       getAccounts: () => Promise<AccountsInfo>

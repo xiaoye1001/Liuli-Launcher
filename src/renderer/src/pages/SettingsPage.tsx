@@ -6,7 +6,8 @@ import {
   Coffee,
   ExternalLink,
   Download,
-  ImageIcon,
+  ImagePlus,
+  Trash2,
   Info,
   Rocket,
   Sparkles,
@@ -35,6 +36,8 @@ import type {
   AccentColor,
   AfterLaunch,
   AppSettings,
+  BackgroundFit,
+  BackgroundMode,
   DownloadSource,
   InstallStatus,
   JavaInfo,
@@ -52,6 +55,25 @@ const SOURCES: { key: DownloadSource; label: string; desc: string }[] = [
   { key: 'bmclapi', label: 'BMCLAPI 镜像', desc: '国内高速镜像，推荐' },
   { key: 'mojang', label: '官方源', desc: 'Mojang 官方服务器' }
 ]
+
+/** 背景模式 */
+const BACKGROUND_MODES: { key: BackgroundMode; label: string; desc: string }[] = [
+  { key: 'off', label: '不使用', desc: '默认的渐变背景' },
+  { key: 'fixed', label: '固定一张', desc: '一直显示选中的图片' },
+  { key: 'random', label: '启动时随机', desc: '每次打开换一张' },
+  { key: 'slideshow', label: '定时轮播', desc: '按顺序淡入淡出切换' }
+]
+
+const BACKGROUND_FITS: { key: BackgroundFit; label: string }[] = [
+  { key: 'cover', label: '填充（裁剪铺满窗口）' },
+  { key: 'contain', label: '适应（完整显示图片）' },
+  { key: 'stretch', label: '拉伸' },
+  { key: 'center', label: '居中（原始大小）' },
+  { key: 'tile', label: '平铺' }
+]
+
+const BACKGROUND_INTERVALS = [1, 5, 10, 30]
+const MAX_BACKGROUNDS = 50
 
 /** 主题色：色块显示主色到副色的渐变（与 index.css 中的变量一致） */
 const ACCENTS: { key: Exclude<AccentColor, 'custom'>; label: string; from: string; to: string }[] = [
@@ -282,6 +304,9 @@ function SettingsPage(): JSX.Element {
     )
   }
 
+  const backgroundImages = Array.isArray(settings.backgroundImages) ? settings.backgroundImages : []
+  const backgroundMode: BackgroundMode = backgroundImages.length > 0 ? (settings.backgroundMode ?? 'off') : 'off'
+
   return (
     <div className="flex h-full flex-col gap-5">
       <div className="flex items-center gap-4">
@@ -461,65 +486,141 @@ function SettingsPage(): JSX.Element {
 
             {/* 背景图片 */}
             <div className="mt-6 text-sm font-medium">背景图片</div>
-            <div className="mt-3 flex items-center gap-4">
-              <div
-                className="h-16 w-28 shrink-0 rounded-lg border border-white/10 bg-cover bg-center app-background"
-                style={
-                  settings.backgroundImage
-                    ? { backgroundImage: `url("${backgroundUrl(settings.backgroundImage)}")` }
-                    : undefined
-                }
-              />
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => changeBackground(() => window.api.pickBackground())}
-                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
-                >
-                  <ImageIcon className="h-4 w-4" />
-                  选择图片...
-                </button>
-                {settings.backgroundImage && (
+            <div className="mt-3 grid grid-cols-4 gap-2" role="radiogroup" aria-label="背景模式">
+              {BACKGROUND_MODES.map((option) => {
+                const active = backgroundMode === option.key
+                const disabled = option.key !== 'off' && backgroundImages.length === 0
+                return (
                   <button
-                    onClick={() => changeBackground(() => window.api.clearBackground())}
-                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+                    key={option.key}
+                    role="radio"
+                    aria-checked={active}
+                    disabled={disabled}
+                    title={disabled ? '先添加背景图片' : undefined}
+                    onClick={() => update({ backgroundMode: option.key })}
+                    className={`rounded-xl border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                      active
+                        ? 'border-emerald-400/50 bg-emerald-500/15'
+                        : 'border-white/10 bg-white/5 hover:bg-white/10'
+                    }`}
                   >
-                    <RotateCcw className="h-4 w-4" />
-                    恢复默认
+                    <div className="text-sm font-medium">{option.label}</div>
+                    <div className="text-xs text-white/50">{option.desc}</div>
                   </button>
-                )}
-              </div>
+                )
+              })}
             </div>
-            {settings.backgroundImage && (
-              <div className="mt-4 grid grid-cols-2 gap-6">
-                <label className="block">
-                  <div className="flex justify-between text-xs text-white/60">
-                    <span>模糊</span>
-                    <span>{settings.backgroundBlur} px</span>
+
+            {/* 背景库 */}
+            <div className="mt-3 grid grid-cols-4 gap-2" aria-label="背景库">
+              {backgroundImages.map((name) => {
+                const current = backgroundMode === 'fixed' && name === settings.backgroundImage
+                return (
+                  <div key={name} className="group relative" data-background-item={name}>
+                    <button
+                      onClick={() => update({ backgroundImage: name, backgroundMode: 'fixed' })}
+                      title="设为背景"
+                      aria-pressed={current}
+                      className={`block aspect-video w-full rounded-lg border-2 bg-cover bg-center transition-colors ${
+                        current ? 'border-emerald-400' : 'border-white/10 hover:border-white/30'
+                      }`}
+                      style={{ backgroundImage: `url("${backgroundUrl(name)}")` }}
+                    />
+                    {current && (
+                      <CheckCircle2 className="pointer-events-none absolute left-1.5 top-1.5 h-4 w-4 rounded-full bg-black/50 text-emerald-300" />
+                    )}
+                    <button
+                      onClick={() => changeBackground(() => window.api.removeBackground(name))}
+                      title="删除这张图片"
+                      aria-label="删除这张图片"
+                      className="absolute right-1.5 top-1.5 rounded-md bg-black/60 p-1 text-white/80 opacity-0 transition-opacity hover:bg-red-500/80 hover:text-white focus:opacity-100 group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={20}
-                    value={settings.backgroundBlur}
-                    onChange={(e) => updateSlider({ backgroundBlur: Number(e.target.value) })}
-                    className="mt-2 w-full accent-emerald-500"
-                  />
-                </label>
-                <label className="block">
-                  <div className="flex justify-between text-xs text-white/60">
-                    <span>遮罩</span>
-                    <span>{settings.backgroundDim}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={80}
-                    value={settings.backgroundDim}
-                    onChange={(e) => updateSlider({ backgroundDim: Number(e.target.value) })}
-                    className="mt-2 w-full accent-emerald-500"
-                  />
-                </label>
-              </div>
+                )
+              })}
+              {backgroundImages.length < MAX_BACKGROUNDS && (
+                <button
+                  onClick={() => changeBackground(() => window.api.addBackgrounds())}
+                  className="flex aspect-video w-full flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-white/15 text-xs text-white/50 hover:border-white/30 hover:text-white"
+                >
+                  <ImagePlus className="h-5 w-5" />
+                  添加图片…
+                </button>
+              )}
+            </div>
+            <div className="mt-1.5 text-xs text-white/40">
+              可以一次选多张，最多 {MAX_BACKGROUNDS} 张。点击缩略图设为固定背景，悬停可删除
+            </div>
+
+            {backgroundMode !== 'off' && backgroundImages.length > 0 && (
+              <>
+                <div className={`mt-4 grid gap-6 ${backgroundMode === 'slideshow' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  <label className="block">
+                    <div className="text-xs text-white/60">填充方式</div>
+                    <select
+                      value={settings.backgroundFit ?? 'cover'}
+                      onChange={(e) => update({ backgroundFit: e.target.value as BackgroundFit })}
+                      aria-label="填充方式"
+                      className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-emerald-400/50"
+                    >
+                      {BACKGROUND_FITS.map((option) => (
+                        <option key={option.key} value={option.key}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {backgroundMode === 'slideshow' && (
+                    <label className="block">
+                      <div className="text-xs text-white/60">切换间隔</div>
+                      <select
+                        value={settings.backgroundInterval || 10}
+                        onChange={(e) => update({ backgroundInterval: Number(e.target.value) })}
+                        aria-label="切换间隔"
+                        className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm outline-none focus:border-emerald-400/50"
+                      >
+                        {BACKGROUND_INTERVALS.map((minutes) => (
+                          <option key={minutes} value={minutes}>
+                            每 {minutes} 分钟
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-6">
+                  <label className="block">
+                    <div className="flex justify-between text-xs text-white/60">
+                      <span>模糊</span>
+                      <span>{settings.backgroundBlur} px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={20}
+                      value={settings.backgroundBlur}
+                      onChange={(e) => updateSlider({ backgroundBlur: Number(e.target.value) })}
+                      className="mt-2 w-full accent-emerald-500"
+                    />
+                  </label>
+                  <label className="block">
+                    <div className="flex justify-between text-xs text-white/60">
+                      <span>遮罩</span>
+                      <span>{settings.backgroundDim}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={80}
+                      value={settings.backgroundDim}
+                      onChange={(e) => updateSlider({ backgroundDim: Number(e.target.value) })}
+                      className="mt-2 w-full accent-emerald-500"
+                    />
+                  </label>
+                </div>
+              </>
             )}
             {backgroundError && (
               <div className="mt-3 rounded-xl bg-red-500/20 px-4 py-2.5 text-sm text-red-200">{backgroundError}</div>

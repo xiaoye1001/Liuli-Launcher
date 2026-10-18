@@ -1,5 +1,11 @@
 import { portableDir } from './paths'
-import { clearBackground, pickBackground, registerBackgroundProtocol } from './appearance'
+import {
+  addBackgrounds,
+  clearBackground,
+  pickBackground,
+  registerBackgroundProtocol,
+  removeBackground
+} from './appearance'
 import { getMainWindow, setMainWindow } from './windows'
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
 import { join } from 'path'
@@ -204,6 +210,12 @@ function registerIpc(): void {
     pickBackground(BrowserWindow.fromWebContents(event.sender)).then(broadcastSettings)
   )
   ipcMain.handle('appearance:clearBackground', () => clearBackground().then(broadcastSettings))
+  ipcMain.handle('appearance:addBackgrounds', (event) =>
+    addBackgrounds(BrowserWindow.fromWebContents(event.sender)).then(broadcastSettings)
+  )
+  ipcMain.handle('appearance:removeBackground', (_, name: string) =>
+    removeBackground(String(name)).then(broadcastSettings)
+  )
   ipcMain.handle('versions:list', async (_, force: boolean) => {
     const settings = await getSettings()
     return getVersionManifest(settings.downloadSource, force)

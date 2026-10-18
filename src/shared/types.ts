@@ -119,8 +119,16 @@ export interface AppSettings {
   panelOpacity: number
   /** 面板背景模糊（px），0~40 */
   panelBlur: number
-  /** 自定义背景图片（用户数据目录 backgrounds 下的文件名），空字符串表示使用默认渐变背景 */
+  /** 当前（固定模式下）使用的背景图片（backgrounds 文件夹里的文件名），空字符串表示没有 */
   backgroundImage: string
+  /** 背景库：添加过的所有背景图片（backgrounds 文件夹里的文件名） */
+  backgroundImages: string[]
+  /** 背景模式：不使用 / 固定一张 / 每次启动随机 / 定时轮播 */
+  backgroundMode: BackgroundMode
+  /** 轮播间隔（分钟） */
+  backgroundInterval: number
+  /** 背景填充方式 */
+  backgroundFit: BackgroundFit
   /** 背景模糊程度（像素，0~20） */
   backgroundBlur: number
   /** 背景遮罩浓度（百分比，0~80），让文字在明亮的图片上也看得清 */
@@ -209,6 +217,10 @@ export type SkinModel = 'default' | 'slim'
 
 /** 系统信息 */
 export type UpdateSource = 'auto' | 'official' | 'github'
+
+export type BackgroundMode = 'off' | 'fixed' | 'random' | 'slideshow'
+/** 填充（裁剪铺满）/ 适应（完整显示）/ 拉伸 / 居中 / 平铺 */
+export type BackgroundFit = 'cover' | 'contain' | 'stretch' | 'center' | 'tile'
 
 export interface SystemInfo {
   /** 官网地址（构建时配置），没有配置时为空字符串 */

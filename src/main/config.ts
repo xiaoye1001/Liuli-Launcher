@@ -84,6 +84,10 @@ function defaultSettings(): AppSettings {
     panelOpacity: 10,
     panelBlur: 24,
     backgroundImage: '',
+    backgroundImages: [],
+    backgroundMode: 'off',
+    backgroundInterval: 10,
+    backgroundFit: 'cover',
     backgroundBlur: 0,
     backgroundDim: 30,
     animations: true,
@@ -109,6 +113,11 @@ async function load(): Promise<AppSettings> {
     }
     // 旧版本在设置中保存过 Client ID，现在改为构建时注入，不再保存
     delete (saved as Record<string, unknown>).msClientId
+    // 旧版本只有一张背景：放进背景库，模式设为固定
+    if (!Array.isArray(saved.backgroundImages)) {
+      saved.backgroundImages = saved.backgroundImage ? [saved.backgroundImage] : []
+      if (!saved.backgroundMode) saved.backgroundMode = saved.backgroundImage ? 'fixed' : 'off'
+    }
     return withGameDirs(withOfflineAccounts({ ...defaults, ...saved }))
   } catch {
     return withGameDirs(withOfflineAccounts(defaults))

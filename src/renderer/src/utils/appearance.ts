@@ -5,12 +5,24 @@ import { ACCENT_VARIABLE_NAMES, accentVariables } from './accent'
 /** 需要立即在界面上生效的外观设置 */
 export type Appearance = Pick<
   AppSettings,
-  'accentColor' | 'backgroundImage' | 'backgroundBlur' | 'backgroundDim' | 'animations'
+  | 'accentColor'
+  | 'backgroundImage'
+  | 'backgroundImages'
+  | 'backgroundMode'
+  | 'backgroundInterval'
+  | 'backgroundFit'
+  | 'backgroundBlur'
+  | 'backgroundDim'
+  | 'animations'
 >
 
 let current: Appearance = {
   accentColor: 'emerald',
   backgroundImage: '',
+  backgroundImages: [],
+  backgroundMode: 'off',
+  backgroundInterval: 10,
+  backgroundFit: 'cover',
   backgroundBlur: 0,
   backgroundDim: 30,
   animations: true
@@ -21,6 +33,10 @@ function apply(settings: AppSettings): void {
   current = {
     accentColor: settings.accentColor,
     backgroundImage: settings.backgroundImage,
+    backgroundImages: Array.isArray(settings.backgroundImages) ? settings.backgroundImages : [],
+    backgroundMode: settings.backgroundMode ?? 'off',
+    backgroundInterval: settings.backgroundInterval || 10,
+    backgroundFit: settings.backgroundFit ?? 'cover',
     backgroundBlur: settings.backgroundBlur,
     backgroundDim: settings.backgroundDim,
     animations: settings.animations

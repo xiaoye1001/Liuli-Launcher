@@ -205,6 +205,8 @@ const api = {
   },
   pickBackground: () => ipcRenderer.invoke('appearance:pickBackground'),
   clearBackground: () => ipcRenderer.invoke('appearance:clearBackground'),
+  addBackgrounds: () => ipcRenderer.invoke('appearance:addBackgrounds'),
+  removeBackground: (name: string) => ipcRenderer.invoke('appearance:removeBackground', name),
   onSettingsChanged: (callback: (settings: AppSettings) => void) => {
     const listener = (_: Electron.IpcRendererEvent, settings: AppSettings): void => callback(settings)
     ipcRenderer.on('settings:changed', listener)
