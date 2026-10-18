@@ -36,6 +36,8 @@ WEBSITE_ASSET = 'LiuliLauncher-website.zip'
 # 只下载这些安装包（与网页上的下载按钮对应）
 INSTALLER = re.compile(r'^LiuliLauncher-(Setup-[\d.]+\.exe|Portable-[\d.]+\.exe|[\d.]+-(arm64|x64)\.dmg|[\d.]+\.AppImage)$')
 SAFE_NAME = re.compile(r'^[\w.+-]+$')
+# 清理时认作旧安装包或临时文件的名字（包括浏览器重复下载产生的「(1)」、下载中断留下的 .part）
+OLD_FILE = re.compile(r'^LiuliLauncher-.*\.(exe|dmg|AppImage|blockmap)(\.part)?$|\.part$|^\.website\.zip$', re.I)
 USER_AGENT = 'LiuliLauncher-site-updater'
 # 网站文件夹里不能被网页覆盖或删除的东西（宝塔的配置文件、证书验证目录、安装包）
 KEEP = {'downloads', '.user.ini', '.well-known', '.htaccess', '404.html', '.liuli-site'}
@@ -153,6 +155,32 @@ def is_our_site(site):
         return False
 
 
+def clean_downloads(downloads, keep_names):
+    """删除 downloads/ 里不属于当前版本的安装包和临时文件，返回删除的数量"""
+    keep = set(keep_names) | {'latest.json', '.update.lock'}
+    removed = 0
+    for name in sorted(os.listdir(downloads)):
+        path = os.path.join(downloads, name)
+        if name in keep or not os.path.isfile(path) or not OLD_FILE.search(name):
+            continue
+        try:
+            os.remove(path)
+            removed += 1
+            log('  删除旧文件 %s' % name)
+        except OSError as e:
+            log('  无法删除 %s：%s' % (name, e))
+    return removed
+
+
+def current_files(latest_path):
+    """latest.json 里记录的当前版本文件名"""
+    try:
+        with open(latest_path, encoding='utf-8') as f:
+            return [x.get('name', '') for x in json.load(f).get('files', [])]
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(description='更新琉璃启动器官网与安装包')
     parser.add_argument('--site', required=True, help='网站根目录，例如 /www/wwwroot/example.com')
@@ -213,6 +241,10 @@ def main():
 
     if not args.force and current.get('version') == version and complete:
         log('已经是最新版本 v%s，不需要更新' % version)
+        # 之前没清理干净的旧版本（例如上次更新中途被中断）在这里补上
+        names = current_files(latest_path)
+        if names:
+            clean_downloads(downloads, names)
         return 0
 
     log('开始更新到 v%s' % version)
@@ -264,11 +296,7 @@ def main():
         )
     os.replace(tmp, latest_path)
 
-    keep = {f['name'] for f in files} | {'latest.json', '.update.lock'}
-    for name in os.listdir(downloads):
-        if name not in keep and INSTALLER.match(name):
-            os.remove(os.path.join(downloads, name))
-            log('  删除旧版本 %s' % name)
+    clean_downloads(downloads, [f['name'] for f in files])
     log('更新完成：v%s' % version)
     return 0
 
