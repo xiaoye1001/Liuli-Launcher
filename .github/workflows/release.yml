@@ -152,19 +152,7 @@ jobs:
           path: release
           merge-multiple: true
 
-      # 官网网页也打包放进 Release，服务器上的更新脚本（deploy/update_site.py）会用它更新网站
-      - uses: actions/checkout@v4
-        with:
-          path: source
-          sparse-checkout: |
-            website
-            deploy
-
-      - name: Pack website
-        run: |
-          cd source/website && zip -r -X ../../release/LiuliLauncher-website.zip .
-          cp ../deploy/update_site.py ../../release/update_site.py
-
+      # Release 只放启动器安装包，官网网页和服务器脚本不随 Release 发布
       - run: ls -la release
 
       - uses: softprops/action-gh-release@v2

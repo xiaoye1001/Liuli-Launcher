@@ -4,10 +4,10 @@
 服务器上的脚本 `update_site.py` 会定时检查 GitHub 上的新版本：
 
 - 把 5 个安装包下载到网站的 `downloads/` 文件夹（用 GitHub 提供的 SHA-256 校验，校验不通过不会替换）
-- 用新版本附带的网页（`LiuliLauncher-website.zip`）更新网站
 - 写入 `downloads/latest.json`，网页据此显示版本号和下载按钮；旧版本的安装包会被删除
 
-所以以后发布新版本，网站会自动跟着更新，不需要手动上传任何东西。
+所以以后发布新版本，网站上的版本号和安装包会自动跟着更新。
+网页本身（`website/` 文件夹）不随 Release 发布，修改网页后需要手动上传一次（见第 4 步）。
 服务器只需要能访问 GitHub，不需要把服务器密码或密钥交给 GitHub。
 
 服务器空间：每个版本的安装包合计约 550 MB（只保留最新版本）。
@@ -34,24 +34,14 @@
 
 ## 3. 上传更新脚本
 
-把 `update_site.py`（每个 Release 里都附带，也就是仓库里的 `deploy/update_site.py`）上传到服务器，例如放在 `/www/liuli/update_site.py`：
+把仓库里的 `deploy/update_site.py` 上传到服务器，例如放在 `/www/liuli/update_site.py`：
 
-- 宝塔「文件」→ 新建文件夹 `/www/liuli` → 上传 `update_site.py`
-- 或者在终端运行：
-
-  ```bash
-  mkdir -p /www/liuli
-  curl -L -o /www/liuli/update_site.py https://github.com/xiaoye1001/Liuli-Launcher/releases/latest/download/update_site.py
-  ```
-
-  连不上 GitHub 时在地址前面加上加速前缀，例如 `https://ghfast.top/https://github.com/...`。
+宝塔「文件」→ 新建文件夹 `/www/liuli` → 上传 `update_site.py`
 
 ## 4. 第一次运行
 
-> v0.2.7 及更早的版本还没有附带网页。在下一个版本发布之前，先手动放一次网页：
-> 把 `LiuliLauncher-website.zip` 上传到站点根目录，在宝塔「文件」里右键「解压」（覆盖同名文件），
-> 之后脚本会接管这个目录，以后的版本自动更新网页。
-
+先放网页：把仓库里 `website/` 文件夹的内容打成 zip，上传到站点根目录，
+在宝塔「文件」里右键「解压」（覆盖同名文件）。以后修改了网页，同样这样上传一次，再运行一次脚本（加 `--force`）。
 
 宝塔「终端」（或 SSH）里运行，把路径换成你的站点根目录：
 
@@ -137,8 +127,8 @@ location ~* \.(webp|png|svg)$ {
 `--site` 填的目录不是新建的空站点。换成新站点的根目录（宝塔新建站点时自动生成的 `index.html`、`404.html`、`.user.ini` 不影响）。
 
 **网页更新后，有的地方没有样式、或者一直显示「正在获取」**
-浏览器还在用旧的样式和脚本。用更新脚本更新网页时会自动处理（给样式和脚本加内容指纹）；
-手动上传网页后，运行一次更新脚本（加 `--force`），或者在浏览器里按 Ctrl + F5 强制刷新。
+浏览器还在用旧的样式和脚本。手动上传网页后，运行一次更新脚本（加 `--force`），脚本会给样式和脚本加上内容指纹；
+或者在浏览器里按 Ctrl + F5 强制刷新。
 
 **想重新下载一遍**
 加 `--force` 参数运行一次。
