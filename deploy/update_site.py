@@ -93,6 +93,26 @@ def safe_extract(zip_path, target):
         z.extractall(root)
 
 
+def add_cache_busting(site_dir):
+    """给网页引用的样式和脚本加上内容指纹（style.css?v=xxxx）。
+    宝塔默认让浏览器缓存 js / css 12 小时，不加指纹的话网页更新后浏览器还在用旧文件"""
+    index = os.path.join(site_dir, 'index.html')
+    with open(index, encoding='utf-8') as f:
+        html = f.read()
+
+    def fingerprint(match):
+        path = os.path.join(site_dir, match.group(1))
+        if not os.path.isfile(path):
+            return match.group(0)
+        with open(path, 'rb') as f:
+            digest = hashlib.sha256(f.read()).hexdigest()[:10]
+        return '%s?v=%s' % (match.group(1), digest)
+
+    html = re.sub(r'(assets/[\w.-]+\.(?:css|js))(?:\?v=[\w-]*)?', fingerprint, html)
+    with open(index, 'w', encoding='utf-8') as f:
+        f.write(html)
+
+
 def update_website(zip_path, site):
     """用新网页替换网站文件（保留 downloads/ 和宝塔的配置文件）"""
     tmp = tempfile.mkdtemp(prefix='liuli-site-')
@@ -100,6 +120,7 @@ def update_website(zip_path, site):
         safe_extract(zip_path, tmp)
         if not os.path.isfile(os.path.join(tmp, 'index.html')):
             raise ValueError('网页压缩包里没有 index.html')
+        add_cache_busting(tmp)
         # 删掉旧网页里新版本已经没有的文件
         for name in os.listdir(site):
             if name in KEEP or os.path.exists(os.path.join(tmp, name)):
@@ -186,6 +207,10 @@ def main():
     installers = [a for a in assets if INSTALLER.match(a['name'])]
     website = next((a for a in assets if a['name'] == WEBSITE_ASSET), None)
     complete = all(os.path.isfile(os.path.join(downloads, a['name'])) for a in installers)
+    # 手动上传的网页也加上内容指纹（不会重复修改）
+    if is_our_site(site):
+        add_cache_busting(site)
+
     if not args.force and current.get('version') == version and complete:
         log('已经是最新版本 v%s，不需要更新' % version)
         return 0

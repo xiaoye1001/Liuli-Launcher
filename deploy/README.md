@@ -102,8 +102,8 @@ location /downloads/ {
     add_header X-Content-Type-Options "nosniff";
 }
 
-# 网页图片和样式缓存一天
-location ~* \.(webp|png|svg|css|js)$ {
+# 网页图片缓存一天（样式和脚本的地址带内容指纹，更新后会自动重新下载）
+location ~* \.(webp|png|svg)$ {
     expires 1d;
 }
 ```
@@ -119,6 +119,10 @@ location ~* \.(webp|png|svg|css|js)$ {
 
 **提示「网站目录里已经有其他文件」**
 `--site` 填的目录不是新建的空站点。换成新站点的根目录（宝塔新建站点时自动生成的 `index.html`、`404.html`、`.user.ini` 不影响）。
+
+**网页更新后，有的地方没有样式、或者一直显示「正在获取」**
+浏览器还在用旧的样式和脚本。用更新脚本更新网页时会自动处理（给样式和脚本加内容指纹）；
+手动上传网页后，运行一次更新脚本（加 `--force`），或者在浏览器里按 Ctrl + F5 强制刷新。
 
 **想重新下载一遍**
 加 `--force` 参数运行一次。
