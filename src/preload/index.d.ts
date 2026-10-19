@@ -1,5 +1,9 @@
 import type {
   CleanCategory,
+  LocalAddresses,
+  MultiplayerMod,
+  MultiplayerStatus,
+  P2PCoreStatus,
   CleanResult,
   CleanScan,
   JavaCheckReport,
@@ -88,6 +92,30 @@ declare global {
       getNews: (force?: boolean) => Promise<NewsList>
       /** 预览某个版本自动分配的内存；版本无法读取时返回 null */
       previewMemory: (versionId: string) => Promise<MemoryPlan | null>
+      /** 多人联机：当前状态（房间码、延迟、流量、本机对局域网开放的世界等） */
+      getMultiplayerStatus: () => Promise<MultiplayerStatus>
+      /** 多人联机：本机可用于直连的地址（公网 IPv6、公网 IPv4、局域网 IPv4） */
+      getLocalAddresses: () => Promise<LocalAddresses>
+      /** 多人联机：开始 / 停止监听本机「对局域网开放」的世界 */
+      setLanSniffer: (enabled: boolean) => Promise<void>
+      /** 方式一：创建直连房间（不填端口时使用检测到的局域网端口） */
+      hostDirectRoom: (port?: number) => Promise<MultiplayerStatus>
+      /** 方式二：创建 P2P 房间（本机没有内核时自动改用直连房间码）；relay 为自定义中继地址 */
+      hostP2PRoom: (port?: number, relay?: string) => Promise<MultiplayerStatus>
+      /** 方式三：把已有的穿透地址包装成房间码 */
+      hostTunnelRoom: (address: string, motd?: string) => Promise<MultiplayerStatus>
+      /** 加入房间（自动识别 MCL-D- / MCL-P2P- / MCL-T- 房间码） */
+      joinRoom: (code: string) => Promise<MultiplayerStatus>
+      /** 结束当前房间 */
+      stopMultiplayer: () => Promise<MultiplayerStatus>
+      /** P2P 联机内核的状态 */
+      getP2PCoreStatus: () => Promise<P2PCoreStatus>
+      /** 下载 P2P 联机内核（多线程高速下载，校验 SHA-256） */
+      downloadP2PCore: () => Promise<P2PCoreStatus>
+      /** 一键安装联机模组（e4mc / World Host）到指定版本 */
+      installMultiplayerMod: (versionId: string, mod: MultiplayerMod) => Promise<ModrinthInstallResult>
+      /** 联机状态变化（含每秒更新的流量）；返回取消订阅的函数 */
+      onMultiplayerStatus: (callback: (status: MultiplayerStatus) => void) => () => void
       /** 百宝箱：扫描可以清理的游戏垃圾缓存 */
       scanCleanup: () => Promise<CleanScan>
       /** 百宝箱：清理选中的类别（删除前会重新扫描） */
