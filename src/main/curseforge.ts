@@ -206,8 +206,9 @@ export async function getCurseForgeVersions(projectId: string, type: ResourceTyp
 
 /** 文件的下载地址：部分模组不允许第三方分发，接口不返回地址时按 CurseForge CDN 的规则拼出来 */
 async function fileUrls(file: CurseFile): Promise<string[]> {
+  // 镜像接口给的地址只接受 https，否则按 CDN 规则自己拼
   const official =
-    file.downloadUrl ??
+    (typeof file.downloadUrl === 'string' && file.downloadUrl.startsWith('https://') ? file.downloadUrl : null) ??
     `https://edge.forgecdn.net/files/${Math.floor(file.id / 1000)}/${file.id % 1000}/${encodeURIComponent(file.fileName)}`
   const mirror = official.replace(/^https:\/\/(edge|mediafilez)\.forgecdn\.net/, MIRROR_FILES)
   const { downloadSource } = await getSettings()

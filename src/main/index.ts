@@ -8,7 +8,7 @@ import {
   removeBackground
 } from './appearance'
 import { getMainWindow, setMainWindow } from './windows'
-import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -93,6 +93,8 @@ import {
   cancelUpdateDownload,
   checkUpdate,
   cleanUpdateFiles,
+  cleanupAfterUpdate,
+  waitForPreviousVersion,
   downloadUpdate,
   getUpdateDownload,
   installUpdate,
@@ -214,11 +216,6 @@ function createWindow(): void {
 
   // 文件拖进窗口时，界面没有处理到的话浏览器会直接打开该文件，离开启动器界面，这里一律阻止
   mainWindow.webContents.on('will-navigate', (event) => event.preventDefault())
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    // 只用系统浏览器打开网页链接
-    if (/^https?:\/\//.test(details.url)) shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -354,7 +351,7 @@ function registerIpc(): void {
   ipcMain.handle('versions:shortcut', (_, versionId: string) => createDesktopShortcut(versionId))
   ipcMain.handle('versions:getConfig', (_, versionId: string) => getVersionConfig(versionId))
   ipcMain.handle('versions:setConfig', (_, versionId: string, patch: Partial<VersionConfig>) =>
-    setVersionConfig(versionId, patch)
+    setVersionConfig(versionId, patch && typeof patch === 'object' ? patch : {}, { fromUser: true })
   )
   ipcMain.handle('version:setFavorite', (_, versionId: string, favorite: boolean) =>
     setVersionFavorite(versionId, favorite === true)
@@ -563,6 +560,9 @@ function registerIpc(): void {
 
 hardenWebContents()
 
+// 自动更新后由旧版本打开：先等旧版本完全退出，避免两个版本同时使用数据文件夹
+waitForPreviousVersion(process.argv)
+
 // 只允许运行一个启动器：再次打开（例如双击桌面快捷方式）时切换到已打开的窗口
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) app.quit()
@@ -610,6 +610,8 @@ app.whenReady().then(async () => {
   createWindow()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)
+  // 免安装版更新后，删除旧版本的文件
+  void cleanupAfterUpdate().catch(() => undefined)
   const shortcutVersion = launchArgOf(process.argv)
   if (shortcutVersion) void launchFromShortcut(shortcutVersion)
 

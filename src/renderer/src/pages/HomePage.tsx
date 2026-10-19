@@ -108,30 +108,43 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
   const launching = useRef(false)
 
   useEffect(() => {
+    /** 加载期间已经收到了游戏状态推送：推送的更新，不再用加载开始时取到的旧状态覆盖 */
+    let gotGameEvent = false
+    let alive = true
+    // 游戏状态单独取，不等扫描已安装版本（扫描可能要一会儿）
+    void window.api.getGameStatus().then((status) => {
+      if (alive && !gotGameEvent) setGame(status)
+    })
     const init = async (): Promise<void> => {
-      const [loaded, installed, gameStatus, accountsInfo] = await Promise.all([
-        window.api.getSettings(),
-        window.api.getInstalledVersions(),
-        window.api.getGameStatus(),
-        window.api.getAccounts()
-      ])
-      setAccounts(accountsInfo)
-      setSettings(loaded)
-      setName(loaded.offlineName)
-      setVersions(installed)
-      setGame(gameStatus)
-      // 上次选择的版本已不存在时，默认选第一个
-      if (installed.length > 0 && !installed.some((v) => v.id === loaded.selectedVersion)) {
-        setSettings(await window.api.updateSettings({ selectedVersion: installed[0].id }))
+      try {
+        const [loaded, installed, accountsInfo] = await Promise.all([
+          window.api.getSettings(),
+          window.api.getInstalledVersions(),
+          window.api.getAccounts()
+        ])
+        if (!alive) return
+        setAccounts(accountsInfo)
+        setSettings(loaded)
+        setName(loaded.offlineName)
+        setVersions(installed)
+        // 上次选择的版本已不存在时，默认选第一个
+        if (installed.length > 0 && !installed.some((v) => v.id === loaded.selectedVersion)) {
+          const next = await window.api.updateSettings({ selectedVersion: installed[0].id })
+          if (alive) setSettings(next)
+        }
+      } catch (e) {
+        if (alive) setLaunchError(`读取启动器信息失败：${e instanceof Error ? e.message : String(e)}`)
       }
     }
-    init()
+    void init()
     const offInstall = window.api.onInstallStatus((status) => setJavaTask(status?.kind === 'java' ? status : null))
     const offGame = window.api.onGameStatus((status) => {
+      gotGameEvent = true
       setGame(status)
       setCrashDismissed(false)
     })
     return () => {
+      alive = false
       offInstall()
       offGame()
     }
@@ -154,7 +167,11 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
   }
 
   const selectVersion = async (id: string): Promise<void> => {
-    setSettings(await window.api.updateSettings({ selectedVersion: id }))
+    try {
+      setSettings(await window.api.updateSettings({ selectedVersion: id }))
+    } catch (e) {
+      setLaunchError(`切换版本失败：${e instanceof Error ? e.message : String(e)}`)
+    }
   }
 
   /** 启动游戏：同一时间只发起一次，失败时在下方显示原因 */

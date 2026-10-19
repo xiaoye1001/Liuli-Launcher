@@ -16,15 +16,18 @@ function cleanError(e: unknown): string {
 
 /** 加载失败时显示占位图标 */
 function ProjectIcon({ url }: { url?: string }): JSX.Element {
-  const [failed, setFailed] = useState(false)
-  if (!url || failed) {
+  // 记录加载失败的是哪个地址：地址变了会重新尝试
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
+  if (!url || failedUrl === url) {
     return (
       <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/10">
         <Puzzle className="h-5 w-5 text-white/40" />
       </div>
     )
   }
-  return <img src={url} alt="" onError={() => setFailed(true)} className="h-11 w-11 shrink-0 rounded-lg object-cover" />
+  return (
+    <img src={url} alt="" onError={() => setFailedUrl(url)} className="h-11 w-11 shrink-0 rounded-lg object-cover" />
+  )
 }
 
 interface ModrinthBrowserProps {

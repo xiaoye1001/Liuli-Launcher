@@ -1,5 +1,6 @@
 import { app } from 'electron'
 import { randomUUID } from 'crypto'
+import { isIP } from 'net'
 import { mkdir, readFile, rename, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { getSettings, updateSettings } from './config'
@@ -203,7 +204,8 @@ async function fetchSkin(apiRoot: string, uuid: string): Promise<{ skin: string;
     }
     const skin = decoded.textures?.SKIN
     const skinModel: SkinModel = skin?.metadata?.model === 'slim' ? 'slim' : 'default'
-    if (!skin?.url || !/^https?:\/\//.test(skin.url)) return { skin: '', skinModel }
+    // 皮肤地址只接受公网 https（不去请求本机或局域网地址）
+    if (!skin?.url || !isPublicHttpsUrl(skin.url)) return { skin: '', skinModel }
     const image = await request(skin.url)
     const data = Buffer.from(await image.arrayBuffer())
     if (!image.ok || data.length > MAX_SKIN_BYTES || data.subarray(1, 4).toString() !== 'PNG')
@@ -244,6 +246,34 @@ async function saveAccount(
 }
 
 /** 账号下有多个角色时，暂存登录结果等用户选择（5 分钟内有效） */
+/** 公网 https 地址（皮肤图片）：不请求本机、局域网和链路本地地址 */
+function isPublicHttpsUrl(value: string): boolean {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return false
+  }
+  if (url.protocol !== 'https:') return false
+  const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase()
+  if (host === 'localhost' || host.endsWith('.localhost')) return false
+  if (isIP(host) === 4) {
+    const [a, b] = host.split('.').map(Number)
+    return !(
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      a >= 224
+    )
+  }
+  if (isIP(host) === 6) return !(host === '::' || host === '::1' || /^f[c-f]/.test(host) || host.startsWith('::ffff:'))
+  return true
+}
+
 const pending = new Map<
   string,
   { server: Awaited<ReturnType<typeof resolveServer>>; username: string; auth: AuthResponse; expires: number }
@@ -269,6 +299,8 @@ export async function loginExternal(
   const profiles = auth.availableProfiles ?? []
   if (profiles.length === 0) throw new Error('这个账号还没有角色，请先到皮肤站创建一个角色')
   if (profiles.length === 1) return { account: await bindProfile(server, username.trim(), auth, profiles[0]) }
+  // 清掉过期的（玩家没有选角色就离开了），登录令牌不长期留在内存里
+  for (const [id, entry] of pending) if (entry.expires < Date.now()) pending.delete(id)
   const pendingId = randomUUID()
   pending.set(pendingId, { server, username: username.trim(), auth, expires: Date.now() + 5 * 60 * 1000 })
   return { pendingId, profiles: profiles.map((p) => ({ id: p.id, name: p.name })) }

@@ -330,7 +330,12 @@ const rules: Rule[] = [
     ) {
       return null
     }
-    const jars = unique(all(text, /([\w\-.+ ]+\.jar)/).filter((n) => !/^(client|minecraft)\.jar$/i.test(n)))
+    // 限制文件名长度，避免超长的一行（例如聊天内容）让匹配非常慢
+    const jars = unique(
+      all(text, /([\w\-.+][\w\-.+ ]{0,150}\.jar)/)
+        .map((n) => n.trim())
+        .filter((n) => !/^(client|minecraft)\.jar$/i.test(n))
+    )
     return {
       title: '文件损坏',
       detail: '有游戏文件或模组文件不完整（通常是下载中断导致）。',

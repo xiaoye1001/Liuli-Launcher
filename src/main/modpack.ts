@@ -45,12 +45,18 @@ interface OverrideFile {
 }
 
 /**
- * 整合包里属于公共游戏目录的文件夹（有些网盘「完整包」把整个 .minecraft 都打包进来了）：
- * 安装前解压到游戏目录根部，安装原版和加载器时校验通过就不再下载
+ * 整合包里属于公共游戏目录的文件夹（有些网盘「完整包」把整个 .minecraft 都打包进来了）。
+ * 这些文件不解压到版本自己的文件夹。其中只有按内容哈希命名的资源文件（声音、贴图、语言等数据，
+ * 不能运行代码）会预先放进公共的 assets/objects，省得再下载；libraries 里是会被运行的 jar（包括 Forge 安装器），
+ * 整合包自带的可能被替换过，而且会留在公共目录影响其他版本，一律不用，安装时从官方或镜像下载并校验
  */
 const SHARED_FOLDERS = ['assets/', 'libraries/']
 function isShared(rel: string): boolean {
-  return SHARED_FOLDERS.some((f) => rel.startsWith(f))
+  return SHARED_FOLDERS.some((f) => rel.toLowerCase().startsWith(f))
+}
+function isPreseedAsset(rel: string): boolean {
+  const match = /^assets\/objects\/([0-9a-f]{2})\/([0-9a-f]{40})$/.exec(rel)
+  return !!match && match[2].startsWith(match[1])
 }
 
 /** 路径的每一段统一成小写、去掉末尾的点和空格（Windows 与 macOS 不区分大小写，Windows 会忽略末尾的点和空格） */
@@ -68,6 +74,8 @@ function normalizedSegments(path: string): string[] {
  * - 版本自己的 <版本名>.json / <版本名>.jar / <版本名>-natives（开启版本隔离时游戏目录就是版本文件夹）
  */
 export function isForbiddenModpackPath(path: string, versionName: string): boolean {
+  // 带冒号的路径在 Windows 上会写进别的文件（数据流），一律不允许
+  if (/[:\u0000-\u001f]/.test(path)) return true
   const segments = normalizedSegments(path)
   const first = segments[0]
   if (!first) return true
@@ -86,6 +94,9 @@ type Parsed = Omit<ParsedModpack, 'overrides'>
 /** 只允许整合包写入游戏目录内部，防止 ../ 之类的路径写到其他地方 */
 function isSafePath(path: string): boolean {
   if (!path || isAbsolute(path) || /^[a-zA-Z]:/.test(path)) return false
+  // 冒号：Windows 上「文件名:流名」会写进同名文件的数据流（例如 liuli-version.json::$DATA 实际写的是 liuli-version.json），
+  // 可以绕过下面按文件名做的检查；控制字符也不是正常的文件名
+  if (/[:\u0000-\u001f]/.test(path)) return false
   return !path.split(/[\\/]/).includes('..')
 }
 
@@ -137,7 +148,18 @@ async function parseModrinth(zip: ZipListing, fileName: string): Promise<Parsed>
   const loaderKey = (['fabric-loader', 'forge', 'neoforge', 'quilt-loader'] as const).find((k) => deps[k])
   const loader: Loader = loaderKey ? (loaderKey.replace('-loader', '') as Loader) : null
   // 服务端专用的文件不需要
-  const files = index.files.filter((f) => f.env?.client !== 'unsupported')
+  const files = (Array.isArray(index.files) ? index.files : []).filter((f) => f?.env?.client !== 'unsupported')
+  // Modrinth 规范要求每个文件都有 SHA-1；没有的话下载后无法校验，整个整合包拒绝安装
+  for (const f of files) {
+    if (
+      typeof f.path !== 'string' ||
+      !Array.isArray(f.downloads) ||
+      typeof f.hashes?.sha1 !== 'string' ||
+      !/^[0-9a-f]{40}$/i.test(f.hashes.sha1)
+    ) {
+      throw new Error(`整合包中的文件 ${String(f?.path ?? '').slice(0, 100)} 缺少下载地址或 SHA-1 校验值，已拒绝安装`)
+    }
+  }
   const overridePrefixes = ['overrides/', 'client-overrides/']
   return {
     info: {
@@ -283,6 +305,11 @@ async function parseMultiMC(zip: ZipListing, fileName: string, packJson: string)
   }
 }
 
+/** 整合包里清单类文件（modrinth.index.json、manifest.json 等）的大小上限 */
+const MAX_META_SIZE = 16 * 1024 * 1024
+/** 压缩包里最多的文件数 */
+const MAX_ENTRIES = 200000
+
 /** 读取整合包，自动识别格式，并检查所有要写入的路径是否安全 */
 async function parseModpack(path: string): Promise<ParsedModpack> {
   const zipFile = await open(path).catch(() => {
@@ -297,12 +324,15 @@ async function parseModpack(path: string): Promise<ParsedModpack> {
           : '无法读取整合包，文件可能已损坏'
       )
     })
+    if (entries.length > MAX_ENTRIES) throw new Error('整合包里的文件太多，可能已损坏')
     const byName = new Map(entries.map((e) => [e.fileName, e]))
     const listing: ZipListing = {
       names: entries.map((e) => e.fileName),
       read: async (name) => {
         const entry = byName.get(name)
         if (!entry) throw new Error(`整合包中缺少 ${name}`)
+        // 清单类文件正常只有几百 KB；压缩炸弹解压后可能有几个 GB，会把启动器的内存撑爆
+        if (entry.uncompressedSize > MAX_META_SIZE) throw new Error(`整合包中的 ${name} 太大，可能已损坏`)
         return (await readEntry(zipFile, entry)).toString('utf-8')
       }
     }
@@ -336,6 +366,15 @@ async function parseModpack(path: string): Promise<ParsedModpack> {
     }
     const overrides = [...overrideMap.values()]
 
+    // 游戏和加载器的版本号会拼进下载地址和文件路径，格式不对的整合包直接拒绝
+    const versionPart = /^[0-9A-Za-z][0-9A-Za-z._+-]{0,80}$/
+    if (
+      !versionPart.test(parsed.info.minecraftVersion) ||
+      (parsed.info.loaderVersion && !versionPart.test(parsed.info.loaderVersion))
+    ) {
+      throw new Error('整合包里的游戏或加载器版本号格式不对，已拒绝安装')
+    }
+
     // 读取时就检查所有路径，有问题的整合包在开始安装前就拒绝
     const unsafe = [...parsed.downloads.map((d) => d.path), ...overrides.map((o) => o.rel)].find((p) => !isSafePath(p))
     if (unsafe) throw new Error(`整合包中包含不安全的文件路径：${unsafe}，已拒绝安装`)
@@ -351,11 +390,10 @@ async function parseModpack(path: string): Promise<ParsedModpack> {
         if (!sizes.has(o.size)) continue
         const entry = byName.get(o.entryName)
         if (!entry) continue
-        provided.add(
-          createHash('sha1')
-            .update(await readEntry(zipFile, entry))
-            .digest('hex')
-        )
+        // 边读边算，不把整个文件读进内存
+        const hash = createHash('sha1')
+        for await (const chunk of await openEntryReadStream(zipFile, entry)) hash.update(chunk as Buffer)
+        provided.add(hash.digest('hex'))
       }
       const remaining = parsed.downloads.filter(
         (d) => !included.has(d.path.toLowerCase()) && !provided.has(d.sha1.toLowerCase())
@@ -601,7 +639,7 @@ function modpackStep(path: string, versionName: string): InstallExtraStep {
     // 公共的 assets、libraries 被所有版本共用：只补充缺少的文件，不覆盖已有的，避免整合包替换其他版本用到的库
     const shared: { entryName: string; target: string; size: number }[] = []
     for (const o of parsed.overrides) {
-      if (!isShared(o.rel)) continue
+      if (!isPreseedAsset(o.rel)) continue
       const target = safeJoin(root, o.rel)
       if (
         !(await stat(target).then(
@@ -621,7 +659,7 @@ function modpackStep(path: string, versionName: string): InstallExtraStep {
 async function availableVersionName(base: string): Promise<string> {
   const cleaned =
     base
-      .replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ')
+      .replace(/[\\/:*?"<>|&^%\u0000-\u001f\u007f]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
       .replace(/^\.+$/, '')

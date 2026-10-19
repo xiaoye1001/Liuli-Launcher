@@ -35,11 +35,21 @@ export async function listServers(): Promise<SavedServer[]> {
   return cache
 }
 
+let writeQueue: Promise<unknown> = Promise.resolve()
+
+/** 保存排队进行：两次同时保存不会抢同一个临时文件 */
 async function save(list: SavedServer[]): Promise<SavedServer[]> {
   cache = list
-  await mkdir(dirname(SERVERS_FILE), { recursive: true })
-  await writeFile(`${SERVERS_FILE}.tmp`, JSON.stringify(list, null, 2), 'utf-8')
-  await rename(`${SERVERS_FILE}.tmp`, SERVERS_FILE)
+  const data = JSON.stringify(list, null, 2)
+  const run = writeQueue
+    .catch(() => undefined)
+    .then(async () => {
+      await mkdir(dirname(SERVERS_FILE), { recursive: true })
+      await writeFile(`${SERVERS_FILE}.tmp`, data, 'utf-8')
+      await rename(`${SERVERS_FILE}.tmp`, SERVERS_FILE)
+    })
+  writeQueue = run
+  await run
   return list
 }
 

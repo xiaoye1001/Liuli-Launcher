@@ -73,11 +73,16 @@ function rangeText(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
+/** 每个 jar 最多读取的内嵌 jar 数量 */
+const MAX_NESTED_JARS = 64
+
 /** 读取内嵌 jar 提供的模组 ID */
 async function nestedIds(fs: FileSystem, paths: string[], depth: number): Promise<string[]> {
   if (depth >= MAX_DEPTH) return []
   const ids: string[] = []
-  for (const raw of paths) {
+  // 去掉重复的路径并限制数量：同一个大文件被列几千次会让检查卡住很久
+  const unique = [...new Set(paths.filter((p) => typeof p === 'string'))].slice(0, MAX_NESTED_JARS)
+  for (const raw of unique) {
     const path = raw.replace(/^\.?\//, '')
     if (!path || !(await fs.existsFile(path).catch(() => false))) continue
     let nested: FileSystem | undefined

@@ -186,11 +186,17 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
   const [memoryDraft, setMemoryDraft] = useState(0)
 
   useEffect(() => {
-    window.api.getVersionConfig(version.id).then((c) => {
-      setConfig(c)
-      setMemoryDraft(c.maxMemory)
-    })
-    window.api.getSettings().then(setGlobal)
+    window.api
+      .getVersionConfig(version.id)
+      .then((c) => {
+        setConfig(c)
+        setMemoryDraft(c.maxMemory)
+      })
+      .catch((e) => setError(cleanError(e)))
+    window.api
+      .getSettings()
+      .then(setGlobal)
+      .catch((e) => setError(cleanError(e)))
     window.api
       .getSystemInfo()
       .then((info) => setTotalMemory(info.totalMemory))
@@ -210,10 +216,14 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
     }
   }, [version.id])
 
+  /** 保存的序号：只用最后一次保存返回的结果更新界面 */
+  const saveSeq = useRef(0)
   const save = async (patch: Partial<VersionConfig>): Promise<void> => {
     setError('')
+    const seq = ++saveSeq.current
     try {
       const next = await window.api.setVersionConfig(version.id, patch)
+      if (seq !== saveSeq.current) return
       setConfig(next)
       setSaved(true)
       clearTimeout(savedTimer.current)
@@ -226,8 +236,17 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
 
   if (!config || !global) {
     return (
-      <div className="flex h-full items-center justify-center text-white/50">
-        <Loader2 className="h-6 w-6 animate-spin" />
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-white/50">
+        {error ? (
+          <>
+            <div className="text-sm text-rose-300">读取版本设置失败：{error}</div>
+            <button onClick={onBack} className="rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">
+              返回
+            </button>
+          </>
+        ) : (
+          <Loader2 className="h-6 w-6 animate-spin" />
+        )}
       </div>
     )
   }

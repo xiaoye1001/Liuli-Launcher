@@ -9,6 +9,41 @@ function cleanError(e: unknown): string {
   return message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 }
 
+/** 移除按钮：第一次点击变成「确认移除」，再点一次才移除（几秒内不点会恢复） */
+function RemoveButton({ title, onConfirm }: { title: string; onConfirm: () => void }): JSX.Element {
+  const [armed, setArmed] = useState(false)
+  useEffect(() => {
+    if (!armed) return
+    const timer = setTimeout(() => setArmed(false), 4000)
+    return () => clearTimeout(timer)
+  }, [armed])
+  if (armed) {
+    return (
+      <button
+        onClick={() => {
+          setArmed(false)
+          onConfirm()
+        }}
+        onBlur={() => setArmed(false)}
+        autoFocus
+        className="shrink-0 rounded-lg bg-red-500/80 px-3 py-2 text-xs font-medium text-white hover:bg-red-500"
+      >
+        确认移除
+      </button>
+    )
+  }
+  return (
+    <button
+      onClick={() => setArmed(true)}
+      title={title}
+      aria-label={title}
+      className="rounded-lg p-2.5 text-white/50 hover:bg-red-500/30 hover:text-red-200"
+    >
+      <Trash2 className="h-4 w-4" />
+    </button>
+  )
+}
+
 interface AccountListProps {
   settings: AppSettings
   accounts: AccountsInfo
@@ -200,13 +235,10 @@ function AccountList({ settings, accounts, onAccountsChange, onSettingsChange }:
             </div>
             {accounts.active === account.uuid && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
           </button>
-          <button
-            onClick={() => run(async () => onAccountsChange(await window.api.removeAccount(account.uuid)))}
-            title="移除该账号（不会影响你的微软账号本身）"
-            className="rounded-lg p-2.5 text-white/50 hover:bg-red-500/30 hover:text-red-200"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          <RemoveButton
+            title="移除该账号（不会影响你的微软账号本身，之后需要重新登录）"
+            onConfirm={() => run(async () => onAccountsChange(await window.api.removeAccount(account.uuid)))}
+          />
         </div>
       ))}
 
@@ -226,13 +258,10 @@ function AccountList({ settings, accounts, onAccountsChange, onSettingsChange }:
             </div>
             {accounts.active === account.id && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />}
           </button>
-          <button
-            onClick={() => run(async () => onAccountsChange(await window.api.removeExternalAccount(account.id)))}
-            title="移除该账号（不会影响皮肤站上的账号）"
-            className="rounded-lg p-2.5 text-white/50 hover:bg-red-500/30 hover:text-red-200"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          <RemoveButton
+            title="移除该账号（不会影响皮肤站上的账号，之后需要重新输入密码登录）"
+            onConfirm={() => run(async () => onAccountsChange(await window.api.removeExternalAccount(account.id)))}
+          />
         </div>
       ))}
 

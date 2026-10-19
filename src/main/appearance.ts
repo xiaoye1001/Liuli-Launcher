@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, net, protocol } from 'electron'
+import { app, BrowserWindow, dialog, net, protocol, shell } from 'electron'
 import { copyFile, mkdir, rm, stat, writeFile } from 'fs/promises'
 import { basename, extname, join } from 'path'
 import { pathToFileURL } from 'url'
@@ -101,7 +101,9 @@ export async function removeBackground(name: string): Promise<AppSettings> {
     backgroundImage: settings.backgroundImage === file ? (list[0] ?? '') : settings.backgroundImage,
     backgroundMode: list.length === 0 ? 'off' : settings.backgroundMode
   })
-  await rm(join(BACKGROUND_DIR, file), { force: true })
+  // 移到回收站，误删可以找回；回收站不可用时才直接删除
+  const path = join(BACKGROUND_DIR, file)
+  await shell.trashItem(path).catch(() => rm(path, { force: true }))
   return next
 }
 

@@ -205,6 +205,9 @@ function fileNameFrom(disposition: string | undefined, url: string): string | un
   }
 }
 
+/** 已选好、但还没写进任务的文件名（两个任务同时选名字时互相避开） */
+const reservedDestinations = new Set<string>()
+
 /** 文件夹里已有同名文件时，在文件名后面加 (2)、(3)… */
 async function uniqueDestination(directory: string, name: string): Promise<string> {
   const ext = extname(name)
@@ -214,9 +217,14 @@ async function uniqueDestination(directory: string, name: string): Promise<strin
   for (const task of tasks.values()) {
     if (dirname(task.destination) === directory) taken.add(basename(task.destination).toLowerCase())
   }
+  for (const reserved of reservedDestinations) {
+    if (dirname(reserved) === directory) taken.add(basename(reserved).toLowerCase())
+  }
   let candidate = name
   for (let i = 2; taken.has(candidate.toLowerCase()); i++) candidate = `${stem} (${i})${ext}`
-  return join(directory, candidate)
+  const destination = join(directory, candidate)
+  reservedDestinations.add(destination)
+  return destination
 }
 
 // ---------- 探测 ----------
@@ -505,6 +513,8 @@ async function execute(task: Task): Promise<string> {
       task.directory,
       sanitizeFileName(task.preferredName || info.fileName || 'download')
     )
+    // 名字已经记在任务上，其他任务会通过任务列表避开
+    reservedDestinations.delete(task.destination)
     task.fileName = basename(task.destination)
     task.tempPath = tempPathOf(task.destination, task.id)
   }
@@ -778,7 +788,8 @@ export function resumeFastDownload(taskId: string): void {
 
 export function cancelFastDownload(taskId: string): void {
   const task = tasks.get(taskId)
-  if (!task || !(task.status === 'downloading' || task.status === 'paused')) return
+  if (!task || !(task.status === 'downloading' || task.status === 'paused' || task.status === 'fallback_retrying'))
+    return
   task.status = 'cancelled'
   abortAll(task)
   task.resumeWaiter?.()
@@ -800,10 +811,12 @@ export function getFastDownload(taskId: string): FastDownloadTask | undefined {
 
 // ---------- 回退到原下载方式时的状态 ----------
 
-/** 高速引擎失败、开始用原下载方式重新下载 */
-export function markFallbackStarted(taskId: string, reason: string): void {
+/** 高速引擎失败、开始用原下载方式重新下载；返回的信号在玩家点「取消」时触发 */
+export function markFallbackStarted(taskId: string, reason: string): AbortSignal | undefined {
   const task = tasks.get(taskId)
-  if (!task) return
+  if (!task) return undefined
+  const controller = new AbortController()
+  task.controllers.add(controller)
   task.originalSource = task.source
   task.source = 'fallback'
   task.status = 'fallback_retrying'
@@ -818,6 +831,7 @@ export function markFallbackStarted(taskId: string, reason: string): void {
   task.chunked = false
   ensureTicker()
   push()
+  return controller.signal
 }
 
 /** 原下载方式的进度 */
@@ -831,7 +845,8 @@ export function reportFallbackProgress(taskId: string, written: number, total: n
 /** 原下载方式结束 */
 export function markFallbackFinished(taskId: string, error?: unknown): void {
   const task = tasks.get(taskId)
-  if (!task) return
+  // 玩家取消的任务保持「已取消」
+  if (!task || task.status === 'cancelled') return
   if (error === undefined) {
     task.fallbackWritten = Math.max(task.fallbackWritten, task.fallbackTotal)
     finish(task, 'completed')

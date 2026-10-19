@@ -106,7 +106,8 @@ class Reader {
         return Array.from({ length: n }, () => this.payload(itemType, depth + 1))
       }
       case 10: {
-        const result: NbtCompound = {}
+        // 没有原型的对象：存档里名为 __proto__ 的键不会改掉对象的原型
+        const result: NbtCompound = Object.create(null) as NbtCompound
         for (;;) {
           const tag = this.byte()
           if (tag === 0) return result

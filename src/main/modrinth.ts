@@ -162,7 +162,9 @@ export function isAllowedModpackUrl(url: string): boolean {
 }
 
 /** Modrinth 文件的下载地址：选择 BMCLAPI 下载源时，cdn.modrinth.com 的文件先走镜像，失败再用原地址 */
-export async function modrinthFileUrls(urls: string[]): Promise<string[]> {
+export async function modrinthFileUrls(input: string[]): Promise<string[]> {
+  // 接口或整合包给的下载地址只接受 https
+  const urls = input.filter((u) => typeof u === 'string' && u.startsWith('https://'))
   const { downloadSource } = await getSettings()
   if (downloadSource !== 'bmclapi') return urls
   const mirrored = urls.filter((u) => u.startsWith(OFFICIAL_CDN)).map((u) => u.replace(OFFICIAL_CDN, MIRROR_CDN))

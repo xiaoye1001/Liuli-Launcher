@@ -387,8 +387,9 @@ async function getQuiltProfile(minecraftVersion: string, loader: string): Promis
 function validateName(name: string): void {
   if (!name) throw new Error('版本名不能为空')
   if (name.length > 64) throw new Error('版本名不能超过 64 个字符')
-  if (/[\\/:*?"<>|]/.test(name) || name === '.' || name === '..' || name !== name.trim()) {
-    throw new Error('版本名不能包含 \\ / : * ? " < > | 等字符，且首尾不能有空格')
+  // & ^ %：版本名会作为 INST_NAME 等变量交给启动前 / 退出后命令，Windows 命令行会把它们当成命令符号
+  if (/[\\/:*?"<>|&^%\u0000-\u001f\u007f]/.test(name) || name === '.' || name === '..' || name !== name.trim()) {
+    throw new Error('版本名不能包含 \\ / : * ? " < > | & ^ % 等字符，且首尾不能有空格')
   }
   if (name.endsWith('.') || isReservedName(name)) throw new Error('版本名不能以 . 结尾，也不能是 CON、NUL 等系统保留名')
 }
@@ -435,6 +436,46 @@ export async function startCustomInstall(
 /** OptiFine 的类型和补丁名来自镜像服务器，会拼进文件名，只允许字母、数字、下划线、点和横线 */
 const OPTIFINE_PART = /^[A-Za-z0-9_.-]{1,64}$/
 
+/**
+ * 游戏和加载器的版本号会拼进下载地址和依赖库的文件路径（例如 forge-<版本>-installer.jar），
+ * 整合包里写的版本号也会走到这里：只允许普通的版本号字符，防止 ../、# 等让下载地址或文件路径跑到别处
+ */
+const VERSION_PART = /^[0-9A-Za-z][0-9A-Za-z._+-]{0,63}$/
+
+function checkVersionPart(label: string, value: string | undefined): void {
+  if (value !== undefined && !VERSION_PART.test(value)) throw new Error(`${label}版本号格式不对：${value.slice(0, 80)}`)
+}
+
+/** Forge 安装器在 Maven 上的版本名（与 @xmcl/installer 的规则相同） */
+function forgeArtifactVersion(mc: string, forge: string): string {
+  const minor = Number.parseInt(mc.split('.')[1] ?? '', 10)
+  if (minor >= 7 && minor <= 8) return `${mc}-${forge}-${mc}`
+  if (forge.startsWith(mc)) return forge
+  return `${mc}-${forge}`
+}
+
+/**
+ * 通过 HTTPS 取得 Forge 安装器的官方 SHA-1。安装库内部会把明文 HTTP 的旧 Forge 地址作为最后的备用地址，
+ * 有了校验值，即使下载被换成别的文件也会被发现（安装器会在安装时运行，必须保证是官方文件）
+ */
+async function forgeInstallerSha1(mc: string, forge: string): Promise<{ path: string; sha1: string } | undefined> {
+  if (mc.startsWith('1.4.')) return undefined
+  const artifact = forgeArtifactVersion(mc, forge)
+  const path = `net/minecraftforge/forge/${artifact}/forge-${artifact}-installer.jar`
+  for (const host of [FORGE_MAVEN.replace(/\/$/, ''), `${BMCLAPI}/maven`]) {
+    try {
+      const response = await fetch(`${host}/${path}.sha1`, { signal: AbortSignal.timeout(15000) })
+      if (!response.ok) continue
+      const sha1 = (await response.text()).trim().slice(0, 40).toLowerCase()
+      if (/^[0-9a-f]{40}$/.test(sha1)) return { path, sha1 }
+    } catch {
+      // 换下一个地址
+    }
+  }
+  console.warn(`无法取得 Forge ${artifact} 安装器的校验值，只检查文件格式`)
+  return undefined
+}
+
 async function customInstall(request: InstallRequest, allowExisting: boolean, extra?: InstallExtraStep): Promise<void> {
   const { minecraftVersion, fabricLoader, quiltLoader, forgeVersion, neoforgeVersion, optifine } = request
   const name = request.name
@@ -448,6 +489,11 @@ async function customInstall(request: InstallRequest, allowExisting: boolean, ex
   if (optifine && !(OPTIFINE_PART.test(optifine.type) && OPTIFINE_PART.test(optifine.patch))) {
     throw new Error('OptiFine 版本信息无效')
   }
+  checkVersionPart('Minecraft ', minecraftVersion)
+  checkVersionPart('Fabric ', fabricLoader)
+  checkVersionPart('Quilt ', quiltLoader)
+  checkVersionPart('Forge ', forgeVersion)
+  checkVersionPart('NeoForge ', neoforgeVersion)
 
   const settings = await getSettings()
   /**
@@ -544,11 +590,16 @@ async function customInstall(request: InstallRequest, allowExisting: boolean, ex
         const versionsDir = join(settings.gameDir, 'versions')
         const before = new Set(await readdir(versionsDir).catch(() => [] as string[]))
         const installerOptions = { ...options, java: javaPath }
+        const forgeInstaller = forgeVersion ? await forgeInstallerSha1(minecraftVersion, forgeVersion) : undefined
         const loaderTask = forgeVersion
-          ? installForgeTask({ mcversion: minecraftVersion, version: forgeVersion }, settings.gameDir, {
-              ...installerOptions,
-              mavenHost: forgeMavenHosts(settings.downloadSource)
-            })
+          ? installForgeTask(
+              { mcversion: minecraftVersion, version: forgeVersion, installer: forgeInstaller },
+              settings.gameDir,
+              {
+                ...installerOptions,
+                mavenHost: forgeMavenHosts(settings.downloadSource)
+              }
+            )
           : installNeoForgedTask(neoforgeProject(neoforgeVersion!), neoforgeVersion!, settings.gameDir, {
               ...installerOptions,
               mavenHost: settings.downloadSource === 'bmclapi' ? [`${BMCLAPI}/maven`] : []
