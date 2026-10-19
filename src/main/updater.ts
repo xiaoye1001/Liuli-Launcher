@@ -6,7 +6,7 @@ import { createReadStream } from 'fs'
 import { existsSync } from 'fs'
 import { appendFile, chmod, copyFile, mkdir, readFile, rename, rm, stat, writeFile } from 'fs/promises'
 import { basename, dirname, join } from 'path'
-import { parseUpdateLog, portableUpdateScript, psQuote } from './updateScript'
+import { parseUpdateLog } from './updateScript'
 import { getSettings } from './config'
 import { getGameStatus } from './launch'
 import { getInstallStatus } from './install'
@@ -417,53 +417,87 @@ function runDetached(command: string, args: string[]): void {
 /** 更新日志：Windows 更新脚本的每一步都记在这里，新版本启动后据此提示更新结果 */
 const UPDATE_LOG = join(app.getPath('userData'), 'logs', 'update.log')
 
-function powershellPath(): string {
-  const path = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
-  return existsSync(path) ? path : 'powershell.exe'
+/** 写一行更新日志（新版本启动后读取，提示「已更新到 vX」或失败原因） */
+async function logUpdate(message: string): Promise<void> {
+  const time = new Date()
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  const stamp = `${time.getFullYear()}-${pad(time.getMonth() + 1)}-${pad(time.getDate())} ${pad(time.getHours())}:${pad(time.getMinutes())}:${pad(time.getSeconds())}`
+  await mkdir(dirname(UPDATE_LOG), { recursive: true })
+  await appendFile(UPDATE_LOG, `[${stamp}] ${message}\r\n`, 'utf-8')
 }
 
 /**
- * Windows：通过 WMI 启动程序。这样启动的程序不属于启动器的进程树，
- * 启动器退出时不会被一起结束（直接启动的子进程在某些环境下会随启动器一起被关掉）
+ * 启动器退出时再运行程序（与 Electron 官方更新库 electron-updater 的做法相同）：
+ * 不经过命令行、脚本，直接启动；detached 的进程不会随启动器一起结束
  */
-function startOutsideTree(commandLine: string, cwd: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const child = spawn(
-      powershellPath(),
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-Command',
-        `$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = ${psQuote(commandLine)}; CurrentDirectory = ${psQuote(cwd)} }; exit [int]$r.ReturnValue`
-      ],
-      { stdio: 'ignore', windowsHide: true }
-    )
-    const timer = setTimeout(() => {
-      child.kill()
-      resolve(false)
-    }, 20_000)
-    child.on('error', () => {
-      clearTimeout(timer)
-      resolve(false)
-    })
-    child.on('exit', (code) => {
-      clearTimeout(timer)
-      resolve(code === 0)
-    })
+function runOnQuit(file: string, args: string[], hideWindow: boolean): void {
+  app.once('quit', () => {
+    try {
+      const child = spawn(file, args, { detached: true, stdio: 'ignore', windowsHide: hideWindow })
+      child.on('error', (e) => console.error('启动新版本失败：', e))
+      child.unref()
+    } catch (e) {
+      console.error('启动新版本失败：', e)
+    }
   })
 }
 
-/** 等更新脚本在日志里写下本次的标记，确认它已经开始运行 */
-async function waitForScript(token: string, timeoutMs: number): Promise<boolean> {
-  const end = Date.now() + timeoutMs
+/** 免安装版更新后要删除的旧文件（新版本启动后删除；旧版本退出前文件被占用，删不掉） */
+const CLEANUP_FILE = join(app.getPath('userData'), 'update-cleanup.json')
+const PORTABLE_NAME = /^LiuliLauncher-Portable-[\d.]+\.exe$/i
+/** 新版本由旧版本打开时带的参数：旧启动器的进程号，新版本等它完全退出后再继续启动 */
+const UPDATED_FROM_ARG = '--liuli-updated-from='
+
+/**
+ * 新版本启动时调用（在单实例检查之前）：等打开它的旧版本完全退出，最多等 20 秒。
+ * 免得两个版本同时使用同一个数据文件夹
+ */
+export function waitForPreviousVersion(argv: string[]): void {
+  const arg = argv.find((a) => a.startsWith(UPDATED_FROM_ARG))
+  const pid = Number(arg?.slice(UPDATED_FROM_ARG.length))
+  if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid) return
+  const sleeper = new Int32Array(new SharedArrayBuffer(4))
+  const end = Date.now() + 20_000
   while (Date.now() < end) {
-    const text = await readFile(UPDATE_LOG, 'utf-8').catch(() => '')
-    if (text.includes(`STARTED ${token}`)) return true
-    await new Promise((resolve) => setTimeout(resolve, 300))
+    try {
+      process.kill(pid, 0)
+    } catch {
+      return
+    }
+    Atomics.wait(sleeper, 0, 0, 100)
   }
-  return false
+}
+
+/** 新版本启动后删除免安装版的旧文件（被占用时每 2 秒重试，最多 2 分钟） */
+export async function cleanupAfterUpdate(): Promise<void> {
+  const self = process.env.PORTABLE_EXECUTABLE_FILE
+  if (!self) return
+  let files: string[]
+  try {
+    const data = JSON.parse(await readFile(CLEANUP_FILE, 'utf-8')) as { files?: unknown }
+    files = Array.isArray(data.files) ? data.files.filter((f): f is string => typeof f === 'string') : []
+  } catch {
+    return
+  }
+  // 只删和自己在同一个文件夹、名字是旧版本免安装包或「自己的文件名.old」的文件
+  const allowed = files.filter(
+    (f) =>
+      dirname(f).toLowerCase() === dirname(self).toLowerCase() &&
+      f.toLowerCase() !== self.toLowerCase() &&
+      (PORTABLE_NAME.test(basename(f)) || basename(f).toLowerCase() === `${basename(self)}.old`.toLowerCase())
+  )
+  for (let attempt = 0; attempt < 60 && allowed.length > 0; attempt++) {
+    for (const file of [...allowed]) {
+      try {
+        await rm(file, { force: true })
+        allowed.splice(allowed.indexOf(file), 1)
+      } catch {
+        // 旧版本的外壳程序还没退出，稍后再试
+      }
+    }
+    if (allowed.length > 0) await new Promise((resolve) => setTimeout(resolve, 2000))
+  }
+  await rm(CLEANUP_FILE, { force: true }).catch(() => undefined)
 }
 
 /** 在文件管理器中显示更新日志 */
@@ -480,6 +514,65 @@ export async function getLastUpdateResult(): Promise<UpdateResult | null> {
   // 成功时只在确实运行着新版本时提示
   if (result.ok && compareVersions(result.version, __APP_VERSION__) !== 0) return null
   return { ...result, logFile: UPDATE_LOG }
+}
+
+/**
+ * 免安装版：启动器退出前自己把新版本放好，退出时打开新版本。不运行任何脚本或命令行。
+ * - 文件名带版本号（LiuliLauncher-Portable-0.4.0.exe）：新版本用新的文件名放在旁边，旧文件由新版本删除
+ * - 文件名被改过（例如「琉璃启动器.exe」）：把正在运行的旧文件改名为 .old（Windows 允许给运行中的程序改名，
+ *   但不能覆盖），新版本用原来的文件名，桌面快捷方式继续有效
+ */
+async function installPortable(file: string, version: string, pid: number): Promise<void> {
+  const oldFile = process.env.PORTABLE_EXECUTABLE_FILE!
+  const dir = dirname(oldFile)
+  const versionedName = join(dir, `LiuliLauncher-Portable-${version}.exe`)
+  const token = randomUUID()
+  await logUpdate(`STARTED ${token} v${version}`)
+  // 先复制到同一个文件夹里的临时文件，最后一步只是改名，不会留下复制了一半的程序
+  const staging = join(dir, `.LiuliLauncher-update-${token.slice(0, 8)}.tmp`)
+  try {
+    await copyFile(file, staging)
+  } catch (e) {
+    await logUpdate(`ERROR 无法写入免安装版所在的文件夹：${(e as Error).message}`)
+    shell.showItemInFolder(file)
+    throw new Error(
+      `无法写入免安装版所在的文件夹（${dir}），可能没有权限。可以手动更新：关闭启动器后，用已打开文件夹中的 ${basename(file)} 替换旧的 exe`
+    )
+  }
+  let target = PORTABLE_NAME.test(basename(oldFile)) ? versionedName : oldFile
+  const cleanup: string[] = []
+  try {
+    if (target === oldFile) {
+      const backup = `${oldFile}.old`
+      await rm(backup, { force: true }).catch(() => undefined)
+      await rename(oldFile, backup)
+      cleanup.push(backup)
+    } else if (target.toLowerCase() !== oldFile.toLowerCase()) {
+      cleanup.push(oldFile)
+    }
+    await rename(staging, target)
+  } catch {
+    // 给运行中的程序改名失败（少数安全软件会阻止）：新版本用带版本号的文件名放在旁边，旧文件保留
+    try {
+      target = versionedName
+      if (cleanup.length > 0 && cleanup[0].endsWith('.old')) await rename(cleanup[0], oldFile).catch(() => undefined)
+      cleanup.length = 0
+      await rename(staging, target)
+    } catch (e) {
+      await rm(staging, { force: true }).catch(() => undefined)
+      await logUpdate(`ERROR 替换失败：${(e as Error).message}`)
+      shell.showItemInFolder(file)
+      throw new Error(`替换启动器文件失败：${(e as Error).message}。可以关闭启动器后，用已打开文件夹中的新版本手动替换`)
+    }
+  }
+  await writeFile(CLEANUP_FILE, JSON.stringify({ files: cleanup }), 'utf-8').catch(() => undefined)
+  await rm(file, { force: true }).catch(() => undefined)
+  await logUpdate(`已替换：${target}`)
+  await logUpdate('DONE')
+  // 释放单实例锁，新版本才能正常启动；新版本会先等这个进程完全退出
+  app.releaseSingleInstanceLock()
+  runOnQuit(target, [`${UPDATED_FROM_ARG}${pid}`], false)
+  app.quit()
 }
 
 /**
@@ -516,43 +609,14 @@ export async function installUpdate(): Promise<void> {
   const pid = process.pid
 
   if (mode === 'portable') {
-    const oldFile = process.env.PORTABLE_EXECUTABLE_FILE!
-    // 文件名带版本号时（例如 LiuliLauncher-Portable-0.2.4.exe），换成新版本的文件名，免得看起来像没更新
-    const versioned = /^LiuliLauncher-Portable-[\d.]+\.exe$/i
-    const target =
-      versioned.test(basename(oldFile)) && versioned.test(basename(file))
-        ? join(dirname(oldFile), basename(file))
-        : oldFile
-    const token = randomUUID()
-    const script = join(UPDATES_DIR, 'update.ps1')
-    await mkdir(dirname(UPDATE_LOG), { recursive: true })
-    // 带 BOM 的 UTF-8，PowerShell 才能正确读取中文路径
-    const content = portableUpdateScript({
-      pid,
-      source: file,
-      target,
-      oldFile,
-      version: download_.version,
-      logFile: UPDATE_LOG,
-      token,
-      processName: basename(process.execPath, '.exe')
-    })
-    await writeFile(script, '\ufeff' + content, 'utf-8')
-    const ps = powershellPath()
-    const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', script]
-    const commandLine = [ps, ...args].map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ')
-    if (!(await startOutsideTree(commandLine, UPDATES_DIR))) runDetached(ps, args)
-    // 确认更新脚本已经运行起来再退出；没有运行时不退出，告诉用户怎么手动更新
-    if (!(await waitForScript(token, 20_000))) {
-      shell.showItemInFolder(file)
-      throw new Error(
-        `更新程序没有启动（可能被安全软件拦截）。可以手动更新：关闭启动器后，用已打开文件夹中的 ${basename(file)} 替换 ${oldFile}`
-      )
-    }
+    await installPortable(file, asset.version, pid)
+    return
   } else if (mode === 'nsis') {
-    // electron-builder 的安装程序：/S 静默安装到原来的位置，--force-run 安装完后打开启动器
-    const args = ['/S', '--updated', '--force-run']
-    if (!(await startOutsideTree(`"${file}" ${args.join(' ')}`, UPDATES_DIR))) runDetached(file, args)
+    // electron-builder 的安装程序：/S 静默安装到原来的位置（没有界面），--force-run 装完后打开启动器。
+    // 启动器退出时才运行，安装程序不会遇到「启动器正在运行」
+    runOnQuit(file, ['/S', '--updated', '--force-run'], true)
+    app.quit()
+    return
   } else if (mode === 'appimage') {
     const target = process.env.APPIMAGE!
     const temp = `${target}.new`

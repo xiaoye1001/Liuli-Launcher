@@ -93,6 +93,8 @@ import {
   cancelUpdateDownload,
   checkUpdate,
   cleanUpdateFiles,
+  cleanupAfterUpdate,
+  waitForPreviousVersion,
   downloadUpdate,
   getUpdateDownload,
   installUpdate,
@@ -558,6 +560,9 @@ function registerIpc(): void {
 
 hardenWebContents()
 
+// 自动更新后由旧版本打开：先等旧版本完全退出，避免两个版本同时使用数据文件夹
+waitForPreviousVersion(process.argv)
+
 // 只允许运行一个启动器：再次打开（例如双击桌面快捷方式）时切换到已打开的窗口
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) app.quit()
@@ -605,6 +610,8 @@ app.whenReady().then(async () => {
   createWindow()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)
+  // 免安装版更新后，删除旧版本的文件
+  void cleanupAfterUpdate().catch(() => undefined)
   const shortcutVersion = launchArgOf(process.argv)
   if (shortcutVersion) void launchFromShortcut(shortcutVersion)
 
