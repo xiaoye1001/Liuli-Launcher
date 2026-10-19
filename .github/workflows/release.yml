@@ -7,6 +7,8 @@
 # 没有设置时打包出的版本只能使用离线账号。
 # 官网地址来自仓库变量（Settings → Secrets and variables → Actions → Variables → OFFICIAL_SITE_URL，
 # 例如 https://mc.example.com），填了以后启动器可以从官网检查和下载更新；不填时只用 GitHub。
+# 更新签名（建议配置）：仓库 Secret UPDATE_SIGNING_KEY 与变量 UPDATE_PUBLIC_KEY，启动器从官网更新时验证签名，
+# 生成方法见 docs/update-signing.md。
 # 代码签名（可选）：在仓库 Secrets / Variables 里配置证书后自动签名，没有配置时打包未签名的版本，
 # 需要配置哪些项见 docs/code-signing.md。
 name: Release
@@ -64,6 +66,7 @@ jobs:
         env:
           MAIN_VITE_MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
           MAIN_VITE_OFFICIAL_SITE: ${{ vars.OFFICIAL_SITE_URL }}
+          MAIN_VITE_UPDATE_PUBLIC_KEY: ${{ vars.UPDATE_PUBLIC_KEY }}
         run: npm run build && npx electron-builder --linux AppImage --publish never
 
       - uses: actions/upload-artifact@v4
@@ -120,6 +123,7 @@ jobs:
         env:
           MAIN_VITE_MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
           MAIN_VITE_OFFICIAL_SITE: ${{ vars.OFFICIAL_SITE_URL }}
+          MAIN_VITE_UPDATE_PUBLIC_KEY: ${{ vars.UPDATE_PUBLIC_KEY }}
           # pfx 证书：base64 编码的证书文件与密码
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
@@ -215,6 +219,7 @@ jobs:
         env:
           MAIN_VITE_MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
           MAIN_VITE_OFFICIAL_SITE: ${{ vars.OFFICIAL_SITE_URL }}
+          MAIN_VITE_UPDATE_PUBLIC_KEY: ${{ vars.UPDATE_PUBLIC_KEY }}
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ steps.sign.outputs.signed == 'true' && 'true' || 'false' }}
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
@@ -272,12 +277,29 @@ jobs:
     permissions:
       contents: write
     steps:
+      # 只用来运行签名脚本
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - uses: actions/download-artifact@v4
         with:
           path: release
           merge-multiple: true
 
-      # Release 只放启动器安装包，官网网页和服务器脚本不随 Release 发布
+      # 用私钥给 5 个安装包的清单签名，生成 LiuliLauncher-<版本>-signature.json（官网更新脚本会把它写进 latest.json）。
+      # 没有配置密钥时跳过；只配置了一半时报错，避免发布出所有人都无法从官网更新的版本
+      - name: Sign update info
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+          UPDATE_PUBLIC_KEY: ${{ vars.UPDATE_PUBLIC_KEY }}
+        run: node scripts/update-signing.mjs sign release "${VERSION#v}"
+
+      # Release 只放启动器安装包（和更新签名），官网网页和服务器脚本不随 Release 发布
       - run: ls -la release
 
       # 下载与运行说明随签名情况变化；更新说明经环境变量传入，不直接拼进脚本

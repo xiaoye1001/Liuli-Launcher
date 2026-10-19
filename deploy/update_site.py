@@ -7,6 +7,7 @@
   2. 有新版本时，下载 5 个安装包到网站的 downloads/ 文件夹，并用 GitHub 提供的 SHA-256 校验
   3. 下载新版本附带的网页（LiuliLauncher-website.zip），更新网站文件
   4. 写入 downloads/latest.json（网页据此显示版本号和下载按钮），删除旧版本的安装包
+     发布时附带了更新签名（LiuliLauncher-<版本>-signature.json）的话一起写入，启动器用它确认安装包没被替换
 
 用法：
   python3 update_site.py --site /www/wwwroot/你的域名
@@ -45,6 +46,8 @@ EXPECTED = [
     re.compile(r'^LiuliLauncher-[\d.]+\.AppImage$'),
 ]
 SHA256 = re.compile(r'^[0-9a-f]{64}$')
+# 更新签名文件（GitHub Actions 用私钥生成，见 scripts/update-signing.mjs）
+SIGNATURE_ASSET = 'LiuliLauncher-%s-signature.json'
 # 清理时认作旧安装包或临时文件的名字（包括浏览器重复下载产生的「(1)」、下载中断留下的 .part）
 OLD_FILE = re.compile(r'^LiuliLauncher-.*\.(exe|dmg|AppImage|blockmap)(\.part)?$|\.part$|^\.website\.zip$', re.I)
 USER_AGENT = 'LiuliLauncher-site-updater'
@@ -101,6 +104,34 @@ def download(url, dest, sha256, proxy, retries=3):
                 os.remove(tmp)
             time.sleep(3 * attempt)
     raise RuntimeError('下载失败：%s（%s）' % (os.path.basename(dest), last_error))
+
+
+def load_signature(asset, version, files, downloads, proxy):
+    """下载更新签名，确认签名内容与刚下载的安装包一致，返回写进 latest.json 的内容；有问题时抛出异常
+
+    服务器上没有公钥也不需要验证签名本身（启动器会验证），这里只防止发布出错时把对不上的签名放到网站上
+    """
+    tmp = os.path.join(downloads, '.signature.json')
+    try:
+        download(asset['browser_download_url'], tmp, asset_sha256(asset), proxy)
+        if os.path.getsize(tmp) > 256 * 1024:
+            raise ValueError('签名文件太大')
+        with open(tmp, encoding='utf-8') as f:
+            data = json.load(f)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+    payload, signature = data.get('payload'), data.get('signature')
+    if not isinstance(payload, str) or not isinstance(signature, str):
+        raise ValueError('签名文件格式不对')
+    signed = json.loads(payload)
+    if signed.get('product') != 'liuli-launcher' or signed.get('version') != version:
+        raise ValueError('签名文件的版本号与 v%s 不一致' % version)
+    expect = sorted((f['name'], f['size'], f['sha256']) for f in files)
+    actual = sorted((f.get('name'), f.get('size'), f.get('sha256')) for f in signed.get('files', []))
+    if expect != actual:
+        raise ValueError('签名文件里的安装包与下载的安装包对不上')
+    return {'payload': payload, 'signature': signature}
 
 
 def safe_extract(zip_path, target):
@@ -259,7 +290,11 @@ def main():
             log('v%s 的安装包还没有全部上传完成（或缺少 SHA-256 校验值），暂不更新' % version)
             return 0
     website = next((a for a in assets if a['name'] == WEBSITE_ASSET), None)
+    signature_asset = next((a for a in assets if a['name'] == SIGNATURE_ASSET % version), None)
     complete = all(os.path.isfile(os.path.join(downloads, a['name'])) for a in installers)
+    # 之前的 latest.json 还没有签名（例如刚升级这个脚本）时也要更新一次
+    if signature_asset and not current.get('signed'):
+        complete = False
     # 手动上传的网页也加上内容指纹（不会重复修改）
     if is_our_site(site):
         add_cache_busting(site)
@@ -291,6 +326,13 @@ def main():
         download(asset['browser_download_url'], dest, sha256, proxy)
         files.append({'name': name, 'size': asset.get('size', 0), 'sha256': sha256})
 
+    signed = None
+    if signature_asset:
+        signed = load_signature(signature_asset, version, files, downloads, proxy)
+        log('  已加入更新签名')
+    else:
+        log('  这个版本没有更新签名（启动器内置了公钥时会改用 GitHub 更新）')
+
     if website and not asset_sha256(website):
         log('  附带的网页没有 SHA-256 校验值，跳过网页更新')
     elif website:
@@ -315,6 +357,8 @@ def main():
                 # 更新说明（Markdown），网页的「最新更新」显示这里的内容
                 'notes': str(release.get('body') or '')[:20000],
                 'files': files,
+                # 启动器验证的数字签名：只有签名里的版本号和 SHA-256 会被启动器采用
+                **({'signed': signed} if signed else {}),
                 'updatedAt': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
             },
             f,
