@@ -19,7 +19,8 @@
  *    - 房客解析后同样开本地转发并广播，不用手动输入地址
  *    - 一键安装 e4mc / World Host：复用 Modrinth 安装（自动匹配加载器和游戏版本、多线程高速下载、出错自动回退）
  *
- * 共用能力：监听 224.0.2.60:4445 自动发现本机「对局域网开放」的世界；每 3 秒测一次延迟；统计转发流量。
+ * 共用能力：监听 224.0.2.60:4445 自动发现本机「对局域网开放」的世界；每 3 秒测一次延迟；统计转发流量；
+ * 房主每 5 秒查询一次本机游戏世界（服务器列表查询），显示在线玩家，世界关闭时提醒。
  *
  * 安全：
  * - 房间码来自别人，所有内容都按不可信数据检查（地址类型、端口范围、主机名格式、中继地址格式），
@@ -61,6 +62,7 @@ const LAN_PORT = 4445
 const LAN_EXPIRE = 6000
 const BROADCAST_INTERVAL = 1500
 const LATENCY_INTERVAL = 3000
+const WORLD_CHECK_INTERVAL = 5000
 const STATUS_INTERVAL = 1000
 const CONNECT_TIMEOUT = 5000
 
@@ -135,7 +137,11 @@ function idleStatus(lanGame: LanGame | null): MultiplayerStatus {
     bytesUp: 0,
     bytesDown: 0,
     connections: 0,
-    needsP2PCore: false
+    needsP2PCore: false,
+    gamePort: null,
+    worldOnline: null,
+    players: null,
+    relay: null
   }
 }
 
@@ -167,12 +173,16 @@ function update(patch: Partial<MultiplayerStatus>): void {
 }
 
 export function getMultiplayerStatus(): MultiplayerStatus {
-  // 流量和连接数由转发器实时累计
+  // 流量和连接数由转发器实时累计。转发器的「上行」是接入方发出的数据：
+  // 房客这一侧接入方是本机游戏；房主这一侧接入方是好友，所以房主要对调过来，表示本机发出 / 收到
   const forwarders = session?.forwarders ?? []
+  const fromClient = forwarders.reduce((sum, f) => sum + f.bytesUp, 0)
+  const toClient = forwarders.reduce((sum, f) => sum + f.bytesDown, 0)
+  const host = status.role === 'host'
   return {
     ...status,
-    bytesUp: forwarders.reduce((sum, f) => sum + f.bytesUp, 0),
-    bytesDown: forwarders.reduce((sum, f) => sum + f.bytesDown, 0),
+    bytesUp: host ? toClient : fromClient,
+    bytesDown: host ? fromClient : toClient,
     connections: forwarders.reduce((sum, f) => sum + f.connections, 0)
   }
 }
@@ -788,6 +798,27 @@ function startLatencyLoop(current: Session, measure: () => Promise<number>): voi
   current.timers.push(setInterval(() => void run(), LATENCY_INTERVAL))
 }
 
+/**
+ * 房主：定时向本机游戏发送「服务器列表查询」，显示在线玩家；
+ * 世界关闭（退出世界或关闭游戏）时提醒房主，重新打开后自动恢复
+ */
+function startWorldMonitor(current: Session, port: number): void {
+  const run = async (): Promise<void> => {
+    const result = await pingServer(`127.0.0.1:${port}`).catch(() => null)
+    if (current.stopped) return
+    if (result?.online) {
+      update({
+        worldOnline: true,
+        players: { online: result.players.online, max: result.players.max, names: result.players.sample }
+      })
+    } else {
+      update({ worldOnline: false, players: null })
+    }
+  }
+  void run()
+  current.timers.push(setInterval(() => void run(), WORLD_CHECK_INTERVAL))
+}
+
 // ---------- 方式一：极速直连 ----------
 
 /** 房主：生成直连房间码 */
@@ -807,7 +838,8 @@ export async function hostDirect(port?: unknown): Promise<MultiplayerStatus> {
       : local.ipv6.length > 0
         ? '房间已创建：把房间码发给好友。本机有公网 IPv6，好友也需要有 IPv6 才能跨网络直连，否则请改用 P2P'
         : '房间已创建，但本机没有公网地址：只有同一局域网的玩家能直连，跨网络请改用 P2P 或内网穿透'
-  update({ state: 'running', code, message })
+  update({ state: 'running', code, message, gamePort: target.port })
+  startWorldMonitor(current, target.port)
   return getMultiplayerStatus()
 }
 
@@ -998,7 +1030,8 @@ export async function hostP2P(port?: unknown, relay?: unknown): Promise<Multipla
     update({
       fallback: true,
       needsP2PCore: true,
-      message: `本机还没有 P2P 联机内核，已先生成直连房间码（${result.message}）。下载内核后可以重新创建 P2P 房间`
+      relay: relayUrl,
+      message: `本机还没有 P2P 联机内核，已先生成直连房间码（${result.message}）。下载内核后点「改用 P2P 房间」即可切换`
     })
     return getMultiplayerStatus()
   }
@@ -1024,8 +1057,11 @@ export async function hostP2P(port?: unknown, relay?: unknown): Promise<Multipla
   update({
     state: 'running',
     code: encodeP2PCode(room),
+    gamePort: target.port,
+    relay: relayUrl,
     message: '房间已创建：把房间码发给好友，好友加入后会自动打洞直连，打洞失败时通过中继服务器连接'
   })
+  startWorldMonitor(current, target.port)
   return getMultiplayerStatus()
 }
 
@@ -1049,6 +1085,7 @@ async function joinP2P(current: Session, code: string): Promise<void> {
   update({
     localPort,
     target: `${P2P_HOST_IP}（P2P 虚拟网络）`,
+    relay: room.relay,
     message: '正在打洞连接房主，通常需要几秒到半分钟…'
   })
   // 通过隧道向房主的游戏发送一次「服务器列表查询」，收到回复说明已经连通，同时得到真实延迟
@@ -1074,14 +1111,18 @@ export async function hostTunnel(address: unknown, motd?: unknown): Promise<Mult
   if (typeof address !== 'string') throw new Error('请填写穿透地址')
   const endpoint = parseEndpoint(address)
   const name = typeof motd === 'string' && motd.trim() ? motd : (status.lanGame?.motd ?? '')
+  // 穿透工具映射的是本机哪个端口启动器不知道，只能用检测到的「对局域网开放」端口查询世界状态
+  const gamePort = status.lanGame?.port ?? null
   const current = begin('host', 'tunnel', '')
   if (current.stopped) return getMultiplayerStatus()
   update({
     state: 'running',
     code: encodeTunnelCode({ ...endpoint, motd: name }),
     target: formatEndpoint(endpoint.host, endpoint.port),
+    gamePort,
     message: '房间码已生成：好友加入后，房间会直接出现在游戏的多人游戏列表里'
   })
+  if (gamePort !== null) startWorldMonitor(current, gamePort)
   return getMultiplayerStatus()
 }
 

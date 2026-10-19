@@ -1344,13 +1344,21 @@ export interface MultiplayerStatus {
   target: string | null
   /** 与房主之间的延迟（毫秒） */
   latency: number | null
-  /** 已转发的流量（字节）：上行为房客发给房主 */
+  /** 已转发的流量（字节）：上行为本机发出，下行为本机收到 */
   bytesUp: number
   bytesDown: number
   /** 当前通过联机通道的连接数 */
   connections: number
   /** P2P 模式下需要先下载内核 */
   needsP2PCore: boolean
+  /** 房主：本机游戏的局域网端口（内网穿透房间没有检测到时为 null） */
+  gamePort: number | null
+  /** 房主：本机游戏世界还在不在（定时查询）；null 为还没查询或无法查询 */
+  worldOnline: boolean | null
+  /** 房主：游戏世界里的在线玩家（包括房主自己） */
+  players: { online: number; max: number; names: string[] } | null
+  /** P2P：使用的中继服务器（房主降级为直连时为原本要用的中继） */
+  relay: string | null
   error?: string
 }
 

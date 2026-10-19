@@ -135,7 +135,51 @@ function CoreDownload({ core, onChange }: { core: P2PCoreStatus | null; onChange
   )
 }
 
-/** 进行中的房间：房间码、连接方式、延迟、流量 */
+/** 统计小格子 */
+function Stat({
+  icon: Icon,
+  label,
+  value,
+  tone = '',
+  title
+}: {
+  icon: LucideIcon
+  label: string
+  value: string
+  tone?: string
+  title?: string
+}): JSX.Element {
+  return (
+    <div className="rounded-xl bg-black/20 px-3 py-2" title={title}>
+      <div className="flex items-center gap-1 text-xs text-white/50">
+        <Icon className="h-3.5 w-3.5" />
+        {label}
+      </div>
+      <div className={`mt-0.5 truncate font-medium ${tone}`}>{value}</div>
+    </div>
+  )
+}
+
+/** 房主：游戏世界的在线玩家 */
+function playersText(status: MultiplayerStatus): { value: string; tone: string } {
+  if (status.worldOnline === false) return { value: '世界未开放', tone: 'text-amber-300' }
+  if (!status.players) return { value: '查询中…', tone: 'text-white/50' }
+  return { value: `${status.players.online} / ${status.players.max}`, tone: '' }
+}
+
+/** 房间状态标签 */
+function stateBadge(status: MultiplayerStatus): { label: string; tone: string } {
+  const ok = 'bg-emerald-500/20 text-emerald-200'
+  const warn = 'bg-amber-500/20 text-amber-200'
+  if (status.state === 'error') return { label: '出错', tone: 'bg-rose-500/20 text-rose-200' }
+  if (status.state !== 'running') return { label: '连接中', tone: warn }
+  if (status.role === 'guest') return { label: '已连接', tone: ok }
+  if (status.worldOnline === false) return { label: '世界未开放', tone: warn }
+  const friends = (status.players?.online ?? 1) - 1
+  return friends > 0 ? { label: `${friends} 位好友在线`, tone: ok } : { label: '等待好友加入', tone: ok }
+}
+
+/** 进行中的房间：房间码、连接方式、延迟、流量、在线玩家 */
 function RoomCard({
   status,
   core,
@@ -147,6 +191,8 @@ function RoomCard({
 }): JSX.Element {
   const [stopping, setStopping] = useState(false)
   const [retrying, setRetrying] = useState(false)
+  const [upgrading, setUpgrading] = useState(false)
+  const [upgradeError, setUpgradeError] = useState('')
   const stop = async (): Promise<void> => {
     setStopping(true)
     try {
@@ -168,26 +214,35 @@ function RoomCard({
       onCoreChange()
     }
   }
+  // 房主降级成直连后，下载好内核再改用 P2P 房间（同一个游戏端口和中继）
+  const upgrade = async (): Promise<void> => {
+    setUpgrading(true)
+    setUpgradeError('')
+    try {
+      await window.api.hostP2PRoom(status.gamePort ?? undefined, status.relay ?? undefined)
+    } catch (e) {
+      setUpgradeError(cleanIpcError(e))
+    } finally {
+      setUpgrading(false)
+      onCoreChange()
+    }
+  }
   const canRetry = status.role === 'guest' && status.state === 'error' && !!status.code
-  const tone =
-    status.state === 'running'
-      ? 'bg-emerald-500/20 text-emerald-200'
-      : status.state === 'error'
-        ? 'bg-rose-500/20 text-rose-200'
-        : 'bg-amber-500/20 text-amber-200'
-  const stateLabel = { idle: '未开始', starting: '连接中', running: '已连接', error: '出错' }[status.state]
+  const canUpgrade = status.role === 'host' && status.fallback && !!core?.installed
+  const badge = stateBadge(status)
+  const players = playersText(status)
+  const isHost = status.role === 'host'
+  const showTraffic = !isHost || status.mode === 'p2p'
   return (
     <section className="rounded-2xl border border-white/10 bg-white/10 p-5 shadow-2xl backdrop-blur-xl">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-emerald-300" />
-          <h2 className="text-lg font-semibold">{status.role === 'host' ? '我创建的房间' : '我加入的房间'}</h2>
+          <h2 className="text-lg font-semibold">{isHost ? '我创建的房间' : '我加入的房间'}</h2>
           {status.mode && (
             <span className="rounded-md bg-white/10 px-2 py-0.5 text-xs">{MODE_LABELS[status.mode]}</span>
           )}
-          <span className={`rounded-md px-2 py-0.5 text-xs ${tone}`}>
-            {status.role === 'host' && status.state === 'running' ? '等待好友加入' : stateLabel}
-          </span>
+          <span className={`rounded-md px-2 py-0.5 text-xs ${badge.tone}`}>{badge.label}</span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {canRetry && (
@@ -202,11 +257,11 @@ function RoomCard({
           )}
           <button
             onClick={() => void stop()}
-            disabled={stopping}
+            disabled={stopping || upgrading}
             className="flex items-center gap-1.5 rounded-xl bg-rose-500/80 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-500 disabled:opacity-60"
           >
             <Power className="h-4 w-4" />
-            {status.role === 'host' ? '关闭房间' : '退出房间'}
+            {isHost ? '关闭房间' : '退出房间'}
           </button>
         </div>
       </div>
@@ -217,7 +272,14 @@ function RoomCard({
         </p>
       )}
 
-      {status.code && status.role === 'host' && (
+      {isHost && status.worldOnline === false && (
+        <p className="mt-2 text-sm text-amber-200">
+          检测不到本机的游戏世界{status.gamePort ? `（端口 ${status.gamePort}）` : ''}
+          ：可能已经退出世界或关闭了游戏。重新进入世界并「对局域网开放」后会自动恢复；如果端口变了，需要关闭房间重新创建
+        </p>
+      )}
+
+      {status.code && isHost && (
         <div className="mt-4 flex items-center gap-3 rounded-xl bg-black/20 px-4 py-3">
           <div className="min-w-0 flex-1">
             <div className="text-xs text-white/50">房间码（发给好友，好友在「加入房间」里粘贴）</div>
@@ -227,7 +289,7 @@ function RoomCard({
         </div>
       )}
 
-      {status.role === 'guest' && status.localPort && (
+      {!isHost && status.localPort && (
         <div className="mt-4 flex items-center gap-3 rounded-xl bg-black/20 px-4 py-3">
           <div className="min-w-0 flex-1">
             <div className="text-xs text-white/50">
@@ -239,42 +301,61 @@ function RoomCard({
         </div>
       )}
 
-      {status.role === 'guest' && (
+      {(!isHost || status.gamePort !== null || showTraffic) && (
         <div className="mt-3 grid grid-cols-4 gap-3 text-sm">
-          <div className="rounded-xl bg-black/20 px-3 py-2">
-            <div className="flex items-center gap-1 text-xs text-white/50">
-              <Gauge className="h-3.5 w-3.5" />
-              延迟
-            </div>
-            <div className="mt-0.5 font-medium">{status.latency === null ? '—' : `${status.latency} ms`}</div>
-          </div>
-          <div className="rounded-xl bg-black/20 px-3 py-2">
-            <div className="flex items-center gap-1 text-xs text-white/50">
-              <ArrowUp className="h-3.5 w-3.5" />
-              上行
-            </div>
-            <div className="mt-0.5 font-medium">{formatBytes(status.bytesUp)}</div>
-          </div>
-          <div className="rounded-xl bg-black/20 px-3 py-2">
-            <div className="flex items-center gap-1 text-xs text-white/50">
-              <ArrowDown className="h-3.5 w-3.5" />
-              下行
-            </div>
-            <div className="mt-0.5 font-medium">{formatBytes(status.bytesDown)}</div>
-          </div>
-          <div className="rounded-xl bg-black/20 px-3 py-2">
-            <div className="text-xs text-white/50">连接</div>
-            <div className="mt-0.5 font-medium">{status.connections}</div>
-          </div>
+          {isHost ? (
+            status.gamePort !== null && (
+              <Stat
+                icon={Users}
+                label="在线玩家"
+                value={players.value}
+                tone={players.tone}
+                title={status.players?.names.join('、') || undefined}
+              />
+            )
+          ) : (
+            <Stat icon={Gauge} label="延迟" value={status.latency === null ? '—' : `${status.latency} ms`} />
+          )}
+          {showTraffic && (
+            <>
+              <Stat icon={ArrowUp} label={isHost ? '发出' : '上行'} value={formatBytes(status.bytesUp)} />
+              <Stat icon={ArrowDown} label={isHost ? '收到' : '下行'} value={formatBytes(status.bytesDown)} />
+              <Stat icon={Network} label={isHost ? '好友连接' : '连接'} value={String(status.connections)} />
+            </>
+          )}
         </div>
       )}
-      {status.role === 'guest' && status.target && (
-        <div className="mt-2 text-xs text-white/40">连接到：{status.target}</div>
+      {isHost && status.players && status.players.names.length > 0 && (
+        <div className="mt-2 truncate text-xs text-white/50" title={status.players.names.join('、')}>
+          在线：{status.players.names.join('、')}
+        </div>
+      )}
+      {((!isHost && status.target) || (status.mode === 'p2p' && status.relay)) && (
+        <div className="mt-2 space-y-0.5 text-xs text-white/40">
+          {!isHost && status.target && <div>连接到：{status.target}</div>}
+          {status.mode === 'p2p' && status.relay && <div>中继服务器：{status.relay}</div>}
+        </div>
       )}
 
       {status.needsP2PCore && (
-        <div className="mt-4 rounded-xl bg-black/20 px-4 py-3">
+        <div className="mt-4 space-y-3 rounded-xl bg-black/20 px-4 py-3">
           <CoreDownload core={core} onChange={onCoreChange} />
+          {canUpgrade && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs text-white/60">
+                现在可以改用 P2P 房间：会生成新的房间码，已经进入世界的好友不受影响
+              </div>
+              <button
+                onClick={() => void upgrade()}
+                disabled={upgrading || stopping}
+                className="flex shrink-0 items-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-400 disabled:opacity-50"
+              >
+                {upgrading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Network className="h-4 w-4" />}
+                改用 P2P 房间
+              </button>
+            </div>
+          )}
+          {upgradeError && <div className="text-xs text-rose-300">{upgradeError}</div>}
         </div>
       )}
     </section>
