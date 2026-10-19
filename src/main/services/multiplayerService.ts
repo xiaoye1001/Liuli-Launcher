@@ -12,7 +12,11 @@
  *      启动器在 127.0.0.1 的固定端口（由房间码算出）上转发到游戏的局域网端口，所以房间码里不需要带端口
  *    - 房客：EasyTier 的 --port-forward 把本机端口转到房主的虚拟 IP，启动器再接一层本地转发（统计流量）并广播
  *    - 房主本机没有内核时自动改用直连房间码（fallback）；房客本机没有内核时提示一键下载（needsP2PCore）
- *    - 内核从 GitHub 下载固定版本，并用写在代码里的 SHA-256 校验，不会运行被替换的文件
+ *    - 内核从 GitHub 下载固定版本，下载后用写在代码里的 SHA-256 校验，校验不通过不会解压和运行
+ *    - EasyTier 会把发往本机虚拟 IP 的连接转到本机 127.0.0.1 的同一端口，所以用它的入站端口白名单把对方限制住：
+ *      房主只开放联机转发端口，房客不开放任何端口，好友不能借虚拟网络访问你电脑上只对本机开放的服务
+ *    - 网络名和密钥用 scrypt 慢哈希从房间号算出，并通过环境变量传给内核（不出现在进程命令行里）；
+ *      管理接口只监听 127.0.0.1
  *
  * 三、☁️ 内网穿透（MCL-T-…）与联机模组
  *    - 房主填写已有的穿透地址（樱花、ChmlFrp、Cloudflare Tunnel 或任意 域名:端口），启动器包装成房间码
@@ -26,13 +30,14 @@
  * - 房间码来自别人，所有内容都按不可信数据检查（地址类型、端口范围、主机名格式、中继地址格式），
  *   启动 EasyTier 时参数以数组传入，不经过命令行解释，房间码里的内容无法注入参数
  * - 房客的本地转发端口只接受本机发起的连接（游戏），局域网里的其他电脑不能借它连到房主
+ * - 别人的房间码不能让启动器去连接本机回环地址、链路本地地址（如 169.254.169.254）等特殊地址
  * - 房间码只是编码，不是加密：拿到房间码的人就能加入（这正是房间码的用途）
  */
 import { app, BrowserWindow } from 'electron'
 import { spawn, type ChildProcess } from 'child_process'
-import { createHash, randomBytes } from 'crypto'
+import { createHash, randomBytes, scrypt } from 'crypto'
 import { createReadStream, createWriteStream, existsSync } from 'fs'
-import { chmod, mkdir, rename, rm } from 'fs/promises'
+import { chmod, mkdir, readdir, rename, rm } from 'fs/promises'
 import { createSocket, type Socket as UdpSocket } from 'dgram'
 import { connect, createServer, isIP, type Server, type Socket } from 'net'
 import { networkInterfaces } from 'os'
@@ -57,12 +62,16 @@ import type {
 
 /** Minecraft 局域网发现使用的组播地址与端口 */
 const LAN_GROUP = '224.0.2.60'
+/** 房客注入的房间广播的世界名前缀（显示为「[琉璃联机] 世界名」） */
+const ROOM_MOTD_PREFIX = '琉璃联机'
 const LAN_PORT = 4445
 /** 游戏自己每 1.5 秒广播一次；超过 6 秒没收到就认为世界已关闭 */
 const LAN_EXPIRE = 6000
 const BROADCAST_INTERVAL = 1500
 const LATENCY_INTERVAL = 3000
 const WORLD_CHECK_INTERVAL = 5000
+/** P2P 房客这么久还没连上房主时提示可能的原因（内核继续尝试） */
+const P2P_JOIN_TIMEOUT = 60000
 const STATUS_INTERVAL = 1000
 const CONNECT_TIMEOUT = 5000
 
@@ -281,6 +290,31 @@ function checkHost(value: string): string {
   return host
 }
 
+/**
+ * 房间码 / 中继里不允许出现的地址：本机回环、未指定地址、链路本地（含云服务器元数据地址 169.254.169.254）、组播。
+ * 防止别人的房间码让启动器去连接你电脑上或内网里的特殊服务
+ */
+function isForbiddenRemote(host: string): boolean {
+  const value = host.toLowerCase().replace(/\.$/, '')
+  if (value === 'localhost' || value.endsWith('.localhost')) return true
+  const v4 = isIP(value) === 4 ? value : /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(value)?.[1]
+  if (v4) {
+    const [a, b] = ipv4Parts(v4)
+    return a === 0 || a === 127 || (a === 169 && b === 254) || a >= 224
+  }
+  if (isIP(value) === 6) {
+    return value === '::' || value === '::1' || /^fe[89ab]/.test(value) || value.startsWith('ff')
+  }
+  return false
+}
+
+/** 别人能看到的地址（穿透地址、中继）：格式检查 + 不能是特殊地址 */
+function checkRemoteHost(value: string): string {
+  const host = checkHost(value)
+  if (isForbiddenRemote(host)) throw new Error('不能使用本机或保留地址，请填写公网可以访问的地址')
+  return host
+}
+
 function formatEndpoint(host: string, port: number): string {
   return isIP(host) === 6 ? `[${host}]:${port}` : `${host}:${port}`
 }
@@ -396,8 +430,8 @@ export function decodeDirectCode(code: string): DirectRoom {
       const address = [...buf.subarray(offset, offset + 4)].join('.')
       offset += 4
       const [a] = ipv4Parts(address)
-      // 不接受回环、0.0.0.0、组播等地址
-      if (a !== 127 && a !== 0 && a < 224) addresses.push(address)
+      // 不接受回环、0.0.0.0、链路本地、组播等地址
+      if (!isForbiddenRemote(address) && a < 224) addresses.push(address)
     } else {
       throw new Error('房间码格式不对')
     }
@@ -438,7 +472,7 @@ export function decodeTunnelCode(code: string): TunnelRoom {
   const port = checkPort(buf.readUInt16BE(1))
   const hostLength = buf[3]
   if (4 + hostLength + 1 > buf.length) throw new Error('房间码不完整')
-  const host = checkHost(buf.subarray(4, 4 + hostLength).toString('utf-8'))
+  const host = checkRemoteHost(buf.subarray(4, 4 + hostLength).toString('utf-8'))
   const motdLength = buf[4 + hostLength]
   const motd = cleanMotd(buf.subarray(5 + hostLength, 5 + hostLength + motdLength).toString('utf-8'))
   return { host, port, motd }
@@ -454,7 +488,7 @@ interface P2PRoom {
 function checkRelay(value: string): string {
   const match = /^(tcp|udp|ws|wss|quic):\/\/([^/\s:]+|\[[0-9a-f:.]+\]):(\d{1,5})\/?$/i.exec(value.trim())
   if (!match) throw new Error('中继地址格式不对，例如 tcp://example.com:11010')
-  checkHost(match[2])
+  checkRemoteHost(match[2])
   checkPort(match[3])
   return `${match[1].toLowerCase()}://${match[2]}:${Number(match[3])}`
 }
@@ -481,18 +515,38 @@ function randomRoomId(): string {
   return [...bytes].map((b) => BASE32[b % 32]).join('')
 }
 
-/** 由房间号算出 EasyTier 的网络名、密钥，以及房主转发用的固定端口 */
-function p2pParams(id: string): { networkName: string; secret: string; virtualPort: number } {
-  const hash = (label: string): Buffer => createHash('sha256').update(`liuli-${label}:${id}`).digest()
-  return {
+interface P2PParams {
+  networkName: string
+  secret: string
+  virtualPort: number
+}
+
+let p2pCache: { id: string; params: P2PParams } | null = null
+
+/**
+ * 由房间号算出 EasyTier 的网络名、密钥，以及房主转发用的固定端口。
+ * 中继服务器能看到网络名，房间号只有 60 位：先用 scrypt 慢哈希，让离线暴力猜房间号（进而算出密钥）的成本高到不可行
+ */
+async function p2pParams(id: string): Promise<P2PParams> {
+  if (p2pCache?.id === id) return p2pCache.params
+  const master = await new Promise<Buffer>((resolve, reject) => {
+    scrypt(id, 'liuli-p2p-room-v1', 32, { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 }, (e, key) =>
+      e ? reject(e) : resolve(key)
+    )
+  })
+  const hash = (label: string): Buffer => createHash('sha256').update(master).update(label).digest()
+  const params: P2PParams = {
     networkName: `liuli-${hash('network').toString('hex').slice(0, 20)}`,
     secret: hash('secret').toString('hex'),
     virtualPort: 20000 + (hash('port').readUInt16BE(0) % 40000)
   }
+  p2pCache = { id, params }
+  return params
 }
 
 /** 识别房间码类型（大小写、首尾空格不影响） */
 function normalizeCode(input: string): { mode: MultiplayerMode; code: string } {
+  if (input.length > 2048) throw new Error('房间码太长，请检查是否复制了多余的内容')
   const text = input.trim().replace(/\s+/g, '')
   const upper = text.toUpperCase()
   if (upper.startsWith(PREFIX_P2P)) {
@@ -524,6 +578,7 @@ class Forwarder {
   connections = 0
   private server: Server | null = null
   private sockets = new Set<Socket>()
+  private stopped = false
 
   constructor(private options: ForwarderOptions) {}
 
@@ -532,11 +587,27 @@ class Forwarder {
     return new Promise((resolve, reject) => {
       const server = createServer((client) => this.handle(client))
       server.once('error', (e: NodeJS.ErrnoException) => {
-        reject(e.code === 'EADDRINUSE' ? new Error(`本机端口 ${this.options.bindPort} 已被占用`) : e)
+        if (e.code === 'EADDRINUSE' || e.code === 'EACCES') {
+          const error = new Error(
+            e.code === 'EADDRINUSE'
+              ? `本机端口 ${this.options.bindPort} 已被占用`
+              : `本机端口 ${this.options.bindPort} 被系统保留，无法使用`
+          ) as NodeJS.ErrnoException
+          error.code = e.code
+          reject(error)
+        } else {
+          reject(e)
+        }
       })
       server.listen(this.options.bindPort, this.options.bindHost, () => {
         server.removeAllListeners('error')
         server.on('error', (e) => console.error('联机转发出错：', e))
+        // 监听完成前房间已经结束：立刻关掉，不留下没人管的端口
+        if (this.stopped) {
+          server.close()
+          reject(new Error('房间已结束'))
+          return
+        }
         this.server = server
         resolve((server.address() as { port: number }).port)
       })
@@ -582,6 +653,7 @@ class Forwarder {
   }
 
   stop(): void {
+    this.stopped = true
     for (const socket of this.sockets) socket.destroy()
     this.sockets.clear()
     this.server?.close()
@@ -589,7 +661,7 @@ class Forwarder {
   }
 }
 
-/** 找一个本机可用的随机端口 */
+/** 找一个本机可用的随机 TCP 端口 */
 function freePort(host = '127.0.0.1'): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = createServer()
@@ -599,6 +671,27 @@ function freePort(host = '127.0.0.1'): Promise<number> {
       server.close(() => resolve(port))
     })
   })
+}
+
+/** UDP 端口是否可用 */
+function udpPortFree(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = createSocket('udp4')
+    socket.once('error', () => {
+      socket.close()
+      resolve(false)
+    })
+    socket.bind(port, '0.0.0.0', () => socket.close(() => resolve(true)))
+  })
+}
+
+/** EasyTier 的监听端口：TCP 和 UDP 都要可用，并且不能和已经选好的端口重复 */
+async function freeListenPort(exclude: number[] = []): Promise<number> {
+  for (let i = 0; i < 10; i++) {
+    const port = await freePort('0.0.0.0')
+    if (!exclude.includes(port) && (await udpPortFree(port))) return port
+  }
+  throw new Error('找不到可用的网络端口，请稍后重试')
 }
 
 /** TCP 握手耗时（毫秒） */
@@ -692,6 +785,8 @@ export function setLanSniffer(enabled: boolean): void {
     sniffer = null
     if (snifferExpire) clearInterval(snifferExpire)
     snifferExpire = null
+    // 不再监听后检测结果会过时，清掉，避免下次用到旧端口
+    if (status.lanGame) update({ lanGame: null })
     return
   }
   if (sniffer) return
@@ -702,10 +797,14 @@ export function setLanSniffer(enabled: boolean): void {
     socket.close()
   })
   socket.on('message', (msg, rinfo) => {
+    // 正常的广播只有几十字节，过大的包直接丢掉
+    if (msg.length > 1024) return
     // 只看本机游戏发出的广播；忽略启动器自己注入的房间广播
     if (!isLocalAddress(rinfo.address)) return
     const parsed = parseLanAnnouncement(msg.toString('utf-8'))
     if (!parsed) return
+    // 启动器（本次或之前）注入的房间广播不是本机的世界
+    if (parsed.motd.startsWith(ROOM_MOTD_PREFIX)) return
     if (status.role === 'guest' && parsed.port === status.localPort) return
     const lanGame: LanGame = { motd: parsed.motd, port: parsed.port, seenAt: Date.now() }
     const changed = status.lanGame?.port !== lanGame.port || status.lanGame?.motd !== lanGame.motd
@@ -720,6 +819,7 @@ export function setLanSniffer(enabled: boolean): void {
     }
   })
   sniffer = socket
+  if (snifferExpire) clearInterval(snifferExpire)
   snifferExpire = setInterval(() => {
     if (status.lanGame && Date.now() - status.lanGame.seenAt > LAN_EXPIRE) update({ lanGame: null })
   }, 1000)
@@ -740,11 +840,17 @@ export function stopMultiplayer(): MultiplayerStatus {
     for (const timer of current.timers) clearInterval(timer)
     for (const forwarder of current.forwarders) forwarder.stop()
     current.broadcaster?.stop()
-    if (current.core && current.core.exitCode === null) current.core.kill()
+    killCore(current)
   }
   status = idleStatus(status.lanGame)
   emit()
   return getMultiplayerStatus()
+}
+
+function killCore(current: Session): void {
+  const core = current.core
+  current.core = null
+  if (core && core.exitCode === null && core.signalCode === null) core.kill()
 }
 
 /** 开始新房间前结束旧的 */
@@ -763,13 +869,21 @@ function begin(role: MultiplayerStatus['role'], mode: MultiplayerMode, message: 
   return next
 }
 
+/** 出错时释放转发、广播、内核和定时器，只保留错误状态（让玩家看到原因、可以重新加入） */
+function teardown(current: Session): void {
+  for (const timer of current.timers) clearInterval(timer)
+  current.timers = []
+  for (const forwarder of current.forwarders) forwarder.stop()
+  current.forwarders = []
+  current.broadcaster?.stop()
+  current.broadcaster = null
+  killCore(current)
+}
+
 function fail(current: Session, error: unknown, extra: Partial<MultiplayerStatus> = {}): never {
   const message = error instanceof Error ? error.message : String(error)
   if (!current.stopped) {
-    for (const forwarder of current.forwarders) forwarder.stop()
-    current.forwarders = []
-    current.broadcaster?.stop()
-    current.broadcaster = null
+    teardown(current)
     update({ state: 'error', message, error: message, ...extra })
   }
   throw error instanceof Error ? error : new Error(message)
@@ -786,12 +900,18 @@ function hostPort(port: unknown): { port: number; motd: string } {
 
 /** 每隔一段时间测一次延迟 */
 function startLatencyLoop(current: Session, measure: () => Promise<number>): void {
+  // 上一次还没测完（超时比间隔长）时跳过，避免旧结果覆盖新结果
+  let running = false
   const run = async (): Promise<void> => {
+    if (running) return
+    running = true
     try {
       const latency = await measure()
       if (!current.stopped) update({ latency })
     } catch {
       if (!current.stopped) update({ latency: null })
+    } finally {
+      running = false
     }
   }
   void run()
@@ -803,8 +923,12 @@ function startLatencyLoop(current: Session, measure: () => Promise<number>): voi
  * 世界关闭（退出世界或关闭游戏）时提醒房主，重新打开后自动恢复
  */
 function startWorldMonitor(current: Session, port: number): void {
+  let running = false
   const run = async (): Promise<void> => {
+    if (running) return
+    running = true
     const result = await pingServer(`127.0.0.1:${port}`).catch(() => null)
+    running = false
     if (current.stopped) return
     if (result?.online) {
       update({
@@ -864,7 +988,9 @@ async function startGuestBridge(
   const forwarder = new Forwarder({ bindHost: '0.0.0.0', bindPort: 0, target, localOnly: true })
   current.forwarders.push(forwarder)
   const localPort = await forwarder.start()
-  const broadcaster = new Broadcaster(`[琉璃联机] ${motd || '好友的世界'}`, localPort)
+  // 等待端口期间房间已经结束：不再开始广播
+  if (current.stopped) return localPort
+  const broadcaster = new Broadcaster(`[${ROOM_MOTD_PREFIX}] ${motd || '好友的世界'}`, localPort)
   current.broadcaster = broadcaster
   broadcaster.start()
   return localPort
@@ -927,6 +1053,12 @@ export async function downloadP2PCore(): Promise<P2PCoreStatus> {
   const tempDir = join(CORE_ROOT, `.${CORE_VERSION}-${Date.now()}`)
   try {
     await mkdir(CORE_ROOT, { recursive: true })
+    // 清理上次下载中途退出留下的临时文件夹和压缩包
+    for (const name of await readdir(CORE_ROOT).catch(() => [] as string[])) {
+      if (name.startsWith('.') || name.endsWith('.zip')) {
+        await rm(join(CORE_ROOT, name), { recursive: true, force: true }).catch(() => undefined)
+      }
+    }
     const url = `https://github.com/EasyTier/EasyTier/releases/download/v${CORE_VERSION}/${fileName}`
     // 镜像只用来加速，文件内容由 SHA-256 保证
     await downloadWithFallback({ url: [url, `https://ghfast.top/${url}`], destination: zipPath }, 'multiplayer')
@@ -955,7 +1087,17 @@ export async function downloadP2PCore(): Promise<P2PCoreStatus> {
     if (!existsSync(join(tempDir, CORE_EXE))) throw new Error('联机内核压缩包里没有找到 easytier-core')
     if (process.platform !== 'win32') await chmod(join(tempDir, CORE_EXE), 0o755)
     await rm(CORE_DIR, { recursive: true, force: true })
-    await rename(tempDir, CORE_DIR)
+    // Windows 上杀毒软件扫描新文件时可能暂时无法改名，稍等重试
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await rename(tempDir, CORE_DIR)
+        break
+      } catch (e) {
+        const code = (e as NodeJS.ErrnoException).code
+        if (attempt >= 5 || (code !== 'EPERM' && code !== 'EBUSY' && code !== 'EACCES')) throw e
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)))
+      }
+    }
   } catch (e) {
     coreError = e instanceof Error ? e.message : String(e)
     await rm(tempDir, { recursive: true, force: true }).catch(() => undefined)
@@ -969,8 +1111,20 @@ export async function downloadP2PCore(): Promise<P2PCoreStatus> {
 }
 
 /** 启动 easytier-core，进程意外退出时把最后的输出显示给玩家 */
-function startCore(current: Session, args: string[]): ChildProcess {
-  const child = spawn(CORE_PATH, args, { cwd: CORE_DIR, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
+function startCore(current: Session, args: string[], params: P2PParams): ChildProcess {
+  // 不继承玩家电脑上已有的 EasyTier 环境变量（ET_*），避免被意外改变行为；网络名和密钥通过环境变量传入，不出现在命令行里
+  const env: NodeJS.ProcessEnv = {}
+  for (const [key, value] of Object.entries(process.env)) {
+    if (!/^ET_/i.test(key)) env[key] = value
+  }
+  env.ET_NETWORK_NAME = params.networkName
+  env.ET_NETWORK_SECRET = params.secret
+  const child = spawn(CORE_PATH, args, {
+    cwd: CORE_DIR,
+    env,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+  })
   current.core = child
   const lines: string[] = []
   const collect = (chunk: Buffer): void => {
@@ -983,10 +1137,14 @@ function startCore(current: Session, args: string[]): ChildProcess {
   child.stdout?.on('data', collect)
   child.stderr?.on('data', collect)
   child.on('error', (e) => {
-    if (!current.stopped) update({ state: 'error', message: `无法启动 P2P 联机内核：${e.message}`, error: e.message })
+    if (current.stopped || current.core !== child) return
+    teardown(current)
+    update({ state: 'error', message: `无法启动 P2P 联机内核：${e.message}`, error: e.message })
   })
   child.on('exit', (code) => {
-    if (current.stopped) return
+    if (current.stopped || current.core !== child) return
+    // 内核退出后联机通道已经断了：同时停掉本地转发和广播，游戏列表里不再显示失效的房间
+    teardown(current)
     const last = lines.filter((l) => /error|failed|错误|失败/i.test(l)).pop() ?? lines[lines.length - 1] ?? ''
     const message = `P2P 联机内核已退出（退出码 ${code ?? '未知'}）${last ? `：${last.slice(0, 200)}` : ''}`
     update({ state: 'error', message, error: message })
@@ -994,22 +1152,24 @@ function startCore(current: Session, args: string[]): ChildProcess {
   return child
 }
 
-/** 公共参数：无 TUN（不需要管理员权限）、指定中继、随机监听端口和管理端口 */
-function coreArgs(room: P2PRoom, role: 'host' | 'guest', listenPort: number): string[] {
-  const { networkName, secret } = p2pParams(room.id)
+/**
+ * 公共参数：无 TUN（不需要管理员权限）、指定中继、随机监听端口；管理接口只允许本机访问。
+ * 入站端口白名单：无 TUN 模式下发往本机虚拟 IP 的连接会被转到本机 127.0.0.1 的同一端口，
+ * 所以房主只开放联机转发端口，房客只「开放」不可能被监听的 0 端口（等于全部拒绝）；本机主动发起的连接的回包不受影响
+ */
+function coreArgs(room: P2PRoom, role: 'host' | 'guest', listenPort: number, params: P2PParams): string[] {
   return [
-    '--network-name',
-    networkName,
-    '--network-secret',
-    secret,
     '--no-tun',
+    `--tcp-whitelist=${role === 'host' ? params.virtualPort : 0}`,
+    '--udp-whitelist=0',
+    '--rpc-portal-whitelist=127.0.0.1/32,::1/128',
     '-p',
     room.relay,
     '-l',
     `tcp://0.0.0.0:${listenPort}`,
     `udp://0.0.0.0:${listenPort}`,
     '-r',
-    '0',
+    '127.0.0.1:0',
     '-m',
     `liuli-${role}-${process.pid}`,
     '--hostname',
@@ -1035,22 +1195,38 @@ export async function hostP2P(port?: unknown, relay?: unknown): Promise<Multipla
     })
     return getMultiplayerStatus()
   }
-  const room: P2PRoom = { id: randomRoomId(), relay: relayUrl }
-  const { virtualPort } = p2pParams(room.id)
+  let room: P2PRoom = { id: randomRoomId(), relay: relayUrl }
   const current = begin('host', 'p2p', '正在启动 P2P 联机…')
   try {
-    // EasyTier 会把发往房主虚拟 IP 的连接转到 127.0.0.1 的同一端口；这里把它接到游戏的局域网端口
-    const forwarder = new Forwarder({
-      bindHost: '127.0.0.1',
-      bindPort: virtualPort,
-      target: { host: '127.0.0.1', port: target.port },
-      localOnly: true
-    })
-    current.forwarders.push(forwarder)
-    await forwarder.start()
-    const listenPort = await freePort('0.0.0.0')
-    startCore(current, [...coreArgs(room, 'host', listenPort), '--ipv4', P2P_HOST_IP])
+    // 房间号决定转发端口；端口被占用或被系统保留（Windows 常见）时换一个房间号重试
+    let params = await p2pParams(room.id)
+    for (let attempt = 0; ; attempt++) {
+      if (current.stopped) return getMultiplayerStatus()
+      // EasyTier 会把发往房主虚拟 IP 的连接转到 127.0.0.1 的同一端口；这里把它接到游戏的局域网端口
+      const forwarder = new Forwarder({
+        bindHost: '127.0.0.1',
+        bindPort: params.virtualPort,
+        target: { host: '127.0.0.1', port: target.port },
+        localOnly: true
+      })
+      current.forwarders.push(forwarder)
+      try {
+        await forwarder.start()
+        break
+      } catch (e) {
+        current.forwarders = current.forwarders.filter((f) => f !== forwarder)
+        const code = (e as NodeJS.ErrnoException).code
+        if (attempt >= 4 || (code !== 'EADDRINUSE' && code !== 'EACCES')) throw e
+        room = { id: randomRoomId(), relay: relayUrl }
+        params = await p2pParams(room.id)
+      }
+    }
+    const listenPort = await freeListenPort()
+    // 等待期间房间已经被关闭或替换：不再启动内核，否则会留下没人管的进程
+    if (current.stopped) return getMultiplayerStatus()
+    startCore(current, [...coreArgs(room, 'host', listenPort, params), '--ipv4', P2P_HOST_IP], params)
   } catch (e) {
+    if (current.stopped) return getMultiplayerStatus()
     fail(current, e)
   }
   if (current.stopped) return getMultiplayerStatus()
@@ -1071,15 +1247,21 @@ async function joinP2P(current: Session, code: string): Promise<void> {
     update({ needsP2PCore: true })
     throw new Error('加入 P2P 房间需要先下载 P2P 联机内核（约 40 MB），下载完成后重新加入')
   }
-  const { virtualPort } = p2pParams(room.id)
+  const params = await p2pParams(room.id)
   const tunnelPort = await freePort('127.0.0.1')
-  const listenPort = await freePort('0.0.0.0')
-  startCore(current, [
-    ...coreArgs(room, 'guest', listenPort),
-    '-d',
-    '--port-forward',
-    `tcp://127.0.0.1:${tunnelPort}/${P2P_HOST_IP}:${virtualPort}`
-  ])
+  const listenPort = await freeListenPort([tunnelPort])
+  // 等待期间房间已经被关闭或替换：不再启动内核
+  if (current.stopped) return
+  startCore(
+    current,
+    [
+      ...coreArgs(room, 'guest', listenPort, params),
+      '-d',
+      '--port-forward',
+      `tcp://127.0.0.1:${tunnelPort}/${P2P_HOST_IP}:${params.virtualPort}`
+    ],
+    params
+  )
   const localPort = await startGuestBridge(current, { host: '127.0.0.1', port: tunnelPort }, '')
   if (current.stopped) return
   update({
@@ -1090,11 +1272,22 @@ async function joinP2P(current: Session, code: string): Promise<void> {
   })
   // 通过隧道向房主的游戏发送一次「服务器列表查询」，收到回复说明已经连通，同时得到真实延迟
   let connected = false
+  // 很久还没连上：提示可能的原因；内核继续尝试，之后连上了会自动变成已连接
+  const timeout = setTimeout(() => {
+    if (connected || current.stopped || status.state !== 'starting') return
+    update({
+      state: 'error',
+      message:
+        '一分钟内没有连上房主：请确认房主的房间还开着、房间码没有抄错；如果双方网络限制较多，可以让房主换一个中继服务器。启动器会继续尝试'
+    })
+  }, P2P_JOIN_TIMEOUT)
+  current.timers.push(timeout)
   startLatencyLoop(current, async () => {
     const result = await pingServer(`127.0.0.1:${tunnelPort}`)
     if (!result.online || result.latency === undefined) throw new Error(result.error ?? '未连通')
     if (!connected && !current.stopped) {
       connected = true
+      clearTimeout(timeout)
       update({
         state: 'running',
         message: `已连接：打开游戏的「多人游戏」，房间会出现在列表底部；也可以直接连接 127.0.0.1:${localPort}`
@@ -1110,6 +1303,7 @@ async function joinP2P(current: Session, code: string): Promise<void> {
 export async function hostTunnel(address: unknown, motd?: unknown): Promise<MultiplayerStatus> {
   if (typeof address !== 'string') throw new Error('请填写穿透地址')
   const endpoint = parseEndpoint(address)
+  checkRemoteHost(endpoint.host)
   const name = typeof motd === 'string' && motd.trim() ? motd : (status.lanGame?.motd ?? '')
   // 穿透工具映射的是本机哪个端口启动器不知道，只能用检测到的「对局域网开放」端口查询世界状态
   const gamePort = status.lanGame?.port ?? null
@@ -1150,8 +1344,8 @@ async function joinTunnel(current: Session, code: string): Promise<void> {
 
 /** 一键安装联机模组（e4mc / World Host）到指定版本 */
 export async function installMultiplayerMod(versionId: string, mod: unknown): Promise<ModrinthInstallResult> {
+  if (typeof mod !== 'string' || !Object.hasOwn(MOD_PROJECTS, mod)) throw new Error('不支持的联机模组')
   const project = MOD_PROJECTS[mod as MultiplayerMod]
-  if (!project) throw new Error('不支持的联机模组')
   const ctx = await modsContextOf(versionId)
   if (!ctx.loader || ctx.loader === 'optifine') {
     throw new Error('原版不能安装模组：请先为这个版本安装 Fabric、Quilt、Forge 或 NeoForge')
