@@ -40,7 +40,8 @@ export async function createDirectDownload(url: unknown, options: DirectDownload
     urls: [href],
     directory,
     source: 'toolbox',
-    threads: options.threads
+    threads: options.threads,
+    fileName: typeof options.fileName === 'string' ? options.fileName.slice(0, 200) : undefined
   })
   // 结果（完成、失败、取消）已记录在任务状态里，这里只避免未处理的异常
   started.promise.catch(() => undefined)

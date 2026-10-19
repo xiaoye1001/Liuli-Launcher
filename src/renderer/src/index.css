@@ -278,3 +278,33 @@ html.custom-titlebar .pt-titlebar {
     height: 100%;
   }
 }
+
+/* 高速下载器：总进度条上流动的高光、正在下载的分块轻微闪动 */
+.download-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 0.35) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: download-shimmer 1.4s linear infinite;
+}
+
+@keyframes download-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+.chunk-active {
+  animation: chunk-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes chunk-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}

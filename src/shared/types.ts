@@ -1112,4 +1112,6 @@ export interface DirectDownloadOptions {
   directory?: string
   /** 线程数（1~32），不填时为 8 */
   threads?: number
+  /** 保存的文件名，不填时用服务器提供的文件名或地址中的文件名；同名文件不会被覆盖，会自动改名 */
+  fileName?: string
 }

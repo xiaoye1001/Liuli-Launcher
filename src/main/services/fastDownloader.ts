@@ -57,6 +57,8 @@ export interface FastDownloadOptions {
   destination?: string
   /** 保存到的文件夹（百宝箱直链下载用），同名文件不会被覆盖，会自动改名 */
   directory?: string
+  /** 和 directory 一起使用：指定保存的文件名；不填时用服务器提供的文件名或地址中的文件名 */
+  fileName?: string
   source: FastDownloadSource
   /** 期望的 SHA1，下载完成后校验 */
   sha1?: string
@@ -90,6 +92,8 @@ interface Task {
   fileName: string
   destination: string
   directory?: string
+  /** 用户指定的文件名（directory 模式） */
+  preferredName?: string
   tempPath: string
   sha1?: string
   expectedSize?: number
@@ -429,7 +433,10 @@ async function execute(task: Task): Promise<string> {
   }
   if (!task.destination && task.directory) {
     await mkdir(task.directory, { recursive: true })
-    task.destination = await uniqueDestination(task.directory, sanitizeFileName(info.fileName ?? 'download'))
+    task.destination = await uniqueDestination(
+      task.directory,
+      sanitizeFileName(task.preferredName || info.fileName || 'download')
+    )
     task.fileName = basename(task.destination)
     task.tempPath = `${task.destination}${PART_SUFFIX}`
   }
@@ -607,9 +614,12 @@ export function startFastDownload(options: FastDownloadOptions): StartedDownload
     source: options.source,
     urls,
     url: urls[0],
-    fileName: destination ? basename(destination) : (fileNameFrom(undefined, urls[0]) ?? 'download'),
+    fileName: destination
+      ? basename(destination)
+      : options.fileName?.trim() || (fileNameFrom(undefined, urls[0]) ?? 'download'),
     destination,
     directory: options.directory,
+    preferredName: options.fileName?.trim() || undefined,
     tempPath: destination ? `${destination}${PART_SUFFIX}` : '',
     sha1: options.sha1,
     expectedSize: options.size,

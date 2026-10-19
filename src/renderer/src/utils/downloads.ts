@@ -32,11 +32,32 @@ export function formatSpeed(bytesPerSecond: number): string {
 }
 
 export const SOURCE_LABELS: Record<FastDownloadSource, string> = {
-  toolbox: '直链',
-  mod: '模组',
+  toolbox: '百宝箱直链',
+  mod: 'Mod',
   modpack: '整合包',
   resource: '资源',
-  fallback: '普通下载'
+  fallback: '兼容模式'
+}
+
+/** 来源标签的颜色 */
+export const SOURCE_STYLES: Record<FastDownloadSource, string> = {
+  toolbox: 'bg-emerald-500/15 text-emerald-300',
+  mod: 'bg-sky-500/15 text-sky-300',
+  modpack: 'bg-fuchsia-500/15 text-fuchsia-300',
+  resource: 'bg-amber-500/15 text-amber-300',
+  fallback: 'bg-orange-500/15 text-orange-300'
+}
+
+/** 从下载地址里取文件名（解析失败时返回空字符串） */
+export function fileNameFromUrl(text: string): string {
+  try {
+    const url = new URL(text.trim())
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return ''
+    const last = url.pathname.split('/').filter(Boolean).pop() ?? ''
+    return decodeURIComponent(last)
+  } catch {
+    return ''
+  }
 }
 
 export const STATUS_LABELS: Record<FastDownloadStatus, string> = {
@@ -45,7 +66,7 @@ export const STATUS_LABELS: Record<FastDownloadStatus, string> = {
   completed: '已完成',
   error: '失败',
   cancelled: '已取消',
-  fallback_retrying: '改用普通下载'
+  fallback_retrying: '兼容模式下载中'
 }
 
 export function isActiveDownload(task: FastDownloadTask): boolean {
