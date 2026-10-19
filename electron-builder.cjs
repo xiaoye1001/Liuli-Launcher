@@ -37,7 +37,8 @@ module.exports = {
     '!deploy/**',
     '!electron.vite.config.{js,ts,mjs,cjs}',
     '!electron-builder.cjs',
-    '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md,README.en.md,PRIVACY.md}',
+    '!{.prettierignore,.prettierrc.json,.editorconfig,.gitattributes,dev-app-update.yml}',
+    '!{README.md,README.en.md,PRIVACY.md,CONTRIBUTING.md,SECURITY.md,CODE_OF_CONDUCT.md}',
     '!{.env,.env.*,.npmrc,pnpm-lock.yaml}',
     '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,*.tsbuildinfo}',
     '!{tailwind.config.js,postcss.config.js}'

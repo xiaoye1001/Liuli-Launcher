@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import MiniPlayer from './MiniPlayer'
 import { DEFAULT_SUBTITLE, DEFAULT_TITLE, useAppearance } from '../utils/appearance'
-import { Boxes, Download, House, Layers, Server, Settings, UserRound, type LucideIcon } from 'lucide-react'
+import { Boxes, Download, House, Layers, LayoutGrid, Server, Settings, UserRound, type LucideIcon } from 'lucide-react'
 
-export type PageKey = 'home' | 'account' | 'versions' | 'servers' | 'download' | 'settings'
+export type PageKey = 'home' | 'account' | 'versions' | 'servers' | 'download' | 'more' | 'settings'
 
 interface NavItem {
   key: PageKey
@@ -18,6 +18,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'versions', label: '版本', icon: Layers },
   { key: 'servers', label: '服务器', icon: Server },
   { key: 'download', label: '下载', icon: Download },
+  { key: 'more', label: '更多', icon: LayoutGrid },
   { key: 'settings', label: '设置', icon: Settings }
 ]
 

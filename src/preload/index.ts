@@ -5,6 +5,8 @@ import type {
   AppSettings,
   GameLogEvent,
   GameStatus,
+  FastDownloadTask,
+  DirectDownloadOptions,
   InstallRequest,
   InstallStatus,
   ResourceSearchFilters,
@@ -146,6 +148,7 @@ const api = {
     ipcRenderer.invoke('resource:install', target, type, versionId),
   listWorlds: (versionId: string) => ipcRenderer.invoke('resource:worlds', versionId),
   downloadModpack: (versionId: string) => ipcRenderer.invoke('modpack:download', versionId),
+  downloadAndInstallModpack: (versionId: string) => ipcRenderer.invoke('modpack:downloadAndInstall', versionId),
   /** 拖入窗口的文件在本机的路径 */
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   searchModrinth: (versionId: string, query: string, offset: number) =>
@@ -207,10 +210,30 @@ const api = {
   clearBackground: () => ipcRenderer.invoke('appearance:clearBackground'),
   addBackgrounds: () => ipcRenderer.invoke('appearance:addBackgrounds'),
   removeBackground: (name: string) => ipcRenderer.invoke('appearance:removeBackground', name),
+  addBackgroundUrl: (url: string) => ipcRenderer.invoke('appearance:addBackgroundUrl', url),
+  exportTheme: (themeId?: string) => ipcRenderer.invoke('theme:export', themeId),
+  importTheme: () => ipcRenderer.invoke('theme:import'),
   listMusic: () => ipcRenderer.invoke('music:list'),
   addMusic: () => ipcRenderer.invoke('music:add'),
   removeMusic: (name: string) => ipcRenderer.invoke('music:remove', name),
   openMusicDir: () => ipcRenderer.invoke('music:openDir'),
+  // 高速多线程下载（百宝箱）
+  createDirectDownload: (url: string, options?: DirectDownloadOptions) =>
+    ipcRenderer.invoke('download:create', url, options),
+  listDownloads: () => ipcRenderer.invoke('download:list'),
+  pauseDownload: (taskId: string) => ipcRenderer.invoke('download:pause', taskId),
+  resumeDownload: (taskId: string) => ipcRenderer.invoke('download:resume', taskId),
+  cancelDownload: (taskId: string) => ipcRenderer.invoke('download:cancel', taskId),
+  removeDownload: (taskId?: string) => ipcRenderer.invoke('download:remove', taskId),
+  pickDownloadDir: () => ipcRenderer.invoke('download:pickDir'),
+  openDownloadFolder: (taskId: string) => ipcRenderer.invoke('download:openFolder', taskId),
+  onDownloadProgress: (callback: (tasks: FastDownloadTask[]) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, tasks: FastDownloadTask[]): void => callback(tasks)
+    ipcRenderer.on('download:progress', listener)
+    return () => {
+      ipcRenderer.removeListener('download:progress', listener)
+    }
+  },
   onSettingsChanged: (callback: (settings: AppSettings) => void) => {
     const listener = (_: Electron.IpcRendererEvent, settings: AppSettings): void => callback(settings)
     ipcRenderer.on('settings:changed', listener)

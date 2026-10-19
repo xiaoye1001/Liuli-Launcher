@@ -39,7 +39,8 @@ function formatBytes(bytes: number): string {
 
 /** 一个步骤的进度：安装程序按「第几步」计数，其余按字节 */
 function stepDetail(step: InstallStep): string {
-  if (step.phase === 'processing') return step.total > 0 ? (step.done ? `${step.total} 步` : `${step.progress} / ${step.total} 步`) : ''
+  if (step.phase === 'processing')
+    return step.total > 0 ? (step.done ? `${step.total} 步` : `${step.progress} / ${step.total} 步`) : ''
   if (step.total <= 0) return ''
   // 已完成的步骤只显示大小（文件已经存在、校验通过时不会有下载进度）
   if (step.done) return formatBytes(step.total)

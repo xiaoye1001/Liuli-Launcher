@@ -126,7 +126,10 @@ jobs:
           AZURE_SIGN_ACCOUNT: ${{ vars.AZURE_SIGN_ACCOUNT }}
           AZURE_SIGN_PROFILE: ${{ vars.AZURE_SIGN_PROFILE }}
           AZURE_SIGN_PUBLISHER: ${{ vars.AZURE_SIGN_PUBLISHER }}
-        run: npm run build && npx electron-builder --win --publish never
+        run: |
+          # 没有配置证书时删掉空的变量，避免被当成文件路径
+          [ -n "$WIN_CSC_LINK" ] || unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD
+          npm run build && npx electron-builder --win --publish never
 
       # 签名后检查：安装版、免安装版和程序本身都必须是有效签名，否则不发布
       - name: Verify signatures
@@ -210,7 +213,11 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           APPLE_API_KEY_ID: ${{ steps.sign.outputs.notarized == 'true' && secrets.APPLE_API_KEY_ID || '' }}
           APPLE_API_ISSUER: ${{ steps.sign.outputs.notarized == 'true' && secrets.APPLE_API_ISSUER || '' }}
-        run: npm run build && npx electron-builder --mac --arm64 --x64 --publish never
+        run: |
+          # 没有配置证书时这些变量是空字符串，electron-builder 会把空值当成文件路径而报错，必须删掉
+          [ -n "$CSC_LINK" ] || unset CSC_LINK CSC_KEY_PASSWORD
+          [ -n "$APPLE_API_KEY_ID" ] || unset APPLE_API_KEY_ID APPLE_API_ISSUER
+          npm run build && npx electron-builder --mac --arm64 --x64 --publish never
 
       # electron-builder 公证的是 .app，dmg 本身也提交公证并附上公证票据，离线也能通过系统检查
       - name: Notarize dmg

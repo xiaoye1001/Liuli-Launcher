@@ -1,18 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import {
-  AlertTriangle,
-  Box,
-  Check,
-  ChevronDown,
-  Gamepad2,
-  Loader2,
-  Play,
-  Settings2,
-  Star,
-  Terminal,
-  UserRound
-} from 'lucide-react'
+import { Box, Check, ChevronDown, Gamepad2, Loader2, Play, Settings2, Star, Terminal, UserRound } from 'lucide-react'
 import CrashCard from '../components/CrashCard'
 import RecentPlays from '../components/RecentPlays'
 import VersionIcon from '../components/VersionIcon'

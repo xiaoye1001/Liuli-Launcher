@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import type { AppSettings } from '../../../shared/types'
 import { ACCENT_VARIABLE_NAMES, accentVariables } from './accent'
+import { DEFAULT_AUTO_THEME } from '../../../shared/theme'
 
 /** 需要立即在界面上生效的外观设置 */
 export type Appearance = Pick<
@@ -11,6 +12,14 @@ export type Appearance = Pick<
   | 'backgroundMode'
   | 'backgroundInterval'
   | 'backgroundFit'
+  | 'themePreset'
+  | 'particleEffect'
+  | 'particleDensity'
+  | 'particleSpeed'
+  | 'particleInteract'
+  | 'parallax'
+  | 'customThemes'
+  | 'autoTheme'
   | 'backgroundBlur'
   | 'backgroundDim'
   | 'animations'
@@ -31,6 +40,14 @@ let current: Appearance = {
   backgroundMode: 'off',
   backgroundInterval: 10,
   backgroundFit: 'cover',
+  themePreset: 'aurora',
+  particleEffect: 'auto',
+  particleDensity: 'normal',
+  particleSpeed: 100,
+  particleInteract: true,
+  parallax: true,
+  customThemes: [],
+  autoTheme: DEFAULT_AUTO_THEME,
   backgroundBlur: 0,
   backgroundDim: 30,
   animations: true,
@@ -50,6 +67,14 @@ function apply(settings: AppSettings): void {
     backgroundMode: settings.backgroundMode ?? 'off',
     backgroundInterval: settings.backgroundInterval || 10,
     backgroundFit: settings.backgroundFit ?? 'cover',
+    themePreset: settings.themePreset ?? 'aurora',
+    particleEffect: settings.particleEffect ?? 'auto',
+    particleDensity: settings.particleDensity ?? 'normal',
+    particleSpeed: Number.isFinite(settings.particleSpeed) ? settings.particleSpeed : 100,
+    particleInteract: settings.particleInteract !== false,
+    parallax: settings.parallax !== false,
+    customThemes: Array.isArray(settings.customThemes) ? settings.customThemes : [],
+    autoTheme: settings.autoTheme ?? DEFAULT_AUTO_THEME,
     backgroundBlur: settings.backgroundBlur,
     backgroundDim: settings.backgroundDim,
     animations: settings.animations,
@@ -63,6 +88,8 @@ function apply(settings: AppSettings): void {
   if (window.location.hash !== '#logs') document.title = current.launcherTitle || DEFAULT_TITLE
   const html = document.documentElement
   html.dataset.accent = settings.accentColor
+  // 主题方案：决定底色与动态背景（样式见 index.css 的 html[data-preset]）
+  html.dataset.preset = current.themePreset
   // 自定义主题色：把算好的色阶写到 <html> 上；换回预设时清掉
   const custom = settings.accentColor === 'custom' ? accentVariables(settings.customAccent ?? '') : null
   for (const name of ACCENT_VARIABLE_NAMES) {

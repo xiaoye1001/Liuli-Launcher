@@ -11,3 +11,7 @@ dist
 .env
 .env.*
 !.env.example
+
+# Python 缓存
+__pycache__/
+*.pyc

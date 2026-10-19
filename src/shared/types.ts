@@ -129,6 +129,22 @@ export interface AppSettings {
   backgroundInterval: number
   /** 背景填充方式 */
   backgroundFit: BackgroundFit
+  /** 主题方案（决定底色与动态背景），classic 为原来的经典渐变 */
+  themePreset: ThemePreset
+  /** 背景粒子特效，auto 为跟随主题方案 */
+  particleEffect: ParticleEffect
+  /** 粒子数量 */
+  particleDensity: ParticleDensity
+  /** 粒子速度（%），50~200 */
+  particleSpeed: number
+  /** 鼠标互动：粒子躲开鼠标 */
+  particleInteract: boolean
+  /** 鼠标视差：背景随鼠标轻微反向移动 */
+  parallax: boolean
+  /** 我的主题（最多 20 个） */
+  customThemes: CustomTheme[]
+  /** 按时间自动切换主题 */
+  autoTheme: AutoThemeSettings
   /** 背景模糊程度（像素，0~20） */
   backgroundBlur: number
   /** 背景遮罩浓度（百分比，0~80），让文字在明亮的图片上也看得清 */
@@ -240,8 +256,59 @@ export type SkinModel = 'default' | 'slim'
 /** 系统信息 */
 export type UpdateSource = 'auto' | 'official' | 'github'
 
+/** 主题方案 */
+export type ThemePreset = 'classic' | 'aurora' | 'sky' | 'cherry' | 'end' | 'acrylic' | 'nether'
+export const THEME_PRESETS: ThemePreset[] = ['classic', 'aurora', 'sky', 'cherry', 'end', 'acrylic', 'nether']
+
+export type ParticleDensity = 'low' | 'normal' | 'high'
+
+/** 一套主题的全部外观参数（我的主题、导入导出、自动切换都使用它） */
+export interface ThemeData {
+  themePreset: ThemePreset
+  theme: ThemeMode
+  accentColor: AccentColor
+  customAccent: string
+  panelOpacity: number
+  panelBlur: number
+  particleEffect: ParticleEffect
+  particleDensity: ParticleDensity
+  particleSpeed: number
+  particleInteract: boolean
+  parallax: boolean
+  backgroundMode: BackgroundMode
+  /** 壁纸（背景库里的文件名），空字符串表示没有 */
+  backgroundImage: string
+  backgroundFit: BackgroundFit
+  backgroundBlur: number
+  backgroundDim: number
+}
+
+export interface CustomTheme {
+  id: string
+  name: string
+  createdAt: number
+  data: ThemeData
+}
+
+/** 自动切换的目标：preset:<主题方案> 或 custom:<我的主题 ID> */
+export type ThemeTarget = string
+
+export interface AutoThemeSettings {
+  enabled: boolean
+  day: ThemeTarget
+  night: ThemeTarget
+  /** 白天开始时间，HH:MM */
+  dayStart: string
+  /** 夜晚开始时间，HH:MM */
+  nightStart: string
+}
+
+/** 背景粒子特效 */
+export type ParticleEffect = 'auto' | 'none' | 'sakura' | 'ender' | 'fireflies' | 'rain' | 'embers'
+export const PARTICLE_EFFECTS: ParticleEffect[] = ['auto', 'none', 'sakura', 'ender', 'fireflies', 'rain', 'embers']
+
 /** 可以在侧边栏隐藏的页面（主页和设置始终显示） */
-export const HIDEABLE_PAGES = ['account', 'versions', 'servers', 'download']
+export const HIDEABLE_PAGES = ['account', 'versions', 'servers', 'download', 'more']
 
 /** 可选的界面缩放比例（%） */
 export const UI_SCALES = [80, 90, 100, 110, 125, 150]
@@ -1055,4 +1122,63 @@ export interface SharedLog {
   label: string
   /** 公开链接（https://mclo.gs/xxxx） */
   url: string
+}
+
+// ---------- 高速多线程下载（FastDownloadEngine） ----------
+
+/** 下载任务的来源：模组 / 整合包 / 资源包等 / 百宝箱直链 / 新引擎失败后改用原下载方式 */
+export type FastDownloadSource = 'mod' | 'modpack' | 'resource' | 'toolbox' | 'fallback'
+
+export type FastDownloadStatus =
+  | 'downloading'
+  | 'paused'
+  | 'completed'
+  | 'error'
+  | 'cancelled'
+  /** 高速引擎失败，正在用原来的下载方式重新下载 */
+  | 'fallback_retrying'
+
+/** 推送给界面的下载任务状态（主进程每 250 毫秒推送一次所有任务） */
+export interface FastDownloadTask {
+  taskId: string
+  fileName: string
+  source: FastDownloadSource
+  /** 回退到原下载方式前的来源（source 为 fallback 时有值） */
+  originalSource?: FastDownloadSource
+  /** 保存位置（完整路径） */
+  destination: string
+  url: string
+  /** 总大小（字节），0 表示服务器没有告知 */
+  totalBytes: number
+  downloadedBytes: number
+  /** 总进度（0~100） */
+  progress: number
+  /** 实时网速（字节 / 秒） */
+  speed: number
+  /** 实时网速文字，例如「3.2 MB/s」「512 KB/s」 */
+  speedText: string
+  /** 剩余时间（秒），无法估计时为 null */
+  eta: number | null
+  /** 剩余时间文字，例如「1 分 20 秒」 */
+  etaText: string
+  /** 每个线程分块的进度（0~100），单线程下载时只有一项 */
+  chunks: number[]
+  /** 是否按分块多线程下载 */
+  chunked: boolean
+  status: FastDownloadStatus
+  error?: string
+  /** 回退原因（高速引擎失败的原因） */
+  fallbackReason?: string
+  createdAt: number
+  finishedAt?: number
+}
+
+/** 百宝箱新建直链下载的选项 */
+export interface DirectDownloadOptions {
+  /** 保存到的文件夹，不填时使用系统的「下载」文件夹 */
+  directory?: string
+  /** 线程数（1~32），不填时为 8 */
+  threads?: number
+  /** 保存的文件名，不填时用服务器提供的文件名或地址中的文件名；同名文件不会被覆盖，会自动改名 */
+  fileName?: string
 }

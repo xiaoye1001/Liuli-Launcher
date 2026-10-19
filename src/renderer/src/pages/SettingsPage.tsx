@@ -12,6 +12,7 @@ import {
   Rocket,
   Sparkles,
   Layers,
+  Film,
   Globe,
   Loader2,
   MemoryStick,
@@ -34,6 +35,8 @@ import { ReleaseNotes, UpdateActions } from '../components/UpdateNotice'
 import GameDirSection from '../components/GameDirSection'
 import FontPicker from '../components/FontPicker'
 import MusicSettings from '../components/MusicSettings'
+import Personalization from './Personalization'
+import { isVideoBackground } from '../components/AppBackground'
 import LayoutSettings from '../components/LayoutSettings'
 import { UI_SCALES } from '../../../shared/types'
 import type {
@@ -201,6 +204,8 @@ function SettingsPage(): JSX.Element {
   const sliderTimer = useRef<ReturnType<typeof setTimeout>>()
   const pendingSlider = useRef<Partial<AppSettings>>({})
   const [backgroundError, setBackgroundError] = useState('')
+  const [backgroundUrlInput, setBackgroundUrlInput] = useState('')
+  const [addingUrl, setAddingUrl] = useState(false)
   const [runtimes, setRuntimes] = useState<JavaRuntimeInfo[] | null>(null)
   const [runtimesError, setRuntimesError] = useState('')
   /** 当前的下载任务（用于显示 Java 下载进度） */
@@ -212,6 +217,15 @@ function SettingsPage(): JSX.Element {
   }
 
   /** 拖动滑块时先更新界面，停止拖动 150 毫秒后再保存，避免频繁写入设置文件 */
+  // 其它地方修改了设置（自动切换主题、导入主题、快捷键缩放等）时同步显示；正在拖动滑块时不覆盖
+  useEffect(
+    () =>
+      window.api.onSettingsChanged((next) => {
+        if (Object.keys(pendingSlider.current).length === 0) setSettings(next)
+      }),
+    []
+  )
+
   const updateSlider = (patch: Partial<AppSettings>): void => {
     setSettings((prev) => (prev ? { ...prev, ...patch } : prev))
     // 合并这段时间内所有滑块的改动，一起保存（只保存最后一次会丢掉其他滑块的改动）
@@ -335,13 +349,15 @@ function SettingsPage(): JSX.Element {
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pb-4 pr-1">
         <div className={tab === 'personal' ? 'flex flex-col gap-6' : 'hidden'}>
+          {/* 主题方案与粒子特效 */}
+          <Personalization settings={settings} update={update} updateSlider={updateSlider} />
           {/* 外观 */}
           <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
             <div className="flex items-center gap-3">
               <Palette className="h-5 w-5 text-fuchsia-300" />
               <div>
                 <h2 className="text-lg font-semibold">外观</h2>
-                <p className="text-xs text-white/50">主题、主题色、背景图片与界面动画</p>
+                <p className="text-xs text-white/50">明暗、主题色、面板质感、壁纸与界面动画</p>
               </div>
             </div>
             <div className="mt-5 grid grid-cols-3 gap-3">
@@ -489,7 +505,7 @@ function SettingsPage(): JSX.Element {
             )}
 
             {/* 背景图片 */}
-            <div className="mt-6 text-sm font-medium">背景图片</div>
+            <div className="mt-6 text-sm font-medium">壁纸（图片 / 视频）</div>
             <div className="mt-3 grid grid-cols-4 gap-2" role="radiogroup" aria-label="背景模式">
               {BACKGROUND_MODES.map((option) => {
                 const active = backgroundMode === option.key
@@ -525,17 +541,33 @@ function SettingsPage(): JSX.Element {
                       onClick={() => update({ backgroundImage: name, backgroundMode: 'fixed' })}
                       title="设为背景"
                       aria-pressed={current}
-                      className={`block aspect-video w-full rounded-lg border-2 bg-cover bg-center transition-colors ${
+                      className={`relative block aspect-video w-full overflow-hidden rounded-lg border-2 bg-cover bg-center transition-colors ${
                         current ? 'border-emerald-400' : 'border-white/10 hover:border-white/30'
                       }`}
-                      style={{ backgroundImage: `url("${backgroundUrl(name)}")` }}
-                    />
+                      style={isVideoBackground(name) ? undefined : { backgroundImage: `url("${backgroundUrl(name)}")` }}
+                    >
+                      {isVideoBackground(name) && (
+                        <>
+                          {/* 视频壁纸：显示第一帧 */}
+                          <video
+                            src={backgroundUrl(name)}
+                            muted
+                            preload="metadata"
+                            className="pointer-events-none h-full w-full object-cover"
+                          />
+                          <span className="absolute bottom-1 right-1 flex items-center gap-0.5 rounded bg-black/60 px-1 py-0.5 text-[10px] text-white">
+                            <Film className="h-3 w-3" />
+                            视频
+                          </span>
+                        </>
+                      )}
+                    </button>
                     {current && (
                       <CheckCircle2 className="pointer-events-none absolute left-1.5 top-1.5 h-4 w-4 rounded-full bg-black/50 text-emerald-300" />
                     )}
                     <button
                       onClick={() => changeBackground(() => window.api.removeBackground(name))}
-                      title="删除这张图片"
+                      title="删除"
                       aria-label="删除这张图片"
                       className="absolute right-1.5 top-1.5 rounded-md bg-black/60 p-1 text-white/80 opacity-0 transition-opacity hover:bg-red-500/80 hover:text-white focus:opacity-100 group-hover:opacity-100"
                     >
@@ -550,13 +582,51 @@ function SettingsPage(): JSX.Element {
                   className="flex aspect-video w-full flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-white/15 text-xs text-white/50 hover:border-white/30 hover:text-white"
                 >
                   <ImagePlus className="h-5 w-5" />
-                  添加图片…
+                  添加图片或视频…
                 </button>
               )}
             </div>
             <div className="mt-1.5 text-xs text-white/40">
-              可以一次选多张，最多 {MAX_BACKGROUNDS} 张。点击缩略图设为固定背景，悬停可删除
+              支持 PNG、JPG、WebP、GIF 图片和 MP4、WebM 视频（循环静音播放），可以一次选多个，最多 {MAX_BACKGROUNDS}{' '}
+              个。点击缩略图设为固定背景，悬停可删除
             </div>
+            {/* 从网络添加壁纸 */}
+            {backgroundImages.length < MAX_BACKGROUNDS && (
+              <form
+                className="mt-3 flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  const url = backgroundUrlInput.trim()
+                  if (!url || addingUrl) return
+                  setAddingUrl(true)
+                  void changeBackground(async () => {
+                    const next = await window.api.addBackgroundUrl(url)
+                    setBackgroundUrlInput('')
+                    return next
+                  }).finally(() => setAddingUrl(false))
+                }}
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 focus-within:border-emerald-400/50">
+                  <Globe className="h-4 w-4 shrink-0 text-white/40" />
+                  <input
+                    value={backgroundUrlInput}
+                    onChange={(e) => setBackgroundUrlInput(e.target.value)}
+                    placeholder="输入网络图片或视频的直链，例如 https://example.com/wallpaper.jpg"
+                    aria-label="网络壁纸地址"
+                    spellCheck={false}
+                    className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-white/30"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={!backgroundUrlInput.trim() || addingUrl}
+                  className="flex shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 text-sm hover:bg-white/20 disabled:opacity-40"
+                >
+                  {addingUrl ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                  添加
+                </button>
+              </form>
+            )}
 
             {backgroundMode !== 'off' && backgroundImages.length > 0 && (
               <>
@@ -603,7 +673,7 @@ function SettingsPage(): JSX.Element {
                     <input
                       type="range"
                       min={0}
-                      max={20}
+                      max={40}
                       value={settings.backgroundBlur}
                       onChange={(e) => updateSlider({ backgroundBlur: Number(e.target.value) })}
                       className="mt-2 w-full accent-emerald-500"
@@ -617,7 +687,7 @@ function SettingsPage(): JSX.Element {
                     <input
                       type="range"
                       min={0}
-                      max={80}
+                      max={90}
                       value={settings.backgroundDim}
                       onChange={(e) => updateSlider({ backgroundDim: Number(e.target.value) })}
                       className="mt-2 w-full accent-emerald-500"

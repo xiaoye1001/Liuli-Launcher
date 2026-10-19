@@ -22,6 +22,8 @@ Glass-style UI · Dark & light themes · Fast downloads via mirrors · One-click
 - Version list split into releases, snapshots and old versions, with search
 - Two download sources: the **BMCLAPI mirror** (recommended in mainland China) or the **official Mojang servers**; automatically falls back to the official source if the mirror fails
 - Multi-threaded downloads with live progress and speed; installs can be cancelled and retried
+- **Fast multi-threaded downloads**: mods, modpacks and resource packs are downloaded in parallel chunks when the server supports ranges (files over 2 MB), and automatically fall back to the regular downloader if anything goes wrong; **More → Toolbox** downloads any HTTP/HTTPS link with selectable thread count and folder, pause/resume/cancel, and a per-thread chunk progress bar with speed and time remaining
+- **Themes & dynamic backgrounds**: 7 one-click themes (flowing aurora, sunny sky with drifting clouds, falling cherry petals, rising End dust, Win11-style acrylic, Nether embers, and the classic look); optional background particles (cherry petals, End dust, fireflies, drizzle, embers) that pause automatically while the game runs or the window is minimized; image or MP4/WebM video wallpapers, also from a web link; adjustable particle density and speed, particles that dodge the mouse, and mouse parallax; save looks as **My themes**, export/import them as `.liulitheme` files (wallpaper included), and switch day/night themes automatically by time
 - **Download & network settings**: adjust how many files download at once; use the system proxy or a manual HTTP proxy (used for downloads, version lists, Modrinth, sign-in and images in the UI), and test which servers are reachable in one click
 - Choose a custom version name and attach a mod loader before installing:
   - **Forge**, **NeoForge**, **Fabric** or **Quilt** (pick one)
@@ -104,6 +106,7 @@ The project ships with an `.npmrc` that downloads Electron from a mirror in Chin
 | `npm run dev` | Run in development mode (reloads on code changes) |
 | `npm run build` | Build into the `out/` directory |
 | `npm run typecheck` | Run TypeScript type checking |
+| `npm run format` | Format code with Prettier (`format:check` only checks) |
 | `npm run build:win` | Build both the Windows installer and the portable version |
 | `npm run build:win:setup` | Build the installer only |
 | `npm run build:win:portable` | Build the portable version only |
@@ -185,6 +188,10 @@ src/
 - [Modrinth](https://modrinth.com/): mod search and downloads
 - [@xmcl / minecraft-launcher-core-node](https://github.com/Voxelum/minecraft-launcher-core-node)
 - [skinview3d](https://github.com/bs-community/skinview3d)
+
+## Contributing
+
+Issues and pull requests are welcome. Please read the [contributing guide](CONTRIBUTING.md) (Chinese) and the [code of conduct](CODE_OF_CONDUCT.md) first. Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
 ## Disclaimer
 

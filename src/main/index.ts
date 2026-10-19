@@ -1,5 +1,6 @@
 import { portableDir } from './paths'
 import {
+  addBackgroundFromUrl,
   addBackgrounds,
   clearBackground,
   pickBackground,
@@ -34,6 +35,14 @@ import { closeLogWindow, openLogWindow } from './logWindow'
 import { pickVersionIcon, setVersionFavorite, setVersionIcon } from './versionDisplay'
 import { frameOptions, registerWindowControls, watchMaximize } from './windowFrame'
 import { addMusic, listMusic, openMusicDir, removeMusic } from './music'
+import {
+  cancelFastDownload,
+  listFastDownloads,
+  pauseFastDownload,
+  removeFastDownload,
+  resumeFastDownload
+} from './services/fastDownloader'
+import { createDirectDownload, openDownloadFolder, pickDownloadDirectory } from './services/directDownload'
 import { applyUiScaleToAll, manageUiScale, normalizeScale, sanitizeFontFamily } from './uiScale'
 import { shareCrashLogs, shareGameLog, shareLatestLog } from './logShare'
 import { getGameDirInfo, openGameDir, pickGameDir, removeGameDir, renameGameDir, setGameDir } from './gameDir'
@@ -100,7 +109,7 @@ import { getNews } from './news'
 import { applyNetworkSettings, checkNetwork, validateProxyUrl } from './network'
 import { addOfflineAccount, removeOfflineAccount, renameOfflineAccount, selectOfflineAccount } from './offline'
 import { loginExternal, removeExternalAccount, selectExternalProfile } from './yggdrasil'
-import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
+import { downloadAndInstallModpack, downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
 import { getCurseForgeVersions, installCurseForgeResource, isCurseForgeId, searchCurseForge } from './curseforge'
 import {
   cancelMicrosoftLogin,
@@ -126,9 +135,13 @@ import type {
   LocalResourceKind,
   SavedServer,
   ModpackExportOptions,
-  GameDirInfo
+  GameDirInfo,
+  DirectDownloadOptions
 } from '../shared/types'
-import { HIDEABLE_PAGES } from '../shared/types'
+import { HIDEABLE_PAGES, PARTICLE_EFFECTS, THEME_PRESETS } from '../shared/types'
+import { sanitizeAutoTheme, sanitizeCustomThemes } from '../shared/theme'
+import { exportTheme, importTheme } from './themeFiles'
+import type { ParticleEffect, ThemePreset } from '../shared/types'
 
 /** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
 /** 用户输入的一行文字：去掉控制字符、首尾空白，限制长度 */
@@ -225,6 +238,23 @@ function registerIpc(): void {
     ] as const) {
       if (key in patch) patch = { ...patch, [key]: limitText(patch[key], max) }
     }
+    if ('themePreset' in patch && !THEME_PRESETS.includes(patch.themePreset as ThemePreset)) {
+      patch = { ...patch, themePreset: 'aurora' }
+    }
+    if ('particleEffect' in patch && !PARTICLE_EFFECTS.includes(patch.particleEffect as ParticleEffect)) {
+      patch = { ...patch, particleEffect: 'auto' }
+    }
+    if ('particleDensity' in patch && !['low', 'normal', 'high'].includes(String(patch.particleDensity))) {
+      patch = { ...patch, particleDensity: 'normal' }
+    }
+    if ('particleSpeed' in patch) {
+      const speed = Number(patch.particleSpeed)
+      patch = { ...patch, particleSpeed: Number.isFinite(speed) ? Math.round(Math.min(200, Math.max(50, speed))) : 100 }
+    }
+    if ('particleInteract' in patch) patch = { ...patch, particleInteract: patch.particleInteract === true }
+    if ('parallax' in patch) patch = { ...patch, parallax: patch.parallax === true }
+    if ('customThemes' in patch) patch = { ...patch, customThemes: sanitizeCustomThemes(patch.customThemes) }
+    if ('autoTheme' in patch) patch = { ...patch, autoTheme: sanitizeAutoTheme(patch.autoTheme) }
     if ('hiddenPages' in patch) {
       const pages = Array.isArray(patch.hiddenPages) ? patch.hiddenPages : []
       patch = { ...patch, hiddenPages: HIDEABLE_PAGES.filter((p) => pages.includes(p)) }
@@ -247,7 +277,32 @@ function registerIpc(): void {
   ipcMain.handle('appearance:removeBackground', (_, name: string) =>
     removeBackground(String(name)).then(broadcastSettings)
   )
+  ipcMain.handle('theme:export', (event, themeId?: string) =>
+    exportTheme(BrowserWindow.fromWebContents(event.sender), typeof themeId === 'string' ? themeId : undefined)
+  )
+  ipcMain.handle('theme:import', async (event) => {
+    const result = await importTheme(BrowserWindow.fromWebContents(event.sender))
+    if (!result) return null
+    // 导入的主题可能切换了明暗，同步给所有窗口
+    nativeTheme.themeSource = result.settings.theme
+    broadcastSettings(result.settings)
+    return result
+  })
+  ipcMain.handle('appearance:addBackgroundUrl', (_, url: string) => addBackgroundFromUrl(url).then(broadcastSettings))
   ipcMain.handle('music:list', () => listMusic())
+  // 高速多线程下载（百宝箱）：进度通过 download:progress 每 250 毫秒推送
+  ipcMain.handle('download:create', (_, url: string, options?: DirectDownloadOptions) =>
+    createDirectDownload(url, options ?? {})
+  )
+  ipcMain.handle('download:list', () => listFastDownloads())
+  ipcMain.handle('download:pause', (_, taskId: string) => pauseFastDownload(String(taskId)))
+  ipcMain.handle('download:resume', (_, taskId: string) => resumeFastDownload(String(taskId)))
+  ipcMain.handle('download:cancel', (_, taskId: string) => cancelFastDownload(String(taskId)))
+  ipcMain.handle('download:remove', (_, taskId?: string) =>
+    removeFastDownload(typeof taskId === 'string' ? taskId : undefined)
+  )
+  ipcMain.handle('download:pickDir', (event) => pickDownloadDirectory(BrowserWindow.fromWebContents(event.sender)))
+  ipcMain.handle('download:openFolder', (_, taskId: string) => openDownloadFolder(String(taskId)))
   ipcMain.handle('music:add', (event) => addMusic(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('music:remove', (_, name: string) => removeMusic(name))
   ipcMain.handle('music:openDir', () => openMusicDir())
@@ -404,6 +459,7 @@ function registerIpc(): void {
   )
   ipcMain.handle('resource:worlds', (_, versionId: string) => listWorlds(versionId))
   ipcMain.handle('modpack:download', (_, versionId: string) => downloadModpack(versionId))
+  ipcMain.handle('modpack:downloadAndInstall', (_, versionId: string) => downloadAndInstallModpack(String(versionId)))
   ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>
     searchModrinth(versionId, query, offset)
   )

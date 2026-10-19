@@ -40,7 +40,9 @@ function withRetry(base: Dispatcher): Dispatcher {
   return base.compose(interceptors.retry({ maxRetries: 3 }), interceptors.redirect({ maxRedirections: 5 }))
 }
 
-let downloads: Dispatcher = withRetry(new Agent({ connections: DEFAULT_THREADS, headersTimeout: 15_000, bodyTimeout: 20_000 }))
+let downloads: Dispatcher = withRetry(
+  new Agent({ connections: DEFAULT_THREADS, headersTimeout: 15_000, bodyTimeout: 20_000 })
+)
 /** 新建连接池用的设置（应用网络设置时更新） */
 let downloadConfig: { uri: string | null; connections: number } = { uri: null, connections: DEFAULT_THREADS }
 /** 当前安装任务专用的连接池；取消安装时整体关闭，正在进行的下载会立即停止 */
@@ -58,6 +60,24 @@ function newPool(): { base: Agent | ProxyAgent; dispatcher: Dispatcher } {
     ? new ProxyAgent({ uri, connections, ...DOWNLOAD_TIMEOUTS })
     : new Agent({ connections, ...DOWNLOAD_TIMEOUTS })
   return { base, dispatcher: withRetry(base) }
+}
+
+/**
+ * 高速下载引擎专用的连接池：保留代理、重定向和超时，但不自动重试。
+ * 引擎自己控制重试次数；自动重试会按服务器要求等待（例如 429 时等 30 秒）再重试三次，
+ * 遇到限流的镜像时会让下载看起来卡住很久才改用原下载方式
+ */
+function newFastPool(): Dispatcher {
+  const { uri, connections } = downloadConfig
+  const base = uri
+    ? new ProxyAgent({ uri, connections, ...DOWNLOAD_TIMEOUTS })
+    : new Agent({ connections, ...DOWNLOAD_TIMEOUTS })
+  return base.compose(interceptors.redirect({ maxRedirections: 5 }))
+}
+let fastPool: Dispatcher = newFastPool()
+
+export function fastDownloadDispatcher(): Dispatcher {
+  return fastPool
 }
 
 /** 安装任务（安装版本、整合包、修复、下载 Java）使用的连接池 */
@@ -78,10 +98,6 @@ let activeProxy: string | null = null
 /** 下载文件用的连接池：每个服务器的同时连接数按设置，失败自动重试 */
 export function downloadDispatcher(): Dispatcher {
   return downloads
-}
-
-export function currentProxy(): string | null {
-  return activeProxy
 }
 
 /** Chromium 的代理规则不支持用户名密码，只保留协议、主机和端口 */
@@ -120,6 +136,7 @@ export async function applyNetworkSettings(): Promise<void> {
   // 已经在进行的下载继续使用旧的连接池，不主动关闭
   downloadConfig = { uri, connections }
   downloads = newPool().dispatcher
+  fastPool = newFastPool()
   setGlobalDispatcher(uri ? new ProxyAgent({ uri }) : new Agent())
   activeProxy = uri
 }

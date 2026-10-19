@@ -127,7 +127,7 @@ export function getInstallStatus(): InstallStatus | null {
   return status
 }
 
-function assertIdle(): void {
+export function assertIdle(): void {
   if (status?.state === 'running') {
     throw new Error(`正在${status.kind === 'repair' ? '修复' : '安装'} ${status.versionId}，请等待完成`)
   }

@@ -13,6 +13,8 @@ import type {
   SharedLog,
   GameLogEvent,
   GameStatus,
+  FastDownloadTask,
+  DirectDownloadOptions,
   InstalledVersion,
   InstallRequest,
   InstallStatus,
@@ -212,6 +214,8 @@ declare global {
       listWorlds: (versionId: string) => Promise<string[]>
       /** 从 Modrinth 下载整合包的某个版本并读取信息 */
       downloadModpack: (versionId: string) => Promise<ModpackInfo>
+      /** 下载页一键安装：下载整合包并直接开始安装，返回使用的版本名 */
+      downloadAndInstallModpack: (versionId: string) => Promise<string>
       /** 拖入窗口的文件在本机的路径 */
       getPathForFile: (file: File) => string
       installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>
@@ -249,12 +253,34 @@ declare global {
       addBackgrounds: () => Promise<AppSettings>
       /** 从背景库删除图片 */
       removeBackground: (name: string) => Promise<AppSettings>
+      /** 下载网络图片或视频到背景库，并设为当前背景 */
+      addBackgroundUrl: (url: string) => Promise<AppSettings>
+      /** 导出主题为 .liulitheme 文件；不传 ID 时导出当前外观；取消时返回 null */
+      exportTheme: (themeId?: string) => Promise<{ path: string; wallpaperSkipped: boolean } | null>
+      /** 导入主题：保存到「我的主题」并立即应用；取消时返回 null */
+      importTheme: () => Promise<{ settings: AppSettings; themeId: string; name: string } | null>
       /** 背景音乐列表（music 文件夹里的音频文件名） */
       listMusic: () => Promise<string[]>
       /** 添加背景音乐（可以多选），返回新的列表 */
       addMusic: () => Promise<string[]>
       removeMusic: (name: string) => Promise<string[]>
       openMusicDir: () => Promise<void>
+      // ---------- 高速多线程下载（百宝箱） ----------
+      /** 新建直链下载（只支持 http / https），返回任务 ID */
+      createDirectDownload: (url: string, options?: DirectDownloadOptions) => Promise<string>
+      /** 所有下载任务（包括模组、整合包下载），最新的在前 */
+      listDownloads: () => Promise<FastDownloadTask[]>
+      pauseDownload: (taskId: string) => Promise<void>
+      resumeDownload: (taskId: string) => Promise<void>
+      cancelDownload: (taskId: string) => Promise<void>
+      /** 从列表中移除已结束的任务；不传 taskId 时移除全部已结束的任务 */
+      removeDownload: (taskId?: string) => Promise<void>
+      /** 选择保存文件夹，取消时返回 null */
+      pickDownloadDir: () => Promise<string | null>
+      /** 打开任务所在的文件夹（已完成时选中文件） */
+      openDownloadFolder: (taskId: string) => Promise<void>
+      /** 监听下载进度（每 250 毫秒推送一次所有任务），返回取消监听的函数 */
+      onDownloadProgress: (callback: (tasks: FastDownloadTask[]) => void) => () => void
       /** 任意窗口修改设置后推送最新设置 */
       onSettingsChanged: (callback: (settings: AppSettings) => void) => () => void
       getAccounts: () => Promise<AccountsInfo>

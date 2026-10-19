@@ -62,12 +62,64 @@ function pick(mode: Appearance['backgroundMode'], images: string[], fixed: strin
   return images.includes(slide) ? slide : images[0]
 }
 
-/** 启动器的背景：图片 + 模糊 + 遮罩，换图时淡入淡出 */
-function AppBackground({ appearance }: { appearance: Appearance }): JSX.Element | null {
+/** 视频壁纸的填充方式（平铺对视频无意义，按填充处理） */
+const VIDEO_FIT: Record<BackgroundFit, 'cover' | 'contain' | 'fill' | 'none'> = {
+  cover: 'cover',
+  contain: 'contain',
+  stretch: 'fill',
+  center: 'none',
+  tile: 'cover'
+}
+
+/** 背景库里的文件是不是视频 */
+export function isVideoBackground(name: string): boolean {
+  return /\.(mp4|webm)$/i.test(name)
+}
+
+/** 视频壁纸：循环、静音播放；暂停时停在当前画面 */
+function VideoWallpaper({ name, fit, paused }: { name: string; fit: BackgroundFit; paused: boolean }): JSX.Element {
+  const ref = useRef<HTMLVideoElement>(null)
+  useEffect(() => {
+    const video = ref.current
+    if (!video) return
+    if (paused) video.pause()
+    else void video.play().catch(() => undefined)
+  }, [paused, name])
+  return (
+    <video
+      ref={ref}
+      src={backgroundUrl(name)}
+      autoPlay={!paused}
+      loop
+      muted
+      playsInline
+      className="h-full w-full"
+      style={{ objectFit: VIDEO_FIT[fit] ?? 'cover' }}
+    />
+  )
+}
+
+/**
+ * 启动器的壁纸：图片 / 视频 + 模糊 + 遮罩，换图时淡入淡出。
+ * 由 DynamicBackground 放在动态背景之上、粒子之下
+ */
+function AppBackground({
+  appearance,
+  paused = false
+}: {
+  appearance: Appearance
+  paused?: boolean
+}): JSX.Element | null {
   const image = useCurrentImage(appearance)
   if (!image) return null
   const { backgroundBlur: blur, backgroundDim: dim, backgroundFit } = appearance
   const fit = FIT_STYLES[backgroundFit] ?? FIT_STYLES.cover
+  const video = isVideoBackground(image)
+  const effects = {
+    filter: blur > 0 ? `blur(${blur}px)` : undefined,
+    // 模糊会让边缘变透明，稍微放大以遮住
+    transform: blur > 0 ? 'scale(1.08)' : undefined
+  }
   return (
     <>
       <AnimatePresence initial={false}>
@@ -77,19 +129,19 @@ function AppBackground({ appearance }: { appearance: Appearance }): JSX.Element 
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 1.2, ease: 'easeInOut' }}
-          className="pointer-events-none absolute inset-0 -z-10 bg-center"
+          className="pointer-events-none absolute inset-0 bg-center"
           data-background={image}
-          style={{
-            backgroundImage: `url("${backgroundUrl(image)}")`,
-            ...fit,
-            filter: blur > 0 ? `blur(${blur}px)` : undefined,
-            // 模糊会让边缘变透明，稍微放大以遮住
-            transform: blur > 0 ? 'scale(1.08)' : undefined
-          }}
-        />
+          style={video ? effects : { backgroundImage: `url("${backgroundUrl(image)}")`, ...fit, ...effects }}
+        >
+          {video && <VideoWallpaper name={image} fit={backgroundFit} paused={paused} />}
+        </motion.div>
       </AnimatePresence>
       {/* 遮罩：深色主题下变暗，浅色主题下变亮，让文字在明亮的图片上也看得清 */}
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-black" style={{ opacity: dim / 100 }} />
+      <div
+        className="pointer-events-none absolute inset-0 bg-black"
+        style={{ opacity: dim / 100 }}
+        data-background-dim
+      />
     </>
   )
 }
