@@ -9,13 +9,13 @@
  * - 支持暂停、继续、取消；下载完成后校验大小与 SHA1，通过后才改名为正式文件
  * - 每 250 毫秒把所有任务的状态推送给界面（download:progress）
  */
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { createHash, randomUUID } from 'crypto'
 import { createReadStream } from 'fs'
-import { mkdir, open, readdir, rename, rm, stat, type FileHandle } from 'fs/promises'
+import { appendFile, mkdir, open, readdir, rename, rm, stat, type FileHandle } from 'fs/promises'
 import { basename, dirname, extname, join } from 'path'
 import { request, type Dispatcher } from 'undici'
-import { downloadDispatcher } from '../network'
+import { fastDownloadDispatcher } from '../network'
 import type { FastDownloadSource, FastDownloadStatus, FastDownloadTask } from '../../shared/types'
 
 /** 大于这个大小才分块下载 */
@@ -49,6 +49,23 @@ export class DownloadCancelledError extends Error {
 class PausedSignal extends Error {}
 /** 内部使用：连接长时间没有数据 */
 class StallError extends Error {}
+/** 内部使用：服务器明确拒绝（403、404、429 等），重试也没用，立即失败以便尽快改用原下载方式 */
+class FatalHttpError extends Error {}
+
+/** 这些状态码重试没有意义（权限、找不到、限流），立即失败 */
+function isFatalStatus(status: number): boolean {
+  return status >= 400 && status < 500 && status !== 408
+}
+
+// ---------- 日志（与原下载方式共用 download.log） ----------
+
+const LOG = join(app.getPath('userData'), 'logs', 'download.log')
+
+export function downloadLog(line: string): void {
+  void mkdir(dirname(LOG), { recursive: true })
+    .then(() => appendFile(LOG, `[${new Date().toLocaleString('zh-CN')}] [高速下载] ${line}\n`))
+    .catch(() => undefined)
+}
 
 export interface FastDownloadOptions {
   /** 下载地址，按顺序尝试，使用第一个能连通的地址 */
@@ -67,6 +84,8 @@ export interface FastDownloadOptions {
   headers?: Record<string, string>
   /** 线程数（1~32） */
   threads?: number
+  /** 大于这个大小才分块下载（默认 2 MB） */
+  minChunkedSize?: number
 }
 
 interface Chunk {
@@ -99,6 +118,7 @@ interface Task {
   expectedSize?: number
   headers: Record<string, string>
   threads: number
+  minChunkedSize?: number
   total: number
   chunked: boolean
   chunks: Chunk[]
@@ -234,7 +254,7 @@ async function probeUrl(url: string, headers: Record<string, string>, dispatcher
       size = Number(header(res.headers, 'content-length')) || size
       ranges = false
     } else {
-      throw new Error(`服务器返回 HTTP ${res.statusCode}`)
+      throw new Error(`服务器返回 HTTP ${res.statusCode}${res.statusCode === 429 ? '（请求太频繁，服务器限流）' : ''}`)
     }
     disposition = header(res.headers, 'content-disposition') ?? disposition
   } finally {
@@ -245,7 +265,7 @@ async function probeUrl(url: string, headers: Record<string, string>, dispatcher
 }
 
 async function probe(task: Task): Promise<ProbeResult> {
-  const dispatcher = downloadDispatcher()
+  const dispatcher = fastDownloadDispatcher()
   const errors: string[] = []
   for (const url of task.urls) {
     if (task.status === 'cancelled') throw new DownloadCancelledError()
@@ -268,8 +288,8 @@ function hostOf(url: string): string {
 
 // ---------- 分块 ----------
 
-function planChunks(size: number, ranges: boolean, threads: number): Chunk[] {
-  if (!ranges || size <= MIN_CHUNKED_SIZE) {
+function planChunks(size: number, ranges: boolean, threads: number, minChunked = MIN_CHUNKED_SIZE): Chunk[] {
+  if (!ranges || threads <= 1 || size <= minChunked) {
     return [{ start: 0, end: size > 0 ? size - 1 : -1, downloaded: 0 }]
   }
   const count = Math.max(1, Math.min(threads, Math.floor(size / MIN_CHUNK_SIZE)))
@@ -305,7 +325,7 @@ function abortAll(task: Task): void {
 
 async function downloadChunk(task: Task, index: number, file: FileHandle): Promise<void> {
   const chunk = task.chunks[index]
-  const dispatcher = downloadDispatcher()
+  const dispatcher = fastDownloadDispatcher()
   let attempt = 0
   while (!chunkDone(chunk)) {
     checkState(task)
@@ -323,9 +343,16 @@ async function downloadChunk(task: Task, index: number, file: FileHandle): Promi
       if (useRange) headers.Range = `bytes=${from}-${chunk.end}`
       else chunk.downloaded = 0
       const res = await request(task.url, { method: 'GET', headers, dispatcher, signal: controller.signal })
+      if (isFatalStatus(res.statusCode)) {
+        discard(res.body)
+        throw new FatalHttpError(
+          `服务器返回 HTTP ${res.statusCode}${res.statusCode === 429 ? '（请求太频繁，服务器限流）' : ''}`
+        )
+      }
       if (useRange && res.statusCode !== 206) {
         discard(res.body)
-        throw new Error(`服务器没有按分块返回数据（HTTP ${res.statusCode}）`)
+        // 服务器忽略了分块请求，再试也一样
+        throw new FatalHttpError(`服务器没有按分块返回数据（HTTP ${res.statusCode}）`)
       }
       if (!useRange && (res.statusCode < 200 || res.statusCode >= 300)) {
         discard(res.body)
@@ -360,6 +387,8 @@ async function downloadChunk(task: Task, index: number, file: FileHandle): Promi
       attempt++
       const reason =
         e instanceof StallError || controller.signal.reason instanceof StallError ? '长时间没有收到数据' : errorText(e)
+      if (e instanceof FatalHttpError) throw new Error(`第 ${index + 1} 个分块下载失败：${reason}`)
+      downloadLog(`${task.fileName} 第 ${index + 1} 个分块第 ${attempt} 次失败：${reason}`)
       if (attempt >= CHUNK_ATTEMPTS) {
         throw new Error(`第 ${index + 1} 个分块重试 ${CHUNK_ATTEMPTS} 次仍然失败：${reason}`)
       }
@@ -441,8 +470,12 @@ async function execute(task: Task): Promise<string> {
     task.tempPath = `${task.destination}${PART_SUFFIX}`
   }
   task.total = info.size
-  task.chunks = planChunks(info.size, info.ranges, task.threads)
+  task.chunks = planChunks(info.size, info.ranges, task.threads, task.minChunkedSize)
   task.chunked = task.chunks.length > 1
+  downloadLog(
+    `开始 ${task.fileName}：${hostOf(info.url)}，${info.size > 0 ? `${(info.size / 1024 / 1024).toFixed(2)} MB` : '大小未知'}，` +
+      `${info.ranges ? '支持分块' : '不支持分块'}，${task.chunks.length} 个分块`
+  )
   await mkdir(dirname(task.tempPath), { recursive: true })
 
   const file = await open(task.tempPath, 'w+')
@@ -625,6 +658,7 @@ export function startFastDownload(options: FastDownloadOptions): StartedDownload
     expectedSize: options.size,
     headers: options.headers ?? {},
     threads,
+    minChunkedSize: options.minChunkedSize,
     total: options.size ?? 0,
     chunked: false,
     chunks: [],
@@ -642,8 +676,14 @@ export function startFastDownload(options: FastDownloadOptions): StartedDownload
   ensureTicker()
   push()
 
+  const started = Date.now()
   const promise = execute(task).then(
     (path) => {
+      const seconds = Math.max(0.001, (Date.now() - started) / 1000)
+      downloadLog(
+        `完成 ${task.fileName}（${hostOf(task.url)}，${task.chunks.length} 个分块，` +
+          `${(task.total / 1024 / 1024).toFixed(2)} MB，用时 ${seconds.toFixed(1)} 秒）`
+      )
       finish(task, 'completed')
       return path
     },
@@ -654,6 +694,7 @@ export function startFastDownload(options: FastDownloadOptions): StartedDownload
         finish(task, 'cancelled')
         throw new DownloadCancelledError()
       }
+      downloadLog(`失败 ${task.fileName}（${hostOf(task.url)}）：${errorText(e)}`)
       finish(task, 'error', errorText(e))
       throw e
     }

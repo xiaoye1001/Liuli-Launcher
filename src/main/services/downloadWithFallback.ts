@@ -19,6 +19,10 @@ import type { FastDownloadSource } from '../../shared/types'
 
 const LOG = join(app.getPath('userData'), 'logs', 'download.log')
 
+/** 模组、整合包、资源包的线程数与分块门槛（百宝箱直链由用户自己选择线程数） */
+const RESOURCE_THREADS = 4
+const RESOURCE_MIN_CHUNKED = 8 * 1024 * 1024
+
 function log(line: string): void {
   void mkdir(dirname(LOG), { recursive: true })
     .then(() => appendFile(LOG, `[${new Date().toLocaleString('zh-CN')}] ${line}\n`))
@@ -55,7 +59,10 @@ export async function downloadWithFallback(options: DownloadOptions, source: Fas
       destination: options.destination,
       source,
       sha1: sha1Of(options),
-      headers: stringHeaders(options.headers)
+      headers: stringHeaders(options.headers),
+      // 模组、整合包多来自镜像和公共 CDN：线程少一些、大文件才分块，避免触发限流
+      threads: RESOURCE_THREADS,
+      minChunkedSize: RESOURCE_MIN_CHUNKED
     })
     taskId = started.taskId
     await started.promise
@@ -79,8 +86,12 @@ export async function downloadWithFallback(options: DownloadOptions, source: Fas
       }
     })
     if (taskId) markFallbackFinished(taskId)
+    log(`原下载方式完成：${basename(options.destination)}`)
   } catch (e) {
     if (taskId) markFallbackFinished(taskId, e)
+    log(
+      `原下载方式也失败：${basename(options.destination)}（${e instanceof Error ? e.message.slice(0, 300) : String(e)}）`
+    )
     throw e
   }
 }
