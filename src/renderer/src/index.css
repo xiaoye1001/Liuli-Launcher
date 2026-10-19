@@ -204,8 +204,12 @@ html.light .text-orange-300 {
 html.light .text-fuchsia-300 {
   color: rgb(192 38 211);
 }
+html.light .text-rose-200,
 html.light .text-rose-300 {
   color: rgb(225 29 72);
+}
+html.light .text-violet-300 {
+  color: rgb(124 58 237);
 }
 html.light .text-red-100,
 html.light .text-red-200,
