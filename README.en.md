@@ -106,6 +106,7 @@ The project ships with an `.npmrc` that downloads Electron from a mirror in Chin
 | `npm run dev` | Run in development mode (reloads on code changes) |
 | `npm run build` | Build into the `out/` directory |
 | `npm run typecheck` | Run TypeScript type checking |
+| `npm run format` | Format code with Prettier (`format:check` only checks) |
 | `npm run build:win` | Build both the Windows installer and the portable version |
 | `npm run build:win:setup` | Build the installer only |
 | `npm run build:win:portable` | Build the portable version only |
@@ -187,6 +188,10 @@ src/
 - [Modrinth](https://modrinth.com/): mod search and downloads
 - [@xmcl / minecraft-launcher-core-node](https://github.com/Voxelum/minecraft-launcher-core-node)
 - [skinview3d](https://github.com/bs-community/skinview3d)
+
+## Contributing
+
+Issues and pull requests are welcome. Please read the [contributing guide](CONTRIBUTING.md) (Chinese) and the [code of conduct](CODE_OF_CONDUCT.md) first. Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
 ## Disclaimer
 

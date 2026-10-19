@@ -702,11 +702,6 @@ export function startFastDownload(options: FastDownloadOptions): StartedDownload
   return { taskId: id, promise }
 }
 
-/** 下载文件（等待完成），返回保存路径 */
-export async function fastDownload(options: FastDownloadOptions): Promise<string> {
-  return startFastDownload(options).promise
-}
-
 export function pauseFastDownload(taskId: string): void {
   const task = tasks.get(taskId)
   if (!task || task.status !== 'downloading') return

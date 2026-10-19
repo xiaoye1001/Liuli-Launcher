@@ -109,6 +109,7 @@ npm run dev
 | `npm run dev` | 开发模式运行（修改代码后自动刷新） |
 | `npm run build` | 构建到 `out/` 目录 |
 | `npm run typecheck` | TypeScript 类型检查 |
+| `npm run format` | 用 Prettier 格式化代码（`format:check` 只检查不修改） |
 | `npm run build:win` | 同时打包 Windows 安装版与免安装版 |
 | `npm run build:win:setup` | 只打包安装版 |
 | `npm run build:win:portable` | 只打包免安装版 |
@@ -195,6 +196,10 @@ src/
 - [Modrinth](https://modrinth.com/)、[CurseForge](https://www.curseforge.com/minecraft)：模组搜索与下载
 - [@xmcl / minecraft-launcher-core-node](https://github.com/Voxelum/minecraft-launcher-core-node)
 - [skinview3d](https://github.com/bs-community/skinview3d)
+
+## 参与贡献
+
+欢迎提交问题和代码，请先阅读 [贡献指南](CONTRIBUTING.md) 与 [行为准则](CODE_OF_CONDUCT.md)。安全漏洞请按 [安全策略](SECURITY.md) 私下报告。
 
 ## 声明
 

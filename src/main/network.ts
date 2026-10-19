@@ -100,10 +100,6 @@ export function downloadDispatcher(): Dispatcher {
   return downloads
 }
 
-export function currentProxy(): string | null {
-  return activeProxy
-}
-
 /** Chromium 的代理规则不支持用户名密码，只保留协议、主机和端口 */
 function chromiumProxyRule(uri: string): string {
   const url = new URL(uri)

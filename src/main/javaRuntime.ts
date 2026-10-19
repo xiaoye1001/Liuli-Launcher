@@ -14,7 +14,8 @@ import type { JavaInfo, JavaRuntimeInfo } from '../shared/types'
  */
 export const RUNTIME_DIR = join(app.getPath('userData'), 'runtime')
 
-const RUNTIME_INDEX = 'https://launchermeta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json'
+const RUNTIME_INDEX =
+  'https://launchermeta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json'
 const BMCLAPI_HOST = 'bmclapi2.bangbang93.com'
 
 /** 设置页提供下载的 Java（按主版本号） */
@@ -40,7 +41,9 @@ export interface JavaRequirement {
   component: string
 }
 
-export function requirementOf(version: { javaVersion?: { majorVersion?: number; component?: string } }): JavaRequirement {
+export function requirementOf(version: {
+  javaVersion?: { majorVersion?: number; component?: string }
+}): JavaRequirement {
   const majorVersion = version.javaVersion?.majorVersion ?? 8
   return { majorVersion, component: version.javaVersion?.component ?? componentForMajor(majorVersion) }
 }
@@ -56,7 +59,8 @@ function platformKey(): keyof JavaRuntimes {
 /** 运行时中 java 可执行文件的路径 */
 export function javaExecutable(component: string): string {
   if (process.platform === 'win32') return join(RUNTIME_DIR, component, 'bin', 'java.exe')
-  if (process.platform === 'darwin') return join(RUNTIME_DIR, component, 'jre.bundle', 'Contents', 'Home', 'bin', 'java')
+  if (process.platform === 'darwin')
+    return join(RUNTIME_DIR, component, 'jre.bundle', 'Contents', 'Home', 'bin', 'java')
   return join(RUNTIME_DIR, component, 'bin', 'java')
 }
 
@@ -159,7 +163,11 @@ export async function createJavaInstallTask(component: string): Promise<Task<str
 /** 已下载的运行时，供扫描 Java 时一并列出 */
 export async function downloadedJavaPaths(): Promise<string[]> {
   const paths: string[] = []
-  for (const { component } of [...COMPONENTS, { component: 'java-runtime-alpha' }, { component: 'java-runtime-beta' }]) {
+  for (const { component } of [
+    ...COMPONENTS,
+    { component: 'java-runtime-alpha' },
+    { component: 'java-runtime-beta' }
+  ]) {
     if (await isInstalled(component)) paths.push(javaExecutable(component))
   }
   return paths
@@ -181,6 +189,8 @@ export async function pickJava(requirement: JavaRequirement): Promise<JavaInfo |
   const exact = all.find((j) => j.majorVersion === requirement.majorVersion)
   if (exact) return exact
   if (requirement.majorVersion <= 8) return null
-  const newer = all.filter((j) => j.majorVersion > requirement.majorVersion).sort((a, b) => a.majorVersion - b.majorVersion)
+  const newer = all
+    .filter((j) => j.majorVersion > requirement.majorVersion)
+    .sort((a, b) => a.majorVersion - b.majorVersion)
   return newer[0] ?? null
 }

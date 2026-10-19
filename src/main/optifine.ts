@@ -53,8 +53,3 @@ export async function getOptiFineVersions(mc: string): Promise<OptiFineVersionIn
 export function optiFineInstallerUrl(mc: string, type: string, patch: string): string {
   return `${BMCLAPI}/optifine/${encodeURIComponent(mc)}/${encodeURIComponent(type)}/${encodeURIComponent(patch)}`
 }
-
-/** 显示用的版本名，例如 HD_U + I6 → HD U I6 */
-export function optiFineDisplayName(type: string, patch: string): string {
-  return `${type} ${patch}`.replace(/_/g, ' ')
-}

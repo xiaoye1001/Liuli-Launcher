@@ -261,9 +261,7 @@ function PresetBlock({ preset, className }: { preset: BlockPreset; className: st
           <polygon points="30,15 16,22 16,25 30,18" fill={preset.midBand[1]} />
         </>
       )}
-      {preset.pixels?.map(([x, y, w, h, color], i) => (
-        <rect key={i} x={x} y={y} width={w} height={h} fill={color} />
-      ))}
+      {preset.pixels?.map(([x, y, w, h, color], i) => <rect key={i} x={x} y={y} width={w} height={h} fill={color} />)}
     </svg>
   )
 }

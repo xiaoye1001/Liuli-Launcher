@@ -61,7 +61,8 @@ async function getPromotions(): Promise<Record<string, string>> {
 /** 获取某个 Minecraft 版本可用的 Forge 版本（新版本在前） */
 export async function getForgeVersions(mc: string): Promise<ForgeVersionInfo[]> {
   const { downloadSource } = await getSettings()
-  const sources = downloadSource === 'bmclapi' ? [listFromBmclapi, listFromOfficial] : [listFromOfficial, listFromBmclapi]
+  const sources =
+    downloadSource === 'bmclapi' ? [listFromBmclapi, listFromOfficial] : [listFromOfficial, listFromBmclapi]
 
   let list: { version: string; date: string }[] | null = null
   const errors: string[] = []

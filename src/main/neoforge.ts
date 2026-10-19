@@ -66,15 +66,14 @@ async function listFromOfficial(mc: string): Promise<string[]> {
 /** 获取某个 Minecraft 版本可用的 NeoForge 版本（新版本在前） */
 export async function getNeoForgeVersions(mc: string): Promise<NeoForgeVersionInfo[]> {
   const { downloadSource } = await getSettings()
-  const sources = downloadSource === 'bmclapi' ? [listFromBmclapi, listFromOfficial] : [listFromOfficial, listFromBmclapi]
+  const sources =
+    downloadSource === 'bmclapi' ? [listFromBmclapi, listFromOfficial] : [listFromOfficial, listFromBmclapi]
 
   const errors: string[] = []
   for (const source of sources) {
     try {
       const versions = [...new Set(await source(mc))]
-      return versions
-        .sort(compareDesc)
-        .map((version) => ({ version, beta: /beta|alpha|rc/i.test(version) }))
+      return versions.sort(compareDesc).map((version) => ({ version, beta: /beta|alpha|rc/i.test(version) }))
     } catch (e) {
       errors.push(e instanceof Error ? e.message : String(e))
     }

@@ -2,7 +2,7 @@ import { existsSync } from 'fs'
 import { readFile, rename, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { getSettings } from './config'
-import { isIsolated, versionGameDir } from './isolation'
+import { isIsolated } from './isolation'
 import { assertSafeId } from './versionManage'
 import type { AppSettings, ModLoader, VersionConfig } from '../shared/types'
 
@@ -107,16 +107,6 @@ export function isolatedWith(
   if (config.isolation === 'on') return true
   if (config.isolation === 'off') return false
   return isIsolated(mode, loader)
-}
-
-/** 版本实际使用的游戏目录（考虑版本自己的隔离设置） */
-export async function resolveVersionGameDir(
-  versionId: string,
-  loader: ModLoader | undefined
-): Promise<{ dir: string; isolated: boolean }> {
-  const { gameDir, versionIsolation } = await getSettings()
-  const isolated = isolatedWith(await getVersionConfig(versionId, gameDir), versionIsolation, loader)
-  return { dir: versionGameDir(gameDir, versionId, isolated), isolated }
 }
 
 /** 名称：字母或下划线开头，只含字母、数字、下划线 */

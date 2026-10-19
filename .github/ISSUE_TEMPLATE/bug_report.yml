@@ -1,0 +1,59 @@
+name: 问题反馈
+description: 启动器出错、崩溃或行为不符合预期
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交前请先搜索已有的 Issue，并确认已经更新到[最新版本](https://github.com/xiaoye1001/Liuli-Launcher/releases/latest)。
+        安全漏洞请不要在这里提交，见 [SECURITY.md](https://github.com/xiaoye1001/Liuli-Launcher/blob/main/SECURITY.md)。
+  - type: input
+    id: version
+    attributes:
+      label: 启动器版本
+      description: 在「设置 → 关于」中查看
+      placeholder: 例如 0.3.1
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: 系统
+      options:
+        - Windows（安装版）
+        - Windows（免安装版）
+        - macOS（Apple 芯片）
+        - macOS（Intel 芯片）
+        - Linux（AppImage）
+    validations:
+      required: true
+  - type: input
+    id: game
+    attributes:
+      label: 游戏版本与模组加载器
+      placeholder: 例如 1.20.1 Fabric 0.16.10；与游戏无关可以不填
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 发生了什么，你期望的结果是什么
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开……
+        2. 点击……
+        3. 出现……
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志与截图
+      description: |
+        游戏日志请用启动器里的「分享日志」上传后贴链接（会自动去掉登录凭证）。
+        下载问题请附上 download.log（Windows 安装版在 %APPDATA%\mc_launcher\logs）。
+        请勿粘贴含有 accessToken 等登录信息的内容。

@@ -123,7 +123,5 @@ export async function scanJava(extra: string[] = []): Promise<JavaInfo[]> {
   }
 
   const results = await Promise.all([...unique.values()].map((path) => resolveJava(path)))
-  return results
-    .filter((java): java is JavaInfo => java !== undefined)
-    .sort((a, b) => b.majorVersion - a.majorVersion)
+  return results.filter((java): java is JavaInfo => java !== undefined).sort((a, b) => b.majorVersion - a.majorVersion)
 }
