@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { download } from '@xmcl/file-transfer'
 import { downloadWithFallback } from './services/downloadWithFallback'
 import { mkdir, readdir, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
@@ -222,17 +223,16 @@ async function downloadFile(file: CurseFile, dir: string, source: FastDownloadSo
   const name = safeFileName(file.fileName)
   const sha1 = file.hashes?.find((h) => h.algo === 1)?.value
   await mkdir(dir, { recursive: true })
-  // 先用高速多线程引擎，失败时自动改用原来的下载方式（参数不变）
-  await downloadWithFallback(
-    {
-      url: await fileUrls(file),
-      destination: join(dir, name),
-      dispatcher: downloadDispatcher(),
-      headers: { 'User-Agent': USER_AGENT },
-      validator: sha1 ? { algorithm: 'sha1', hash: sha1 } : undefined
-    },
-    source
-  )
+  const options = {
+    url: await fileUrls(file),
+    destination: join(dir, name),
+    dispatcher: downloadDispatcher(),
+    headers: { 'User-Agent': USER_AGENT },
+    validator: sha1 ? { algorithm: 'sha1', hash: sha1 } : undefined
+  }
+  // 整合包文件直接用原下载方式（不进入高速下载器）；模组、资源包先用高速多线程引擎，失败时自动改用原下载方式
+  if (source === 'modpack') await download(options)
+  else await downloadWithFallback(options, source)
   return name
 }
 

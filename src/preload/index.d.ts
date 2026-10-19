@@ -214,6 +214,8 @@ declare global {
       listWorlds: (versionId: string) => Promise<string[]>
       /** 从 Modrinth 下载整合包的某个版本并读取信息 */
       downloadModpack: (versionId: string) => Promise<ModpackInfo>
+      /** 下载页一键安装：下载整合包并直接开始安装，返回使用的版本名 */
+      downloadAndInstallModpack: (versionId: string) => Promise<string>
       /** 拖入窗口的文件在本机的路径 */
       getPathForFile: (file: File) => string
       installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>

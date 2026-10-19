@@ -61,7 +61,7 @@ export const RESOURCE_TYPES: Record<
   modpack: {
     label: '整合包',
     icon: Package,
-    desc: '下载后进入安装页，自动安装 Minecraft、模组加载器与全部模组',
+    desc: '点「安装」自动下载并安装 Minecraft、模组加载器与全部模组',
     loaders: [
       ['fabric', 'Fabric'],
       ['forge', 'Forge'],
@@ -495,7 +495,9 @@ function ResourceBrowser({
     setNotice('')
     try {
       if (type === 'modpack') {
-        onModpackPicked(await window.api.downloadModpack(version.id))
+        // 一键安装：下载整合包后直接开始安装，进度显示在上方的安装进度卡片
+        const name = await window.api.downloadAndInstallModpack(version.id)
+        setNotice(`已开始安装整合包「${name}」，进度见上方`)
         return
       }
       if (!targetId) throw new Error('请先在右上角选择要安装到的版本')
@@ -775,7 +777,7 @@ function ResourceBrowser({
                         <button
                           onClick={() => install(project, v)}
                           disabled={downloading !== null || (needsTarget && !targetId)}
-                          title={needsTarget ? `安装到 ${targetId || '（未选择版本）'}` : '下载并进入安装页'}
+                          title={needsTarget ? `安装到 ${targetId || '（未选择版本）'}` : '下载并安装整合包'}
                           className="flex w-20 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500 disabled:opacity-50"
                         >
                           {downloading === v.id ? (

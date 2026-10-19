@@ -148,6 +148,7 @@ const api = {
     ipcRenderer.invoke('resource:install', target, type, versionId),
   listWorlds: (versionId: string) => ipcRenderer.invoke('resource:worlds', versionId),
   downloadModpack: (versionId: string) => ipcRenderer.invoke('modpack:download', versionId),
+  downloadAndInstallModpack: (versionId: string) => ipcRenderer.invoke('modpack:downloadAndInstall', versionId),
   /** 拖入窗口的文件在本机的路径 */
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   searchModrinth: (versionId: string, query: string, offset: number) =>

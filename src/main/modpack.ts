@@ -3,11 +3,11 @@ import { BrowserWindow, dialog } from 'electron'
 import { AbortableTask } from '@xmcl/task'
 import { open, openEntryReadStream, readAllEntries, readEntry } from '@xmcl/unzip'
 import { createWriteStream } from 'fs'
-import { mkdir, stat } from 'fs/promises'
-import { basename, dirname, isAbsolute, relative, resolve } from 'path'
+import { mkdir, readdir, stat } from 'fs/promises'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'path'
 import type { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
-import { startCustomInstall, type InstallExtraStep } from './install'
+import { assertIdle, startCustomInstall, type InstallExtraStep } from './install'
 import { downloadModpackFile, modrinthFileUrls, MODRINTH_USER_AGENT } from './modrinth'
 import { downloadCurseForgeModpack, isCurseForgeId } from './curseforge'
 import { getSettings } from './config'
@@ -572,6 +572,36 @@ function modpackStep(path: string): InstallExtraStep {
     )
   }
   return step
+}
+
+/** 整合包名称转为可用的版本名：去掉不能用的字符，已有同名版本时在后面加 (2)、(3)… */
+async function availableVersionName(base: string): Promise<string> {
+  const cleaned =
+    base
+      .replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^\.+$/, '')
+      .slice(0, 56)
+      .trim() || '整合包'
+  const versionsDir = join((await getSettings()).gameDir, 'versions')
+  const taken = new Set((await readdir(versionsDir).catch(() => [] as string[])).map((n) => n.toLowerCase()))
+  let name = cleaned
+  for (let i = 2; taken.has(name.toLowerCase()); i++) name = `${cleaned} (${i})`
+  return name
+}
+
+/**
+ * 下载页一键安装：下载整合包后直接开始安装（不经过安装确认页）。
+ * 版本名自动取「整合包名称 版本号」，返回实际使用的版本名
+ */
+export async function downloadAndInstallModpack(versionId: string): Promise<string> {
+  // 先检查有没有正在进行的安装，避免下载完才发现不能安装
+  assertIdle()
+  const info = await downloadModpack(versionId)
+  const name = await availableVersionName(`${info.name} ${info.version}`)
+  await installModpack(name)
+  return name
 }
 
 /** 安装最近选择的整合包 */

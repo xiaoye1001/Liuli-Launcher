@@ -109,7 +109,7 @@ import { getNews } from './news'
 import { applyNetworkSettings, checkNetwork, validateProxyUrl } from './network'
 import { addOfflineAccount, removeOfflineAccount, renameOfflineAccount, selectOfflineAccount } from './offline'
 import { loginExternal, removeExternalAccount, selectExternalProfile } from './yggdrasil'
-import { downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
+import { downloadAndInstallModpack, downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
 import { getCurseForgeVersions, installCurseForgeResource, isCurseForgeId, searchCurseForge } from './curseforge'
 import {
   cancelMicrosoftLogin,
@@ -459,6 +459,7 @@ function registerIpc(): void {
   )
   ipcMain.handle('resource:worlds', (_, versionId: string) => listWorlds(versionId))
   ipcMain.handle('modpack:download', (_, versionId: string) => downloadModpack(versionId))
+  ipcMain.handle('modpack:downloadAndInstall', (_, versionId: string) => downloadAndInstallModpack(String(versionId)))
   ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>
     searchModrinth(versionId, query, offset)
   )

@@ -1,3 +1,4 @@
+import { download } from '@xmcl/file-transfer'
 import { downloadWithFallback } from './services/downloadWithFallback'
 import { app, shell } from 'electron'
 import { mkdir, readdir, rename, stat } from 'fs/promises'
@@ -328,16 +329,14 @@ export async function downloadModpackFile(versionId: string): Promise<string> {
   const dir = join(app.getPath('userData'), 'cache', 'modpacks')
   await mkdir(dir, { recursive: true })
   const destination = join(dir, basename(file.filename))
-  await downloadWithFallback(
-    {
-      url: await modrinthFileUrls([file.url]),
-      destination,
-      dispatcher: downloadDispatcher(),
-      headers: { 'User-Agent': USER_AGENT },
-      validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
-    },
-    'modpack'
-  )
+  // 整合包文件直接用原下载方式（不进入高速下载器），下载后由下载页直接开始安装
+  await download({
+    url: await modrinthFileUrls([file.url]),
+    destination,
+    dispatcher: downloadDispatcher(),
+    headers: { 'User-Agent': USER_AGENT },
+    validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
+  })
   return destination
 }
 
