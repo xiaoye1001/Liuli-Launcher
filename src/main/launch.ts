@@ -12,6 +12,7 @@ import { pickJava, requirementOf } from './javaRuntime'
 import { completeMissingFiles, startJavaInstall } from './install'
 import { countMissing, findMissingFiles, type MissingFiles } from './fileCheck'
 import { autoMemory } from './memory'
+import { gcTuningArgs } from './gcTuning'
 import { onGameEnded, onGameWindowReady } from './windows'
 import { resolveJava } from './java'
 import { openLogWindow } from './logWindow'
@@ -262,7 +263,10 @@ export async function previewMemory(versionId: string): Promise<MemoryPlan | nul
       versionId,
       isolatedWith(config, settings.versionIsolation, loader)
     )
-    return await autoMemory(loader, gamePath)
+    // 改过名的原版：版本名不是游戏版本号，使用记录下来的版本号
+    const json = JSON.parse(await readFile(join(settings.gameDir, 'versions', versionId, `${versionId}.json`), 'utf-8'))
+    const minecraftVersion: string = json.inheritsFrom ?? json.liuliMinecraftVersion ?? version.minecraftVersion
+    return await autoMemory(loader, gamePath, minecraftVersion)
   } catch {
     return null
   }
@@ -386,7 +390,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     // 版本单独设置了内存时优先使用；否则按全局设置自动或手动分配
     let maxMemory = config.maxMemory || settings.maxMemory
     if (!config.maxMemory && settings.memoryAuto) {
-      const plan = await autoMemory(detectLoader(version), gamePath)
+      const plan = await autoMemory(detectLoader(version), gamePath, minecraftVersion)
       maxMemory = plan.memory
       launcherLog(`自动分配内存 ${maxMemory} MB（${describePlan(plan)}）`)
       if (plan.limited) {
@@ -394,6 +398,12 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       }
     } else {
       launcherLog(`最大内存 ${maxMemory} MB`)
+    }
+
+    // 优化内存回收：自定义了回收器时不添加，自定义参数放在后面可以覆盖
+    const gcArgs = settings.optimizeGc ? gcTuningArgs(java.majorVersion, jvmArgs) : []
+    if (settings.optimizeGc) {
+      launcherLog(gcArgs.length > 0 ? '已优化内存回收（G1）' : '版本设置里指定了回收器，不添加内存回收优化参数')
     }
 
     const proc = await launch({
@@ -413,7 +423,13 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       versionType: 'Liuli Launcher',
       // 强制游戏以 UTF-8 输出日志，避免中文 Windows 下日志乱码
       // 版本设置里的附加参数放在最后，可以覆盖前面的默认值
-      extraJVMArgs: ['-Dfile.encoding=UTF-8', '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8', ...jvmArgs],
+      extraJVMArgs: [
+        '-Dfile.encoding=UTF-8',
+        '-Dstdout.encoding=UTF-8',
+        '-Dstderr.encoding=UTF-8',
+        ...gcArgs,
+        ...jvmArgs
+      ],
       extraMCArgs: gameArgs,
       ...serverOptions(server, minecraftVersion),
       resolution:

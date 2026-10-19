@@ -1075,7 +1075,7 @@ function SettingsPage(): JSX.Element {
                     )}
                   </>
                 ) : (
-                  '原版分配 2 GB；模组版本从 3 GB 起，模组越多分配越多（最多 12 GB），并给系统留出足够的内存'
+                  '原版按游戏版本分配 1 ~ 2 GB；模组版本从 2.5 GB 起，模组越多分配越多（最多 12 GB），并给系统留出足够的内存'
                 )}
                 <div className="mt-1 text-white/40">在版本设置里可以为单个版本指定内存</div>
               </div>
@@ -1096,6 +1096,29 @@ function SettingsPage(): JSX.Element {
                 </div>
               </>
             )}
+            <div className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div>
+                <div className="text-sm font-medium">优化内存回收（推荐）</div>
+                <div className="text-xs text-white/50">
+                  使用适合游戏的回收参数：不用的内存及时还给系统、减少回收造成的卡顿。版本设置里自定义了回收器时不生效
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.optimizeGc}
+                aria-label="优化内存回收"
+                onClick={() => update({ optimizeGc: !settings.optimizeGc })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.optimizeGc ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.optimizeGc ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
           </section>
 
           {/* 启动游戏 */}

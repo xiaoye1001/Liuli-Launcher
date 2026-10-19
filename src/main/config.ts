@@ -60,6 +60,7 @@ function defaultSettings(): AppSettings {
     javaAuto: true,
     maxMemory: Math.min(4096, Math.floor(totalMB / 2 / 256) * 256),
     memoryAuto: true,
+    optimizeGc: true,
     checkFiles: true,
     downloadSource: 'bmclapi',
     showNews: true,
