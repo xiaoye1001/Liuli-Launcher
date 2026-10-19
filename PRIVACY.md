@@ -26,9 +26,14 @@ The launcher only connects to the services needed for the feature you are using:
 | Minecraft news feed (launchercontent.mojang.com) | When the news panel is shown on the home page (can be turned off in Settings) | A download request only |
 | GitHub, or the project website if configured | When checking for launcher updates (automatic check can be turned off in Settings) | A request for the latest version information |
 | mclo.gs | Only when you click "Share log" | The game log, with account tokens and your user folder path removed |
+| Friends you play with (Multiplayer page) | When you create or join a room | Game traffic between you and your friends. A direct-connection room code contains your IP address and a tunnel room code contains your tunnel address, so only share room codes with people you trust |
+| EasyTier relay server (public.easytier.cn by default, or the relay you enter) | When you create or join a P2P room | Connection requests and, when a direct peer-to-peer connection cannot be made, the game traffic relayed between you and your friends |
+| GitHub, or the ghfast.top mirror if GitHub fails | When you download the P2P multiplayer core (EasyTier) | A download request only; the file is checked against a built-in SHA-256 checksum |
 | Servers you add | When you check their status or join them | Standard Minecraft protocol requests |
 
-These services have their own privacy policies.
+These services have their own privacy policies. Multiplayer mods installed from the Multiplayer page (e4mc, World Host) run inside the game and connect to their own services when you use them in game; see each mod's page for details.
+
+The Multiplayer page also listens on your local network for "Open to LAN" announcements from Minecraft while it is open or a room is active. This stays on your computer and nothing is sent anywhere.
 
 ### Contact
 
@@ -60,9 +65,14 @@ Questions about privacy can be raised in the project's [GitHub issues](https://g
 | Minecraft 新闻（launchercontent.mojang.com） | 主页显示新闻时（可以在设置里关闭） | 只有下载请求 |
 | GitHub，或配置了的项目官网 | 检查启动器更新时（自动检查可以在设置里关闭） | 获取最新版本信息的请求 |
 | mclo.gs | 只在你点击「分享日志」时 | 游戏日志（已去掉账号令牌和你的用户文件夹路径） |
+| 和你联机的好友（「联机」页） | 创建或加入房间时 | 你和好友之间的游戏数据。直连房间码里包含你的 IP 地址，穿透房间码里包含你的穿透地址，请只发给信任的人 |
+| EasyTier 中继服务器（默认 public.easytier.cn，或你填写的中继） | 创建或加入 P2P 房间时 | 连接请求；无法打洞直连时，你和好友之间的游戏数据经它转发 |
+| GitHub，GitHub 失败时用 ghfast.top 镜像 | 下载 P2P 联机内核（EasyTier）时 | 只有下载请求；文件会用内置的 SHA-256 校验 |
 | 你添加的服务器 | 查看服务器状态或进入服务器时 | 标准的 Minecraft 协议请求 |
 
-这些服务有各自的隐私政策。
+这些服务有各自的隐私政策。在「联机」页安装的联机模组（e4mc、World Host）运行在游戏里，在游戏中使用时会连接它们自己的服务，详见各模组的介绍页。
+
+「联机」页打开时或有房间进行中时，启动器会在局域网里监听 Minecraft「对局域网开放」的广播，只在你的电脑上处理，不会发送到任何地方。
 
 ### 联系
 

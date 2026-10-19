@@ -107,6 +107,20 @@ import { isTokenEncryptionStrong } from './secure'
 import { runCleanup, scanCleanup } from './cleaner'
 import { checkJavaEnvironment } from './javaCheck'
 import { runSpeedTest } from './speedTest'
+import {
+  downloadP2PCore,
+  getMultiplayerStatus,
+  getP2PCoreStatus,
+  hostDirect,
+  hostP2P,
+  hostTunnel,
+  installMultiplayerMod,
+  joinRoom,
+  listLocalAddresses,
+  setLanSniffer,
+  shutdownMultiplayer,
+  stopMultiplayer
+} from './services/multiplayerService'
 import { guardIpc, hardenWebContents } from './security'
 import { copyScreenshot, deleteScreenshot, listScreenshots, openScreenshotsDir, showScreenshot } from './screenshots'
 import { copyVersion, createDesktopShortcut, launchArgOf, renameVersion } from './versionOps'
@@ -515,6 +529,20 @@ function registerIpc(): void {
     const dir = await pickGameDir(BrowserWindow.fromWebContents(event.sender))
     return dir ? setGameDir(dir).then(afterGameDirChange) : null
   })
+  // 多人联机：三种联机方式（直连 / P2P / 内网穿透）、局域网嗅探、P2P 内核、联机模组
+  ipcMain.handle('multiplayer:status', () => getMultiplayerStatus())
+  ipcMain.handle('multiplayer:addresses', () => listLocalAddresses())
+  ipcMain.handle('multiplayer:sniff', (_, enabled: unknown) => setLanSniffer(enabled === true))
+  ipcMain.handle('multiplayer:hostDirect', (_, port?: unknown) => hostDirect(port))
+  ipcMain.handle('multiplayer:hostP2P', (_, port?: unknown, relay?: unknown) => hostP2P(port, relay))
+  ipcMain.handle('multiplayer:hostTunnel', (_, address: unknown, motd?: unknown) => hostTunnel(address, motd))
+  ipcMain.handle('multiplayer:join', (_, code: unknown) => joinRoom(code))
+  ipcMain.handle('multiplayer:stop', () => stopMultiplayer())
+  ipcMain.handle('multiplayer:p2pCore', () => getP2PCoreStatus())
+  ipcMain.handle('multiplayer:downloadP2PCore', () => downloadP2PCore())
+  ipcMain.handle('multiplayer:installMod', (_, versionId: string, mod: unknown) =>
+    installMultiplayerMod(versionId, mod)
+  )
   // 百宝箱
   ipcMain.handle('toolbox:scanCleanup', () => scanCleanup())
   ipcMain.handle('toolbox:runCleanup', (_, categories: unknown) => runCleanup(categories))
@@ -589,6 +617,9 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
+
+// 退出时结束联机：关闭转发端口，不留下后台的 P2P 内核进程
+app.on('before-quit', () => shutdownMultiplayer())
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

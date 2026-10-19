@@ -310,7 +310,7 @@ export type ParticleEffect = 'auto' | 'none' | 'sakura' | 'ender' | 'fireflies' 
 export const PARTICLE_EFFECTS: ParticleEffect[] = ['auto', 'none', 'sakura', 'ender', 'fireflies', 'rain', 'embers']
 
 /** 可以在侧边栏隐藏的页面（主页和设置始终显示） */
-export const HIDEABLE_PAGES = ['account', 'versions', 'servers', 'download', 'more']
+export const HIDEABLE_PAGES = ['account', 'versions', 'servers', 'download', 'multiplayer', 'more']
 
 /** 可选的界面缩放比例（%） */
 export const UI_SCALES = [80, 90, 100, 110, 125, 150]
@@ -1131,7 +1131,7 @@ export interface SharedLog {
 // ---------- 高速多线程下载（FastDownloadEngine） ----------
 
 /** 下载任务的来源：模组 / 整合包 / 资源包等 / 百宝箱直链 / 新引擎失败后改用原下载方式 */
-export type FastDownloadSource = 'mod' | 'modpack' | 'resource' | 'toolbox' | 'fallback'
+export type FastDownloadSource = 'mod' | 'modpack' | 'resource' | 'toolbox' | 'fallback' | 'multiplayer'
 
 export type FastDownloadStatus =
   | 'downloading'
@@ -1289,3 +1289,78 @@ export interface SpeedTestReport {
   /** 当前设置的下载源 */
   current: DownloadSource
 }
+
+// ---------- 多人联机 ----------
+
+/** 联机方式：极速直连 / P2P 虚拟组网（EasyTier）/ 内网穿透地址 */
+export type MultiplayerMode = 'direct' | 'p2p' | 'tunnel'
+
+/** 本机在游戏里「对局域网开放」的世界（监听 224.0.2.60:4445 得到） */
+export interface LanGame {
+  /** 世界名（MOTD） */
+  motd: string
+  port: number
+  /** 最后一次收到广播的时间 */
+  seenAt: number
+}
+
+/** 本机可用于直连的地址 */
+export interface LocalAddresses {
+  /** 公网 IPv6（不含 fe80 链路本地、ULA 等） */
+  ipv6: string[]
+  /** 网卡上直接配置的公网 IPv4（大多数家庭网络没有） */
+  ipv4Public: string[]
+  /** 局域网 IPv4 */
+  ipv4Lan: string[]
+}
+
+/** P2P 联机内核（EasyTier）的状态 */
+export interface P2PCoreStatus {
+  /** 本机系统是否有可用的内核版本 */
+  supported: boolean
+  installed: boolean
+  version: string
+  /** 正在下载 */
+  downloading: boolean
+  /** 下载失败的原因 */
+  error?: string
+}
+
+export interface MultiplayerStatus {
+  role: 'idle' | 'host' | 'guest'
+  mode: MultiplayerMode | null
+  state: 'idle' | 'starting' | 'running' | 'error'
+  /** 给玩家看的状态说明 */
+  message: string
+  /** 房主：生成的房间码；房客：加入的房间码 */
+  code: string
+  /** 房主选择 P2P 但本机没有内核时改用了直连房间码 */
+  fallback: boolean
+  /** 本机「对局域网开放」的世界 */
+  lanGame: LanGame | null
+  /** 房客：游戏里连接的本地端口（同时会出现在多人游戏列表底部） */
+  localPort: number | null
+  /** 房客：实际连接的远端地址（直连 / 穿透模式） */
+  target: string | null
+  /** 与房主之间的延迟（毫秒） */
+  latency: number | null
+  /** 已转发的流量（字节）：上行为本机发出，下行为本机收到 */
+  bytesUp: number
+  bytesDown: number
+  /** 当前通过联机通道的连接数 */
+  connections: number
+  /** P2P 模式下需要先下载内核 */
+  needsP2PCore: boolean
+  /** 房主：本机游戏的局域网端口（内网穿透房间没有检测到时为 null） */
+  gamePort: number | null
+  /** 房主：本机游戏世界还在不在（定时查询）；null 为还没查询或无法查询 */
+  worldOnline: boolean | null
+  /** 房主：游戏世界里的在线玩家（包括房主自己） */
+  players: { online: number; max: number; names: string[] } | null
+  /** P2P：使用的中继服务器（房主降级为直连时为原本要用的中继） */
+  relay: string | null
+  error?: string
+}
+
+/** 可以一键安装的联机模组 */
+export type MultiplayerMod = 'e4mc' | 'world-host'

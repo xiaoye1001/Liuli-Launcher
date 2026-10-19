@@ -10,6 +10,7 @@ import VersionsPage from './pages/VersionsPage'
 import ServersPage from './pages/ServersPage'
 import SettingsPage from './pages/SettingsPage'
 import MorePage from './pages/MorePage'
+import MultiplayerPage from './pages/MultiplayerPage'
 import DropOverlay from './components/DropOverlay'
 import PageErrorBoundary from './components/PageErrorBoundary'
 import UpdateNotice from './components/UpdateNotice'
@@ -61,6 +62,7 @@ function renderPage(key: PageKey, ctx: PageContext): JSX.Element {
   }
   if (key === 'servers') return <ServersPage />
   if (key === 'settings') return <SettingsPage />
+  if (key === 'multiplayer') return <MultiplayerPage />
   if (key === 'more') return <MorePage />
   const item = NAV_ITEMS.find((nav) => nav.key === key)!
   return <PlaceholderPage title={item.label} icon={item.icon} />

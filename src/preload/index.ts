@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
   CleanCategory,
+  MultiplayerMod,
+  MultiplayerStatus,
   UpdateDownload,
   AppSettings,
   GameLogEvent,
@@ -45,6 +47,26 @@ const api = {
   checkNetwork: () => ipcRenderer.invoke('network:check'),
   getNews: (force?: boolean) => ipcRenderer.invoke('news:get', force),
   previewMemory: (versionId: string) => ipcRenderer.invoke('memory:preview', versionId),
+  // 多人联机
+  getMultiplayerStatus: () => ipcRenderer.invoke('multiplayer:status'),
+  getLocalAddresses: () => ipcRenderer.invoke('multiplayer:addresses'),
+  setLanSniffer: (enabled: boolean) => ipcRenderer.invoke('multiplayer:sniff', enabled),
+  hostDirectRoom: (port?: number) => ipcRenderer.invoke('multiplayer:hostDirect', port),
+  hostP2PRoom: (port?: number, relay?: string) => ipcRenderer.invoke('multiplayer:hostP2P', port, relay),
+  hostTunnelRoom: (address: string, motd?: string) => ipcRenderer.invoke('multiplayer:hostTunnel', address, motd),
+  joinRoom: (code: string) => ipcRenderer.invoke('multiplayer:join', code),
+  stopMultiplayer: () => ipcRenderer.invoke('multiplayer:stop'),
+  getP2PCoreStatus: () => ipcRenderer.invoke('multiplayer:p2pCore'),
+  downloadP2PCore: () => ipcRenderer.invoke('multiplayer:downloadP2PCore'),
+  installMultiplayerMod: (versionId: string, mod: MultiplayerMod) =>
+    ipcRenderer.invoke('multiplayer:installMod', versionId, mod),
+  onMultiplayerStatus: (callback: (status: MultiplayerStatus) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, status: MultiplayerStatus): void => callback(status)
+    ipcRenderer.on('multiplayer:status', listener)
+    return () => {
+      ipcRenderer.removeListener('multiplayer:status', listener)
+    }
+  },
   scanCleanup: () => ipcRenderer.invoke('toolbox:scanCleanup'),
   runCleanup: (categories: CleanCategory[]) => ipcRenderer.invoke('toolbox:runCleanup', categories),
   checkJavaEnvironment: () => ipcRenderer.invoke('toolbox:checkJava'),
