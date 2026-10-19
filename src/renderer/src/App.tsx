@@ -15,7 +15,6 @@ import UpdateNotice from './components/UpdateNotice'
 import type { ModpackInfo, ResourceType } from '../../shared/types'
 import { useAppearance } from './utils/appearance'
 import DynamicBackground from './components/DynamicBackground'
-import { setModpackReadyHandler } from './utils/modpackFlow'
 import { ThemeProvider } from './context/ThemeContext'
 
 interface PageContext {
@@ -71,14 +70,6 @@ function App(): JSX.Element {
   /** 拖入窗口的整合包，交给下载页打开安装确认页 */
   const [droppedModpack, setDroppedModpack] = useState<ModpackInfo | null>(null)
   const clearDroppedModpack = useCallback(() => setDroppedModpack(null), [])
-  // 从下载页下载的整合包：下载期间切换到其它页面也没关系，完成后回到下载页打开安装确认页
-  useEffect(() => {
-    setModpackReadyHandler((info) => {
-      setDroppedModpack(info)
-      setPage('download')
-    })
-    return () => setModpackReadyHandler(null)
-  }, [])
   const [versionSettings, setVersionSettings] = useState<string | null>(null)
   const [downloadRequest, setDownloadRequest] = useState<PageContext['downloadRequest']>(null)
   const clearDownloadRequest = useCallback(() => setDownloadRequest(null), [])

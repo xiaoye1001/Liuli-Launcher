@@ -22,20 +22,6 @@ import type {
   ResourceSource,
   ResourceType
 } from '../../../shared/types'
-import { clearModpackError, downloadModpackVersion, useModpackFlow } from '../utils/modpackFlow'
-import { useDownloads } from '../utils/downloads'
-
-/** 整合包下载按钮里的进度：只有这个小组件跟着进度刷新，不会让整个列表频繁重新渲染 */
-function ModpackProgress(): JSX.Element {
-  const tasks = useDownloads()
-  const task = tasks.find(
-    (t) =>
-      (t.source === 'modpack' || t.originalSource === 'modpack') &&
-      (t.status === 'downloading' || t.status === 'fallback_retrying' || t.status === 'paused')
-  )
-  if (!task || task.totalBytes === 0) return <>下载中</>
-  return <>{Math.floor(task.progress)}%</>
-}
 
 /** 各类资源的显示信息与可用的筛选项 */
 export const RESOURCE_TYPES: Record<
@@ -305,9 +291,6 @@ function ResourceBrowser({
   const [showUnstable, setShowUnstable] = useState(false)
   /** 正在下载的版本 */
   const [downloading, setDownloading] = useState<string | null>(null)
-  const modpackFlow = useModpackFlow()
-  /** 正在下载的版本（整合包由全局流程下载，离开页面再回来也能看到） */
-  const busyId = type === 'modpack' ? modpackFlow.versionId : downloading
   const [filters, setFilters] = useState<ResourceSearchFilters>({})
   /** 资源来源：Modrinth 或 CurseForge（记住上次的选择） */
   const [source, setSource] = useState<SourceChoice>(() => {
@@ -507,18 +490,14 @@ function ResourceBrowser({
   }
 
   const install = async (project: ModrinthProjectHit, version: ModrinthProjectVersion): Promise<void> => {
-    if (type === 'modpack') {
-      // 整合包交给全局流程下载：切换到其它页面也不会中断，下载完自动打开安装确认页
-      setError('')
-      setNotice('')
-      clearModpackError()
-      void downloadModpackVersion(version.id, project.title)
-      return
-    }
     setDownloading(version.id)
     setError('')
     setNotice('')
     try {
+      if (type === 'modpack') {
+        onModpackPicked(await window.api.downloadModpack(version.id))
+        return
+      }
       if (!targetId) throw new Error('请先在右上角选择要安装到的版本')
       if (type === 'datapack' && !world) throw new Error('请先选择要安装到的存档')
       const result = await window.api.installResource({ versionId: targetId, world }, type, version.id)
@@ -663,10 +642,10 @@ function ResourceBrowser({
           </span>
         </div>
 
-        {(error || (type === 'modpack' && modpackFlow.error)) && (
+        {error && (
           <div className="mt-3 flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-2.5 text-sm text-red-200">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span className="break-all">{error || modpackFlow.error}</span>
+            <span className="break-all">{error}</span>
           </div>
         )}
         {notice && (
@@ -795,16 +774,16 @@ function ResourceBrowser({
                         </div>
                         <button
                           onClick={() => install(project, v)}
-                          disabled={busyId !== null || (needsTarget && !targetId)}
+                          disabled={downloading !== null || (needsTarget && !targetId)}
                           title={needsTarget ? `安装到 ${targetId || '（未选择版本）'}` : '下载并进入安装页'}
                           className="flex w-20 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500 disabled:opacity-50"
                         >
-                          {busyId === v.id ? (
+                          {downloading === v.id ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
                             <Download className="h-3.5 w-3.5" />
                           )}
-                          {busyId === v.id ? type === 'modpack' ? <ModpackProgress /> : '下载中' : '安装'}
+                          {downloading === v.id ? '下载中' : '安装'}
                         </button>
                       </div>
                     ))}
