@@ -5,6 +5,8 @@ import type {
   AppSettings,
   GameLogEvent,
   GameStatus,
+  FastDownloadTask,
+  DirectDownloadOptions,
   InstallRequest,
   InstallStatus,
   ResourceSearchFilters,
@@ -211,6 +213,23 @@ const api = {
   addMusic: () => ipcRenderer.invoke('music:add'),
   removeMusic: (name: string) => ipcRenderer.invoke('music:remove', name),
   openMusicDir: () => ipcRenderer.invoke('music:openDir'),
+  // 高速多线程下载（百宝箱）
+  createDirectDownload: (url: string, options?: DirectDownloadOptions) =>
+    ipcRenderer.invoke('download:create', url, options),
+  listDownloads: () => ipcRenderer.invoke('download:list'),
+  pauseDownload: (taskId: string) => ipcRenderer.invoke('download:pause', taskId),
+  resumeDownload: (taskId: string) => ipcRenderer.invoke('download:resume', taskId),
+  cancelDownload: (taskId: string) => ipcRenderer.invoke('download:cancel', taskId),
+  removeDownload: (taskId?: string) => ipcRenderer.invoke('download:remove', taskId),
+  pickDownloadDir: () => ipcRenderer.invoke('download:pickDir'),
+  openDownloadFolder: (taskId: string) => ipcRenderer.invoke('download:openFolder', taskId),
+  onDownloadProgress: (callback: (tasks: FastDownloadTask[]) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, tasks: FastDownloadTask[]): void => callback(tasks)
+    ipcRenderer.on('download:progress', listener)
+    return () => {
+      ipcRenderer.removeListener('download:progress', listener)
+    }
+  },
   onSettingsChanged: (callback: (settings: AppSettings) => void) => {
     const listener = (_: Electron.IpcRendererEvent, settings: AppSettings): void => callback(settings)
     ipcRenderer.on('settings:changed', listener)

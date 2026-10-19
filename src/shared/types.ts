@@ -1056,3 +1056,60 @@ export interface SharedLog {
   /** 公开链接（https://mclo.gs/xxxx） */
   url: string
 }
+
+// ---------- 高速多线程下载（FastDownloadEngine） ----------
+
+/** 下载任务的来源：模组 / 整合包 / 资源包等 / 百宝箱直链 / 新引擎失败后改用原下载方式 */
+export type FastDownloadSource = 'mod' | 'modpack' | 'resource' | 'toolbox' | 'fallback'
+
+export type FastDownloadStatus =
+  | 'downloading'
+  | 'paused'
+  | 'completed'
+  | 'error'
+  | 'cancelled'
+  /** 高速引擎失败，正在用原来的下载方式重新下载 */
+  | 'fallback_retrying'
+
+/** 推送给界面的下载任务状态（主进程每 250 毫秒推送一次所有任务） */
+export interface FastDownloadTask {
+  taskId: string
+  fileName: string
+  source: FastDownloadSource
+  /** 回退到原下载方式前的来源（source 为 fallback 时有值） */
+  originalSource?: FastDownloadSource
+  /** 保存位置（完整路径） */
+  destination: string
+  url: string
+  /** 总大小（字节），0 表示服务器没有告知 */
+  totalBytes: number
+  downloadedBytes: number
+  /** 总进度（0~100） */
+  progress: number
+  /** 实时网速（字节 / 秒） */
+  speed: number
+  /** 实时网速文字，例如「3.2 MB/s」「512 KB/s」 */
+  speedText: string
+  /** 剩余时间（秒），无法估计时为 null */
+  eta: number | null
+  /** 剩余时间文字，例如「1 分 20 秒」 */
+  etaText: string
+  /** 每个线程分块的进度（0~100），单线程下载时只有一项 */
+  chunks: number[]
+  /** 是否按分块多线程下载 */
+  chunked: boolean
+  status: FastDownloadStatus
+  error?: string
+  /** 回退原因（高速引擎失败的原因） */
+  fallbackReason?: string
+  createdAt: number
+  finishedAt?: number
+}
+
+/** 百宝箱新建直链下载的选项 */
+export interface DirectDownloadOptions {
+  /** 保存到的文件夹，不填时使用系统的「下载」文件夹 */
+  directory?: string
+  /** 线程数（1~32），不填时为 8 */
+  threads?: number
+}

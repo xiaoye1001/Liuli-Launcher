@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import { download } from '@xmcl/file-transfer'
+import { downloadWithFallback } from './services/downloadWithFallback'
 import { mkdir, readdir, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import { getSettings } from './config'
@@ -11,7 +11,8 @@ import type {
   ModrinthProjectVersion,
   ResourceSearchFilters,
   ResourceTarget,
-  ResourceType
+  ResourceType,
+  FastDownloadSource
 } from '../shared/types'
 
 /**
@@ -217,17 +218,21 @@ function safeFileName(name: string): string {
   return name
 }
 
-async function downloadFile(file: CurseFile, dir: string): Promise<string> {
+async function downloadFile(file: CurseFile, dir: string, source: FastDownloadSource = 'mod'): Promise<string> {
   const name = safeFileName(file.fileName)
   const sha1 = file.hashes?.find((h) => h.algo === 1)?.value
   await mkdir(dir, { recursive: true })
-  await download({
-    url: await fileUrls(file),
-    destination: join(dir, name),
-    dispatcher: downloadDispatcher(),
-    headers: { 'User-Agent': USER_AGENT },
-    validator: sha1 ? { algorithm: 'sha1', hash: sha1 } : undefined
-  })
+  // 先用高速多线程引擎，失败时自动改用原来的下载方式（参数不变）
+  await downloadWithFallback(
+    {
+      url: await fileUrls(file),
+      destination: join(dir, name),
+      dispatcher: downloadDispatcher(),
+      headers: { 'User-Agent': USER_AGENT },
+      validator: sha1 ? { algorithm: 'sha1', hash: sha1 } : undefined
+    },
+    source
+  )
   return name
 }
 
@@ -299,7 +304,7 @@ export async function installCurseForgeResource(
     cfFetch<CurseMod>(`/mods/${modId}`),
     cfFetch<CurseFile>(`/mods/${modId}/files/${fileId}`)
   ])
-  const fileName = await downloadFile(file, dir)
+  const fileName = await downloadFile(file, dir, 'resource')
   return {
     installed: [{ projectId: `cf:${modId}`, title: mod.name, fileName, dependency: false }],
     missingDependencies: []
@@ -312,5 +317,5 @@ export async function downloadCurseForgeModpack(versionId: string): Promise<stri
   const file = await cfFetch<CurseFile>(`/mods/${modId}/files/${fileId}`)
   if (!/\.zip$/i.test(file.fileName)) throw new Error('这个版本没有整合包文件')
   const dir = join(app.getPath('userData'), 'cache', 'modpacks')
-  return join(dir, await downloadFile(file, dir))
+  return join(dir, await downloadFile(file, dir, 'modpack'))
 }

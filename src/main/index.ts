@@ -34,6 +34,14 @@ import { closeLogWindow, openLogWindow } from './logWindow'
 import { pickVersionIcon, setVersionFavorite, setVersionIcon } from './versionDisplay'
 import { frameOptions, registerWindowControls, watchMaximize } from './windowFrame'
 import { addMusic, listMusic, openMusicDir, removeMusic } from './music'
+import {
+  cancelFastDownload,
+  listFastDownloads,
+  pauseFastDownload,
+  removeFastDownload,
+  resumeFastDownload
+} from './services/fastDownloader'
+import { createDirectDownload, openDownloadFolder, pickDownloadDirectory } from './services/directDownload'
 import { applyUiScaleToAll, manageUiScale, normalizeScale, sanitizeFontFamily } from './uiScale'
 import { shareCrashLogs, shareGameLog, shareLatestLog } from './logShare'
 import { getGameDirInfo, openGameDir, pickGameDir, removeGameDir, renameGameDir, setGameDir } from './gameDir'
@@ -126,7 +134,8 @@ import type {
   LocalResourceKind,
   SavedServer,
   ModpackExportOptions,
-  GameDirInfo
+  GameDirInfo,
+  DirectDownloadOptions
 } from '../shared/types'
 import { HIDEABLE_PAGES } from '../shared/types'
 
@@ -248,6 +257,19 @@ function registerIpc(): void {
     removeBackground(String(name)).then(broadcastSettings)
   )
   ipcMain.handle('music:list', () => listMusic())
+  // 高速多线程下载（百宝箱）：进度通过 download:progress 每 250 毫秒推送
+  ipcMain.handle('download:create', (_, url: string, options?: DirectDownloadOptions) =>
+    createDirectDownload(url, options ?? {})
+  )
+  ipcMain.handle('download:list', () => listFastDownloads())
+  ipcMain.handle('download:pause', (_, taskId: string) => pauseFastDownload(String(taskId)))
+  ipcMain.handle('download:resume', (_, taskId: string) => resumeFastDownload(String(taskId)))
+  ipcMain.handle('download:cancel', (_, taskId: string) => cancelFastDownload(String(taskId)))
+  ipcMain.handle('download:remove', (_, taskId?: string) =>
+    removeFastDownload(typeof taskId === 'string' ? taskId : undefined)
+  )
+  ipcMain.handle('download:pickDir', (event) => pickDownloadDirectory(BrowserWindow.fromWebContents(event.sender)))
+  ipcMain.handle('download:openFolder', (_, taskId: string) => openDownloadFolder(String(taskId)))
   ipcMain.handle('music:add', (event) => addMusic(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('music:remove', (_, name: string) => removeMusic(name))
   ipcMain.handle('music:openDir', () => openMusicDir())

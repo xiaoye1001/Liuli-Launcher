@@ -13,6 +13,8 @@ import type {
   SharedLog,
   GameLogEvent,
   GameStatus,
+  FastDownloadTask,
+  DirectDownloadOptions,
   InstalledVersion,
   InstallRequest,
   InstallStatus,
@@ -255,6 +257,22 @@ declare global {
       addMusic: () => Promise<string[]>
       removeMusic: (name: string) => Promise<string[]>
       openMusicDir: () => Promise<void>
+      // ---------- 高速多线程下载（百宝箱） ----------
+      /** 新建直链下载（只支持 http / https），返回任务 ID */
+      createDirectDownload: (url: string, options?: DirectDownloadOptions) => Promise<string>
+      /** 所有下载任务（包括模组、整合包下载），最新的在前 */
+      listDownloads: () => Promise<FastDownloadTask[]>
+      pauseDownload: (taskId: string) => Promise<void>
+      resumeDownload: (taskId: string) => Promise<void>
+      cancelDownload: (taskId: string) => Promise<void>
+      /** 从列表中移除已结束的任务；不传 taskId 时移除全部已结束的任务 */
+      removeDownload: (taskId?: string) => Promise<void>
+      /** 选择保存文件夹，取消时返回 null */
+      pickDownloadDir: () => Promise<string | null>
+      /** 打开任务所在的文件夹（已完成时选中文件） */
+      openDownloadFolder: (taskId: string) => Promise<void>
+      /** 监听下载进度（每 250 毫秒推送一次所有任务），返回取消监听的函数 */
+      onDownloadProgress: (callback: (tasks: FastDownloadTask[]) => void) => () => void
       /** 任意窗口修改设置后推送最新设置 */
       onSettingsChanged: (callback: (settings: AppSettings) => void) => () => void
       getAccounts: () => Promise<AccountsInfo>

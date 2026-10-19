@@ -1,4 +1,4 @@
-import { download } from '@xmcl/file-transfer'
+import { downloadWithFallback } from './services/downloadWithFallback'
 import { app, shell } from 'electron'
 import { mkdir, readdir, rename, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
@@ -173,13 +173,16 @@ async function downloadVersionFile(version: ModrinthVersion, dir: string): Promi
     throw new Error(`文件名无效：${file.filename}`)
   }
   const urls = await modrinthFileUrls([file.url])
-  await download({
-    url: urls,
-    destination: join(dir, file.filename),
-    dispatcher: downloadDispatcher(),
-    headers: { 'User-Agent': USER_AGENT },
-    validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
-  })
+  await downloadWithFallback(
+    {
+      url: urls,
+      destination: join(dir, file.filename),
+      dispatcher: downloadDispatcher(),
+      headers: { 'User-Agent': USER_AGENT },
+      validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
+    },
+    'mod'
+  )
   // 记住刚下载的文件属于哪个项目，下次不用再向 Modrinth 查询
   if (file.hashes.sha1) hashToProject.set(file.hashes.sha1, version.project_id)
   return file.filename
@@ -325,13 +328,16 @@ export async function downloadModpackFile(versionId: string): Promise<string> {
   const dir = join(app.getPath('userData'), 'cache', 'modpacks')
   await mkdir(dir, { recursive: true })
   const destination = join(dir, basename(file.filename))
-  await download({
-    url: await modrinthFileUrls([file.url]),
-    destination,
-    dispatcher: downloadDispatcher(),
-    headers: { 'User-Agent': USER_AGENT },
-    validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
-  })
+  await downloadWithFallback(
+    {
+      url: await modrinthFileUrls([file.url]),
+      destination,
+      dispatcher: downloadDispatcher(),
+      headers: { 'User-Agent': USER_AGENT },
+      validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
+    },
+    'modpack'
+  )
   return destination
 }
 
@@ -397,13 +403,16 @@ export async function installResource(
 
   const file = mainFile(version, type)
   if (!file) throw new Error(`${version.name} 没有可下载的文件`)
-  await download({
-    url: await modrinthFileUrls([file.url]),
-    destination: join(dir, basename(file.filename)),
-    dispatcher: downloadDispatcher(),
-    headers: { 'User-Agent': USER_AGENT },
-    validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
-  })
+  await downloadWithFallback(
+    {
+      url: await modrinthFileUrls([file.url]),
+      destination: join(dir, basename(file.filename)),
+      dispatcher: downloadDispatcher(),
+      headers: { 'User-Agent': USER_AGENT },
+      validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
+    },
+    'resource'
+  )
   const project = await modrinthFetch<{ title: string }>(`/project/${encodeURIComponent(version.project_id)}`)
   return {
     installed: [{ projectId: version.project_id, title: project.title, fileName: file.filename, dependency: false }],
