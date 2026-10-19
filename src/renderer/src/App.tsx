@@ -17,7 +17,7 @@ import UpdateNotice from './components/UpdateNotice'
 import AppSplashScreen, { shouldShowSplash } from './components/AppSplashScreen'
 import GameLaunchOverlay from './components/GameLaunchOverlay'
 import type { ModpackInfo, ResourceType } from '../../shared/types'
-import { DEFAULT_TITLE, useAppearance } from './utils/appearance'
+import { DEFAULT_TITLE, useAppearance, useAppearanceLoaded } from './utils/appearance'
 import DynamicBackground from './components/DynamicBackground'
 import { ThemeProvider } from './context/ThemeContext'
 
@@ -88,6 +88,7 @@ function App(): JSX.Element {
     setPage('versions')
   }, [])
   const appearance = useAppearance()
+  const appearanceLoaded = useAppearanceLoaded()
   /** 开屏动画：每次打开启动器只播放一次；关闭了界面动画时不播放 */
   const [splash, setSplash] = useState(shouldShowSplash)
   const endSplash = useCallback(() => setSplash(false), [])
@@ -150,8 +151,10 @@ function App(): JSX.Element {
           {/* 游戏启动动画：点「启动游戏」或收到「启动中」状态时显示 */}
           <GameLaunchOverlay />
           {/* 开屏动画：盖在最上层，主界面在下面照常加载 */}
+          {/* 读到外观设置之前先用纯背景盖住（只有一瞬间），避免主界面闪一下或按默认设置播放开屏动画 */}
+          {splash && !appearanceLoaded && <div className="app-background fixed inset-0 z-[70]" />}
           <AnimatePresence>
-            {splash && (
+            {splash && appearanceLoaded && appearance.animations && (
               <AppSplashScreen key="splash" title={appearance.launcherTitle || DEFAULT_TITLE} onDone={endSplash} />
             )}
           </AnimatePresence>

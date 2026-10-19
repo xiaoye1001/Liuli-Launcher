@@ -854,7 +854,7 @@ function SettingsPage(): JSX.Element {
             <div className="mt-5 text-sm font-medium">启动游戏使用的 Java</div>
             <div className="mt-2">
               <JavaSelect
-                value={settings.javaAuto ? 'auto' : settings.javaPath || 'auto'}
+                value={settings.javaAuto ? 'auto' : settings.javaPath}
                 javas={scanning && javaList.length === 0 ? null : javaList}
                 onChange={(choice) =>
                   choice === 'auto' ? update({ javaAuto: true }) : update({ javaAuto: false, javaPath: choice })

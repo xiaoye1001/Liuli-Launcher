@@ -21,24 +21,34 @@ function MemoryPlanSummary({ plan, versionId }: { plan: MemoryPlan; versionId?: 
         {plan.factors.map((factor, i) => (
           <span
             key={factor.label}
-            className={`rounded-lg px-2 py-1 text-xs ${i === 0 ? 'bg-white/10 text-white/70' : 'bg-sky-500/15 text-sky-300'}`}
+            className={`rounded-lg px-2 py-1 text-xs ${
+              i === 0
+                ? 'bg-white/10 text-white/70'
+                : factor.mb < 0
+                  ? 'bg-amber-500/15 text-amber-300'
+                  : 'bg-sky-500/15 text-sky-300'
+            }`}
           >
             {factor.label}
             <span className="ml-1 font-mono">
-              {i === 0 ? '' : '+'}
-              {formatMemory(factor.mb)}
+              {i === 0 ? '' : factor.mb < 0 ? '−' : '+'}
+              {formatMemory(Math.abs(factor.mb))}
             </span>
           </span>
         ))}
       </div>
-      {(plan.capped || plan.limited) && (
+      {plan.capped && (
         <div className="flex items-start gap-1.5 text-xs text-amber-300">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            {plan.capped
-              ? `建议 ${formatMemory(plan.recommended)}，但要给系统和其他程序留出内存，本机最多分配 ${formatMemory(plan.memory)}`
-              : '当前可用内存不足，会少分配一些，建议启动前关闭其他程序'}
+            建议 {formatMemory(plan.recommended)}，但要给系统和其他程序留出内存，本机最多分配 {formatMemory(plan.upper)}
           </span>
+        </div>
+      )}
+      {plan.limited && (
+        <div className="flex items-start gap-1.5 text-xs text-amber-300">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>当前可用内存不足，会少分配一些，建议启动前关闭其他程序</span>
         </div>
       )}
     </div>

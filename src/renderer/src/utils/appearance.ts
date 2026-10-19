@@ -58,6 +58,8 @@ let current: Appearance = {
   welcomeSubtitle: ''
 }
 const listeners = new Set<() => void>()
+/** 是否已经读到外观设置（读到之前用的是默认值） */
+let loaded = false
 
 function apply(settings: AppSettings): void {
   current = {
@@ -106,12 +108,20 @@ function apply(settings: AppSettings): void {
   if (font) html.style.setProperty('--app-font', `"${font}"`)
   else html.style.removeProperty('--app-font')
   html.classList.toggle('no-anim', !settings.animations)
+  loaded = true
   listeners.forEach((listener) => listener())
 }
 
 /** 读取外观设置并监听变化（任意窗口修改设置后，主进程会推送给所有窗口） */
 export function initAppearance(): void {
-  window.api.getSettings().then(apply)
+  window.api
+    .getSettings()
+    .then(apply)
+    .catch(() => {
+      // 读不到设置时按默认外观继续，不能让依赖它的界面一直等待
+      loaded = true
+      listeners.forEach((listener) => listener())
+    })
   window.api.onSettingsChanged(apply)
 }
 
@@ -122,6 +132,11 @@ function subscribe(listener: () => void): () => void {
 
 export function useAppearance(): Appearance {
   return useSyncExternalStore(subscribe, () => current)
+}
+
+/** 外观设置是否已经读取（读取之前是默认值，例如开屏动画要等读到「界面动画」和名称后再显示） */
+export function useAppearanceLoaded(): boolean {
+  return useSyncExternalStore(subscribe, () => loaded)
 }
 
 /** 背景图片的地址（由主进程的 liuli:// 协议提供） */

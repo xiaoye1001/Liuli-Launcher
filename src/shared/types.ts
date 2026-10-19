@@ -968,6 +968,8 @@ export interface MemoryPlan {
   limited: boolean
   /** 建议值超过了本机能给的上限（给系统留出内存后） */
   capped: boolean
+  /** 本机最多能分配的内存（MB），给系统和其他程序留出内存后 */
+  upper: number
   /** 建议值的组成：基础、模组、光影、材质包、渲染距离等 */
   factors: MemoryFactor[]
 }

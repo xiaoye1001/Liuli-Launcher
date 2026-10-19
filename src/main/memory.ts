@@ -207,7 +207,9 @@ export function recommendedPlan(
     })
   }
   const sum = factors.reduce((total, f) => total + f.mb, 0)
-  return { recommended: Math.min(TOTAL_CAP, sum), factors: factors.filter((f) => f.mb > 0) }
+  // 超过总上限时加一项负数，让各项加起来正好等于建议值
+  if (sum > TOTAL_CAP) factors.push({ label: `超出上限 ${formatMb(TOTAL_CAP)}`, mb: TOTAL_CAP - sum })
+  return { recommended: Math.min(TOTAL_CAP, sum), factors: factors.filter((f) => f.mb !== 0) }
 }
 
 /**
@@ -237,7 +239,7 @@ export function planMemory(
       limited = true
     }
   }
-  return { memory, recommended, total, free, mods: detail.mods, limited, capped: recommended > upper, factors }
+  return { memory, recommended, total, free, mods: detail.mods, limited, capped: recommended > upper, upper, factors }
 }
 
 /** 按版本的游戏目录自动分配内存 */

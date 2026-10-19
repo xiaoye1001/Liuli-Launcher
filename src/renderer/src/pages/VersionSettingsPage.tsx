@@ -393,7 +393,8 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
   const globalJavaInfo = javaList?.find((j) => j.path === global.javaPath)
   const globalJava = global.javaAuto ? '自动选择' : `Java ${globalJavaInfo?.majorVersion ?? '（手动指定）'}`
   const isolatedNow = config.isolation === 'global' ? globalIsolated : config.isolation === 'on'
-  const memoryMax = Math.max(MEMORY_MIN, Math.floor(totalMemory / MEMORY_STEP) * MEMORY_STEP)
+  // 与「设置」页相同：至少给系统留 1 GB
+  const memoryMax = Math.max(MEMORY_MIN, Math.floor((totalMemory - 1024) / MEMORY_STEP) * MEMORY_STEP)
   const customized = JSON.stringify(config) !== JSON.stringify(DEFAULT_CONFIG)
 
   // 各项是否单独设置过
@@ -440,7 +441,8 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
   }
 
   const windowPreset = WINDOW_PRESETS.find(([w, h]) => w === config.windowWidth && h === config.windowHeight)
-  const recommendedMemory = plan?.recommended ?? null
+  // 建议值不超过本机能分配的上限（与自动分配相同：给系统和其他程序至少留 2 GB 或四分之一）
+  const recommendedMemory = plan ? Math.min(plan.recommended, plan.upper) : null
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -535,7 +537,11 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
                 ['custom', '单独设置']
               ]}
               onChange={(mode) =>
-                setMemory(mode === 'global' ? 0 : memoryDraft || recommendedMemory || global.maxMemory || 4096)
+                setMemory(
+                  mode === 'global'
+                    ? 0
+                    : Math.min(memoryDraft || recommendedMemory || global.maxMemory || 4096, memoryMax)
+                )
               }
             />
             {memoryDraft > 0 ? (

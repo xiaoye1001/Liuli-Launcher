@@ -94,16 +94,27 @@ function JavaSelect({ value, onChange, javas, globalLabel, required, disabled }:
     }))
   ]
 
-  // 当前值不在列表里（例如之前选的 Java 被删除了）：单独显示一项，提示已找不到
-  const selected =
+  // 当前值不在列表里：还在查找时先显示路径；查找完仍然没有（例如之前选的 Java 被删除了）时提示重新选择
+  const selected: Option =
     options.find((o) => o.value === value) ??
-    ({
-      value,
-      title: '找不到之前选择的 Java',
-      subtitle: value,
-      badge: <MajorBadge major={0} />,
-      warning: '请重新选择，或改为自动选择'
-    } satisfies Option)
+    (javas === null && value
+      ? { value, title: 'Java', subtitle: value, badge: <MajorBadge major={0} /> }
+      : {
+          value,
+          title: value ? '找不到之前选择的 Java' : '还没有选择 Java',
+          subtitle: value,
+          badge: <MajorBadge major={0} />,
+          warning: '请重新选择，或改为自动选择'
+        })
+
+  // 列表内容变化（例如重新查找到 Java）时，高亮项不超出范围
+  const highlighted = Math.min(highlight, options.length - 1)
+  const optionId = (i: number): string => `${listId}-${i}`
+
+  // 用键盘移动高亮项时，让它保持在可见范围内
+  useEffect(() => {
+    if (open) document.getElementById(optionId(highlighted))?.scrollIntoView({ block: 'nearest' })
+  }, [open, highlighted])
 
   // 点击外面时关闭
   useEffect(() => {
@@ -142,15 +153,17 @@ function JavaSelect({ value, onChange, javas, globalLabel, required, disabled }:
     if (e.key === 'Escape') {
       e.preventDefault()
       setOpen(false)
+    } else if (e.key === 'Tab') {
+      setOpen(false)
     } else if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setHighlight((i) => Math.min(options.length - 1, i + 1))
+      setHighlight(Math.min(options.length - 1, highlighted + 1))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
-      setHighlight((i) => Math.max(0, i - 1))
+      setHighlight(Math.max(0, highlighted - 1))
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
-      const option = options[highlight]
+      const option = options[highlighted]
       if (option) choose(option)
     }
   }
@@ -164,6 +177,7 @@ function JavaSelect({ value, onChange, javas, globalLabel, required, disabled }:
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={listId}
+        aria-activedescendant={open ? optionId(highlighted) : undefined}
         className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors disabled:opacity-50 ${
           open ? 'border-emerald-400/60 bg-black/30' : 'border-white/10 bg-black/20 hover:bg-black/30'
         }`}
@@ -204,12 +218,13 @@ function JavaSelect({ value, onChange, javas, globalLabel, required, disabled }:
               return (
                 <li
                   key={option.value}
+                  id={optionId(i)}
                   role="option"
                   aria-selected={active}
                   onMouseEnter={() => setHighlight(i)}
                   onClick={() => choose(option)}
                   className={`flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 ${
-                    i === highlight ? 'bg-white/10' : ''
+                    i === highlighted ? 'bg-white/10' : ''
                   }`}
                 >
                   {option.badge}

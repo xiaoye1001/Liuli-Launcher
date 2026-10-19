@@ -9,7 +9,7 @@ import { versionGameDir } from './isolation'
 import { getVersionConfig, isCustomized, isolatedWith, parseEnvVars, splitArgs } from './versionConfig'
 import { getMicrosoftLaunchAuth } from './microsoft'
 import { pickJava, requirementOf } from './javaRuntime'
-import { completeMissingFiles, startJavaInstall } from './install'
+import { cancelInstall, completeMissingFiles, startJavaInstall } from './install'
 import { countMissing, findMissingFiles, type MissingFiles } from './fileCheck'
 import { autoMemory } from './memory'
 import { gcTuningArgs } from './gcTuning'
@@ -87,6 +87,18 @@ let status: GameStatus = { state: 'idle', versionId: '' }
 let cancelRequested = false
 /** 已经创建、但窗口还没出现的游戏进程（取消时结束它） */
 let cancellableProc: ChildProcess | null = null
+/** 启动过程中自动开始的下载（Java、补全游戏文件）正在进行：取消启动时一起取消 */
+let launchDownloading = false
+
+/** 在启动过程中进行下载，取消启动时可以一起取消 */
+async function launchDownload<T>(run: () => Promise<T>): Promise<T> {
+  launchDownloading = true
+  try {
+    return await run()
+  } finally {
+    launchDownloading = false
+  }
+}
 
 /**
  * 取消正在进行的启动：游戏进程还没创建时，在创建之前停下；已经创建但窗口还没出现时，结束游戏进程。
@@ -97,6 +109,8 @@ export function cancelLaunch(): boolean {
   if (!cancelRequested) launcherLog('正在取消启动…')
   cancelRequested = true
   if (cancellableProc) killTree(cancellableProc)
+  // 正在自动下载 Java 或补全游戏文件：立即停止下载，不用等下载完成
+  if (launchDownloading) void cancelInstall().catch(() => undefined)
   return true
 }
 
@@ -266,9 +280,10 @@ export function supportsQuickPlay(minecraftVersion: string): boolean {
 
 function describePlan(plan: MemoryPlan): string {
   const parts = [
-    `建议 ${plan.recommended} MB：${plan.factors.map((f, i) => (i === 0 ? `${f.label} ${f.mb} MB` : `${f.label} +${f.mb} MB`)).join('、')}`
+    `建议 ${plan.recommended} MB：${plan.factors.map((f, i) => (i === 0 ? `${f.label} ${f.mb} MB` : `${f.label} ${f.mb > 0 ? '+' : ''}${f.mb} MB`)).join('、')}`
   ]
-  if (plan.capped) parts.push(`本机最多分配 ${plan.memory} MB`)
+  if (plan.capped) parts.push(`本机最多分配 ${plan.upper} MB`)
+  if (plan.limited) parts.push('可用内存不足，已适当减少')
   if (plan.free !== null) parts.push(`当前可用 ${plan.free} MB`)
   return parts.join('，')
 }
@@ -294,7 +309,7 @@ async function ensureGameFiles(versionId: string, version: ResolvedVersion): Pro
     return
   }
   launcherLog(`发现 ${count} 个缺失或损坏的文件，正在自动补全（进度见「下载」页）`)
-  await completeMissingFiles(versionId, version, missing)
+  await launchDownload(() => completeMissingFiles(versionId, version, missing))
   launcherLog('游戏文件已补全')
 }
 
@@ -390,7 +405,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       java = (await pickJava(requirement)) ?? undefined
       if (!java) {
         launcherLog(`本机没有合适的 Java ${required}，正在自动下载（进度见「下载」页）`)
-        const path = await startJavaInstall(requirement.component)
+        const path = await launchDownload(() => startJavaInstall(requirement.component))
         java = await resolveJava(path)
         if (!java) throw new Error(`下载的 Java ${required} 无法运行`)
         launcherLog(`Java ${required} 下载完成`)
@@ -408,6 +423,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
         )
       }
     }
+    throwIfCancelled()
     launcherLog(`Java ${java.version}：${java.path}`)
     const accountLabel = auth.microsoft
       ? '微软账号'
@@ -448,6 +464,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       INST_MC_VERSION: minecraftVersion
     }
     if (config.preLaunchCommand.trim()) {
+      throwIfCancelled()
       const code = await runHook('启动前命令', config.preLaunchCommand, gamePath, hookEnv)
       if (code !== 0) throw new Error(`启动前命令执行失败（退出码 ${code}），已取消启动`)
     }
@@ -524,6 +541,11 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     const watcher = createMinecraftProcessWatcher(proc)
     watcher.on('minecraft-window-ready', () => {
       cancellableProc = null
+      // 窗口已经出现，启动不能再取消：清除取消标记，否则正常退出游戏时会被当成「已取消启动」
+      if (cancelRequested) {
+        cancelRequested = false
+        launcherLog('游戏窗口已出现，无法再取消启动')
+      }
       if (status.state === 'launching') {
         launcherLog('游戏窗口已出现')
         setStatus({ state: 'running', versionId, startedAt: processStartedAt })
