@@ -22,6 +22,7 @@ Glass-style UI · Dark & light themes · Fast downloads via mirrors · One-click
 - Version list split into releases, snapshots and old versions, with search
 - Two download sources: the **BMCLAPI mirror** (recommended in mainland China) or the **official Mojang servers**; automatically falls back to the official source if the mirror fails
 - Multi-threaded downloads with live progress and speed; installs can be cancelled and retried
+- **Fast multi-threaded downloads**: mods, modpacks and resource packs are downloaded in parallel chunks when the server supports ranges (files over 2 MB), and automatically fall back to the regular downloader if anything goes wrong; **More → Toolbox** downloads any HTTP/HTTPS link with selectable thread count and folder, pause/resume/cancel, and a per-thread chunk progress bar with speed and time remaining
 - **Download & network settings**: adjust how many files download at once; use the system proxy or a manual HTTP proxy (used for downloads, version lists, Modrinth, sign-in and images in the UI), and test which servers are reachable in one click
 - Choose a custom version name and attach a mod loader before installing:
   - **Forge**, **NeoForge**, **Fabric** or **Quilt** (pick one)

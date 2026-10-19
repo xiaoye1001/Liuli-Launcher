@@ -241,7 +241,7 @@ export type SkinModel = 'default' | 'slim'
 export type UpdateSource = 'auto' | 'official' | 'github'
 
 /** 可以在侧边栏隐藏的页面（主页和设置始终显示） */
-export const HIDEABLE_PAGES = ['account', 'versions', 'servers', 'download']
+export const HIDEABLE_PAGES = ['account', 'versions', 'servers', 'download', 'more']
 
 /** 可选的界面缩放比例（%） */
 export const UI_SCALES = [80, 90, 100, 110, 125, 150]
