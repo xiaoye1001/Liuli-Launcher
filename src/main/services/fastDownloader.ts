@@ -51,6 +51,8 @@ class PausedSignal extends Error {}
 class StallError extends Error {}
 /** 内部使用：服务器明确拒绝（403、404、429 等），重试也没用，立即失败以便尽快改用原下载方式 */
 class FatalHttpError extends Error {}
+/** 内部使用：服务器没有正确处理分块请求（忽略 Range 或返回的范围不对），改为单线程从头下载 */
+class RangeIgnoredError extends Error {}
 
 /** 这些状态码重试没有意义（权限、找不到、限流），立即失败 */
 function isFatalStatus(status: number): boolean {
@@ -165,6 +167,11 @@ function header(headers: Record<string, string | string[] | undefined>, name: st
   return Array.isArray(value) ? value[0] : value
 }
 
+/** Windows 的保留设备名（CON、NUL、COM1……，带不带扩展名都不能用作文件或文件夹名） */
+export function isReservedName(name: string): boolean {
+  return /^(con|prn|aux|nul|com\d|lpt\d|conin\$|conout\$)(\..*)?$/i.test(name.trim())
+}
+
 /** 去掉文件名里不能用的字符，避免写到其它文件夹 */
 export function sanitizeFileName(name: string): string {
   const cleaned = name
@@ -172,7 +179,8 @@ export function sanitizeFileName(name: string): string {
     .replace(/^[.\s]+/, '')
     .replace(/[.\s]+$/, '')
     .slice(0, 200)
-  return cleaned || 'download'
+  if (!cleaned) return 'download'
+  return isReservedName(cleaned) ? `_${cleaned}` : cleaned
 }
 
 /** 从 Content-Disposition 或地址里取文件名 */
@@ -252,6 +260,10 @@ async function probeUrl(url: string, headers: Record<string, string>, dispatcher
       }
     } else if (res.statusCode >= 200 && res.statusCode < 300) {
       size = Number(header(res.headers, 'content-length')) || size
+      ranges = false
+    } else if (res.statusCode === 416) {
+      // 空文件没有第一个字节可以返回：按大小未知、不分块下载
+      size = 0
       ranges = false
     } else {
       throw new Error(`服务器返回 HTTP ${res.statusCode}${res.statusCode === 429 ? '（请求太频繁，服务器限流）' : ''}`)
@@ -349,14 +361,19 @@ async function downloadChunk(task: Task, index: number, file: FileHandle): Promi
           `服务器返回 HTTP ${res.statusCode}${res.statusCode === 429 ? '（请求太频繁，服务器限流）' : ''}`
         )
       }
-      if (useRange && res.statusCode !== 206) {
-        discard(res.body)
-        // 服务器忽略了分块请求，再试也一样
-        throw new FatalHttpError(`服务器没有按分块返回数据（HTTP ${res.statusCode}）`)
-      }
-      if (!useRange && (res.statusCode < 200 || res.statusCode >= 300)) {
+      if (res.statusCode < 200 || res.statusCode >= 300) {
         discard(res.body)
         throw new Error(`服务器返回 HTTP ${res.statusCode}`)
+      }
+      if (useRange && res.statusCode !== 206) {
+        discard(res.body)
+        // 服务器忽略了分块请求（返回了整个文件），再试也一样：改为单线程下载
+        throw new RangeIgnoredError(`服务器没有按分块返回数据（HTTP ${res.statusCode}）`)
+      }
+      if (useRange && !rangeMatches(header(res.headers, 'content-range'), from, chunk.end, task.total)) {
+        discard(res.body)
+        // 返回的数据不是请求的那一段，写进去文件就坏了
+        throw new RangeIgnoredError(`服务器返回的分块范围不对（${header(res.headers, 'content-range') ?? '没有范围'}）`)
       }
       let position = useRange ? from : chunk.start
       for await (const data of res.body) {
@@ -387,6 +404,7 @@ async function downloadChunk(task: Task, index: number, file: FileHandle): Promi
       attempt++
       const reason =
         e instanceof StallError || controller.signal.reason instanceof StallError ? '长时间没有收到数据' : errorText(e)
+      if (e instanceof RangeIgnoredError) throw e
       if (e instanceof FatalHttpError) throw new Error(`第 ${index + 1} 个分块下载失败：${reason}`)
       downloadLog(`${task.fileName} 第 ${index + 1} 个分块第 ${attempt} 次失败：${reason}`)
       if (attempt >= CHUNK_ATTEMPTS) {
@@ -398,6 +416,20 @@ async function downloadChunk(task: Task, index: number, file: FileHandle): Promi
       task.controllers.delete(controller)
     }
   }
+}
+
+/**
+ * 检查 206 响应的 Content-Range（bytes 开始-结束/总大小）：开始位置必须是请求的位置，
+ * 结束位置不能超出这一块（服务器可以少发，少发的部分会接着重试），总大小已知时必须一致
+ */
+function rangeMatches(value: string | undefined, from: number, end: number, total: number): boolean {
+  const match = /^\s*bytes\s+(\d+)-(\d+)\/(\d+|\*)\s*$/i.exec(value ?? '')
+  if (!match) return false
+  const [start, last] = [Number(match[1]), Number(match[2])]
+  if (start !== from || last < start) return false
+  if (end >= 0 && last > end) return false
+  if (total > 0 && match[3] !== '*' && Number(match[3]) !== total) return false
+  return true
 }
 
 /** 是否可以按 Range 续传（探测时记录） */
@@ -424,6 +456,8 @@ async function runChunks(task: Task, file: FileHandle): Promise<void> {
   if (errors.some((e) => e instanceof DownloadCancelledError) || task.status === 'cancelled') {
     throw new DownloadCancelledError()
   }
+  const ignored = errors.find((e) => e instanceof RangeIgnoredError)
+  if (ignored) throw ignored
   const real = errors.find(
     (e) => !(e instanceof PausedSignal) && !(e instanceof Error && e.message === '其它分块下载失败')
   )
@@ -448,6 +482,11 @@ async function waitForResume(task: Task): Promise<void> {
   if ((task.status as FastDownloadStatus) === 'cancelled') throw new DownloadCancelledError()
 }
 
+/** 临时文件名带上任务编号：两个任务同时下载到同一个文件时互不干扰 */
+function tempPathOf(destination: string, id: string): string {
+  return `${destination}.${id.slice(0, 8)}${PART_SUFFIX}`
+}
+
 async function cleanup(task: Task): Promise<void> {
   await rm(task.tempPath, { force: true }).catch(() => undefined)
 }
@@ -467,7 +506,7 @@ async function execute(task: Task): Promise<string> {
       sanitizeFileName(task.preferredName || info.fileName || 'download')
     )
     task.fileName = basename(task.destination)
-    task.tempPath = `${task.destination}${PART_SUFFIX}`
+    task.tempPath = tempPathOf(task.destination, task.id)
   }
   task.total = info.size
   task.chunks = planChunks(info.size, info.ranges, task.threads, task.minChunkedSize)
@@ -482,6 +521,8 @@ async function execute(task: Task): Promise<string> {
   try {
     if (info.size > 0) await file.truncate(info.size)
     for (;;) {
+      // 探测、准备文件期间点了暂停：等继续后再开始
+      await waitForResume(task)
       checkState(task)
       try {
         await runChunks(task, file)
@@ -489,6 +530,15 @@ async function execute(task: Task): Promise<string> {
         if (info.size <= 0) await file.truncate(task.total)
         break
       } catch (e) {
+        if (e instanceof RangeIgnoredError && rangeSupported(task)) {
+          // 服务器声称支持分块，实际却不支持：改为单线程从头下载（只降级一次）
+          downloadLog(`${task.fileName}：${e.message}，改为单线程下载`)
+          rangeFlags.set(task, false)
+          task.failed = false
+          task.chunked = false
+          task.chunks = [{ start: 0, end: info.size > 0 ? info.size - 1 : -1, downloaded: 0 }]
+          continue
+        }
         if (!(e instanceof PausedSignal)) throw e
         await waitForResume(task)
         // 服务器不支持分块时，继续下载只能从头开始
@@ -510,6 +560,8 @@ async function execute(task: Task): Promise<string> {
     const actual = await fileSha1(task.tempPath)
     if (actual.toLowerCase() !== task.sha1.toLowerCase()) throw new Error('文件校验失败（SHA1 不一致）')
   }
+  // 校验期间点了取消：不保存文件
+  if ((task.status as FastDownloadStatus) === 'cancelled') throw new DownloadCancelledError()
   await mkdir(dirname(task.destination), { recursive: true })
   await rename(task.tempPath, task.destination)
   return task.destination
@@ -653,7 +705,7 @@ export function startFastDownload(options: FastDownloadOptions): StartedDownload
     destination,
     directory: options.directory,
     preferredName: options.fileName?.trim() || undefined,
-    tempPath: destination ? `${destination}${PART_SUFFIX}` : '',
+    tempPath: '',
     sha1: options.sha1,
     expectedSize: options.size,
     headers: options.headers ?? {},
@@ -672,6 +724,7 @@ export function startFastDownload(options: FastDownloadOptions): StartedDownload
     lastTime: Date.now(),
     speed: 0
   }
+  if (destination) task.tempPath = tempPathOf(destination, id)
   tasks.set(id, task)
   ensureTicker()
   push()

@@ -87,7 +87,7 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 ## Getting started
 
 ### Requirements
-- [Node.js](https://nodejs.org/) 20 or later
+- [Node.js](https://nodejs.org/) 22.12 or later
 - Java is required to run the game: Java 21 for 1.20.5 and later, Java 17 for 1.18–1.20.4, Java 16 for 1.17, and Java 8 for older versions
 
 ### Run

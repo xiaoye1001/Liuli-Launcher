@@ -1,7 +1,31 @@
 import { session } from 'electron'
-import { Agent, interceptors, ProxyAgent, setGlobalDispatcher, type Dispatcher } from 'undici'
+import { Agent, errors, interceptors, ProxyAgent, setGlobalDispatcher, type Dispatcher } from 'undici'
 import { getSettings } from './config'
 import type { NetworkCheck } from '../shared/types'
+
+/**
+ * 兼容旧版 @xmcl 下载库：它们在服务器返回错误状态码（404 等）时创建 undici 的 ResponseStatusCodeError，
+ * 新版 undici（修复了安全问题的版本）已经删除了这个类，会变成 TypeError 并让主进程崩溃。这里补上同样的类
+ */
+const undiciErrors = errors as unknown as Record<string, unknown>
+if (typeof undiciErrors.ResponseStatusCodeError !== 'function') {
+  class ResponseStatusCodeError extends errors.UndiciError {
+    code = 'UND_ERR_RESPONSE_STATUS_CODE'
+    status: number
+    statusCode: number
+    headers: unknown
+    body: unknown
+    constructor(message: string, statusCode: number, headers: unknown, body: unknown) {
+      super(message || `服务器返回错误（HTTP ${statusCode}）`)
+      this.name = 'ResponseStatusCodeError'
+      this.status = statusCode
+      this.statusCode = statusCode
+      this.headers = headers
+      this.body = body
+    }
+  }
+  undiciErrors.ResponseStatusCodeError = ResponseStatusCodeError
+}
 
 export const DEFAULT_THREADS = 16
 const MAX_THREADS = 64

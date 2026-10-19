@@ -90,7 +90,7 @@
 ## 快速开始
 
 ### 环境要求
-- [Node.js](https://nodejs.org/) 20 或更高版本
+- [Node.js](https://nodejs.org/) 22.12 或更高版本
 - 运行游戏需要安装 Java：1.20.5 及以上需要 Java 21，1.18 ~ 1.20.4 需要 Java 17，1.17 需要 Java 16，更早的版本需要 Java 8
 
 ### 运行

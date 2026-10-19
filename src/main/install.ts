@@ -25,6 +25,9 @@ import { neoforgeProject } from './neoforge'
 import { optiFineInstallerUrl } from './optifine'
 import { createJavaInstallTask, javaExecutable, pickJava, requirementOf } from './javaRuntime'
 import { isIsolated, versionGameDir } from './isolation'
+import { assertSafeId } from './versionManage'
+import { isReservedName } from './services/fastDownloader'
+import { setVersionConfig } from './versionConfig'
 import { closeInstallDispatcher, installDispatcher } from './network'
 import type { MissingFiles } from './fileCheck'
 import type {
@@ -35,6 +38,7 @@ import type {
   InstallStep,
   InstallRequest,
   InstallStatus,
+  ModLoader,
   OptiFineVersionRef
 } from '../shared/types'
 
@@ -104,6 +108,8 @@ function isLeafTask(task: Task<unknown>): boolean {
 
 let status: InstallStatus | null = null
 let currentTask: AnyInstallTask | null = null
+/** 正在准备任务（获取版本信息等，还没有开始下载）：这时也不能开始另一个任务 */
+let starting = false
 let cancelRequested = false
 /** 上一次的安装请求，用于「重试」 */
 let lastRequest: InstallRequest | null = null
@@ -128,8 +134,23 @@ export function getInstallStatus(): InstallStatus | null {
 }
 
 export function assertIdle(): void {
+  if (starting) throw new Error('正在准备另一个下载或安装任务，请稍候')
   if (status?.state === 'running') {
     throw new Error(`正在${status.kind === 'repair' ? '修复' : '安装'} ${status.versionId}，请等待完成`)
+  }
+}
+
+/**
+ * 准备阶段占住安装：检查空闲后立即标记，准备期间（获取版本信息等）不会有第二个任务同时开始。
+ * fn 里调用 runTask 后状态变为运行中，之后由 runTask 的状态保证只有一个任务
+ */
+async function prepare<T>(fn: () => Promise<T>): Promise<T> {
+  assertIdle()
+  starting = true
+  try {
+    return await fn()
+  } finally {
+    starting = false
   }
 }
 
@@ -241,7 +262,11 @@ function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): Pr
  * 官方版本会连同版本 json 和游戏本体一起检查；不在官方列表中的版本（如模组加载器）只检查依赖库与资源文件。
  */
 export async function startRepair(versionId: string): Promise<void> {
-  assertIdle()
+  assertSafeId(versionId)
+  return prepare(() => repair(versionId))
+}
+
+async function repair(versionId: string): Promise<void> {
   const settings = await getSettings()
   const options = await downloadOptions()
 
@@ -270,8 +295,7 @@ export async function completeMissingFiles(
   version: ResolvedVersion,
   missing: MissingFiles
 ): Promise<void> {
-  assertIdle()
-  const options = await downloadOptions()
+  const options = await prepare(() => downloadOptions())
   const folder = MinecraftFolder.from(version.minecraftDirectory)
   // 本体放在没有继承的版本自己的文件夹里，有继承时放在原版的文件夹里（与 xmcl 的检查一致）
   const jarId = version.inheritances.length === 1 ? version.id : version.minecraftVersion
@@ -366,6 +390,7 @@ function validateName(name: string): void {
   if (/[\\/:*?"<>|]/.test(name) || name === '.' || name === '..' || name !== name.trim()) {
     throw new Error('版本名不能包含 \\ / : * ? " < > | 等字符，且首尾不能有空格')
   }
+  if (name.endsWith('.') || isReservedName(name)) throw new Error('版本名不能以 . 结尾，也不能是 CON、NUL 等系统保留名')
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -404,7 +429,13 @@ export async function startCustomInstall(
   allowExisting = false,
   extra?: InstallExtraStep
 ): Promise<void> {
-  assertIdle()
+  return prepare(() => customInstall(request, allowExisting, extra))
+}
+
+/** OptiFine 的类型和补丁名来自镜像服务器，会拼进文件名，只允许字母、数字、下划线、点和横线 */
+const OPTIFINE_PART = /^[A-Za-z0-9_.-]{1,64}$/
+
+async function customInstall(request: InstallRequest, allowExisting: boolean, extra?: InstallExtraStep): Promise<void> {
   const { minecraftVersion, fabricLoader, quiltLoader, forgeVersion, neoforgeVersion, optifine } = request
   const name = request.name
   validateName(name)
@@ -414,8 +445,17 @@ export async function startCustomInstall(
   if (optifine && (fabricLoader || quiltLoader || neoforgeVersion)) {
     throw new Error('OptiFine 只能单独安装或与 Forge 一起安装')
   }
+  if (optifine && !(OPTIFINE_PART.test(optifine.type) && OPTIFINE_PART.test(optifine.patch))) {
+    throw new Error('OptiFine 版本信息无效')
+  }
 
   const settings = await getSettings()
+  /**
+   * 版本实际使用的游戏目录。整合包始终使用独立的文件夹（versions/<版本名>），
+   * 不会把整合包的存档、配置解压到公共目录覆盖已有的文件
+   */
+  const gameDirFor = (loader: ModLoader | undefined): string =>
+    versionGameDir(settings.gameDir, name, extra ? true : isIsolated(settings.versionIsolation, loader))
   const javaUser = forgeVersion ? 'Forge' : neoforgeVersion ? 'NeoForge' : optifine ? 'OptiFine' : ''
   if (javaUser && !settings.javaAuto && !settings.javaPath) {
     throw new Error(`安装 ${javaUser} 需要运行 Java，请先到「设置」页选择 Java，或开启「自动选择 Java」`)
@@ -529,10 +569,7 @@ export async function startCustomInstall(
           const download = optiFineDownload(optifine)
           await mkdir(dirname(download.path), { recursive: true })
           await this.yield(download.task)
-          const modsDir = join(
-            versionGameDir(settings.gameDir, name, isIsolated(settings.versionIsolation, 'forge')),
-            'mods'
-          )
+          const modsDir = join(gameDirFor('forge'), 'mods')
           await mkdir(modsDir, { recursive: true })
           await copyFile(download.path, join(modsDir, basename(download.path)))
         }
@@ -583,10 +620,9 @@ export async function startCustomInstall(
       }
     }
     // 整合包的文件与游戏本体、模组加载器同时下载（与 PCL 等启动器相同），不用等前面全部装完
-    await Promise.all([
-      installGame(),
-      extra ? extra(this, versionGameDir(settings.gameDir, name, isIsolated(settings.versionIsolation, loader))) : null
-    ])
+    await Promise.all([installGame(), extra ? extra(this, gameDirFor(loader)) : null])
+    // 整合包：记录为独立文件夹，以后修改全局的版本隔离设置也不影响它
+    if (extra) await setVersionConfig(name, { isolation: 'on' })
   })
   runTask(name, 'install', installAll)
 }
@@ -596,10 +632,10 @@ export async function startCustomInstall(
  * 返回下载好的 java 路径；失败或取消时抛出错误。
  */
 export async function startJavaInstall(component: string): Promise<string> {
-  assertIdle()
   const label = `Java ${JAVA_MAJOR[component] ?? component}`
+  const javaTask = await prepare(() => createJavaInstallTask(component))
+  // 任务真正开始后才记录，准备失败时不影响「重试」上一次的安装
   lastJavaComponent = component
-  const javaTask = await createJavaInstallTask(component)
   const ok = await runTask(label, 'java', javaTask as AnyInstallTask)
   if (!ok)
     throw new Error(status?.state === 'cancelled' ? `已取消下载 ${label}` : `${label} 下载失败：${status?.error ?? ''}`)

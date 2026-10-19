@@ -11,7 +11,7 @@
 
 ## 开发环境
 
-需要 Node.js 22 和 npm。
+需要 Node.js 22.12 或更高版本和 npm。
 
 ```bash
 npm install
