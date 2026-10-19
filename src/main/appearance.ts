@@ -121,7 +121,7 @@ export async function clearBackground(): Promise<AppSettings> {
 // ---------- 从网络添加背景 ----------
 
 /** 根据文件开头的内容判断类型，不相信服务器声明的类型和地址里的扩展名 */
-function detectMediaType(head: Buffer): string | null {
+export function detectMediaType(head: Buffer): string | null {
   if (head.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'png'
   if (head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) return 'jpg'
   if (head.subarray(0, 6).toString('latin1') === 'GIF87a' || head.subarray(0, 6).toString('latin1') === 'GIF89a')

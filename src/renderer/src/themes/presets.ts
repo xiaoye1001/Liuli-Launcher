@@ -1,4 +1,5 @@
-import type { AppSettings, ParticleEffect, ThemePreset } from '../../../shared/types'
+import { themePatch } from '../../../shared/theme'
+import type { AppSettings, CustomTheme, ParticleEffect, ThemePreset } from '../../../shared/types'
 
 /** 主题方案：一键切换配色、明暗、面板质感与专属动态背景 */
 export interface ThemePresetInfo {
@@ -140,4 +141,27 @@ export function presetPatch(key: ThemePreset): Partial<AppSettings> {
     ...(info.mode ? { theme: info.mode } : {}),
     ...(info.accent ? { accentColor: 'custom' as const, customAccent: info.accent } : {})
   }
+}
+
+/** 自动切换目标（preset:xxx / custom:id）对应的设置；找不到时返回 null */
+export function targetPatch(
+  target: string,
+  customThemes: CustomTheme[],
+  library: string[]
+): Partial<AppSettings> | null {
+  if (target.startsWith('preset:')) {
+    const key = target.slice(7) as ThemePreset
+    return THEME_PRESET_LIST.some((p) => p.key === key) ? presetPatch(key) : null
+  }
+  if (target.startsWith('custom:')) {
+    const theme = customThemes.find((t) => t.id === target.slice(7))
+    return theme ? themePatch(theme.data, library) : null
+  }
+  return null
+}
+
+/** 自动切换目标的显示名称 */
+export function targetName(target: string, customThemes: CustomTheme[]): string {
+  if (target.startsWith('preset:')) return presetInfo(target.slice(7) as ThemePreset).name
+  return customThemes.find((t) => t.id === target.slice(7))?.name ?? '（已删除的主题）'
 }

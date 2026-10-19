@@ -133,6 +133,18 @@ export interface AppSettings {
   themePreset: ThemePreset
   /** 背景粒子特效，auto 为跟随主题方案 */
   particleEffect: ParticleEffect
+  /** 粒子数量 */
+  particleDensity: ParticleDensity
+  /** 粒子速度（%），50~200 */
+  particleSpeed: number
+  /** 鼠标互动：粒子躲开鼠标 */
+  particleInteract: boolean
+  /** 鼠标视差：背景随鼠标轻微反向移动 */
+  parallax: boolean
+  /** 我的主题（最多 20 个） */
+  customThemes: CustomTheme[]
+  /** 按时间自动切换主题 */
+  autoTheme: AutoThemeSettings
   /** 背景模糊程度（像素，0~20） */
   backgroundBlur: number
   /** 背景遮罩浓度（百分比，0~80），让文字在明亮的图片上也看得清 */
@@ -247,6 +259,49 @@ export type UpdateSource = 'auto' | 'official' | 'github'
 /** 主题方案 */
 export type ThemePreset = 'classic' | 'aurora' | 'sky' | 'cherry' | 'end' | 'acrylic' | 'nether'
 export const THEME_PRESETS: ThemePreset[] = ['classic', 'aurora', 'sky', 'cherry', 'end', 'acrylic', 'nether']
+
+export type ParticleDensity = 'low' | 'normal' | 'high'
+
+/** 一套主题的全部外观参数（我的主题、导入导出、自动切换都使用它） */
+export interface ThemeData {
+  themePreset: ThemePreset
+  theme: ThemeMode
+  accentColor: AccentColor
+  customAccent: string
+  panelOpacity: number
+  panelBlur: number
+  particleEffect: ParticleEffect
+  particleDensity: ParticleDensity
+  particleSpeed: number
+  particleInteract: boolean
+  parallax: boolean
+  backgroundMode: BackgroundMode
+  /** 壁纸（背景库里的文件名），空字符串表示没有 */
+  backgroundImage: string
+  backgroundFit: BackgroundFit
+  backgroundBlur: number
+  backgroundDim: number
+}
+
+export interface CustomTheme {
+  id: string
+  name: string
+  createdAt: number
+  data: ThemeData
+}
+
+/** 自动切换的目标：preset:<主题方案> 或 custom:<我的主题 ID> */
+export type ThemeTarget = string
+
+export interface AutoThemeSettings {
+  enabled: boolean
+  day: ThemeTarget
+  night: ThemeTarget
+  /** 白天开始时间，HH:MM */
+  dayStart: string
+  /** 夜晚开始时间，HH:MM */
+  nightStart: string
+}
 
 /** 背景粒子特效 */
 export type ParticleEffect = 'auto' | 'none' | 'sakura' | 'ender' | 'fireflies' | 'rain' | 'embers'

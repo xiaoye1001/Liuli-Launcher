@@ -139,6 +139,8 @@ import type {
   DirectDownloadOptions
 } from '../shared/types'
 import { HIDEABLE_PAGES, PARTICLE_EFFECTS, THEME_PRESETS } from '../shared/types'
+import { sanitizeAutoTheme, sanitizeCustomThemes } from '../shared/theme'
+import { exportTheme, importTheme } from './themeFiles'
 import type { ParticleEffect, ThemePreset } from '../shared/types'
 
 /** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
@@ -242,6 +244,17 @@ function registerIpc(): void {
     if ('particleEffect' in patch && !PARTICLE_EFFECTS.includes(patch.particleEffect as ParticleEffect)) {
       patch = { ...patch, particleEffect: 'auto' }
     }
+    if ('particleDensity' in patch && !['low', 'normal', 'high'].includes(String(patch.particleDensity))) {
+      patch = { ...patch, particleDensity: 'normal' }
+    }
+    if ('particleSpeed' in patch) {
+      const speed = Number(patch.particleSpeed)
+      patch = { ...patch, particleSpeed: Number.isFinite(speed) ? Math.round(Math.min(200, Math.max(50, speed))) : 100 }
+    }
+    if ('particleInteract' in patch) patch = { ...patch, particleInteract: patch.particleInteract === true }
+    if ('parallax' in patch) patch = { ...patch, parallax: patch.parallax === true }
+    if ('customThemes' in patch) patch = { ...patch, customThemes: sanitizeCustomThemes(patch.customThemes) }
+    if ('autoTheme' in patch) patch = { ...patch, autoTheme: sanitizeAutoTheme(patch.autoTheme) }
     if ('hiddenPages' in patch) {
       const pages = Array.isArray(patch.hiddenPages) ? patch.hiddenPages : []
       patch = { ...patch, hiddenPages: HIDEABLE_PAGES.filter((p) => pages.includes(p)) }
@@ -264,6 +277,17 @@ function registerIpc(): void {
   ipcMain.handle('appearance:removeBackground', (_, name: string) =>
     removeBackground(String(name)).then(broadcastSettings)
   )
+  ipcMain.handle('theme:export', (event, themeId?: string) =>
+    exportTheme(BrowserWindow.fromWebContents(event.sender), typeof themeId === 'string' ? themeId : undefined)
+  )
+  ipcMain.handle('theme:import', async (event) => {
+    const result = await importTheme(BrowserWindow.fromWebContents(event.sender))
+    if (!result) return null
+    // 导入的主题可能切换了明暗，同步给所有窗口
+    nativeTheme.themeSource = result.settings.theme
+    broadcastSettings(result.settings)
+    return result
+  })
   ipcMain.handle('appearance:addBackgroundUrl', (_, url: string) => addBackgroundFromUrl(url).then(broadcastSettings))
   ipcMain.handle('music:list', () => listMusic())
   // 高速多线程下载（百宝箱）：进度通过 download:progress 每 250 毫秒推送

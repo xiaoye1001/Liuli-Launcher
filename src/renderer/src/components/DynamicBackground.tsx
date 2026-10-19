@@ -8,7 +8,7 @@
 import { useEffect, useRef } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import AppBackground from './AppBackground'
-import { createParticleSystem, type ParticleKind } from '../utils/particles'
+import { createParticleSystem, DENSITY_FACTORS, type ParticleKind, type ParticleOptions } from '../utils/particles'
 import type { ThemePreset } from '../../../shared/types'
 
 /** 主题方案的动态图层 */
@@ -149,15 +149,25 @@ function PresetLayer({ preset, paused }: { preset: ThemePreset; paused: boolean 
   }
 }
 
-/** Canvas 粒子图层：切换种类时重建，暂停时停止绘制 */
-function ParticleLayer({ kind, paused }: { kind: ParticleKind; paused: boolean }): JSX.Element {
+/** Canvas 粒子图层：切换种类时重建，暂停时停止绘制；数量、速度、鼠标互动可以随时调整 */
+function ParticleLayer({
+  kind,
+  paused,
+  options
+}: {
+  kind: ParticleKind
+  paused: boolean
+  options: ParticleOptions
+}): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const systemRef = useRef<ReturnType<typeof createParticleSystem> | null>(null)
+  const optionsRef = useRef(options)
+  optionsRef.current = options
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const system = createParticleSystem(canvas, kind)
+    const system = createParticleSystem(canvas, kind, optionsRef.current)
     systemRef.current = system
     return () => {
       system.destroy()
@@ -166,28 +176,135 @@ function ParticleLayer({ kind, paused }: { kind: ParticleKind; paused: boolean }
   }, [kind])
 
   useEffect(() => {
+    systemRef.current?.setOptions(options)
+  }, [options.density, options.speed, options.interact])
+
+  useEffect(() => {
     const system = systemRef.current
     if (!system) return
     if (paused) system.stop()
     else system.start()
   }, [paused, kind])
 
+  // 鼠标互动：把鼠标位置交给粒子引擎（canvas 铺满窗口，坐标与窗口一致）
+  useEffect(() => {
+    if (!options.interact || paused) {
+      systemRef.current?.setPointer(null)
+      return
+    }
+    const move = (e: MouseEvent): void => {
+      const rect = canvasRef.current?.getBoundingClientRect()
+      if (rect) systemRef.current?.setPointer({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+    }
+    const leave = (): void => systemRef.current?.setPointer(null)
+    window.addEventListener('mousemove', move)
+    document.addEventListener('mouseleave', leave)
+    window.addEventListener('blur', leave)
+    return () => {
+      window.removeEventListener('mousemove', move)
+      document.removeEventListener('mouseleave', leave)
+      window.removeEventListener('blur', leave)
+    }
+  }, [options.interact, paused, kind])
+
   return (
     <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" data-particles={kind} data-paused={paused} />
   )
 }
 
+/** 视差深度（像素）：越靠前的图层移动越多，形成立体感 */
+const DEPTH = { preset: 14, wallpaper: 10, particles: 24 }
+
+/**
+ * 鼠标视差：鼠标移动时各图层轻微反向移动，带缓动。
+ * 直接修改 style.transform，不触发 React 重新渲染；静止后停止计算
+ */
+function useParallax(enabled: boolean, layers: { ref: React.RefObject<HTMLDivElement>; depth: number }[]): void {
+  const layersRef = useRef(layers)
+  layersRef.current = layers
+  useEffect(() => {
+    const apply = (x: number, y: number): void => {
+      for (const { ref, depth } of layersRef.current) {
+        if (!ref.current) continue
+        ref.current.style.transform =
+          x === 0 && y === 0 && !enabled
+            ? ''
+            : `translate3d(${(-x * depth).toFixed(2)}px, ${(-y * depth).toFixed(2)}px, 0) scale(1.05)`
+      }
+    }
+    if (!enabled) {
+      apply(0, 0)
+      return
+    }
+    const target = { x: 0, y: 0 }
+    const current = { x: 0, y: 0 }
+    let frame = 0
+    const step = (): void => {
+      current.x += (target.x - current.x) * 0.08
+      current.y += (target.y - current.y) * 0.08
+      apply(current.x, current.y)
+      if (Math.abs(target.x - current.x) > 0.001 || Math.abs(target.y - current.y) > 0.001) {
+        frame = requestAnimationFrame(step)
+      } else {
+        frame = 0
+      }
+    }
+    const kick = (): void => {
+      if (!frame) frame = requestAnimationFrame(step)
+    }
+    const move = (e: MouseEvent): void => {
+      target.x = (e.clientX / window.innerWidth - 0.5) * 2
+      target.y = (e.clientY / window.innerHeight - 0.5) * 2
+      kick()
+    }
+    const reset = (): void => {
+      target.x = 0
+      target.y = 0
+      kick()
+    }
+    apply(0, 0)
+    window.addEventListener('mousemove', move)
+    document.addEventListener('mouseleave', reset)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('mousemove', move)
+      document.removeEventListener('mouseleave', reset)
+    }
+  }, [enabled])
+}
+
 function DynamicBackground(): JSX.Element {
   const { appearance, particles, paused } = useTheme()
+  const presetRef = useRef<HTMLDivElement>(null)
+  const wallpaperRef = useRef<HTMLDivElement>(null)
+  const particlesRef = useRef<HTMLDivElement>(null)
+  useParallax(appearance.parallax && !paused, [
+    { ref: presetRef, depth: DEPTH.preset },
+    { ref: wallpaperRef, depth: DEPTH.wallpaper },
+    { ref: particlesRef, depth: DEPTH.particles }
+  ])
+  const options: ParticleOptions = {
+    density: DENSITY_FACTORS[appearance.particleDensity] ?? 1,
+    speed: Math.min(2, Math.max(0.5, (appearance.particleSpeed || 100) / 100)),
+    interact: appearance.particleInteract
+  }
   return (
     <div
       className="pointer-events-none absolute inset-0 -z-10 isolate overflow-hidden"
       aria-hidden
       data-dynamic-background
     >
-      <PresetLayer preset={appearance.themePreset} paused={paused} />
-      <AppBackground appearance={appearance} paused={paused} />
-      {particles && <ParticleLayer kind={particles} paused={paused} />}
+      <div ref={presetRef} className="absolute inset-0 will-change-transform" data-parallax-layer="preset">
+        <PresetLayer preset={appearance.themePreset} paused={paused} />
+      </div>
+      <div ref={wallpaperRef} className="absolute inset-0 will-change-transform" data-parallax-layer="wallpaper">
+        <AppBackground appearance={appearance} paused={paused} />
+      </div>
+      {particles && (
+        <div ref={particlesRef} className="absolute inset-0 will-change-transform" data-parallax-layer="particles">
+          <ParticleLayer kind={particles} paused={paused} options={options} />
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import type { AppSettings } from '../../../shared/types'
 import { ACCENT_VARIABLE_NAMES, accentVariables } from './accent'
+import { DEFAULT_AUTO_THEME } from '../../../shared/theme'
 
 /** 需要立即在界面上生效的外观设置 */
 export type Appearance = Pick<
@@ -13,6 +14,12 @@ export type Appearance = Pick<
   | 'backgroundFit'
   | 'themePreset'
   | 'particleEffect'
+  | 'particleDensity'
+  | 'particleSpeed'
+  | 'particleInteract'
+  | 'parallax'
+  | 'customThemes'
+  | 'autoTheme'
   | 'backgroundBlur'
   | 'backgroundDim'
   | 'animations'
@@ -35,6 +42,12 @@ let current: Appearance = {
   backgroundFit: 'cover',
   themePreset: 'aurora',
   particleEffect: 'auto',
+  particleDensity: 'normal',
+  particleSpeed: 100,
+  particleInteract: true,
+  parallax: true,
+  customThemes: [],
+  autoTheme: DEFAULT_AUTO_THEME,
   backgroundBlur: 0,
   backgroundDim: 30,
   animations: true,
@@ -56,6 +69,12 @@ function apply(settings: AppSettings): void {
     backgroundFit: settings.backgroundFit ?? 'cover',
     themePreset: settings.themePreset ?? 'aurora',
     particleEffect: settings.particleEffect ?? 'auto',
+    particleDensity: settings.particleDensity ?? 'normal',
+    particleSpeed: Number.isFinite(settings.particleSpeed) ? settings.particleSpeed : 100,
+    particleInteract: settings.particleInteract !== false,
+    parallax: settings.parallax !== false,
+    customThemes: Array.isArray(settings.customThemes) ? settings.customThemes : [],
+    autoTheme: settings.autoTheme ?? DEFAULT_AUTO_THEME,
     backgroundBlur: settings.backgroundBlur,
     backgroundDim: settings.backgroundDim,
     animations: settings.animations,

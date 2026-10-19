@@ -253,6 +253,10 @@ declare global {
       removeBackground: (name: string) => Promise<AppSettings>
       /** 下载网络图片或视频到背景库，并设为当前背景 */
       addBackgroundUrl: (url: string) => Promise<AppSettings>
+      /** 导出主题为 .liulitheme 文件；不传 ID 时导出当前外观；取消时返回 null */
+      exportTheme: (themeId?: string) => Promise<{ path: string; wallpaperSkipped: boolean } | null>
+      /** 导入主题：保存到「我的主题」并立即应用；取消时返回 null */
+      importTheme: () => Promise<{ settings: AppSettings; themeId: string; name: string } | null>
       /** 背景音乐列表（music 文件夹里的音频文件名） */
       listMusic: () => Promise<string[]>
       /** 添加背景音乐（可以多选），返回新的列表 */

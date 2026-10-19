@@ -217,6 +217,15 @@ function SettingsPage(): JSX.Element {
   }
 
   /** 拖动滑块时先更新界面，停止拖动 150 毫秒后再保存，避免频繁写入设置文件 */
+  // 其它地方修改了设置（自动切换主题、导入主题、快捷键缩放等）时同步显示；正在拖动滑块时不覆盖
+  useEffect(
+    () =>
+      window.api.onSettingsChanged((next) => {
+        if (Object.keys(pendingSlider.current).length === 0) setSettings(next)
+      }),
+    []
+  )
+
   const updateSlider = (patch: Partial<AppSettings>): void => {
     setSettings((prev) => (prev ? { ...prev, ...patch } : prev))
     // 合并这段时间内所有滑块的改动，一起保存（只保存最后一次会丢掉其他滑块的改动）
@@ -341,7 +350,7 @@ function SettingsPage(): JSX.Element {
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pb-4 pr-1">
         <div className={tab === 'personal' ? 'flex flex-col gap-6' : 'hidden'}>
           {/* 主题方案与粒子特效 */}
-          <Personalization settings={settings} update={update} />
+          <Personalization settings={settings} update={update} updateSlider={updateSlider} />
           {/* 外观 */}
           <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
             <div className="flex items-center gap-3">

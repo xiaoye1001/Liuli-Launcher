@@ -7,9 +7,10 @@
  * 这里不重复保存，只负责把它们组合成背景组件需要的状态。CSS 变量（主题色、面板质感、底色）
  * 由 appearance.ts 在设置变化时写到 <html> 上。
  */
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAppearance, type Appearance } from '../utils/appearance'
-import { presetInfo, type ThemePresetInfo } from '../themes/presets'
+import { presetInfo, targetPatch, type ThemePresetInfo } from '../themes/presets'
+import { themePeriodAt } from '../../../shared/theme'
 import type { ParticleKind } from '../utils/particles'
 
 export interface ThemeState {
@@ -66,11 +67,39 @@ function useReducedMotion(): boolean {
   return reduced
 }
 
+/**
+ * 按时间自动切换主题：每 30 秒检查一次，进入白天 / 夜晚时（以及刚打开启动器、修改了自动切换设置时）应用对应的主题。
+ * 同一时段内用户手动换的主题会一直保留，到下一个切换点才再次自动切换
+ */
+function useAutoTheme(appearance: Appearance): void {
+  const lastKey = useRef('')
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    const timer = setInterval(() => setTick((n) => n + 1), 30_000)
+    return () => clearInterval(timer)
+  }, [])
+  useEffect(() => {
+    const auto = appearance.autoTheme
+    if (!auto?.enabled) {
+      lastKey.current = ''
+      return
+    }
+    const period = themePeriodAt(auto)
+    const target = period === 'day' ? auto.day : auto.night
+    const key = `${period}|${target}|${auto.dayStart}|${auto.nightStart}`
+    if (key === lastKey.current) return
+    lastKey.current = key
+    const patch = targetPatch(target, appearance.customThemes, appearance.backgroundImages)
+    if (patch) void window.api.updateSettings(patch)
+  }, [appearance.autoTheme, appearance.customThemes, appearance.backgroundImages, tick])
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }): JSX.Element {
   const appearance = useAppearance()
   const gameRunning = useGameRunning()
   const visible = useWindowVisible()
   const reducedMotion = useReducedMotion()
+  useAutoTheme(appearance)
 
   const value = useMemo<ThemeState>(() => {
     const preset = presetInfo(appearance.themePreset)

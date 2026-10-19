@@ -275,17 +275,42 @@ function newParticle(): Particle {
   }
 }
 
+export interface ParticleOptions {
+  /** 数量倍数：稀疏 0.5、正常 1、密集 1.8 */
+  density: number
+  /** 速度倍数：0.5 ~ 2 */
+  speed: number
+  /** 鼠标互动：粒子躲开鼠标 */
+  interact: boolean
+}
+
+export const DENSITY_FACTORS = { low: 0.5, normal: 1, high: 1.8 } as const
+
 export interface ParticleSystem {
   start: () => void
   stop: () => void
   destroy: () => void
+  /** 修改数量、速度、互动，不需要重建 */
+  setOptions: (options: ParticleOptions) => void
+  /** 鼠标位置（相对 canvas），null 表示鼠标不在窗口内 */
+  setPointer: (point: { x: number; y: number } | null) => void
 }
+
+/** 鼠标互动的影响半径（像素）与推开的力度 */
+const REPEL_RADIUS = 130
+const REPEL_FORCE = 260
 
 /** 帧间隔（毫秒），约 40 帧 */
 const FRAME_INTERVAL = 1000 / 40
 
 /** 在 canvas 上运行一种粒子特效，随 canvas 尺寸变化自动调整 */
-export function createParticleSystem(canvas: HTMLCanvasElement, kind: ParticleKind): ParticleSystem {
+export function createParticleSystem(
+  canvas: HTMLCanvasElement,
+  kind: ParticleKind,
+  initial: ParticleOptions = { density: 1, speed: 1, interact: false }
+): ParticleSystem {
+  let options = initial
+  let pointer: { x: number; y: number } | null = null
   const ctx = canvas.getContext('2d')!
   const config = KINDS[kind]
   const sprites = createSprites()
@@ -306,7 +331,10 @@ export function createParticleSystem(canvas: HTMLCanvasElement, kind: ParticleKi
     canvas.width = Math.round(width * dpr)
     canvas.height = Math.round(height * dpr)
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    const target = Math.min(config.max, Math.round((width * height) / config.areaPerParticle))
+    const target = Math.min(
+      Math.round(config.max * options.density),
+      Math.round(((width * height) / config.areaPerParticle) * options.density)
+    )
     while (particles.length < target) {
       const p = newParticle()
       config.spawn(p, width, height, true)
@@ -332,11 +360,28 @@ export function createParticleSystem(canvas: HTMLCanvasElement, kind: ParticleKi
     frame = requestAnimationFrame(loop)
     if (now - last < FRAME_INTERVAL) return
     // 最多按 0.1 秒计算，避免切回窗口时粒子瞬移
-    const dt = Math.min(0.1, (now - last) / 1000)
+    const realDt = Math.min(0.1, (now - last) / 1000)
+    const dt = realDt * options.speed
     last = now
     time += dt
+    const r2 = REPEL_RADIUS * REPEL_RADIUS
     for (const p of particles) {
-      if (!config.update(p, dt, width, height, time)) config.spawn(p, width, height, false)
+      if (!config.update(p, dt, width, height, time)) {
+        config.spawn(p, width, height, false)
+        continue
+      }
+      // 鼠标互动：靠近鼠标的粒子被轻轻推开（越近推得越远）
+      if (options.interact && pointer) {
+        const dx = p.x - pointer.x
+        const dy = p.y - pointer.y
+        const d2 = dx * dx + dy * dy
+        if (d2 < r2 && d2 > 0.01) {
+          const d = Math.sqrt(d2)
+          const push = (1 - d / REPEL_RADIUS) * REPEL_FORCE * realDt
+          p.x += (dx / d) * push
+          p.y += (dy / d) * push
+        }
+      }
     }
     render()
   }
@@ -364,6 +409,17 @@ export function createParticleSystem(canvas: HTMLCanvasElement, kind: ParticleKi
       cancelAnimationFrame(frame)
       observer.disconnect()
       ctx.clearRect(0, 0, width, height)
+    },
+    setOptions: (next) => {
+      const densityChanged = next.density !== options.density
+      options = next
+      if (densityChanged) {
+        resize()
+        render()
+      }
+    },
+    setPointer: (point) => {
+      pointer = point
     }
   }
 }
