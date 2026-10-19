@@ -57,11 +57,13 @@ function AccountPage(): JSX.Element {
   const [autoRotate, setAutoRotate] = useState(true)
   const [error, setError] = useState('')
   const [msProfile, setMsProfile] = useState<MsSkinProfile | null>(null)
+  const [tokenEncryption, setTokenEncryption] = useState(true)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     window.api.getSettings().then(setSettings)
     window.api.getAccounts().then(setAccounts)
+    window.api.getSystemInfo().then((info) => setTokenEncryption(info.tokenEncryption))
   }, [])
 
   const update = async (patch: Partial<AppSettings>): Promise<void> => {
@@ -150,6 +152,12 @@ function AccountPage(): JSX.Element {
             onAccountsChange={setAccounts}
             onSettingsChange={setSettings}
           />
+          {!tokenEncryption && (
+            <p className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+              系统没有可用的密钥环，登录信息无法加密，会以普通文件保存在本机。请不要在公用电脑上登录正版或外置账号；
+              Linux 用户可以安装并解锁 GNOME Keyring 或 KWallet 后重新登录
+            </p>
+          )}
         </section>
 
         <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">

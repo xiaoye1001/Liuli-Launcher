@@ -1,13 +1,16 @@
 import { app, BrowserWindow, dialog, shell } from 'electron'
-import { copyFile, mkdir, open, readdir, rm, stat, writeFile } from 'fs/promises'
+import { mkdir, open, readdir, rm, stat, writeFile } from 'fs/promises'
 import { arch, platform, release, totalmem } from 'os'
-import { basename, join } from 'path'
+import { basename, dirname, join, resolve } from 'path'
 import { analyzeCrash, type CrashContext } from './crashAnalysis'
+import { sanitizeLog } from './logShare'
 import { zipDirectory } from './zipWriter'
 import type { CrashAnalysis } from '../shared/types'
 
 /** 每个文件最多读取的大小（取末尾），崩溃信息通常在最后 */
 const MAX_READ = 2 * 1024 * 1024
+/** 导出时每个日志文件最多保留的大小（取末尾） */
+const MAX_EXPORT = 20 * 1024 * 1024
 
 interface LastCrash {
   versionId: string
@@ -22,11 +25,11 @@ interface LastCrash {
 let lastCrash: LastCrash | null = null
 
 /** 读取文件末尾（大文件只取最后 2 MB） */
-async function readTail(path: string): Promise<string> {
+async function readTail(path: string, max = MAX_READ): Promise<string> {
   const handle = await open(path, 'r')
   try {
     const { size } = await handle.stat()
-    const length = Math.min(size, MAX_READ)
+    const length = Math.min(size, max)
     const buf = Buffer.alloc(length)
     await handle.read(buf, 0, length, size - length)
     return buf.toString('utf-8')
@@ -50,6 +53,24 @@ async function newestFile(dir: string, pattern: RegExp, since: number): Promise<
 }
 
 /**
+ * 游戏输出里「Crash report saved to:」后面的路径。游戏输出里也有服务器发来的聊天内容，可以伪造这一行，
+ * 所以只接受本次启动后在 crash-reports 文件夹里生成的崩溃报告
+ */
+async function trustedCrashReport(
+  location: string | undefined,
+  dir: string,
+  since: number
+): Promise<string | undefined> {
+  if (!location) return undefined
+  const path = resolve(location.trim())
+  const same = (a: string, b: string): boolean =>
+    process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b
+  if (!same(dirname(path), resolve(dir)) || !/^crash-.*\.txt$/.test(basename(path))) return undefined
+  const info = await stat(path).catch(() => null)
+  return info?.isFile() && info.mtimeMs >= since ? path : undefined
+}
+
+/**
  * 游戏异常退出后收集崩溃信息并分析：
  * 启动器收集的游戏输出、crash-reports 中的崩溃报告、游戏目录中的 Java 崩溃日志（hs_err_pid*.log）
  */
@@ -64,10 +85,10 @@ export async function collectCrash(options: {
 }): Promise<CrashAnalysis> {
   // 文件时间可能有几秒误差
   const since = options.startedAt - 5000
+  const reportsDir = join(options.gamePath, 'crash-reports')
   const crashReport =
-    options.crashReportLocation && (await stat(options.crashReportLocation).catch(() => null))
-      ? options.crashReportLocation
-      : await newestFile(join(options.gamePath, 'crash-reports'), /^crash-.*\.txt$/, since)
+    (await trustedCrashReport(options.crashReportLocation, reportsDir, since)) ??
+    (await newestFile(reportsDir, /^crash-.*\.txt$/, since))
   const nativeLog = await newestFile(options.gamePath, /^hs_err_pid\d+\.log$/, since)
   const analysis = analyzeCrash(
     {
@@ -145,8 +166,9 @@ export async function exportCrashInfo(win: BrowserWindow | null): Promise<string
       `Java：${crash.context.javaMajor ?? '未知'}（${crash.context.javaPath ?? ''}）`,
       `最大内存：${crash.context.maxMemory ?? '未知'} MB`
     ]
-    await writeFile(join(tmp, '环境信息.txt'), env.join('\n'), 'utf-8')
-    await writeFile(join(tmp, '游戏输出.txt'), crash.logs.join('\n'), 'utf-8')
+    // 导出的文件会发给别人：所有内容都去掉登录令牌和用户文件夹路径
+    await writeFile(join(tmp, '环境信息.txt'), sanitizeLog(env.join('\n')), 'utf-8')
+    await writeFile(join(tmp, '游戏输出.txt'), sanitizeLog(crash.logs.join('\n')), 'utf-8')
     const files = [
       crash.crashReport,
       crash.nativeLog,
@@ -154,7 +176,9 @@ export async function exportCrashInfo(win: BrowserWindow | null): Promise<string
       join(crash.gamePath, 'logs', 'debug.log')
     ]
     for (const file of files) {
-      if (file && (await stat(file).catch(() => null))) await copyFile(file, join(tmp, basename(file)))
+      if (!file || !(await stat(file).catch(() => null))) continue
+      const text = await readTail(file, MAX_EXPORT).catch(() => null)
+      if (text !== null) await writeFile(join(tmp, basename(file)), sanitizeLog(text), 'utf-8')
     }
     await zipDirectory(tmp, result.filePath, '崩溃信息')
     return result.filePath

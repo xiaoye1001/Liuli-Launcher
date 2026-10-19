@@ -36,6 +36,15 @@ WEBSITE_ASSET = 'LiuliLauncher-website.zip'
 # 只下载这些安装包（与网页上的下载按钮对应）
 INSTALLER = re.compile(r'^LiuliLauncher-(Setup-[\d.]+\.exe|Portable-[\d.]+\.exe|[\d.]+-(arm64|x64)\.dmg|[\d.]+\.AppImage)$')
 SAFE_NAME = re.compile(r'^[\w.+-]+$')
+# 一个版本必须齐全的 5 个安装包：没有全部上传完成（例如发布还在进行中）时不切换版本
+EXPECTED = [
+    re.compile(r'^LiuliLauncher-Setup-[\d.]+\.exe$'),
+    re.compile(r'^LiuliLauncher-Portable-[\d.]+\.exe$'),
+    re.compile(r'^LiuliLauncher-[\d.]+-arm64\.dmg$'),
+    re.compile(r'^LiuliLauncher-[\d.]+-x64\.dmg$'),
+    re.compile(r'^LiuliLauncher-[\d.]+\.AppImage$'),
+]
+SHA256 = re.compile(r'^[0-9a-f]{64}$')
 # 清理时认作旧安装包或临时文件的名字（包括浏览器重复下载产生的「(1)」、下载中断留下的 .part）
 OLD_FILE = re.compile(r'^LiuliLauncher-.*\.(exe|dmg|AppImage|blockmap)(\.part)?$|\.part$|^\.website\.zip$', re.I)
 USER_AGENT = 'LiuliLauncher-site-updater'
@@ -57,8 +66,18 @@ def request(url, proxy='', timeout=30):
     return urllib.request.urlopen(req, timeout=timeout)
 
 
+def asset_sha256(asset):
+    """GitHub 为文件提供的 SHA-256（digest 字段，形如 sha256:xxxx），没有或格式不对时返回空字符串"""
+    value = str(asset.get('digest') or '').lower()
+    value = value[len('sha256:'):] if value.startswith('sha256:') else ''
+    return value if SHA256.match(value) else ''
+
+
 def download(url, dest, sha256, proxy, retries=3):
     """下载到临时文件，校验通过后再移动到目标位置；校验失败或中断都不会留下坏文件"""
+    if not SHA256.match(sha256 or ''):
+        # 没有校验值就无法确认文件没被加速镜像或中间人替换，不下载
+        raise ValueError('%s 没有 SHA-256 校验值，拒绝下载' % os.path.basename(dest))
     last_error = None
     for attempt in range(1, retries + 1):
         tmp = dest + '.part'
@@ -71,7 +90,7 @@ def download(url, dest, sha256, proxy, retries=3):
                         break
                     digest.update(chunk)
                     out.write(chunk)
-            if sha256 and digest.hexdigest() != sha256:
+            if digest.hexdigest() != sha256:
                 raise ValueError('SHA-256 不一致（下载的文件不完整或被篡改）')
             os.replace(tmp, dest)
             return
@@ -233,6 +252,12 @@ def main():
 
     assets = [a for a in release.get('assets', []) if SAFE_NAME.match(a.get('name', ''))]
     installers = [a for a in assets if INSTALLER.match(a['name'])]
+    # 5 个安装包都上传完成、并且都有 SHA-256 才更新；否则保持当前版本，下次再检查
+    for pattern in EXPECTED:
+        matched = [a for a in installers if pattern.match(a['name'])]
+        if len(matched) != 1 or matched[0].get('state', 'uploaded') != 'uploaded' or not asset_sha256(matched[0]):
+            log('v%s 的安装包还没有全部上传完成（或缺少 SHA-256 校验值），暂不更新' % version)
+            return 0
     website = next((a for a in assets if a['name'] == WEBSITE_ASSET), None)
     complete = all(os.path.isfile(os.path.join(downloads, a['name'])) for a in installers)
     # 手动上传的网页也加上内容指纹（不会重复修改）
@@ -251,9 +276,9 @@ def main():
     files = []
     for asset in installers:
         name = asset['name']
-        sha256 = str(asset.get('digest') or '').replace('sha256:', '').lower()
+        sha256 = asset_sha256(asset)
         dest = os.path.join(downloads, name)
-        if os.path.isfile(dest) and sha256 and not args.force:
+        if os.path.isfile(dest) and not args.force:
             with open(dest, 'rb') as f:
                 h = hashlib.sha256()
                 for chunk in iter(lambda: f.read(1024 * 1024), b''):
@@ -266,10 +291,12 @@ def main():
         download(asset['browser_download_url'], dest, sha256, proxy)
         files.append({'name': name, 'size': asset.get('size', 0), 'sha256': sha256})
 
-    if website:
+    if website and not asset_sha256(website):
+        log('  附带的网页没有 SHA-256 校验值，跳过网页更新')
+    elif website:
         log('  更新网页')
         zip_path = os.path.join(downloads, '.website.zip')
-        sha256 = str(website.get('digest') or '').replace('sha256:', '').lower()
+        sha256 = asset_sha256(website)
         download(website['browser_download_url'], zip_path, sha256, proxy)
         try:
             update_website(zip_path, site)

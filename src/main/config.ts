@@ -117,6 +117,68 @@ function defaultSettings(): AppSettings {
   }
 }
 
+/** 界面不能直接修改的设置：由专门的接口管理（切换游戏目录、背景库、账号） */
+const MANAGED_KEYS = new Set<string>([
+  'gameDir',
+  'gameDirs',
+  'backgroundImages',
+  'offlineAccounts',
+  'activeOffline',
+  'activeAccount'
+])
+
+/** 取值固定的设置项 */
+const ENUM_VALUES: Partial<Record<keyof AppSettings, readonly string[]>> = {
+  downloadSource: ['mojang', 'bmclapi'],
+  proxyMode: ['none', 'system', 'custom'],
+  skinModel: ['default', 'slim'],
+  theme: ['system', 'dark', 'light'],
+  versionIsolation: ['off', 'modded', 'all'],
+  accentColor: ['emerald', 'sky', 'violet', 'rose', 'amber', 'teal', 'indigo', 'red', 'lime', 'slate', 'custom'],
+  backgroundMode: ['off', 'fixed', 'random', 'slideshow'],
+  backgroundFit: ['cover', 'contain', 'stretch', 'center', 'tile'],
+  musicOrder: ['sequential', 'shuffle', 'single'],
+  afterLaunch: ['keep', 'minimize', 'hide'],
+  updateSource: ['auto', 'official', 'github'],
+  particleDensity: ['low', 'normal', 'high']
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * 检查设置项的类型：只保留已知的设置项，类型必须与默认值一致，取值固定的项必须是允许的值。
+ * 不合格的项直接丢弃（保留原来的值）
+ */
+function checkedSettings(input: unknown, defaults: AppSettings, allowManaged: boolean): Partial<AppSettings> {
+  if (!isPlainObject(input)) return {}
+  const result: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(input)) {
+    if (!Object.prototype.hasOwnProperty.call(defaults, key)) continue
+    if (!allowManaged && MANAGED_KEYS.has(key)) continue
+    const fallback = (defaults as unknown as Record<string, unknown>)[key]
+    if (Array.isArray(fallback) ? !Array.isArray(value) : typeof value !== typeof fallback) continue
+    if (isPlainObject(fallback) && !isPlainObject(value)) continue
+    if (typeof value === 'number' && !Number.isFinite(value)) continue
+    const allowed = ENUM_VALUES[key as keyof AppSettings]
+    if (allowed && !allowed.includes(value as string)) continue
+    result[key] = value
+  }
+  if (typeof result.skinDataUrl === 'string' && result.skinDataUrl !== '') {
+    // 皮肤只能是不超过 1 MB 的 PNG
+    if (!result.skinDataUrl.startsWith('data:image/png;base64,') || result.skinDataUrl.length > 1_500_000) {
+      delete result.skinDataUrl
+    }
+  }
+  return result as Partial<AppSettings>
+}
+
+/** 检查界面发来的设置修改 */
+export function sanitizeSettingsPatch(patch: unknown): Partial<AppSettings> {
+  return checkedSettings(patch, defaultSettings(), false)
+}
+
 let cache: AppSettings | null = null
 let loading: Promise<AppSettings> | null = null
 let writeQueue: Promise<void> = Promise.resolve()
@@ -124,7 +186,8 @@ let writeQueue: Promise<void> = Promise.resolve()
 async function load(): Promise<AppSettings> {
   const defaults = defaultSettings()
   try {
-    const saved = JSON.parse(await readFile(SETTINGS_FILE, 'utf-8')) as Partial<AppSettings>
+    // 手动改坏的设置项丢弃，用默认值
+    const saved = checkedSettings(JSON.parse(await readFile(SETTINGS_FILE, 'utf-8')), defaults, true)
     // 保存的游戏目录已不存在、而默认目录存在时，改用默认目录。
     // 常见于免安装版：U 盘换了电脑后盘符变化（E: → F:），旧的绝对路径失效
     if (saved.gameDir && !existsSync(saved.gameDir) && existsSync(defaults.gameDir)) {

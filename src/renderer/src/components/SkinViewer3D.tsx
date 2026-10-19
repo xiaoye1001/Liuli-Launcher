@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   FlyingAnimation,
   IdleAnimation,
@@ -44,6 +44,7 @@ function SkinViewer3D({ skin, model, animation, autoRotate, nameTag, cape = '' }
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const viewerRef = useRef<SkinViewer | null>(null)
+  const [failed, setFailed] = useState(false)
 
   // 创建与销毁查看器，并跟随容器大小自适应
   useEffect(() => {
@@ -51,14 +52,22 @@ function SkinViewer3D({ skin, model, animation, autoRotate, nameTag, cape = '' }
     const canvas = canvasRef.current
     if (!container || !canvas) return
 
-    const viewer = new SkinViewer({
-      canvas,
-      width: container.clientWidth,
-      height: container.clientHeight,
-      pixelRatio: 'match-device',
-      fov: 40,
-      zoom: 0.7
-    })
+    let viewer: SkinViewer
+    try {
+      viewer = new SkinViewer({
+        canvas,
+        width: container.clientWidth,
+        height: container.clientHeight,
+        pixelRatio: 'match-device',
+        fov: 40,
+        zoom: 0.7
+      })
+    } catch (e) {
+      // 显卡驱动不支持或禁用了 WebGL（例如远程桌面、虚拟机）：不显示 3D 预览，页面其他功能照常使用
+      console.error('无法创建 3D 皮肤预览：', e)
+      setFailed(true)
+      return
+    }
     viewer.controls.enablePan = false
     viewer.autoRotateSpeed = 0.8
     viewerRef.current = viewer
@@ -106,6 +115,14 @@ function SkinViewer3D({ skin, model, animation, autoRotate, nameTag, cape = '' }
   useEffect(() => {
     if (viewerRef.current) viewerRef.current.nameTag = nameTag || null
   }, [nameTag])
+
+  if (failed) {
+    return (
+      <div className="flex h-full w-full items-center justify-center px-6 text-center text-sm text-white/50">
+        当前显卡环境不支持 3D 预览（WebGL 不可用），皮肤和披风仍然可以正常更换
+      </div>
+    )
+  }
 
   return (
     <div ref={containerRef} className="h-full w-full cursor-grab active:cursor-grabbing">

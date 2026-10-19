@@ -11,6 +11,7 @@ import ServersPage from './pages/ServersPage'
 import SettingsPage from './pages/SettingsPage'
 import MorePage from './pages/MorePage'
 import DropOverlay from './components/DropOverlay'
+import PageErrorBoundary from './components/PageErrorBoundary'
 import UpdateNotice from './components/UpdateNotice'
 import type { ModpackInfo, ResourceType } from '../../shared/types'
 import { useAppearance } from './utils/appearance'
@@ -120,17 +121,19 @@ function App(): JSX.Element {
                 exit={{ opacity: 0, y: -16, filter: 'blur(6px)' }}
                 transition={{ duration: appearance.animations ? 0.25 : 0, ease: 'easeOut' }}
               >
-                {renderPage(page, {
-                  droppedModpack,
-                  clearDroppedModpack,
-                  navigate: setPage,
-                  versionSettings,
-                  downloadRequest,
-                  openDownload,
-                  clearDownloadRequest,
-                  openVersionSettings,
-                  clearVersionSettings
-                })}
+                <PageErrorBoundary resetKey={page}>
+                  {renderPage(page, {
+                    droppedModpack,
+                    clearDroppedModpack,
+                    navigate: setPage,
+                    versionSettings,
+                    downloadRequest,
+                    openDownload,
+                    clearDownloadRequest,
+                    openVersionSettings,
+                    clearVersionSettings
+                  })}
+                </PageErrorBoundary>
               </motion.div>
             </AnimatePresence>
           </main>

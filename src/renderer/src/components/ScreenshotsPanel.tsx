@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   AlertTriangle,
@@ -55,6 +55,9 @@ function ScreenshotsPanel({ versionId }: { versionId: string }): JSX.Element {
 
   const items = list?.items ?? []
   const current = preview !== null ? items[preview] : undefined
+  /** 最新的截图列表：连续删除时，后一次删除不能用旧列表把前一次删掉的截图加回来 */
+  const itemsRef = useRef(items)
+  itemsRef.current = items
 
   const run = async (action: () => Promise<unknown>, message?: string): Promise<void> => {
     setError('')
@@ -70,8 +73,9 @@ function ScreenshotsPanel({ versionId }: { versionId: string }): JSX.Element {
   const remove = (shot: Screenshot): Promise<void> =>
     run(async () => {
       await window.api.deleteScreenshot(versionId, shot.fileName)
-      const next = items.filter((s) => s.fileName !== shot.fileName)
-      setList((prev) => prev && { ...prev, items: next })
+      const next = itemsRef.current.filter((s) => s.fileName !== shot.fileName)
+      itemsRef.current = next
+      setList((prev) => prev && { ...prev, items: prev.items.filter((s) => s.fileName !== shot.fileName) })
       // 预览中删除时显示下一张，删完了就关闭预览
       setPreview((p) => (p === null || next.length === 0 ? null : Math.min(p, next.length - 1)))
     }, `已把 ${shot.fileName} 移到回收站`)

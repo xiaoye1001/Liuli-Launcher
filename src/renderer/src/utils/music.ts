@@ -208,7 +208,8 @@ export function initMusic(): void {
 export function togglePlay(): void {
   if (state.tracks.length === 0) return
   failures = 0
-  set({ userPaused: shouldPlay(), error: '' })
+  // 按实际播放状态切换：出错或自动播放失败（没在播放）时，点一次就重新播放
+  set({ userPaused: state.playing, error: '' })
   sync()
 }
 

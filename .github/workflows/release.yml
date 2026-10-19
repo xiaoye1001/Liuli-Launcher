@@ -28,8 +28,9 @@ env:
   # 版本号：手动运行时取输入，发布 Release 时取标签（v0.2.0 → 0.2.0）
   VERSION: ${{ inputs.version || github.event.release.tag_name }}
 
+# 打包任务只需要读取代码；只有最后上传到 Release 的任务需要写入权限
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   linux:
@@ -37,6 +38,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -79,6 +82,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -162,6 +167,8 @@ jobs:
       notarized: ${{ steps.sign.outputs.notarized }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -262,6 +269,8 @@ jobs:
     name: Upload to release
     needs: [linux, windows, mac]
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:

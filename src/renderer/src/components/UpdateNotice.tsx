@@ -294,7 +294,8 @@ function UpdateNotice(): JSX.Element {
               </button>
               <button
                 onClick={async () => {
-                  await window.api.updateSettings({ skippedVersion: info.latest })
+                  // 保存失败也先关掉提示，下次启动时会再提示
+                  await window.api.updateSettings({ skippedVersion: info.latest }).catch(() => undefined)
                   setInfo(null)
                 }}
                 className="rounded-lg px-2 py-2 text-xs text-white/50 hover:bg-white/10 hover:text-white"

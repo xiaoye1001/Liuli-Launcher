@@ -25,10 +25,15 @@ function SkinHead({ skin, size = 40 }: SkinHeadProps): JSX.Element {
       draw(createDefaultSkin())
       return
     }
+    // 皮肤快速切换时，先开始加载、后加载完的旧图片不能覆盖新头像
+    let alive = true
     const img = new Image()
-    img.onload = () => draw(img)
-    img.onerror = () => draw(createDefaultSkin())
+    img.onload = () => alive && draw(img)
+    img.onerror = () => alive && draw(createDefaultSkin())
     img.src = skin
+    return () => {
+      alive = false
+    }
   }, [skin])
 
   return (

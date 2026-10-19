@@ -2,7 +2,8 @@ import { app } from 'electron'
 import { installJavaRuntimeTask, type JavaRuntimeManifest, type JavaRuntimes } from '@xmcl/installer'
 import { task as createTask, type Task } from '@xmcl/task'
 import { chmod, mkdir, readFile, rm, symlink, writeFile } from 'fs/promises'
-import { dirname, join } from 'path'
+import { createHash } from 'crypto'
+import { dirname, isAbsolute, join, relative, resolve } from 'path'
 import { getSettings } from './config'
 import { resolveJava, scanJava } from './java'
 import { installDispatcher } from './network'
@@ -56,8 +57,24 @@ function platformKey(): keyof JavaRuntimes {
   return arch === 'ia32' ? 'linux-i386' : 'linux'
 }
 
+/** 组件名会拼进路径（来自版本 json），只允许小写字母、数字和横线 */
+function isValidComponent(component: string): boolean {
+  return /^[a-z0-9-]{1,64}$/.test(component)
+}
+
+function assertComponent(component: string): void {
+  if (!isValidComponent(component)) throw new Error(`无效的 Java 运行时名称：${component}`)
+}
+
+/** path 是否在 dir 里面（不能是 dir 本身之外的位置） */
+function isInside(dir: string, path: string): boolean {
+  const rel = relative(dir, path)
+  return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel)
+}
+
 /** 运行时中 java 可执行文件的路径 */
 export function javaExecutable(component: string): string {
+  assertComponent(component)
   if (process.platform === 'win32') return join(RUNTIME_DIR, component, 'bin', 'java.exe')
   if (process.platform === 'darwin')
     return join(RUNTIME_DIR, component, 'jre.bundle', 'Contents', 'Home', 'bin', 'java')
@@ -73,15 +90,19 @@ async function useMirror(): Promise<boolean> {
   return (await getSettings()).downloadSource === 'bmclapi'
 }
 
-/** 依次尝试镜像与官方地址 */
-async function fetchJson<T>(url: string): Promise<T> {
+/** 依次尝试镜像与官方地址；给了 sha1 时校验内容，镜像返回的内容不对时改用官方地址 */
+async function fetchJson<T>(url: string, sha1?: string): Promise<T> {
   const urls = (await useMirror()) ? [url.replace(/^https:\/\/[^/]+/, `https://${BMCLAPI_HOST}`), url] : [url]
   let lastError: unknown
   for (const candidate of urls) {
     try {
       const response = await fetch(candidate, { signal: AbortSignal.timeout(15000) })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      return (await response.json()) as T
+      const text = await response.text()
+      if (sha1 && createHash('sha1').update(text).digest('hex') !== sha1.toLowerCase()) {
+        throw new Error('文件校验失败（SHA1 不一致）')
+      }
+      return JSON.parse(text) as T
     } catch (e) {
       lastError = e
     }
@@ -102,6 +123,7 @@ function fetchIndex(): Promise<JavaRuntimes> {
 }
 
 async function isInstalled(component: string): Promise<boolean> {
+  if (!isValidComponent(component)) return false
   return readFile(markerOf(component), 'utf-8')
     .then(() => true)
     .catch(() => false)
@@ -124,11 +146,22 @@ export async function listJavaRuntimes(): Promise<JavaRuntimeInfo[]> {
  * （xmcl 只负责下载文件），最后写入完成标记。
  */
 export async function createJavaInstallTask(component: string): Promise<Task<string>> {
+  assertComponent(component)
   const target = (await fetchIndex())[platformKey()]?.[component]?.[0]
   if (!target) throw new Error(`当前系统没有可下载的 ${component}`)
-  const files = (await fetchJson<{ files: JavaRuntimeManifest['files'] }>(target.manifest.url)).files
+  const sha1 = /^[0-9a-f]{40}$/i.test(target.manifest.sha1 ?? '') ? target.manifest.sha1 : undefined
+  const files = (await fetchJson<{ files: JavaRuntimeManifest['files'] }>(target.manifest.url, sha1)).files
   const manifest: JavaRuntimeManifest = { target: component, files, version: target.version }
   const destination = join(RUNTIME_DIR, component)
+  // 文件和符号链接都必须在运行时自己的文件夹里
+  for (const [file, entry] of Object.entries(files ?? {})) {
+    const path = resolve(destination, file)
+    const bad =
+      !isInside(destination, path) ||
+      (entry.type === 'link' &&
+        (isAbsolute(entry.target) || !isInside(destination, resolve(dirname(path), entry.target))))
+    if (bad) throw new Error('Java 运行时的文件列表无效')
+  }
   const mirror = await useMirror()
 
   return createTask('installJava', async function () {

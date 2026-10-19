@@ -1,6 +1,7 @@
 import type { OptiFineVersionInfo } from '../shared/types'
 
 const BMCLAPI = 'https://bmclapi2.bangbang93.com'
+const SAFE_PART = /^[A-Za-z0-9_.-]{1,64}$/
 
 /** BMCLAPI 返回的 OptiFine 版本信息 */
 interface BmclapiOptiFine {
@@ -38,15 +39,25 @@ export async function getOptiFineVersions(mc: string): Promise<OptiFineVersionIn
   if (!response.ok) throw new Error(`HTTP ${response.status}：${url}`)
   const list = (await response.json()) as BmclapiOptiFine[]
   if (!Array.isArray(list)) throw new Error('BMCLAPI 返回的 OptiFine 列表格式不正确')
-  return list
-    .filter((item) => item.mcversion === mc && item.type && item.patch)
-    .map((item) => ({
-      type: item.type,
-      patch: item.patch,
-      preview: /pre/i.test(item.patch) || /^preview/i.test(item.filename ?? ''),
-      forge: item.forge || undefined
-    }))
-    .sort(compareDesc)
+  return (
+    list
+      // type 和 patch 会拼进缓存文件名，只接受字母、数字、下划线、点和横线
+      .filter(
+        (item) =>
+          item.mcversion === mc &&
+          typeof item.type === 'string' &&
+          typeof item.patch === 'string' &&
+          SAFE_PART.test(item.type) &&
+          SAFE_PART.test(item.patch)
+      )
+      .map((item) => ({
+        type: item.type,
+        patch: item.patch,
+        preview: /pre/i.test(item.patch) || /^preview/i.test(item.filename ?? ''),
+        forge: item.forge || undefined
+      }))
+      .sort(compareDesc)
+  )
 }
 
 /** OptiFine 安装器的下载地址 */

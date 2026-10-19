@@ -7,9 +7,12 @@ export type NbtCompound = { [key: string]: NbtValue }
 const MAX_DEPTH = 64
 /** level.dat 解压后不会很大，限制大小防止异常文件占满内存 */
 const MAX_SIZE = 32 * 1024 * 1024
+/** 最多解析多少个值：防止很小的数据里写了上亿个空标签，解析成对象后占满内存 */
+const MAX_ELEMENTS = 4_000_000
 
 class Reader {
   offset = 0
+  private elements = 0
   constructor(
     private readonly buf: Buffer,
     private readonly exactLongs = false
@@ -65,11 +68,18 @@ class Reader {
   length(itemSize: number): number {
     const n = this.int()
     if (n < 0 || n * itemSize > this.buf.length - this.offset) throw new Error('NBT 数组长度无效')
+    this.count(n)
     return n
+  }
+  /** 累计解析的值的数量，超过上限时停止 */
+  private count(n: number): void {
+    this.elements += n
+    if (this.elements > MAX_ELEMENTS) throw new Error('NBT 数据过大')
   }
 
   payload(type: number, depth: number): NbtValue {
     if (depth > MAX_DEPTH) throw new Error('NBT 嵌套过深')
+    this.count(1)
     switch (type) {
       case 1:
         return this.byte()
@@ -123,6 +133,7 @@ class Reader {
  * exactLongs 为 true 时 long 保留为 bigint（例如世界种子，转成 number 会丢失精度）
  */
 export function parseNbt(data: Buffer, options: { exactLongs?: boolean } = {}): NbtCompound {
+  if (data.length > MAX_SIZE) throw new Error('NBT 文件过大')
   let buf = data
   if (data[0] === 0x1f && data[1] === 0x8b) buf = gunzipSync(data, { maxOutputLength: MAX_SIZE })
   else if (data[0] === 0x78) buf = inflateSync(data, { maxOutputLength: MAX_SIZE })

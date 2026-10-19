@@ -1,4 +1,3 @@
-import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
   UpdateDownload,
   NewsList,
@@ -59,7 +58,6 @@ import type {
 
 declare global {
   interface Window {
-    electron: ElectronAPI
     api: {
       customTitleBar: boolean
       /** 界面上的窗口按钮：最小化、最大化 / 还原、关闭 */
@@ -325,6 +323,8 @@ declare global {
       openLogWindow: () => Promise<void>
       /** 上传到 mclo.gs：日志窗口里的游戏输出 */
       shareGameLog: () => Promise<SharedLog[]>
+      /** 去掉日志里的登录令牌和用户文件夹路径（复制日志时使用） */
+      sanitizeLog: (text: string) => Promise<string>
       /** 上传到 mclo.gs：最近一次崩溃的游戏输出和崩溃报告 */
       shareCrashLogs: () => Promise<SharedLog[]>
       /** 上传到 mclo.gs：某个版本的 logs/latest.log */

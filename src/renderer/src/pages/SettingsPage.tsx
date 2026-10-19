@@ -203,6 +203,10 @@ function SettingsPage(): JSX.Element {
   const memoryTimer = useRef<ReturnType<typeof setTimeout>>()
   const sliderTimer = useRef<ReturnType<typeof setTimeout>>()
   const pendingSlider = useRef<Partial<AppSettings>>({})
+  /** 还没保存的内存设置：离开页面时立即保存，不丢失 */
+  const pendingMemory = useRef<number | null>(null)
+  /** 保存请求的序号：多个保存同时进行时，只用最后一次的结果更新界面 */
+  const updateSeq = useRef(0)
   const [backgroundError, setBackgroundError] = useState('')
   const [backgroundUrlInput, setBackgroundUrlInput] = useState('')
   const [addingUrl, setAddingUrl] = useState(false)
@@ -211,9 +215,12 @@ function SettingsPage(): JSX.Element {
   /** 当前的下载任务（用于显示 Java 下载进度） */
   const [task, setTask] = useState<InstallStatus | null>(null)
   const update = async (patch: Partial<AppSettings>): Promise<void> => {
+    // 直接修改的项（例如「恢复默认」）不能再被稍后保存的滑块改动覆盖
+    for (const key of Object.keys(patch)) delete (pendingSlider.current as Record<string, unknown>)[key]
     setSettings((prev) => (prev ? { ...prev, ...patch } : prev))
+    const seq = ++updateSeq.current
     const saved = await window.api.updateSettings(patch)
-    setSettings(saved)
+    if (seq === updateSeq.current) setSettings(saved)
   }
 
   /** 拖动滑块时先更新界面，停止拖动 150 毫秒后再保存，避免频繁写入设置文件 */
@@ -261,7 +268,8 @@ function SettingsPage(): JSX.Element {
     try {
       await window.api.downloadJava(component)
       await loadRuntimes()
-      if (settings) await scan(settings)
+      // 下载期间设置可能已经改过，用最新的设置检查
+      await scan(await window.api.getSettings())
     } catch (e) {
       setRuntimesError(cleanError(e))
     }
@@ -300,6 +308,10 @@ function SettingsPage(): JSX.Element {
     const offStatus = window.api.onInstallStatus(setTask)
     return () => {
       clearTimeout(memoryTimer.current)
+      if (pendingMemory.current !== null) {
+        void window.api.updateSettings({ maxMemory: pendingMemory.current }).catch(() => undefined)
+        pendingMemory.current = null
+      }
       offStatus()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -309,7 +321,11 @@ function SettingsPage(): JSX.Element {
   const onMemoryChange = (value: number): void => {
     setMemoryDraft(value)
     clearTimeout(memoryTimer.current)
-    memoryTimer.current = setTimeout(() => update({ maxMemory: value }), 400)
+    pendingMemory.current = value
+    memoryTimer.current = setTimeout(() => {
+      pendingMemory.current = null
+      void update({ maxMemory: value })
+    }, 400)
   }
 
   const memoryMax = Math.max(MEMORY_MIN, Math.floor((totalMemory - 1024) / MEMORY_STEP) * MEMORY_STEP)
@@ -1252,8 +1268,18 @@ function NetworkSection({
   const [checking, setChecking] = useState(false)
   const [check, setCheck] = useState<NetworkCheck | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>()
+  /** 还没保存的下载线程数：离开页面时立即保存 */
+  const pendingThreads = useRef<number | null>(null)
 
-  useEffect(() => () => clearTimeout(timer.current), [])
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current)
+      if (pendingThreads.current !== null) {
+        void window.api.updateSettings({ downloadThreads: pendingThreads.current }).catch(() => undefined)
+      }
+    },
+    []
+  )
 
   const save = async (patch: Partial<AppSettings>): Promise<boolean> => {
     setError('')
@@ -1270,7 +1296,11 @@ function NetworkSection({
   const onThreads = (value: number): void => {
     setThreads(value)
     clearTimeout(timer.current)
-    timer.current = setTimeout(() => save({ downloadThreads: value }), 400)
+    pendingThreads.current = value
+    timer.current = setTimeout(() => {
+      pendingThreads.current = null
+      void save({ downloadThreads: value })
+    }, 400)
   }
 
   // 保存后显示整理过的地址（例如自动补上 http://）

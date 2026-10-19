@@ -156,6 +156,11 @@ async function pickVersion(projectId: string, ctx: ModsContext): Promise<Modrint
   return versions.find((v) => v.version_type === 'release') ?? versions[0]
 }
 
+/** Modrinth 整合包规定的下载地址来源（导入、导出整合包时都只接受这些网站的 https 地址） */
+export function isAllowedModpackUrl(url: string): boolean {
+  return /^https:\/\/(cdn\.modrinth\.com|github\.com|raw\.githubusercontent\.com|gitlab\.com)\//.test(url)
+}
+
 /** Modrinth 文件的下载地址：选择 BMCLAPI 下载源时，cdn.modrinth.com 的文件先走镜像，失败再用原地址 */
 export async function modrinthFileUrls(urls: string[]): Promise<string[]> {
   const { downloadSource } = await getSettings()
@@ -555,10 +560,13 @@ export async function updateMod(versionId: string, fileName: string, modrinthVer
   const disabled = fileName.endsWith('.disabled')
   const newName = await downloadVersionFile(version, ctx.dir)
   const finalName = disabled ? `${newName}.disabled` : newName
-  if (finalName !== fileName) {
+  if (disabled) {
+    // 原来禁用的模组：旧文件移到回收站（新旧文件名相同时也要移走），新文件改回禁用的名字
+    await shell.trashItem(join(ctx.dir, fileName))
+    await rename(join(ctx.dir, newName), join(ctx.dir, finalName))
+  } else if (fileName !== newName) {
     // 新旧文件名不同（版本号写在文件名里时）：旧文件移到回收站
-    if (fileName !== newName) await shell.trashItem(join(ctx.dir, fileName))
-    if (disabled) await rename(join(ctx.dir, newName), join(ctx.dir, finalName))
+    await shell.trashItem(join(ctx.dir, fileName))
   }
   return finalName
 }

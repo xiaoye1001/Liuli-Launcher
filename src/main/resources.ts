@@ -1,9 +1,10 @@
 import { BrowserWindow, dialog, shell } from 'electron'
-import { openFileSystem, type FileSystem } from '@xmcl/system'
+import { type FileSystem } from '@xmcl/system'
 import { copyFile, mkdir, readdir, readFile, rename, stat, writeFile } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import { getGameStatus } from './launch'
 import { fileSha1, modsContextOf } from './mods'
+import { openLimitedFileSystem, zipEntrySize } from './modCheck'
 import { downloadModrinthVersion, findModrinthUpdates } from './modrinth'
 import type { LocalResource, LocalResourceKind, LocalResourceList, ModUpdate } from '../shared/types'
 
@@ -53,7 +54,7 @@ function plainText(value: unknown): string {
 export async function readPackMeta(path: string): Promise<Pick<LocalResource, 'description' | 'packFormat' | 'icon'>> {
   let fs: FileSystem | undefined
   try {
-    fs = await openFileSystem(path)
+    fs = await openLimitedFileSystem(path)
     const result: Pick<LocalResource, 'description' | 'packFormat' | 'icon'> = { description: '' }
     if (await fs.existsFile('pack.mcmeta')) {
       // 部分资源包的 pack.mcmeta 带 BOM
@@ -64,7 +65,7 @@ export async function readPackMeta(path: string): Promise<Pick<LocalResource, 'd
       result.description = plainText(pack?.description).replace(/§./g, '').trim()
       if (typeof pack?.pack_format === 'number') result.packFormat = pack.pack_format
     }
-    if (await fs.existsFile('pack.png')) {
+    if ((await fs.existsFile('pack.png')) && (zipEntrySize(fs, 'pack.png') ?? 0) <= MAX_ICON_BYTES) {
       const data = await fs.readFile('pack.png')
       if (data.byteLength <= MAX_ICON_BYTES)
         result.icon = `data:image/png;base64,${Buffer.from(data).toString('base64')}`

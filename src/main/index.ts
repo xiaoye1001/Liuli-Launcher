@@ -15,7 +15,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { totalmem } from 'os'
 import { scanJava } from './java'
 import { downloadedJavaPaths, listJavaRuntimes } from './javaRuntime'
-import { getSettings, updateSettings } from './config'
+import { getSettings, sanitizeSettingsPatch, updateSettings } from './config'
 import { getVersionManifest } from './versions'
 import { getForgeVersions } from './forge'
 import { getNeoForgeVersions } from './neoforge'
@@ -44,7 +44,7 @@ import {
 } from './services/fastDownloader'
 import { createDirectDownload, openDownloadFolder, pickDownloadDirectory } from './services/directDownload'
 import { applyUiScaleToAll, manageUiScale, normalizeScale, sanitizeFontFamily } from './uiScale'
-import { shareCrashLogs, shareGameLog, shareLatestLog } from './logShare'
+import { sanitizeLog, shareCrashLogs, shareGameLog, shareLatestLog } from './logShare'
 import { getGameDirInfo, openGameDir, pickGameDir, removeGameDir, renameGameDir, setGameDir } from './gameDir'
 import { assertSafeId, deleteVersion, openVersionDir } from './versionManage'
 import { addMods, checkModIssues, deleteMod, listMods, openModsDir, setModEnabled } from './mods'
@@ -103,6 +103,8 @@ import {
 } from './updater'
 import { getPlayStats } from './playStats'
 import { exportModpack, getModpackExportInfo, showExportedModpack } from './modpackExport'
+import { isTokenEncryptionStrong } from './secure'
+import { guardIpc, hardenWebContents } from './security'
 import { copyScreenshot, deleteScreenshot, listScreenshots, openScreenshotsDir, showScreenshot } from './screenshots'
 import { copyVersion, createDesktopShortcut, launchArgOf, renameVersion } from './versionOps'
 import { getNews } from './news'
@@ -177,7 +179,7 @@ function createWindow(): void {
     ...(process.platform === 'linux' || is.dev ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: true
     }
   })
 
@@ -209,12 +211,15 @@ function createWindow(): void {
 }
 
 function registerIpc(): void {
+  guardIpc()
   registerWindowControls()
   ipcMain.handle('java:scan', async () => scanJava(await downloadedJavaPaths()))
   ipcMain.handle('java:runtimes', () => listJavaRuntimes())
   ipcMain.handle('java:download', (_, component: string) => startJavaInstall(component))
   ipcMain.handle('settings:get', () => getSettings())
-  ipcMain.handle('settings:update', async (_, patch: Partial<AppSettings>) => {
+  ipcMain.handle('settings:update', async (_, input: unknown) => {
+    // 只接受已知的设置项，类型与取值不对的丢弃；游戏目录、背景库、账号由专门的接口修改
+    let patch = sanitizeSettingsPatch(input)
     // 修改主题时同步给 Electron，所有窗口的 prefers-color-scheme 会随之变化
     if (patch.theme) nativeTheme.themeSource = patch.theme
     if (typeof patch.proxyUrl === 'string' && patch.proxyUrl.trim()) {
@@ -491,6 +496,8 @@ function registerIpc(): void {
   ipcMain.handle('game:logs', () => getGameLogs())
   ipcMain.handle('logs:open', () => openLogWindow())
   ipcMain.handle('logs:shareGame', () => shareGameLog())
+  // 复制日志前去掉登录令牌和用户文件夹路径
+  ipcMain.handle('logs:sanitize', (_, text: unknown) => sanitizeLog(typeof text === 'string' ? text : ''))
   ipcMain.handle('logs:shareCrash', () => shareCrashLogs())
   ipcMain.handle('logs:shareLatest', (_, versionId: string) => shareLatestLog(versionId))
   ipcMain.handle('crash:open', (_, kind: 'report' | 'native') => openCrashFile(kind))
@@ -512,10 +519,13 @@ function registerIpc(): void {
       totalMemory: Math.floor(totalmem() / 1024 / 1024),
       portableDir,
       elevated: await isElevated(),
-      officialSite: OFFICIAL_SITE
+      officialSite: OFFICIAL_SITE,
+      tokenEncryption: isTokenEncryptionStrong()
     })
   )
 }
+
+hardenWebContents()
 
 // 只允许运行一个启动器：再次打开（例如双击桌面快捷方式）时切换到已打开的窗口
 const gotLock = app.requestSingleInstanceLock()

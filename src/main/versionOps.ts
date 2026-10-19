@@ -1,6 +1,6 @@
 import { app, shell } from 'electron'
 import { execFile } from 'child_process'
-import { chmod, cp, mkdir, readdir, readFile, rename, stat, writeFile } from 'fs/promises'
+import { chmod, cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { getSettings, updateSettings } from './config'
 import { getInstallStatus } from './install'
@@ -8,6 +8,7 @@ import { getGameStatus } from './launch'
 import { listServers, saveServer } from './servers'
 import { renamePlayStats } from './playStats'
 import { assertSafeId } from './versionManage'
+import { isReservedName } from './services/fastDownloader'
 
 /** 版本名规则与安装时一致 */
 function assertNewName(name: string): void {
@@ -16,6 +17,7 @@ function assertNewName(name: string): void {
   if (/[\\/:*?"<>|]/.test(name) || name === '.' || name === '..')
     throw new Error('版本名不能包含 \\ / : * ? " < > | 等字符')
   if (name !== name.trim()) throw new Error('版本名首尾不能有空格')
+  if (name.endsWith('.') || isReservedName(name)) throw new Error('版本名不能以 . 结尾，也不能是 CON、NUL 等系统保留名')
 }
 
 function assertIdle(action: string): void {
@@ -109,11 +111,15 @@ const SKIP_ON_COPY = ['logs', 'crash-reports', 'screenshots', 'backups']
 export async function copyVersion(versionId: string, newId: string, includeSaves: boolean): Promise<void> {
   assertIdle('复制')
   const { source, target } = await prepare(versionId, newId)
-  if (newId === versionId) throw new Error('新版本名不能与原版本相同')
+  // Windows / macOS 的文件名不区分大小写，只改大小写也是同一个文件夹
+  if (newId.toLowerCase() === versionId.toLowerCase()) throw new Error('新版本名不能与原版本相同')
+  // 目标文件夹已存在时不复制（失败后会删除目标文件夹，不能删到已有的内容）
+  if (await stat(target).catch(() => null)) throw new Error(`已存在名为「${newId}」的文件夹`)
   const skip = new Set([...SKIP_ON_COPY, ...(includeSaves ? [] : ['saves'])])
   try {
     await cp(source, target, {
       recursive: true,
+      force: false,
       errorOnExist: true,
       filter: (src) => {
         const rel = src.slice(source.length + 1).split(/[\\/]/)[0]
@@ -122,6 +128,8 @@ export async function copyVersion(versionId: string, newId: string, includeSaves
     })
     await retarget(target, versionId, newId)
   } catch (e) {
+    // 复制到一半失败（磁盘满、文件被占用等）：删掉复制了一半的文件夹，免得重试时提示「已存在」
+    await rm(target, { recursive: true, force: true }).catch(() => undefined)
     throw new Error(`复制失败：${(e as Error).message}`)
   }
 }

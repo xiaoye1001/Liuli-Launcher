@@ -21,7 +21,7 @@ function randomOf(list: string[], except?: string): string {
 }
 
 /** 根据背景模式决定当前显示哪张图片 */
-function useCurrentImage(appearance: Appearance): string {
+function useCurrentImage(appearance: Appearance, paused: boolean): string {
   const { backgroundMode: mode, backgroundImages: images, backgroundImage: fixed, backgroundInterval } = appearance
   const [slide, setSlide] = useState(() => (images.includes(fixed) ? fixed : (images[0] ?? '')))
   const imagesRef = useRef(images)
@@ -34,9 +34,9 @@ function useCurrentImage(appearance: Appearance): string {
     if (mode === 'slideshow' && images.includes(shown.current)) setSlide(shown.current)
   }
 
-  // 轮播：按背景库的顺序定时切换
+  // 轮播：按背景库的顺序定时切换（游戏运行、窗口隐藏等暂停时不切换）
   useEffect(() => {
-    if (mode !== 'slideshow' || images.length < 2) return
+    if (paused || mode !== 'slideshow' || images.length < 2) return
     const minutes = Math.min(120, Math.max(1, backgroundInterval || 10))
     const timer = setInterval(() => {
       setSlide((prev) => {
@@ -46,7 +46,7 @@ function useCurrentImage(appearance: Appearance): string {
       })
     }, minutes * 60_000)
     return () => clearInterval(timer)
-  }, [mode, images.length, backgroundInterval])
+  }, [paused, mode, images.length, backgroundInterval])
 
   shown.current = pick(mode, images, fixed, slide)
   return shown.current
@@ -110,7 +110,7 @@ function AppBackground({
   appearance: Appearance
   paused?: boolean
 }): JSX.Element | null {
-  const image = useCurrentImage(appearance)
+  const image = useCurrentImage(appearance, paused)
   if (!image) return null
   const { backgroundBlur: blur, backgroundDim: dim, backgroundFit } = appearance
   const fit = FIT_STYLES[backgroundFit] ?? FIT_STYLES.cover

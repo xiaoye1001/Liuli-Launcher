@@ -45,13 +45,17 @@ async function loadAccounts(): Promise<StoredAccount[]> {
 /** 原子写入：先写临时文件再改名，避免写到一半时崩溃损坏文件 */
 function saveAccounts(): Promise<void> {
   const data = JSON.stringify({ accounts: stored ?? [] }, null, 2)
-  writeQueue = writeQueue.then(async () => {
-    await mkdir(dirname(ACCOUNTS_FILE), { recursive: true })
-    const tmp = `${ACCOUNTS_FILE}.tmp`
-    await writeFile(tmp, data, { mode: 0o600 })
-    await rename(tmp, ACCOUNTS_FILE)
-  })
-  return writeQueue
+  // 上一次写入失败不影响这一次（否则一次失败后再也保存不了）
+  const task = writeQueue
+    .catch(() => undefined)
+    .then(async () => {
+      await mkdir(dirname(ACCOUNTS_FILE), { recursive: true })
+      const tmp = `${ACCOUNTS_FILE}.tmp`
+      await writeFile(tmp, data, { mode: 0o600 })
+      await rename(tmp, ACCOUNTS_FILE)
+    })
+  writeQueue = task.catch(() => undefined)
+  return task
 }
 
 function publicAccount(a: StoredAccount): MicrosoftAccount {
@@ -203,7 +207,9 @@ async function fetchSkin(profile: MicrosoftMinecraftProfile): Promise<{ skin: st
 /** 保存（或更新）账号 */
 async function saveLogin(
   tokens: OAuthTokens,
-  mc: { token: string; expiresAt: number; profile: MicrosoftMinecraftProfile }
+  mc: { token: string; expiresAt: number; profile: MicrosoftMinecraftProfile },
+  /** 刷新令牌时：账号在刷新过程中被删除的话不再加回来 */
+  existingOnly = false
 ): Promise<MicrosoftAccount> {
   const { skin, skinModel } = await fetchSkin(mc.profile)
   const refresh = seal(tokens.refresh_token)
@@ -219,6 +225,7 @@ async function saveLogin(
     encrypted: refresh.encrypted
   }
   const accounts = await loadAccounts()
+  if (existingOnly && !accounts.some((a) => a.uuid === account.uuid)) throw new Error('这个账号已被移除')
   stored = [...accounts.filter((a) => a.uuid !== account.uuid), account]
   await saveAccounts()
   return publicAccount(account)
@@ -251,11 +258,25 @@ const sleep = (ms: number, signal: AbortSignal): Promise<void> =>
  * 开始微软登录：获取设备代码后立即返回（界面显示代码），然后在后台轮询，
  * 用户在浏览器中完成登录后继续换取 Xbox 与 Minecraft 令牌。进度通过 ms:login 推送。
  */
+let loginStarting: Promise<MsLoginStatus> | null = null
+
 export async function startMicrosoftLogin(): Promise<MsLoginStatus> {
   if (loginStatus.state === 'waiting' || loginStatus.state === 'authorizing') return loginStatus
+  // 正在获取设备代码时（连续点击）不再重复开始
+  if (loginStarting) return loginStarting
   assertLoginAvailable()
 
-  const device = await oauthPost('devicecode', { client_id: CLIENT_ID, scope: SCOPE })
+  let device: Awaited<ReturnType<typeof oauthPost>>
+  const starting = oauthPost('devicecode', { client_id: CLIENT_ID, scope: SCOPE })
+  loginStarting = starting.then(
+    () => loginStatus,
+    () => loginStatus
+  )
+  try {
+    device = await starting
+  } finally {
+    loginStarting = null
+  }
   if (!device.device_code) throw new Error(describeOAuthError(device))
 
   const abort = new AbortController()
@@ -334,7 +355,11 @@ async function ensureFresh(account: StoredAccount): Promise<StoredAccount> {
     }
     const mc = await loginMinecraft(result.access_token)
     // 微软通常会返回新的刷新令牌；没有返回时继续使用旧的
-    await saveLogin({ access_token: result.access_token, refresh_token: result.refresh_token ?? refreshToken }, mc)
+    await saveLogin(
+      { access_token: result.access_token, refresh_token: result.refresh_token ?? refreshToken },
+      mc,
+      true
+    )
     return (await loadAccounts()).find((a) => a.uuid === mc.profile.id)!
   })()
   refreshing.set(account.uuid, task)
