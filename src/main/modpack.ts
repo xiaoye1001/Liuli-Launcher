@@ -8,7 +8,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from 'path'
 import type { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import { assertIdle, startCustomInstall, type InstallExtraStep } from './install'
-import { downloadModpackFile, modrinthFileUrls, MODRINTH_USER_AGENT } from './modrinth'
+import { downloadModpackFile, isAllowedModpackUrl, modrinthFileUrls, MODRINTH_USER_AGENT } from './modrinth'
 import { downloadCurseForgeModpack, isCurseForgeId } from './curseforge'
 import { getSettings } from './config'
 import { abortedPause, AbortedError, WatchedDownloadTask } from './fileDownload'
@@ -49,11 +49,32 @@ interface OverrideFile {
  * 安装前解压到游戏目录根部，安装原版和加载器时校验通过就不再下载
  */
 const SHARED_FOLDERS = ['assets/', 'libraries/']
-/** 不解压的文件夹：版本文件由启动器自己生成 */
-const SKIPPED_FOLDERS = ['versions/']
-
 function isShared(rel: string): boolean {
   return SHARED_FOLDERS.some((f) => rel.startsWith(f))
+}
+
+/** 路径的每一段统一成小写、去掉末尾的点和空格（Windows 与 macOS 不区分大小写，Windows 会忽略末尾的点和空格） */
+function normalizedSegments(path: string): string[] {
+  return path
+    .split(/[\\/]+/)
+    .map((segment) => segment.toLowerCase().replace(/[. ]+$/, ''))
+    .filter((segment) => segment !== '')
+}
+
+/**
+ * 整合包不能写入的位置（解压的文件和下载的文件都检查）：
+ * - versions 文件夹：版本文件由启动器自己生成，也防止改动其他版本
+ * - 启动器的版本设置（liuli-*.json 里有启动前后执行的命令、Java 路径等）、版本图标
+ * - 版本自己的 <版本名>.json / <版本名>.jar / <版本名>-natives（开启版本隔离时游戏目录就是版本文件夹）
+ */
+export function isForbiddenModpackPath(path: string, versionName: string): boolean {
+  const segments = normalizedSegments(path)
+  const first = segments[0]
+  if (!first) return true
+  if (first === 'versions') return true
+  if (/^liuli-.*\.json$/.test(first) || first === 'liuli-icon.png') return true
+  const name = versionName.toLowerCase().replace(/[. ]+$/, '')
+  return name !== '' && [`${name}.json`, `${name}.jar`, `${name}-natives`].includes(first)
 }
 
 type Loader = ModpackInfo['loader']
@@ -308,7 +329,8 @@ async function parseModpack(path: string): Promise<ParsedModpack> {
       for (const entry of entries) {
         if (!entry.fileName.startsWith(prefix) || entry.fileName.endsWith('/')) continue
         const rel = entry.fileName.slice(prefix.length)
-        if (!rel || SKIPPED_FOLDERS.some((f) => rel.startsWith(f))) continue
+        // versions 文件夹由启动器自己生成，读取时就去掉（其他不能写入的位置在安装时按版本名再检查）
+        if (!rel || normalizedSegments(rel)[0] === 'versions') continue
         overrideMap.set(rel, { entryName: entry.fileName, rel, size: entry.uncompressedSize })
       }
     }
@@ -525,19 +547,33 @@ class ExtractTask extends AbortableTask<void> {
  * - 安装原版之前：把整合包自带的 assets、libraries 解压到游戏目录根部，原版与加载器的文件校验通过就不再下载；
  * - 安装之后：先把整合包自带的其余文件解压到该版本的游戏目录，再下载清单里缺少的模组（压缩包里已经有的跳过）
  */
-function modpackStep(path: string): InstallExtraStep {
+function modpackStep(path: string, versionName: string): InstallExtraStep {
+  /** 跳过不能写入的位置（记录到控制台，不中断安装） */
+  const allowed = (rel: string): boolean => {
+    if (!isForbiddenModpackPath(rel, versionName)) return true
+    console.warn(`整合包试图写入受保护的位置，已跳过：${rel}`)
+    return false
+  }
   const step: InstallExtraStep = async (context, gameDir) => {
     const parsed = await parseModpack(path)
     const included = new Set(parsed.overrides.map((o) => o.rel.toLowerCase()))
     const modrinthFiles = await Promise.all(
       parsed.downloads
-        .filter((d) => !included.has(d.path.toLowerCase()))
-        .map(async (d) => ({ path: d.path, urls: await modrinthFileUrls(d.urls), sha1: d.sha1, size: d.size }))
+        .filter((d) => !included.has(d.path.toLowerCase()) && allowed(d.path))
+        .map(async (d) => {
+          // Modrinth 整合包规定的下载网站（https），其他地址不访问
+          const urls = d.urls.filter((u) => typeof u === 'string' && isAllowedModpackUrl(u))
+          if (urls.length === 0)
+            throw new Error(`整合包中的文件 ${d.path} 的下载地址不在 Modrinth 允许的网站内，已拒绝安装`)
+          return { path: d.path, urls: await modrinthFileUrls(urls), sha1: d.sha1, size: d.size }
+        })
     )
     let curseFiles: { path: string; urls: string[]; sha1?: string; size?: number }[] = []
     if (parsed.curseFileIds.length > 0) {
       try {
-        curseFiles = (await resolveCurseFiles(parsed.curseFileIds)).filter((f) => !included.has(f.path.toLowerCase()))
+        curseFiles = (await resolveCurseFiles(parsed.curseFileIds)).filter(
+          (f) => !included.has(f.path.toLowerCase()) && allowed(f.path)
+        )
       } catch (e) {
         // 整合包已经带了全部模组时，查不到下载信息也可以继续安装
         if ((parsed.info.includedMods ?? 0) < parsed.curseFileIds.length) throw e
@@ -545,7 +581,7 @@ function modpackStep(path: string): InstallExtraStep {
     }
     // 先把整合包自带的文件解压出来，再下载缺少的文件
     const files = parsed.overrides
-      .filter((o) => !isShared(o.rel))
+      .filter((o) => !isShared(o.rel) && allowed(o.rel))
       .map((o) => ({ entryName: o.entryName, target: safeJoin(gameDir, o.rel), size: o.size }))
     if (files.length > 0) await context.yield(new ExtractTask(path, files).setName('modpackOverrides'))
 
@@ -561,15 +597,22 @@ function modpackStep(path: string): InstallExtraStep {
   }
   step.before = async (context) => {
     const parsed = await parseModpack(path)
-    const shared = parsed.overrides.filter((o) => isShared(o.rel))
-    if (shared.length === 0) return
     const root = (await getSettings()).gameDir
-    await context.yield(
-      new ExtractTask(
-        path,
-        shared.map((o) => ({ entryName: o.entryName, target: safeJoin(root, o.rel), size: o.size }))
-      ).setName('modpackGameFiles')
-    )
+    // 公共的 assets、libraries 被所有版本共用：只补充缺少的文件，不覆盖已有的，避免整合包替换其他版本用到的库
+    const shared: { entryName: string; target: string; size: number }[] = []
+    for (const o of parsed.overrides) {
+      if (!isShared(o.rel)) continue
+      const target = safeJoin(root, o.rel)
+      if (
+        !(await stat(target).then(
+          () => true,
+          () => false
+        ))
+      )
+        shared.push({ entryName: o.entryName, target, size: o.size })
+    }
+    if (shared.length === 0) return
+    await context.yield(new ExtractTask(path, shared).setName('modpackGameFiles'))
   }
   return step
 }
@@ -608,5 +651,5 @@ export async function downloadAndInstallModpack(versionId: string): Promise<stri
 export async function installModpack(name: string): Promise<void> {
   if (!pending) throw new Error('请先选择整合包')
   const { path, info } = pending
-  await startCustomInstall(toRequest(info, name), false, modpackStep(path))
+  await startCustomInstall(toRequest(info, name), false, modpackStep(path, name))
 }

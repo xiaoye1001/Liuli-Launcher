@@ -37,6 +37,32 @@ const BUILTIN = new Set([
 const MAX_DEPTH = 3
 const MAX_NESTED_BYTES = 64 * 1024 * 1024
 
+/** 压缩包里单个文件解压后最大多少（防止压缩炸弹：几 MB 的压缩包解压出几 GB 把内存占满） */
+const MAX_ENTRY_BYTES = 64 * 1024 * 1024
+
+/** 压缩包里某个文件解压后的大小；不是压缩包或找不到这个文件时为 undefined */
+export function zipEntrySize(fs: FileSystem, name: string): number | undefined {
+  const zip = fs as unknown as {
+    entries?: Record<string, { uncompressedSize?: number } | undefined>
+    normalizePath?: (name: string) => string
+  }
+  if (!zip.entries || typeof zip.normalizePath !== 'function') return undefined
+  return zip.entries[zip.normalizePath(name)]?.uncompressedSize
+}
+
+/** 打开模组、资源包等压缩包：读取其中的文件前先检查解压后的大小，太大的直接报错 */
+export async function openLimitedFileSystem(source: string | Uint8Array): Promise<FileSystem> {
+  const fs = await openFileSystem(source)
+  const readFile = fs.readFile.bind(fs) as (name: string, encoding?: 'utf-8' | 'base64') => Promise<unknown>
+  return Object.assign(fs, {
+    readFile: (name: string, encoding?: 'utf-8' | 'base64') => {
+      const size = zipEntrySize(fs, name)
+      if (size !== undefined && size > MAX_ENTRY_BYTES) return Promise.reject(new Error(`压缩包中的文件太大：${name}`))
+      return readFile(name, encoding)
+    }
+  }) as FileSystem
+}
+
 /** Quilt 的 ID 可以写成「maven 组:模组 ID」 */
 function plainId(id: string): string {
   return id.includes(':') ? id.slice(id.lastIndexOf(':') + 1) : id
@@ -56,9 +82,11 @@ async function nestedIds(fs: FileSystem, paths: string[], depth: number): Promis
     if (!path || !(await fs.existsFile(path).catch(() => false))) continue
     let nested: FileSystem | undefined
     try {
+      const size = zipEntrySize(fs, path)
+      if (size !== undefined && size > MAX_NESTED_BYTES) continue
       const data = await fs.readFile(path)
       if (data.byteLength > MAX_NESTED_BYTES) continue
-      nested = await openFileSystem(data)
+      nested = await openLimitedFileSystem(data)
       const relations = await readRelations(nested, depth + 1)
       for (const meta of Object.values(relations)) ids.push(...meta.ids)
     } catch {

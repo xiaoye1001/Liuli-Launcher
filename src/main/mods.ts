@@ -1,7 +1,7 @@
 import { BrowserWindow, dialog, shell } from 'electron'
 import { Version } from '@xmcl/core'
 import { readFabricMod, readForgeModJson, readForgeModManifest, readForgeModToml, readQuiltMod } from '@xmcl/mod-parser'
-import { openFileSystem, type FileSystem } from '@xmcl/system'
+import { type FileSystem } from '@xmcl/system'
 import { createHash } from 'crypto'
 import { copyFile, mkdir, readdir, readFile, rename, stat } from 'fs/promises'
 import { basename, join } from 'path'
@@ -10,7 +10,7 @@ import { getVersionConfig, isolatedWith } from './versionConfig'
 import { versionGameDir } from './isolation'
 import { detectLoader, getGameStatus } from './launch'
 import { assertSafeId } from './versionManage'
-import { findModIssues, readRelations, type ModRelations } from './modCheck'
+import { findModIssues, openLimitedFileSystem, readRelations, zipEntrySize, type ModRelations } from './modCheck'
 import type { ModInfo, ModIssue, ModKind, ModList, ModLoader } from '../shared/types'
 
 const DISABLED_SUFFIX = '.disabled'
@@ -82,6 +82,7 @@ async function readIcon(fs: FileSystem, path: string | undefined): Promise<strin
   if (!path) return undefined
   const clean = path.replace(/^\.?\//, '')
   if (!clean.toLowerCase().endsWith('.png') || !(await fs.existsFile(clean))) return undefined
+  if ((zipEntrySize(fs, clean) ?? 0) > MAX_ICON_BYTES) return undefined
   const data = await fs.readFile(clean)
   if (data.byteLength > MAX_ICON_BYTES) return undefined
   return `data:image/png;base64,${Buffer.from(data).toString('base64')}`
@@ -91,7 +92,7 @@ async function readIcon(fs: FileSystem, path: string | undefined): Promise<strin
 async function parseMod(path: string, size: number): Promise<ParsedMod> {
   let fs: FileSystem | undefined
   try {
-    fs = await openFileSystem(path)
+    fs = await openLimitedFileSystem(path)
     const [info, relations] = await Promise.all([parseInfo(fs, path, size), readRelations(fs).catch(() => ({}))])
     return { ...info, relations }
   } catch {
@@ -262,7 +263,18 @@ export async function setModEnabled(versionId: string, fileName: string, enabled
   const { dir } = await modsContextOf(versionId)
   const base = fileName.replace(/\.disabled$/, '')
   const target = enabled ? base : base + DISABLED_SUFFIX
-  if (target !== fileName) await rename(join(dir, fileName), join(dir, target))
+  if (target !== fileName) {
+    // 同名的另一份（例如 a.jar 和 a.jar.disabled 同时存在）不能被覆盖
+    if (
+      await stat(join(dir, target)).then(
+        () => true,
+        () => false
+      )
+    ) {
+      throw new Error(`已经有一个同名的${enabled ? '' : '禁用'}模组文件：${target}，请先删除其中一个`)
+    }
+    await rename(join(dir, fileName), join(dir, target))
+  }
   return target
 }
 

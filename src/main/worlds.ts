@@ -1,7 +1,9 @@
 import { BrowserWindow, dialog, shell } from 'electron'
-import { open, readAllEntries, readEntry } from '@xmcl/unzip'
+import { open, openEntryReadStream, readAllEntries } from '@xmcl/unzip'
+import { createWriteStream } from 'fs'
+import { pipeline } from 'stream/promises'
 import { randomUUID } from 'crypto'
-import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'fs/promises'
+import { copyFile, mkdir, readdir, readFile, rename, rm, stat } from 'fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'path'
 import { getGameStatus } from './launch'
 import { modsContextOf } from './mods'
@@ -20,6 +22,8 @@ import type {
 
 const GAME_MODES: WorldGameMode[] = ['survival', 'creative', 'adventure', 'spectator']
 const MAX_ICON_BYTES = 256 * 1024
+/** 导入存档时解压后的总大小上限 */
+const MAX_WORLD_BYTES = 64 * 1024 * 1024 * 1024
 
 /** 版本使用的游戏目录（考虑版本隔离） */
 async function gameDirOf(versionId: string): Promise<string> {
@@ -47,6 +51,8 @@ async function worldDir(versionId: string, folder: string): Promise<string> {
 
 async function readLevel(dir: string): Promise<NbtCompound | null> {
   try {
+    // level.dat 通常只有几 KB，过大的文件不读进内存
+    if (((await stat(join(dir, 'level.dat')).catch(() => null))?.size ?? 0) > 32 * 1024 * 1024) return null
     const root = parseNbt(await readFile(join(dir, 'level.dat')))
     const data = root.Data
     return data && typeof data === 'object' && !Array.isArray(data) ? (data as NbtCompound) : null
@@ -65,7 +71,8 @@ export async function listWorldInfos(versionId: string): Promise<WorldList> {
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
   const worlds: WorldInfo[] = []
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue
+    // 点开头的是启动器的临时文件夹（例如还原备份时的 .liuli-restore-xxx），不是存档
+    if (!entry.isDirectory() || entry.name.startsWith('.')) continue
     const path = join(dir, entry.name)
     const levelStat = await stat(join(path, 'level.dat')).catch(() => null)
     if (!levelStat) continue
@@ -73,7 +80,9 @@ export async function listWorldInfos(versionId: string): Promise<WorldList> {
     const version = data?.Version as NbtCompound | undefined
     const gameType = typeof data?.GameType === 'number' ? data.GameType : -1
     let icon: string | undefined
-    const iconData = await readFile(join(path, 'icon.png')).catch(() => null)
+    const iconSize = (await stat(join(path, 'icon.png')).catch(() => null))?.size ?? 0
+    const iconData =
+      iconSize > 0 && iconSize <= MAX_ICON_BYTES ? await readFile(join(path, 'icon.png')).catch(() => null) : null
     if (iconData && iconData.length <= MAX_ICON_BYTES) icon = `data:image/png;base64,${iconData.toString('base64')}`
     worlds.push({
       folder: entry.name,
@@ -221,7 +230,10 @@ export async function getWorldDetails(versionId: string, folder: string): Promis
   const enabledPacks = compound(data.DataPacks)?.Enabled
   return {
     folder,
-    seed: typeof seed === 'bigint' || typeof seed === 'number' ? BigInt(seed).toString() : undefined,
+    seed:
+      typeof seed === 'bigint' || (typeof seed === 'number' && Number.isInteger(seed))
+        ? BigInt(seed).toString()
+        : undefined,
     difficulty,
     difficultyLocked: (difficultySettings?.locked ?? data.DifficultyLocked) === 1,
     worldType: worldTypeOf(data),
@@ -345,11 +357,15 @@ async function withWorldZip<T>(
     const extract = async (target: string): Promise<void> => {
       const files = entries.filter((e) => e.fileName.startsWith(prefix) && !e.fileName.endsWith('/'))
       const targets = files.map((e) => safeJoin(target, e.fileName.slice(prefix.length)))
+      // 解压后的总大小有上限，防止压缩炸弹把硬盘写满
+      const total = files.reduce((sum, e) => sum + e.uncompressedSize, 0)
+      if (total > MAX_WORLD_BYTES) throw new Error('存档压缩包解压后太大（超过 64 GB），已拒绝导入')
       await mkdir(target, { recursive: true })
       try {
         for (let i = 0; i < files.length; i++) {
           await mkdir(dirname(targets[i]), { recursive: true })
-          await writeFile(targets[i], await readEntry(zip, files[i]))
+          // 逐个文件流式写入，不把整个文件读进内存
+          await pipeline(await openEntryReadStream(zip, files[i]), createWriteStream(targets[i]))
         }
       } catch (e) {
         await rm(target, { recursive: true, force: true })
@@ -453,7 +469,13 @@ export async function restoreWorldBackup(
         }
       }
       const old = join(saves, `.liuli-old-${id}`)
-      await rename(target, old)
+      try {
+        await rename(target, old)
+      } catch (e) {
+        // 原存档被占用（例如在资源管理器中打开着）：删除临时文件夹，原存档保持不变
+        await rm(temp, { recursive: true, force: true })
+        throw new Error(`无法替换原存档，可能有文件正在被使用：${e instanceof Error ? e.message : String(e)}`)
+      }
       try {
         await rename(temp, target)
       } catch (e) {

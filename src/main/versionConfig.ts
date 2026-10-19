@@ -1,5 +1,6 @@
+import { randomUUID } from 'crypto'
 import { existsSync } from 'fs'
-import { readFile, rename, writeFile } from 'fs/promises'
+import { readFile, rename, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { getSettings } from './config'
 import { isIsolated } from './isolation'
@@ -68,8 +69,22 @@ export function isCustomized(config: VersionConfig): boolean {
   )
 }
 
+/** 每个版本的保存排队进行：读取→合并→写入不会被另一次保存打断，两次快速保存都不会丢 */
+const saveQueues = new Map<string, Promise<unknown>>()
+
 /** 保存版本设置（先写临时文件再重命名） */
-export async function setVersionConfig(versionId: string, patch: Partial<VersionConfig>): Promise<VersionConfig> {
+export function setVersionConfig(versionId: string, patch: Partial<VersionConfig>): Promise<VersionConfig> {
+  const previous = saveQueues.get(versionId) ?? Promise.resolve()
+  const result = previous.catch(() => undefined).then(() => saveVersionConfig(versionId, patch))
+  const tail = result.catch(() => undefined)
+  saveQueues.set(versionId, tail)
+  void tail.then(() => {
+    if (saveQueues.get(versionId) === tail) saveQueues.delete(versionId)
+  })
+  return result
+}
+
+async function saveVersionConfig(versionId: string, patch: Partial<VersionConfig>): Promise<VersionConfig> {
   const { gameDir } = await getSettings()
   const path = configPath(gameDir, versionId)
   const next = sanitize({ ...(await getVersionConfig(versionId, gameDir)), ...patch })
@@ -93,8 +108,14 @@ export async function setVersionConfig(versionId: string, patch: Partial<Version
   parseEnvVars(next.envVars)
   if (!existsSync(join(gameDir, 'versions', versionId, `${versionId}.json`)))
     throw new Error(`找不到版本：${versionId}`)
-  await writeFile(`${path}.tmp`, JSON.stringify(next, null, 2), 'utf-8')
-  await rename(`${path}.tmp`, path)
+  const temp = `${path}.${randomUUID().slice(0, 8)}.tmp`
+  try {
+    await writeFile(temp, JSON.stringify(next, null, 2), 'utf-8')
+    await rename(temp, path)
+  } catch (e) {
+    await rm(temp, { force: true }).catch(() => undefined)
+    throw e
+  }
   return next
 }
 

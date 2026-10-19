@@ -4,7 +4,7 @@ import { readdir, readFile, stat } from 'fs/promises'
 import { dirname, join } from 'path'
 import { getSettings } from './config'
 import { getGameStatus } from './launch'
-import { lookupModrinthFiles } from './modrinth'
+import { isAllowedModpackUrl, lookupModrinthFiles } from './modrinth'
 import { modsContextOf } from './mods'
 import { assertSafeId } from './versionManage'
 import { directoryEntries, writeZip, type ZipEntry } from './zipWriter'
@@ -225,10 +225,7 @@ export async function writeModpack(
       for (const [path, h] of hashes) {
         const remote = found.get(h.sha1)
         // Modrinth 规定下载地址只能来自这些网站
-        if (
-          remote &&
-          /^https:\/\/(cdn\.modrinth\.com|github\.com|raw\.githubusercontent\.com|gitlab\.com)\//.test(remote.url)
-        ) {
+        if (remote && isAllowedModpackUrl(remote.url)) {
           linked.push({ path, sha1: h.sha1, sha512: h.sha512, url: remote.url, size: h.size })
         }
       }
