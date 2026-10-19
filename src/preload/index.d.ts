@@ -284,6 +284,8 @@ declare global {
       /** 查询服务器状态 */
       pingServer: (address: string) => Promise<ServerStatus>
       getGameStatus: () => Promise<GameStatus>
+      /** 版本需要的 Java 主版本；读不到时为 null */
+      getJavaRequirement: (versionId: string) => Promise<number | null>
       /** 取消正在进行的启动（游戏窗口出现之前有效），返回是否已发出取消 */
       cancelLaunch: () => Promise<boolean>
       onGameStatus: (callback: (status: GameStatus) => void) => () => void

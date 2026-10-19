@@ -204,6 +204,8 @@ const api = {
   importGameServers: () => ipcRenderer.invoke('servers:import'),
   pingServer: (address: string) => ipcRenderer.invoke('servers:ping', address),
   getGameStatus: () => ipcRenderer.invoke('game:status'),
+  getJavaRequirement: (versionId: string): Promise<number | null> =>
+    ipcRenderer.invoke('versions:javaRequirement', versionId),
   cancelLaunch: (): Promise<boolean> => ipcRenderer.invoke('game:cancel'),
   /** 订阅游戏运行状态，返回取消订阅函数 */
   getAccounts: () => ipcRenderer.invoke('accounts:list'),

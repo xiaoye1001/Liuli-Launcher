@@ -30,7 +30,15 @@ import {
   startJavaInstall,
   startRepair
 } from './install'
-import { cancelLaunch, getGameLogs, getGameStatus, launchGame, listInstalledVersions, previewMemory } from './launch'
+import {
+  cancelLaunch,
+  getGameLogs,
+  getGameStatus,
+  javaRequirementOf,
+  launchGame,
+  listInstalledVersions,
+  previewMemory
+} from './launch'
 import { closeLogWindow, openLogWindow } from './logWindow'
 import { pickVersionIcon, setVersionFavorite, setVersionIcon } from './versionDisplay'
 import { frameOptions, registerWindowControls, watchMaximize } from './windowFrame'
@@ -547,6 +555,7 @@ function registerIpc(): void {
   ipcMain.handle('toolbox:checkJava', () => checkJavaEnvironment())
   ipcMain.handle('toolbox:speedTest', () => runSpeedTest())
   ipcMain.handle('memory:preview', (_, versionId: string) => previewMemory(versionId))
+  ipcMain.handle('versions:javaRequirement', (_, versionId: string) => javaRequirementOf(versionId))
   ipcMain.handle(
     'system:info',
     async (): Promise<SystemInfo> => ({

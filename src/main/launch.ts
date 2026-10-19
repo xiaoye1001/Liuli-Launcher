@@ -265,7 +265,10 @@ export function supportsQuickPlay(minecraftVersion: string): boolean {
 }
 
 function describePlan(plan: MemoryPlan): string {
-  const parts = [plan.mods > 0 ? `${plan.mods} 个模组，建议 ${plan.recommended} MB` : `建议 ${plan.recommended} MB`]
+  const parts = [
+    `建议 ${plan.recommended} MB：${plan.factors.map((f, i) => (i === 0 ? `${f.label} ${f.mb} MB` : `${f.label} +${f.mb} MB`)).join('、')}`
+  ]
+  if (plan.capped) parts.push(`本机最多分配 ${plan.memory} MB`)
   if (plan.free !== null) parts.push(`当前可用 ${plan.free} MB`)
   return parts.join('，')
 }
@@ -311,6 +314,17 @@ export async function previewMemory(versionId: string): Promise<MemoryPlan | nul
     const json = JSON.parse(await readFile(join(settings.gameDir, 'versions', versionId, `${versionId}.json`), 'utf-8'))
     const minecraftVersion: string = json.inheritsFrom ?? json.liuliMinecraftVersion ?? version.minecraftVersion
     return await autoMemory(loader, gamePath, minecraftVersion)
+  } catch {
+    return null
+  }
+}
+
+/** 版本需要的 Java 主版本（版本设置页提示用）；读不到版本信息时返回 null */
+export async function javaRequirementOf(versionId: string): Promise<number | null> {
+  try {
+    assertSafeId(versionId)
+    const { gameDir } = await getSettings()
+    return requirementOf(await Version.parse(gameDir, versionId)).majorVersion
   } catch {
     return null
   }

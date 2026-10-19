@@ -966,6 +966,17 @@ export interface MemoryPlan {
   mods: number
   /** 是否因为可用内存不足而少分配了 */
   limited: boolean
+  /** 建议值超过了本机能给的上限（给系统留出内存后） */
+  capped: boolean
+  /** 建议值的组成：基础、模组、光影、材质包、渲染距离等 */
+  factors: MemoryFactor[]
+}
+
+/** 自动分配内存时考虑的一项 */
+export interface MemoryFactor {
+  label: string
+  /** 这一项需要的内存（MB） */
+  mb: number
 }
 
 /** 正版账号拥有的披风 */
