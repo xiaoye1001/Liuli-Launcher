@@ -11,6 +11,7 @@ import { getSettings } from './config'
 import { getGameStatus } from './launch'
 import { getInstallStatus } from './install'
 import { downloadDispatcher } from './network'
+import { parsePublicKey, verifySignedRelease } from './updateSignature'
 import type { UpdateDownload, UpdateInfo, UpdateResult } from '../shared/types'
 
 const REPO = 'xiaoye1001/Liuli-Launcher'
@@ -86,12 +87,20 @@ function normalizeSite(value: string): string {
   }
 }
 
+/**
+ * 验证官网版本信息签名的公钥：构建时从 MAIN_VITE_UPDATE_PUBLIC_KEY 读取（仓库变量 UPDATE_PUBLIC_KEY）。
+ * 配置了公钥时，官网的版本信息必须有有效的签名，版本号和安装包的 SHA-256 只用签名过的内容
+ */
+const UPDATE_PUBLIC_KEY = parsePublicKey(import.meta.env.MAIN_VITE_UPDATE_PUBLIC_KEY ?? '')
+
 /** 官网 downloads/latest.json 的内容（由服务器上的 update_site.py 生成） */
 interface OfficialLatest {
   version?: unknown
   publishedAt?: unknown
   notes?: unknown
   files?: { name?: unknown; size?: unknown; sha256?: unknown }[]
+  /** GitHub Actions 生成的数字签名（scripts/update-signing.mjs） */
+  signed?: unknown
 }
 
 /** 查询官网上的最新版本：安装包从官网下载，同样用 SHA-256 校验 */
@@ -110,17 +119,26 @@ async function checkOfficial(): Promise<UpdateInfo> {
     if (e instanceof TypeError) throw new Error('无法连接官网，请检查网络')
     throw e
   }
-  const latest = typeof data.version === 'string' ? data.version.replace(/^v/i, '') : ''
-  if (!/^\d+(\.\d+)*$/.test(latest)) throw new Error('无法读取官网的版本信息')
-  // 只接受普通文件名、并且带 SHA-256 的安装包
-  const files = (Array.isArray(data.files) ? data.files : []).filter(
-    (f): f is { name: string; size: number; sha256: string } =>
-      !!f &&
-      typeof f.name === 'string' &&
-      /^[\w.+-]+$/.test(f.name) &&
-      typeof f.sha256 === 'string' &&
-      /^[0-9a-f]{64}$/i.test(f.sha256)
-  )
+  let latest: string
+  let files: { name: string; size: number; sha256: string }[]
+  if (UPDATE_PUBLIC_KEY) {
+    // 有签名时只相信签名过的版本号和安装包清单，latest.json 里其他的同名字段忽略
+    const signed = verifySignedRelease(data.signed, UPDATE_PUBLIC_KEY)
+    latest = signed.version
+    files = signed.files
+  } else {
+    latest = typeof data.version === 'string' ? data.version.replace(/^v/i, '') : ''
+    if (!/^\d+(\.\d+)*$/.test(latest)) throw new Error('无法读取官网的版本信息')
+    // 只接受普通文件名、并且带 SHA-256 的安装包
+    files = (Array.isArray(data.files) ? data.files : []).filter(
+      (f): f is { name: string; size: number; sha256: string } =>
+        !!f &&
+        typeof f.name === 'string' &&
+        /^[\w.+-]+$/.test(f.name) &&
+        typeof f.sha256 === 'string' &&
+        /^[0-9a-f]{64}$/i.test(f.sha256)
+    )
+  }
   const assetName = pickAsset(files.map((f) => f.name)) ?? ''
   const asset = files.find((f) => f.name === assetName)
   const page = `${OFFICIAL_SITE}/`

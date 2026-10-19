@@ -116,6 +116,9 @@ location ~* \.(webp|png|svg)$ {
 
 从官网下载的安装包同样用 SHA-256 校验（校验值来自官网的 `downloads/latest.json`，由更新脚本从 GitHub 获取并校验后写入）。
 
+建议同时配置**更新签名**：GitHub Actions 用只保存在仓库 Secret 里的私钥给安装包清单签名，启动器验证签名后才使用官网的版本信息，
+官网服务器被入侵也无法让启动器安装被替换的文件。配置方法见 [docs/update-signing.md](../docs/update-signing.md)。
+
 ---
 
 ## 常见问题

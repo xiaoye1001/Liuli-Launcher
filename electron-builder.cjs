@@ -35,6 +35,7 @@ module.exports = {
     '!dist/*',
     '!website/**',
     '!deploy/**',
+    '!scripts/**',
     '!electron.vite.config.{js,ts,mjs,cjs}',
     '!electron-builder.cjs',
     '!{.prettierignore,.prettierrc.json,.editorconfig,.gitattributes,dev-app-update.yml}',
