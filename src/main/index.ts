@@ -30,7 +30,7 @@ import {
   startJavaInstall,
   startRepair
 } from './install'
-import { getGameLogs, getGameStatus, launchGame, listInstalledVersions, previewMemory } from './launch'
+import { cancelLaunch, getGameLogs, getGameStatus, launchGame, listInstalledVersions, previewMemory } from './launch'
 import { closeLogWindow, openLogWindow } from './logWindow'
 import { pickVersionIcon, setVersionFavorite, setVersionIcon } from './versionDisplay'
 import { frameOptions, registerWindowControls, watchMaximize } from './windowFrame'
@@ -501,6 +501,7 @@ function registerIpc(): void {
   ipcMain.handle('servers:import', () => importGameServers())
   ipcMain.handle('servers:ping', (_, address: string) => pingServer(address))
   ipcMain.handle('game:status', () => getGameStatus())
+  ipcMain.handle('game:cancel', () => cancelLaunch())
   ipcMain.handle('stats:get', () => getPlayStats())
   ipcMain.handle('export:show', () => showExportedModpack())
   ipcMain.handle('export:info', (_, versionId: string) => getModpackExportInfo(versionId))

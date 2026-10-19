@@ -82,6 +82,28 @@ function offlineUuid(name: string): string {
 
 const MAX_LOG_LINES = 5000
 let status: GameStatus = { state: 'idle', versionId: '' }
+
+/** 玩家在启动动画里点了「取消启动」（游戏窗口出现之前有效） */
+let cancelRequested = false
+/** 已经创建、但窗口还没出现的游戏进程（取消时结束它） */
+let cancellableProc: ChildProcess | null = null
+
+/**
+ * 取消正在进行的启动：游戏进程还没创建时，在创建之前停下；已经创建但窗口还没出现时，结束游戏进程。
+ * 游戏窗口出现后不能再取消（返回 false）
+ */
+export function cancelLaunch(): boolean {
+  if (status.state !== 'launching') return false
+  if (!cancelRequested) launcherLog('正在取消启动…')
+  cancelRequested = true
+  if (cancellableProc) killTree(cancellableProc)
+  return true
+}
+
+/** 启动准备过程中检查是否已取消 */
+function throwIfCancelled(): void {
+  if (cancelRequested) throw new Error('已取消启动')
+}
 let logs: string[] = []
 /** 等待推送到界面的新日志（每 100ms 合并发送一次，避免消息过多） */
 let pendingLines: string[] = []
@@ -303,6 +325,8 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
 
   // 在第一次等待之前就标记为启动中，同时到达的两次启动请求只有一个能继续
   resetLogs()
+  cancelRequested = false
+  cancellableProc = null
   setStatus({ state: 'launching', versionId })
   const startedAt = Date.now()
   openLogWindow()
@@ -393,6 +417,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     launcherLog(`游戏目录：${gamePath}${isolated ? '（版本隔离）' : ''}`)
 
     if (settings.checkFiles) await ensureGameFiles(versionId, version)
+    throwIfCancelled()
 
     // 自定义环境变量（只显示名称，值可能包含不想公开的内容）
     const customEnv = parseEnvVars(config.envVars)
@@ -434,6 +459,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       launcherLog(gcArgs.length > 0 ? '已优化内存回收（G1）' : '版本设置里指定了回收器，不添加内存回收优化参数')
     }
 
+    throwIfCancelled()
     const proc = await launch({
       gamePath,
       resourcePath: settings.gameDir,
@@ -472,6 +498,9 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       extraExecOption: { windowsHide: false, env: gameEnv }
     })
     launcherLog(`游戏进程已创建（PID ${proc.pid}）`)
+    cancellableProc = proc
+    // 创建进程期间点了取消：直接结束刚创建的进程
+    if (cancelRequested) killTree(proc)
     const processStartedAt = Date.now()
     setStatus({ state: 'launching', versionId, startedAt: processStartedAt })
 
@@ -480,6 +509,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
 
     const watcher = createMinecraftProcessWatcher(proc)
     watcher.on('minecraft-window-ready', () => {
+      cancellableProc = null
       if (status.state === 'launching') {
         launcherLog('游戏窗口已出现')
         setStatus({ state: 'running', versionId, startedAt: processStartedAt })
@@ -495,6 +525,14 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
         runHook('退出后命令', config.postExitCommand, gamePath, { ...hookEnv, INST_EXIT_CODE: String(code) })
           .then((exit) => exit !== 0 && launcherLog(`退出后命令执行失败（退出码 ${exit}）`))
           .catch((e) => launcherLog(e instanceof Error ? e.message : String(e)))
+      }
+      // 玩家取消的启动：不算游玩记录，也不做崩溃分析
+      if (cancelRequested) {
+        cancelRequested = false
+        cancellableProc = null
+        launcherLog('已取消启动')
+        setStatus({ state: 'exited', versionId, exitCode: code })
+        return
       }
       // 记录游玩时长（从游戏进程启动到退出）
       void recordSession(versionId, processStartedAt, Date.now(), code !== 0).catch(() => undefined)
@@ -537,6 +575,13 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       }
     })
   } catch (e) {
+    if (cancelRequested) {
+      // 玩家取消了启动：不算启动失败
+      cancelRequested = false
+      launcherLog('已取消启动')
+      setStatus({ state: 'exited', versionId, exitCode: null })
+      return
+    }
     // 启动失败的原因通过状态推送给界面显示
     launcherLog(`启动失败：${describeLaunchError(e)}`)
     setStatus({ state: 'crashed', versionId, error: describeLaunchError(e) })
