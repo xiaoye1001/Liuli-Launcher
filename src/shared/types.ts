@@ -73,6 +73,8 @@ export interface AppSettings {
   maxMemory: number
   /** 自动分配内存：按可用内存和模组数量决定 */
   memoryAuto: boolean
+  /** 优化 Java 内存回收：用适合游戏的 G1 参数，减少内存占用并降低卡顿（自定义了回收器时不生效） */
+  optimizeGc: boolean
   /** 启动前检查游戏文件，自动补全缺失或损坏的文件 */
   checkFiles: boolean
   /** 主页显示 Minecraft 新闻 */

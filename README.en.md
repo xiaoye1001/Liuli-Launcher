@@ -42,7 +42,7 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 
 ### Launching
 - **Automatic Java**: picks the right Java for each game version and downloads it automatically when missing (the same Java runtimes as the official launcher); Java 8 / 17 / 21 / 25 can also be downloaded from Settings with one click, or chosen manually
-- **Automatic memory allocation** (on by default): decided at launch from available memory and the number of mods (2 GB for vanilla, from 3 GB for modded versions and more with more mods), or set it manually
+- **Automatic memory allocation** (on by default): decided at launch from the game version, the number of mods and available memory, enough but not more (1–2 GB for vanilla, from 2.5 GB for modded versions and more with more mods), or set it manually; Java garbage collection is tuned by default to return unused memory to the system and reduce GC stutter
 - **File check before launch**: missing or corrupted game jars, libraries and assets are downloaded automatically before the game starts; only the broken files are fetched (can be turned off in Settings)
 - Live game log window with search filtering and one-click copy
 - **Play stats**: tracks total playtime and launch count for each version; Home shows your recently played versions so you can launch them in one click, plus a timer for the current session
