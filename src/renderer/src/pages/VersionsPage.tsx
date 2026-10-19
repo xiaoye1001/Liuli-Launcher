@@ -184,14 +184,18 @@ function NameDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const rename = mode === 'rename'
+  const trimmed = name.trim()
+  /** 按钮与回车共用：名称为空或没有改名时不能提交 */
+  const canSubmit = !busy && trimmed !== '' && !(rename && trimmed === version.id)
 
   const submit = async (): Promise<void> => {
+    if (!canSubmit) return
     setBusy(true)
     setError('')
     try {
-      if (rename) await window.api.renameVersion(version.id, name)
-      else await window.api.copyVersion(version.id, name, includeSaves)
-      onDone(rename ? `已将 ${version.id} 重命名为 ${name}` : `已复制 ${version.id} 为 ${name}`)
+      if (rename) await window.api.renameVersion(version.id, trimmed)
+      else await window.api.copyVersion(version.id, trimmed, includeSaves)
+      onDone(rename ? `已将 ${version.id} 重命名为 ${trimmed}` : `已复制 ${version.id} 为 ${trimmed}`)
     } catch (e) {
       setError(cleanError(e))
       setBusy(false)
@@ -214,7 +218,7 @@ function NameDialog({
             maxLength={64}
             spellCheck={false}
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !busy && submit()}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
             className="mt-1 w-full rounded-lg border border-white/15 bg-black/20 px-3 py-2 text-sm outline-none focus:border-sky-400/70"
           />
         </label>
@@ -246,7 +250,7 @@ function NameDialog({
           </button>
           <button
             onClick={submit}
-            disabled={busy || !name.trim() || (rename && name === version.id)}
+            disabled={!canSubmit}
             className="flex items-center gap-1.5 rounded-lg bg-emerald-500/80 px-4 py-1.5 text-sm font-medium hover:bg-emerald-500 disabled:opacity-50"
           >
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}

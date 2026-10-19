@@ -181,6 +181,8 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
   const [saved, setSaved] = useState(false)
   const savedTimer = useRef<ReturnType<typeof setTimeout>>()
   const memoryTimer = useRef<ReturnType<typeof setTimeout>>()
+  /** 还没保存的内存设置：离开页面时立即保存，不丢失 */
+  const pendingMemory = useRef<number | null>(null)
   const [memoryDraft, setMemoryDraft] = useState(0)
 
   useEffect(() => {
@@ -197,9 +199,14 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
       .scanJava()
       .then(setJavaList)
       .catch(() => setJavaList([]))
+    const id = version.id
     return () => {
       clearTimeout(savedTimer.current)
       clearTimeout(memoryTimer.current)
+      if (pendingMemory.current !== null) {
+        void window.api.setVersionConfig(id, { maxMemory: pendingMemory.current }).catch(() => undefined)
+        pendingMemory.current = null
+      }
     }
   }, [version.id])
 
@@ -237,7 +244,11 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
   const setMemory = (value: number): void => {
     setMemoryDraft(value)
     clearTimeout(memoryTimer.current)
-    memoryTimer.current = setTimeout(() => save({ maxMemory: value }), 400)
+    pendingMemory.current = value
+    memoryTimer.current = setTimeout(() => {
+      pendingMemory.current = null
+      void save({ maxMemory: value })
+    }, 400)
   }
 
   return (
@@ -272,6 +283,7 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
           <button
             onClick={() => {
               clearTimeout(memoryTimer.current)
+              pendingMemory.current = null
               setMemoryDraft(0)
               save(DEFAULT_CONFIG)
             }}

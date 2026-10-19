@@ -329,6 +329,8 @@ export interface SystemInfo {
   portableDir: string | null
   /** Windows 上是否以管理员身份运行（此时无法从资源管理器拖入文件） */
   elevated: boolean
+  /** 登录凭证能否用系统安全存储加密保存（Linux 没有密钥环时为 false） */
+  tokenEncryption: boolean
 }
 
 /** 版本类型：正式版 / 快照 / 远古 Beta / 远古 Alpha */

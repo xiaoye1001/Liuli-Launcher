@@ -77,7 +77,8 @@ function LogWindow(): JSX.Element {
   }
 
   const copyAll = async (): Promise<void> => {
-    await navigator.clipboard.writeText(visible.join('\n'))
+    // 复制出去的日志常被发到群里：先去掉登录令牌和用户文件夹路径
+    await navigator.clipboard.writeText(await window.api.sanitizeLog(visible.join('\n')))
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }

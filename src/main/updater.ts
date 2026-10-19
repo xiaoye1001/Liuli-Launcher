@@ -194,7 +194,7 @@ async function checkGithub(): Promise<UpdateInfo> {
 
   const current = __APP_VERSION__
   const latest = (release.tag_name ?? '').replace(/^v/i, '')
-  if (!latest) throw new Error('无法读取最新版本信息')
+  if (!/^\d+(\.\d+)*$/.test(latest)) throw new Error('无法读取最新版本信息')
   const assets = (release.assets ?? []).filter((a) => a.name && isGithubUrl(a.browser_download_url))
   const assetName = pickAsset(assets.map((a) => a.name!)) ?? ''
   const asset = assets.find((a) => a.name === assetName)
@@ -213,7 +213,8 @@ async function checkGithub(): Promise<UpdateInfo> {
     publishedAt: release.published_at ?? '',
     assetName,
     assetSize: asset?.size ?? 0,
-    autoUpdate: !!asset && updateMode() !== null,
+    // 没有 SHA-256 时不能校验安装包，只提供下载页面
+    autoUpdate: !!asset && !!sha256 && updateMode() !== null,
     source: 'github'
   }
 }
@@ -258,11 +259,12 @@ async function sha256Of(path: string): Promise<string> {
   return hash.digest('hex')
 }
 
-/** 检查下载好的文件：有 SHA-256 时校验哈希，否则至少检查大小 */
+/** 检查下载好的文件：大小与 SHA-256 都必须一致 */
 async function verify(path: string, asset: NonNullable<typeof lastAsset>): Promise<void> {
   const info = await stat(path)
   if (asset.size && info.size !== asset.size) throw new Error('下载的文件大小不对，可能没有下载完整')
-  if (asset.sha256 && (await sha256Of(path)) !== asset.sha256) {
+  if (!asset.sha256) throw new Error('这个安装包没有提供 SHA-256，无法校验，请打开发布页面下载')
+  if ((await sha256Of(path)) !== asset.sha256) {
     throw new Error('下载的文件校验失败（SHA-256 不一致），已删除，请重试')
   }
 }
@@ -274,10 +276,11 @@ export async function downloadUpdate(): Promise<void> {
   if (!updateMode()) throw new Error('当前版本不支持自动更新，请打开发布页面下载')
   if (download_.state === 'downloading') return
   if (download_.state === 'ready' && download_.version === asset.version) return
-  await mkdir(UPDATES_DIR, { recursive: true })
+  if (!asset.sha256) throw new Error('这个安装包没有提供 SHA-256，无法校验，请打开发布页面下载')
   const destination = join(UPDATES_DIR, asset.name)
   const controller = new AbortController()
   downloadController = controller
+  // 先标记为下载中再做其他事，避免连续点击时同时开始两次下载
   setDownload({
     state: 'downloading',
     version: asset.version,
@@ -295,6 +298,7 @@ export async function downloadUpdate(): Promise<void> {
     setDownload({ progress: current, speed: download_.speed === 0 ? speed : download_.speed * 0.6 + speed * 0.4 })
   }, 500)
   try {
+    await mkdir(UPDATES_DIR, { recursive: true })
     await download({
       url: asset.url,
       destination,
@@ -337,7 +341,10 @@ function shQuote(value: string): string {
 
 /** 后台运行更新脚本：启动器退出后它继续运行 */
 function runDetached(command: string, args: string[]): void {
-  spawn(command, args, { detached: true, stdio: 'ignore', windowsHide: true }).unref()
+  const child = spawn(command, args, { detached: true, stdio: 'ignore', windowsHide: true })
+  // 启动失败（例如文件被删除）时不让主进程崩溃
+  child.on('error', (e) => console.error('启动更新程序失败：', e))
+  child.unref()
 }
 
 /** 更新日志：Windows 更新脚本的每一步都记在这里，新版本启动后据此提示更新结果 */
@@ -423,6 +430,10 @@ export async function installUpdate(): Promise<void> {
   if (game.state === 'launching' || game.state === 'running') throw new Error('游戏正在运行，请退出游戏后再更新')
   if (getInstallStatus()?.state === 'running') throw new Error('正在下载或安装游戏，请等待完成后再更新')
   const file = downloadedFile
+  if (!existsSync(file)) {
+    setDownload({ state: 'idle', progress: 0, speed: 0 })
+    throw new Error('下载好的安装包找不到了，请重新下载')
+  }
   const pid = process.pid
 
   if (mode === 'portable') {
@@ -471,7 +482,14 @@ export async function installUpdate(): Promise<void> {
     // 正在运行的程序不受影响（仍使用旧文件），替换后启动的就是新版本
     await rename(temp, target)
     await rm(file, { force: true })
-    runDetached(target, [])
+    // 等旧启动器完全退出再打开新版本，否则新版本会因为「只允许运行一个启动器」而直接退出
+    runDetached('/bin/sh', [
+      '-c',
+      'while kill -0 "$1" 2>/dev/null; do sleep 0.3; done; exec "$2"',
+      'sh',
+      String(pid),
+      target
+    ])
   } else {
     const bundle = process.execPath.slice(0, process.execPath.indexOf('.app/') + 4)
     const script = join(UPDATES_DIR, 'update.sh')
@@ -508,5 +526,7 @@ export async function installUpdate(): Promise<void> {
 
 /** 清理上次更新留下的安装包（启动时调用；新版本已经在运行，旧的安装包没有用了） */
 export async function cleanUpdateFiles(): Promise<void> {
+  // 这次启动后已经开始下载新版本时不能删
+  if (download_.state !== 'idle') return
   await rm(UPDATES_DIR, { recursive: true, force: true }).catch(() => undefined)
 }

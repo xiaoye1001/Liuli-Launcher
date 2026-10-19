@@ -11,6 +11,12 @@ import { renderWelcome } from '../utils/welcome'
 import SkinHead from '../components/SkinHead'
 import type { AccountsInfo, AppSettings, GameStatus, InstallStatus, InstalledVersion } from '../../../shared/types'
 
+/** 去掉 Electron 给 IPC 错误加的前缀 */
+function cleanError(e: unknown): string {
+  const message = e instanceof Error ? e.message : String(e)
+  return message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+}
+
 const NAME_PATTERN = /^[A-Za-z0-9_]{3,16}$/
 
 interface VersionSelectProps {
@@ -97,6 +103,9 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
   const [javaTask, setJavaTask] = useState<InstallStatus | null>(null)
   /** 关闭崩溃提示，下次启动后重新显示 */
   const [crashDismissed, setCrashDismissed] = useState(false)
+  const [launchError, setLaunchError] = useState('')
+  /** 正在发起启动：防止连续点击重复启动 */
+  const launching = useRef(false)
 
   useEffect(() => {
     const init = async (): Promise<void> => {
@@ -148,17 +157,29 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
     setSettings(await window.api.updateSettings({ selectedVersion: id }))
   }
 
-  const onLaunch = async (): Promise<void> => {
-    await saveName()
-    await window.api.launchGame(selected)
+  /** 启动游戏：同一时间只发起一次，失败时在下方显示原因 */
+  const startGame = async (prepare: () => Promise<string>): Promise<void> => {
+    if (launching.current) return
+    launching.current = true
+    setLaunchError('')
+    try {
+      await saveName()
+      await window.api.launchGame(await prepare())
+    } catch (e) {
+      setLaunchError(cleanError(e))
+    } finally {
+      launching.current = false
+    }
   }
 
+  const onLaunch = (): Promise<void> => startGame(async () => selected)
+
   /** 从「最近游玩」启动：先切换主页选择的版本 */
-  const launchRecent = async (id: string): Promise<void> => {
-    await saveName()
-    await selectVersion(id)
-    await window.api.launchGame(id)
-  }
+  const launchRecent = (id: string): Promise<void> =>
+    startGame(async () => {
+      await selectVersion(id)
+      return id
+    })
 
   // 游戏运行时每秒刷新「本次已玩」时长
   const [now, setNow] = useState(Date.now())
@@ -303,6 +324,7 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
           </div>
         )}
         {!nameValid && <p className="mt-2 text-xs text-red-300">玩家名只能包含字母、数字和下划线，长度 3~16</p>}
+        {launchError && <p className="mt-2 text-xs text-red-300">启动失败：{launchError}</p>}
       </div>
     </div>
   )

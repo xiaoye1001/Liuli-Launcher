@@ -323,11 +323,11 @@ export function createParticleSystem(
   let running = false
 
   const resize = (): void => {
-    const rect = canvas.getBoundingClientRect()
+    // 用布局尺寸（不含视差的 scale 变换），鼠标位置也按同样的尺寸换算
     // 高分屏最多按 1.5 倍绘制，兼顾清晰度与性能
     const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
-    width = Math.max(1, rect.width)
-    height = Math.max(1, rect.height)
+    width = Math.max(1, canvas.clientWidth)
+    height = Math.max(1, canvas.clientHeight)
     canvas.width = Math.round(width * dpr)
     canvas.height = Math.round(height * dpr)
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)

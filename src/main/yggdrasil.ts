@@ -53,12 +53,16 @@ async function loadAccounts(): Promise<StoredExternal[]> {
 
 function saveAccounts(): Promise<void> {
   const data = JSON.stringify({ accounts: stored ?? [] }, null, 2)
-  writeQueue = writeQueue.then(async () => {
-    await mkdir(dirname(ACCOUNTS_FILE), { recursive: true })
-    await writeFile(`${ACCOUNTS_FILE}.tmp`, data, { mode: 0o600 })
-    await rename(`${ACCOUNTS_FILE}.tmp`, ACCOUNTS_FILE)
-  })
-  return writeQueue
+  // 上一次写入失败不影响这一次（否则一次失败后再也保存不了）
+  const task = writeQueue
+    .catch(() => undefined)
+    .then(async () => {
+      await mkdir(dirname(ACCOUNTS_FILE), { recursive: true })
+      await writeFile(`${ACCOUNTS_FILE}.tmp`, data, { mode: 0o600 })
+      await rename(`${ACCOUNTS_FILE}.tmp`, ACCOUNTS_FILE)
+    })
+  writeQueue = task.catch(() => undefined)
+  return task
 }
 
 function publicAccount(a: StoredExternal): ExternalAccount {
@@ -109,12 +113,21 @@ function normalizeUrl(input: string): URL {
 }
 
 async function request(url: string, init: RequestInit = {}): Promise<Response> {
+  let response: Response
   try {
-    return await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT) })
+    // 发送密码等内容的 POST 不跟随跳转，避免被跳转到 http 地址后明文发送
+    response = await fetch(url, {
+      ...init,
+      redirect: init.method === 'POST' ? 'error' : 'follow',
+      signal: AbortSignal.timeout(TIMEOUT)
+    })
   } catch (e) {
     if ((e as Error).name === 'TimeoutError') throw new Error('连接验证服务器超时，请检查网络')
     throw new Error('无法连接验证服务器，请检查地址和网络')
   }
+  // 跳转后的地址同样必须是 https
+  if (response.redirected) normalizeUrl(response.url)
+  return response
 }
 
 /**

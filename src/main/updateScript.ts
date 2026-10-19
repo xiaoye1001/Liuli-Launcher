@@ -5,9 +5,9 @@
  * 打开新版本 → 等新窗口出现后关闭小窗口。每一步都写进日志，失败时打开旧版本，下次启动时提示原因
  */
 
-/** PowerShell 单引号字符串 */
+/** PowerShell 单引号字符串（PowerShell 把 ‘ ’ ‚ ‛ 也当作单引号，一起转义） */
 export function psQuote(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`
+  return `'${value.replace(/['\u2018-\u201b]/g, (m) => m + m)}'`
 }
 
 export interface PortableScriptOptions {

@@ -38,12 +38,15 @@ export async function ensureAuthlibInjector(log: (message: string) => void): Pro
       if (!/^[\w.-]+$/.test(artifact.version)) throw new Error('版本号格式不正确')
       const path = join(DIR, `authlib-injector-${artifact.version}.jar`)
       if (await stat(path).catch(() => null)) return path
+      // 这个文件会加载进游戏进程：只从 https 地址下载，并且必须有 SHA-256 校验
+      const expected = artifact.checksums?.sha256
+      if (typeof expected !== 'string' || !/^[0-9a-f]{64}$/i.test(expected)) throw new Error('缺少文件校验信息')
+      if (new URL(artifact.download_url).protocol !== 'https:') throw new Error('下载地址不安全')
       log(`正在下载 authlib-injector ${artifact.version}`)
       const response = await fetch(artifact.download_url, { signal: AbortSignal.timeout(60000) })
       if (!response.ok) throw new Error(`下载失败（${response.status}）`)
       const data = Buffer.from(await response.arrayBuffer())
-      const expected = artifact.checksums?.sha256
-      if (expected && createHash('sha256').update(data).digest('hex') !== expected.toLowerCase()) {
+      if (createHash('sha256').update(data).digest('hex') !== expected.toLowerCase()) {
         throw new Error('文件校验失败')
       }
       await mkdir(DIR, { recursive: true })

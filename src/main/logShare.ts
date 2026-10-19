@@ -24,15 +24,18 @@ export function sanitizeLog(text: string): string {
   let result = text
     // 启动参数和各种格式里的访问令牌
     .replace(/(--(?:accessToken|session)\s+)\S+/gi, '$1***')
-    .replace(/((?:access_?token|session_?id|client_?token)["']?\s*[:=]\s*["']?)[^"'\s,;}]+/gi, '$1***')
+    .replace(
+      /((?:access_?token|refresh_?token|mc_?token|session_?id|client_?token)["']?\s*[:=]\s*["']?)[^"'\s,;}]+/gi,
+      '$1***'
+    )
     // 旧版本游戏会打印「Session ID is token:<令牌>:<uuid>」
     .replace(/(token:)[A-Za-z0-9._-]{16,}/g, '$1***')
     // JWT 格式的令牌（微软 / Minecraft 登录令牌）
     .replace(/eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, '***')
   const home = homedir()
   if (home && home.length > 3) {
-    // 同时处理 \ 和 / 两种写法
-    const pattern = escapeRegExp(home).replace(/\\\\|\//g, '[\\\\/]')
+    // 同时处理 \ 和 / 两种写法，以及 JSON / Java 里转义成 \\ 的写法
+    const pattern = escapeRegExp(home).replace(/\\\\|\//g, '[\\\\/]+')
     result = result.replace(new RegExp(pattern, process.platform === 'win32' ? 'gi' : 'g'), '~')
   }
   const user = (() => {
@@ -45,8 +48,10 @@ export function sanitizeLog(text: string): string {
   if (user.length >= 3) {
     // 其他位置的用户文件夹，例如 C:\Users\<用户名>、/home/<用户名>
     const name = escapeRegExp(user)
-    result = result.replace(new RegExp(`([\\\\/](?:Users|home)[\\\\/])${name}(?=[\\\\/]|$)`, 'gim'), '$1<user>')
+    result = result.replace(new RegExp(`([\\\\/]+(?:Users|home)[\\\\/]+)${name}(?=[\\\\/]|$)`, 'gim'), '$1<user>')
   }
+  // Windows 的短路径，例如 C:\Users\ZHANGS~1\AppData（会露出部分用户名）
+  result = result.replace(/([\\/]+Users[\\/]+)[^\\/\s~]{1,6}~\d+(?=[\\/]|$)/gim, '$1<user>')
   return result
 }
 

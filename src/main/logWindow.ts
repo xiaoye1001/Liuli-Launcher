@@ -26,7 +26,7 @@ export function openLogWindow(): void {
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0b1120' : '#f8fafc',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: true
     }
   })
 

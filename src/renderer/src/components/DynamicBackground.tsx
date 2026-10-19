@@ -193,8 +193,15 @@ function ParticleLayer({
       return
     }
     const move = (e: MouseEvent): void => {
-      const rect = canvasRef.current?.getBoundingClientRect()
-      if (rect) systemRef.current?.setPointer({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+      const canvas = canvasRef.current
+      const rect = canvas?.getBoundingClientRect()
+      // 视差会把背景放大一点：按显示尺寸与布局尺寸的比例换算回画布坐标
+      if (canvas && rect && rect.width > 0 && rect.height > 0) {
+        systemRef.current?.setPointer({
+          x: ((e.clientX - rect.left) * canvas.clientWidth) / rect.width,
+          y: ((e.clientY - rect.top) * canvas.clientHeight) / rect.height
+        })
+      }
     }
     const leave = (): void => systemRef.current?.setPointer(null)
     window.addEventListener('mousemove', move)

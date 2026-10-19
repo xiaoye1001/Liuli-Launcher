@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
 import type {
   UpdateDownload,
   AppSettings,
@@ -257,6 +256,7 @@ const api = {
   getGameLogs: () => ipcRenderer.invoke('game:logs'),
   openLogWindow: () => ipcRenderer.invoke('logs:open'),
   shareGameLog: () => ipcRenderer.invoke('logs:shareGame'),
+  sanitizeLog: (text: string) => ipcRenderer.invoke('logs:sanitize', text),
   shareCrashLogs: () => ipcRenderer.invoke('logs:shareCrash'),
   shareLatestLog: (versionId: string) => ipcRenderer.invoke('logs:shareLatest', versionId),
   /** 订阅游戏日志，返回取消订阅函数 */
@@ -269,16 +269,5 @@ const api = {
   }
 }
 
-if (process.contextIsolated) {
-  try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
-  } catch (error) {
-    console.error(error)
-  }
-} else {
-  // @ts-ignore 非隔离模式下直接挂载到 window
-  window.electron = electronAPI
-  // @ts-ignore 非隔离模式下直接挂载到 window
-  window.api = api
-}
+// 只暴露整理好的 window.api；不暴露原始 ipcRenderer 与环境变量
+contextBridge.exposeInMainWorld('api', api)
