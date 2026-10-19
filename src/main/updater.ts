@@ -30,7 +30,14 @@ interface GithubRelease {
 /** 最近一次检查到的下载地址（打开链接时只使用这里记录的地址） */
 let lastLinks: { page: string; asset: string } | null = null
 /** 最近一次检查到的、适合本机的安装包（自动更新只下载这里记录的文件） */
-let lastAsset: { version: string; name: string; url: string; size: number; sha256: string } | null = null
+interface UpdateAsset {
+  version: string
+  name: string
+  url: string
+  size: number
+  sha256: string
+}
+let lastAsset: UpdateAsset | null = null
 
 /** 版本号比较：1.2.10 > 1.2.9；忽略开头的 v 和 - 之后的预发布标记 */
 export function compareVersions(a: string, b: string): number {
@@ -144,25 +151,28 @@ async function checkOfficial(): Promise<UpdateInfo> {
   const page = `${OFFICIAL_SITE}/`
   const url = asset ? `${OFFICIAL_SITE}/downloads/${encodeURIComponent(asset.name)}` : page
   lastLinks = { page, asset: url }
-  lastAsset = asset
-    ? {
-        version: latest,
-        name: assetName,
-        url,
-        size: typeof asset.size === 'number' ? asset.size : 0,
-        sha256: asset.sha256.toLowerCase()
-      }
-    : null
+  const hasUpdate = compareVersions(latest, __APP_VERSION__) > 0
+  // 只记录比当前更新的版本：之后下载、安装的只会是这里记录的文件，不会装回旧版本
+  lastAsset =
+    asset && hasUpdate
+      ? {
+          version: latest,
+          name: assetName,
+          url,
+          size: typeof asset.size === 'number' ? asset.size : 0,
+          sha256: asset.sha256.toLowerCase()
+        }
+      : null
   return {
     current: __APP_VERSION__,
     latest,
-    hasUpdate: compareVersions(latest, __APP_VERSION__) > 0,
+    hasUpdate,
     name: `v${latest}`,
     notes: typeof data.notes === 'string' ? data.notes.slice(0, 20000) : '',
     publishedAt: typeof data.publishedAt === 'string' ? data.publishedAt : '',
     assetName,
     assetSize: lastAsset?.size ?? 0,
-    autoUpdate: !!asset && updateMode() !== null,
+    autoUpdate: !!lastAsset && updateMode() !== null,
     source: 'official'
   }
 }
@@ -218,23 +228,57 @@ async function checkGithub(): Promise<UpdateInfo> {
   const asset = assets.find((a) => a.name === assetName)
   const page = isGithubUrl(release.html_url) ? release.html_url : `https://github.com/${REPO}/releases/latest`
   lastLinks = { page, asset: asset?.browser_download_url ?? page }
-  const sha256 = /^sha256:([0-9a-f]{64})$/i.exec(asset?.digest ?? '')?.[1]?.toLowerCase() ?? ''
-  lastAsset = asset
-    ? { version: latest, name: assetName, url: asset.browser_download_url!, size: asset.size ?? 0, sha256 }
-    : null
+  const hasUpdate = compareVersions(latest, current) > 0
+  let sha256 = /^sha256:([0-9a-f]{64})$/i.exec(asset?.digest ?? '')?.[1]?.toLowerCase() ?? ''
+  let size = asset?.size ?? 0
+  if (UPDATE_PUBLIC_KEY && asset && hasUpdate) {
+    // GitHub 给的 digest 只能说明文件没有传坏，证明不了是谁发布的：
+    // 有公钥时只相信 GitHub Actions 签名过的安装包清单（和官网一样），验证不了就只提供下载页面
+    try {
+      const signedAsset = assets.find((a) => a.name === `LiuliLauncher-${latest}-signature.json`)
+      if (!signedAsset) throw new Error('这个版本没有数字签名文件')
+      const signed = verifySignedRelease(await fetchSignature(signedAsset.browser_download_url!), UPDATE_PUBLIC_KEY)
+      if (signed.version !== latest) throw new Error('数字签名里的版本号与发布的版本不一致')
+      const file = signed.files.find((f) => f.name === assetName)
+      if (!file) throw new Error('数字签名里没有这个安装包')
+      sha256 = file.sha256
+      size = file.size
+    } catch (e) {
+      console.warn('GitHub 上的新版本签名验证失败，只提供下载页面：', e instanceof Error ? e.message : e)
+      sha256 = ''
+    }
+  }
+  // 只记录比当前更新的版本：之后下载、安装的只会是这里记录的文件，不会装回旧版本
+  lastAsset =
+    asset && hasUpdate ? { version: latest, name: assetName, url: asset.browser_download_url!, size, sha256 } : null
   return {
     current,
     latest,
-    hasUpdate: compareVersions(latest, current) > 0,
+    hasUpdate,
     name: (release.name ?? '').slice(0, 100) || `v${latest}`,
     notes: (release.body ?? '').slice(0, 20000),
     publishedAt: release.published_at ?? '',
     assetName,
     assetSize: asset?.size ?? 0,
     // 没有 SHA-256 时不能校验安装包，只提供下载页面
-    autoUpdate: !!asset && !!sha256 && updateMode() !== null,
+    autoUpdate: !!lastAsset && !!sha256 && updateMode() !== null,
     source: 'github'
   }
+}
+
+/** 下载 GitHub 发布里的签名文件（只有几百字节，超过 64 KB 一定不对） */
+async function fetchSignature(url: string): Promise<unknown> {
+  if (!isGithubUrl(url)) throw new Error('签名文件的地址不对')
+  const response = await fetch(url, {
+    headers: { 'User-Agent': `LiuliLauncher/${__APP_VERSION__}` },
+    signal: AbortSignal.timeout(TIMEOUT)
+  })
+  if (!response.ok) throw new Error(`下载签名文件失败（${response.status}）`)
+  const length = Number(response.headers.get('content-length') ?? 0)
+  if (length > 64 * 1024) throw new Error('签名文件太大')
+  const text = await response.text()
+  if (text.length > 64 * 1024) throw new Error('签名文件太大')
+  return JSON.parse(text) as unknown
 }
 
 /** 在浏览器中打开下载地址或发布页面 */
@@ -261,6 +305,8 @@ const UPDATES_DIR = join(app.getPath('userData'), 'updates')
 let download_: UpdateDownload = { state: 'idle', version: '', progress: 0, total: 0, speed: 0 }
 let downloadController: AbortController | null = null
 let downloadedFile = ''
+/** 下载好的安装包对应的版本信息（安装前再校验一次） */
+let downloadedAsset: UpdateAsset | null = null
 
 function setDownload(next: Partial<UpdateDownload>): void {
   download_ = { ...download_, ...next }
@@ -278,7 +324,7 @@ async function sha256Of(path: string): Promise<string> {
 }
 
 /** 检查下载好的文件：大小与 SHA-256 都必须一致 */
-async function verify(path: string, asset: NonNullable<typeof lastAsset>): Promise<void> {
+async function verify(path: string, asset: UpdateAsset): Promise<void> {
   const info = await stat(path)
   if (asset.size && info.size !== asset.size) throw new Error('下载的文件大小不对，可能没有下载完整')
   if (!asset.sha256) throw new Error('这个安装包没有提供 SHA-256，无法校验，请打开发布页面下载')
@@ -291,6 +337,8 @@ async function verify(path: string, asset: NonNullable<typeof lastAsset>): Promi
 export async function downloadUpdate(): Promise<void> {
   const asset = lastAsset
   if (!asset) throw new Error('请先检查更新')
+  // 只安装比当前更新的版本（防止被旧的版本信息骗去装回旧版）
+  if (compareVersions(asset.version, __APP_VERSION__) <= 0) throw new Error('已经是最新版本')
   if (!updateMode()) throw new Error('当前版本不支持自动更新，请打开发布页面下载')
   if (download_.state === 'downloading') return
   if (download_.state === 'ready' && download_.version === asset.version) return
@@ -333,6 +381,7 @@ export async function downloadUpdate(): Promise<void> {
       throw e
     })
     downloadedFile = destination
+    downloadedAsset = asset
     setDownload({ state: 'ready', progress: download_.total, speed: 0 })
   } catch (e) {
     const cancelled = controller.signal.aborted
@@ -448,9 +497,21 @@ export async function installUpdate(): Promise<void> {
   if (game.state === 'launching' || game.state === 'running') throw new Error('游戏正在运行，请退出游戏后再更新')
   if (getInstallStatus()?.state === 'running') throw new Error('正在下载或安装游戏，请等待完成后再更新')
   const file = downloadedFile
-  if (!existsSync(file)) {
+  const asset = downloadedAsset
+  if (!existsSync(file) || !asset) {
     setDownload({ state: 'idle', progress: 0, speed: 0 })
     throw new Error('下载好的安装包找不到了，请重新下载')
+  }
+  if (compareVersions(asset.version, __APP_VERSION__) <= 0) throw new Error('已经是最新版本')
+  // 下载后到点「安装」之间可能隔了很久，运行前再校验一次，文件被换掉就不安装
+  try {
+    await verify(file, asset)
+  } catch (e) {
+    await rm(file, { force: true }).catch(() => undefined)
+    downloadedFile = ''
+    downloadedAsset = null
+    setDownload({ state: 'failed', progress: 0, speed: 0, error: (e as Error).message })
+    throw new Error(`安装包校验失败，已删除，请重新下载：${(e as Error).message}`)
   }
   const pid = process.pid
 

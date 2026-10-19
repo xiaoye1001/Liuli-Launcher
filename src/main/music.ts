@@ -77,7 +77,11 @@ export async function addMusic(win: BrowserWindow | null): Promise<string[]> {
 /** 删除一首音乐（删除文件） */
 export async function removeMusic(name: unknown): Promise<string[]> {
   const file = safeName(name)
-  if (file) await rm(join(MUSIC_DIR, file), { force: true })
+  if (file) {
+    // 移到回收站（音乐文件夹里可能是唯一的一份），回收站不可用时才直接删除
+    const path = join(MUSIC_DIR, file)
+    await shell.trashItem(path).catch(() => rm(path, { force: true }))
+  }
   return listMusic()
 }
 

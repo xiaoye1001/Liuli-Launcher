@@ -8,7 +8,7 @@ import {
   removeBackground
 } from './appearance'
 import { getMainWindow, setMainWindow } from './windows'
-import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -214,11 +214,6 @@ function createWindow(): void {
 
   // 文件拖进窗口时，界面没有处理到的话浏览器会直接打开该文件，离开启动器界面，这里一律阻止
   mainWindow.webContents.on('will-navigate', (event) => event.preventDefault())
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    // 只用系统浏览器打开网页链接
-    if (/^https?:\/\//.test(details.url)) shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -354,7 +349,7 @@ function registerIpc(): void {
   ipcMain.handle('versions:shortcut', (_, versionId: string) => createDesktopShortcut(versionId))
   ipcMain.handle('versions:getConfig', (_, versionId: string) => getVersionConfig(versionId))
   ipcMain.handle('versions:setConfig', (_, versionId: string, patch: Partial<VersionConfig>) =>
-    setVersionConfig(versionId, patch)
+    setVersionConfig(versionId, patch && typeof patch === 'object' ? patch : {}, { fromUser: true })
   )
   ipcMain.handle('version:setFavorite', (_, versionId: string, favorite: boolean) =>
     setVersionFavorite(versionId, favorite === true)

@@ -1,4 +1,4 @@
-import { BrowserWindow, nativeTheme, shell } from 'electron'
+import { BrowserWindow, nativeTheme } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { frameOptions, watchMaximize } from './windowFrame'
@@ -34,10 +34,6 @@ export function openLogWindow(): void {
   manageUiScale(logWindow, [600, 360])
   logWindow.on('ready-to-show', () => logWindow?.show())
   // 链接（例如分享日志得到的 mclo.gs 链接）用系统浏览器打开
-  logWindow.webContents.setWindowOpenHandler((details) => {
-    if (/^https?:\/\//.test(details.url)) shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
   logWindow.on('closed', () => {
     logWindow = null
   })

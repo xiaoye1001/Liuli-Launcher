@@ -184,15 +184,18 @@ function cleanError(e: unknown): string {
 }
 
 function ProjectIcon({ url, fallback: Fallback }: { url?: string; fallback: LucideIcon }): JSX.Element {
-  const [failed, setFailed] = useState(false)
-  if (!url || failed) {
+  // 记录加载失败的是哪个地址：地址变了会重新尝试
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
+  if (!url || failedUrl === url) {
     return (
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-white/10">
         <Fallback className="h-6 w-6 text-white/40" />
       </div>
     )
   }
-  return <img src={url} alt="" onError={() => setFailed(true)} className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+  return (
+    <img src={url} alt="" onError={() => setFailedUrl(url)} className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+  )
 }
 
 /** 筛选下拉框 */
@@ -356,16 +359,22 @@ function ResourceBrowser({
   // 数据包需要选择存档
   useEffect(() => {
     if (type !== 'datapack' || !targetId) return
+    // 快速切换「安装到」时，只用最后一次的结果（否则可能显示上一个版本的存档）
+    let alive = true
     setWorlds(null)
     window.api
       .listWorlds(targetId)
       .then((list) => {
+        if (!alive) return
         setWorlds(list)
         setWorld((prev) =>
           worldHint && list.includes(worldHint) ? worldHint : list.includes(prev) ? prev : (list[0] ?? '')
         )
       })
-      .catch(() => setWorlds([]))
+      .catch(() => alive && setWorlds([]))
+    return () => {
+      alive = false
+    }
   }, [type, targetId, worldHint])
 
   const setFilter = (key: keyof ResourceSearchFilters, value: string): void =>

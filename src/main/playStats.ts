@@ -10,16 +10,39 @@ const MAX_SESSIONS = 100
 let cache: PlayStats | null = null
 let writeQueue: Promise<void> = Promise.resolve()
 
+const num = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0)
+
+/** 统计文件被改坏时只保留格式正确的内容；用没有原型的对象，版本名是 __proto__ 也不会出问题 */
+function sanitizeVersions(raw: unknown): PlayStats['versions'] {
+  const versions = Object.create(null) as PlayStats['versions']
+  if (!raw || typeof raw !== 'object') return versions
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== 'object' || id.length > 128) continue
+    const v = value as Record<string, unknown>
+    versions[id] = { totalMs: num(v.totalMs), launches: num(v.launches), lastPlayed: num(v.lastPlayed) }
+  }
+  return versions
+}
+
+function sanitizeSessions(raw: unknown): PlayStats['sessions'] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((s): s is Record<string, unknown> => !!s && typeof s === 'object' && typeof s.versionId === 'string')
+    .map((s) => ({
+      versionId: String(s.versionId),
+      start: num(s.start),
+      durationMs: num(s.durationMs),
+      crashed: s.crashed === true
+    }))
+}
+
 async function load(): Promise<PlayStats> {
   if (cache) return cache
   try {
     const data = JSON.parse(await readFile(STATS_FILE, 'utf-8'))
-    cache = {
-      versions: data && typeof data.versions === 'object' ? data.versions : {},
-      sessions: Array.isArray(data?.sessions) ? data.sessions : []
-    }
+    cache = { versions: sanitizeVersions(data?.versions), sessions: sanitizeSessions(data?.sessions) }
   } catch {
-    cache = { versions: {}, sessions: [] }
+    cache = { versions: Object.create(null) as PlayStats['versions'], sessions: [] }
   }
   return cache
 }

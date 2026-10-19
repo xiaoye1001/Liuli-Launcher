@@ -9,13 +9,17 @@ import { listServers, saveServer } from './servers'
 import { renamePlayStats } from './playStats'
 import { assertSafeId } from './versionManage'
 import { isReservedName } from './services/fastDownloader'
+import { getVersionConfig } from './versionConfig'
+import { copyVersionTrust } from './versionTrust'
 
 /** 版本名规则与安装时一致 */
 function assertNewName(name: string): void {
   if (!name) throw new Error('版本名不能为空')
   if (name.length > 64) throw new Error('版本名不能超过 64 个字符')
-  if (/[\\/:*?"<>|]/.test(name) || name === '.' || name === '..')
-    throw new Error('版本名不能包含 \\ / : * ? " < > | 等字符')
+  // & ^ %：版本名会作为 INST_NAME 等变量交给启动前 / 退出后命令，Windows 命令行会把它们当成命令符号；
+  // 控制字符（换行等）会破坏桌面快捷方式文件
+  if (/[\\/:*?"<>|&^%\u0000-\u001f\u007f]/.test(name) || name === '.' || name === '..')
+    throw new Error('版本名不能包含 \\ / : * ? " < > | & ^ % 等字符')
   if (name !== name.trim()) throw new Error('版本名首尾不能有空格')
   if (name.endsWith('.') || isReservedName(name)) throw new Error('版本名不能以 . 结尾，也不能是 CON、NUL 等系统保留名')
 }
@@ -89,12 +93,16 @@ export async function renameVersion(versionId: string, newId: string): Promise<v
   const { versionsDir, source, target } = await prepare(versionId, newId)
   const dependents = await dependentsOf(versionsDir, versionId)
   if (dependents.length > 0) throw new Error(`以下版本依赖于 ${versionId}，不能重命名：${dependents.join('、')}`)
+  const { gameDir } = await getSettings()
+  const config = await getVersionConfig(versionId, gameDir)
   try {
     await rename(source, target)
   } catch (e) {
     throw new Error(`重命名失败，可能有文件正在被使用：${(e as Error).message}`)
   }
   await retarget(target, versionId, newId)
+  // 原来确认过的版本设置在新名字下继续有效
+  await copyVersionTrust(gameDir, versionId, newId, config).catch(() => undefined)
   // 跟着更新主页选择的版本与服务器使用的版本
   const settings = await getSettings()
   if (settings.selectedVersion === versionId) await updateSettings({ selectedVersion: newId })
@@ -116,6 +124,8 @@ export async function copyVersion(versionId: string, newId: string, includeSaves
   // 目标文件夹已存在时不复制（失败后会删除目标文件夹，不能删到已有的内容）
   if (await stat(target).catch(() => null)) throw new Error(`已存在名为「${newId}」的文件夹`)
   const skip = new Set([...SKIP_ON_COPY, ...(includeSaves ? [] : ['saves'])])
+  const { gameDir } = await getSettings()
+  const config = await getVersionConfig(versionId, gameDir)
   try {
     await cp(source, target, {
       recursive: true,
@@ -127,6 +137,7 @@ export async function copyVersion(versionId: string, newId: string, includeSaves
       }
     })
     await retarget(target, versionId, newId)
+    await copyVersionTrust(gameDir, versionId, newId, config).catch(() => undefined)
   } catch (e) {
     // 复制到一半失败（磁盘满、文件被占用等）：删掉复制了一半的文件夹，免得重试时提示「已存在」
     await rm(target, { recursive: true, force: true }).catch(() => undefined)

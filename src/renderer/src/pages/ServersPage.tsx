@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ArrowDown,
@@ -85,7 +85,15 @@ function ServersPage(): JSX.Element {
   /** 正在启动并加入的服务器 */
   const [joining, setJoining] = useState<string | null>(null)
 
+  /** 每个地址最近一次查询的序号：刷新时旧的查询结果不会覆盖新的 */
+  const pingSeq = useRef(new Map<string, number>())
+  /** 正在发起加入 / 保存：防止连续点击重复执行 */
+  const joiningRef = useRef(false)
+  const submitting = useRef(false)
+
   const ping = useCallback(async (address: string) => {
+    const seq = (pingSeq.current.get(address) ?? 0) + 1
+    pingSeq.current.set(address, seq)
     setStatuses((prev) => ({ ...prev, [address]: 'loading' }))
     const status = await window.api.pingServer(address).catch(
       (e): ServerStatus => ({
@@ -96,6 +104,7 @@ function ServersPage(): JSX.Element {
         players: { online: 0, max: 0, sample: [] }
       })
     )
+    if (pingSeq.current.get(address) !== seq) return
     setStatuses((prev) => ({ ...prev, [address]: status }))
   }, [])
 
@@ -130,7 +139,8 @@ function ServersPage(): JSX.Element {
   }
 
   const submit = async (): Promise<void> => {
-    if (!form) return
+    if (!form || submitting.current) return
+    submitting.current = true
     setFormError('')
     try {
       const list = await window.api.saveServer(form)
@@ -140,10 +150,22 @@ function ServersPage(): JSX.Element {
       setForm(null)
     } catch (e) {
       setFormError(cleanError(e))
+    } finally {
+      submitting.current = false
     }
   }
 
-  const join = (server: SavedServer): Promise<void> =>
+  const join = async (server: SavedServer): Promise<void> => {
+    if (joiningRef.current) return
+    joiningRef.current = true
+    try {
+      await joinServer(server)
+    } finally {
+      joiningRef.current = false
+    }
+  }
+
+  const joinServer = (server: SavedServer): Promise<void> =>
     run(async () => {
       const versionId = server.versionId || settings?.selectedVersion || ''
       if (!versionId) throw new Error('还没有可以启动的游戏版本，请先在「下载」页安装')

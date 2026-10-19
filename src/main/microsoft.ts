@@ -196,8 +196,12 @@ async function fetchSkin(profile: MicrosoftMinecraftProfile): Promise<{ skin: st
   if (!active?.url) return { skin: '', skinModel }
   try {
     const response = await fetch(active.url.replace(/^http:/, 'https:'), { signal: AbortSignal.timeout(15000) })
-    if (!response.ok) return { skin: '', skinModel }
+    if (!response.ok || Number(response.headers.get('content-length') ?? 0) > MAX_IMAGE_BYTES) {
+      return { skin: '', skinModel }
+    }
     const data = Buffer.from(await response.arrayBuffer())
+    // 只接受不太大的 PNG
+    if (data.length > MAX_IMAGE_BYTES || data.subarray(1, 4).toString() !== 'PNG') return { skin: '', skinModel }
     return { skin: `data:image/png;base64,${data.toString('base64')}`, skinModel }
   } catch {
     return { skin: '', skinModel }

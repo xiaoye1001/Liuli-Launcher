@@ -1,4 +1,4 @@
-import { spawn } from 'child_process'
+import { execFile, spawn, type ChildProcess } from 'child_process'
 import { createHash } from 'crypto'
 import { readdir, readFile } from 'fs/promises'
 import { join } from 'path'
@@ -21,6 +21,8 @@ import { recordSession } from './playStats'
 import { parseAddress } from './serverPing'
 import { ensureAuthlibInjector } from './authlibInjector'
 import { readVersionDisplay } from './versionDisplay'
+import { assertSafeId } from './versionManage'
+import { confirmVersionConfig } from './versionTrust'
 import type { GameLogEvent, GameStatus, InstalledVersion, JavaInfo, MemoryPlan, ModLoader } from '../shared/types'
 
 /** 根据版本 json 的启动类与依赖库判断模组加载器 */
@@ -134,6 +136,11 @@ function pipeLines(stream: NodeJS.ReadableStream | null, prefix = ''): void {
   stream.on('data', (chunk: string) => {
     const parts = (rest + chunk).split(/\r?\n/)
     rest = parts.pop() ?? ''
+    // 一直不换行的输出（例如进度条）不能无限累积，超过 64 KB 先当作一行输出
+    if (rest.length > 64 * 1024) {
+      parts.push(rest)
+      rest = ''
+    }
     pushLines(parts.filter((line) => line.length > 0).map((line) => prefix + line))
   })
   stream.on('end', () => {
@@ -145,6 +152,20 @@ function pipeLines(stream: NodeJS.ReadableStream | null, prefix = ''): void {
 /** 启动前 / 退出后命令最多运行 10 分钟 */
 const HOOK_TIMEOUT = 10 * 60 * 1000
 
+/** 结束命令行进程以及它启动的所有子进程（只结束命令行本身时，它启动的程序会留在后台） */
+function killTree(child: ChildProcess): void {
+  if (!child.pid) return
+  if (process.platform === 'win32') {
+    execFile('taskkill', ['/T', '/F', '/PID', String(child.pid)], { windowsHide: true }, () => undefined)
+    return
+  }
+  try {
+    process.kill(-child.pid, 'SIGKILL')
+  } catch {
+    child.kill('SIGKILL')
+  }
+}
+
 /**
  * 通过系统命令行执行用户设置的命令，输出显示在游戏日志中。
  * 返回退出码；超时会结束命令并抛出错误。
@@ -152,9 +173,10 @@ const HOOK_TIMEOUT = 10 * 60 * 1000
 function runHook(label: string, command: string, cwd: string, env: NodeJS.ProcessEnv): Promise<number> {
   launcherLog(`正在执行${label}：${command}`)
   return new Promise((resolve, reject) => {
-    const child = spawn(command, { shell: true, cwd, env, windowsHide: true })
+    // 非 Windows 上单独成为一个进程组，超时时可以连同命令启动的子进程一起结束
+    const child = spawn(command, { shell: true, cwd, env, windowsHide: true, detached: process.platform !== 'win32' })
     const timer = setTimeout(() => {
-      child.kill()
+      killTree(child)
       reject(new Error(`${label}运行超过 10 分钟，已结束`))
     }, HOOK_TIMEOUT)
     pipeLines(child.stdout, `[${label}] `)
@@ -274,11 +296,12 @@ export async function previewMemory(versionId: string): Promise<MemoryPlan | nul
 
 /** 启动游戏。server 不为空时，进入游戏后直接连接该服务器 */
 export async function launchGame(versionId: string, server?: string): Promise<void> {
+  assertSafeId(versionId)
   if (status.state === 'launching' || status.state === 'running') {
     throw new Error('游戏已经在运行中')
   }
 
-  const settings = await getSettings()
+  // 在第一次等待之前就标记为启动中，同时到达的两次启动请求只有一个能继续
   resetLogs()
   setStatus({ state: 'launching', versionId })
   const startedAt = Date.now()
@@ -286,8 +309,13 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
   launcherLog(`正在启动 ${versionId}${server ? `，进入游戏后连接服务器 ${server}` : ''}`)
 
   try {
+    const settings = await getSettings()
     // 版本设置优先，未设置的项跟随全局设置
     const config = await getVersionConfig(versionId, settings.gameDir)
+    // 会运行程序的设置（命令、包装命令、环境变量、指定 Java、JVM 参数）必须是玩家认可过的
+    if (!(await confirmVersionConfig(settings.gameDir, versionId, config))) {
+      throw new Error('已取消启动：没有确认这个版本的命令、Java 或参数设置')
+    }
     const javaAuto = config.javaMode === 'global' ? settings.javaAuto : config.javaMode === 'auto'
     const javaPath = config.javaMode === 'custom' ? config.javaPath : settings.javaPath
     const jvmArgs = splitArgs(config.jvmArgs)

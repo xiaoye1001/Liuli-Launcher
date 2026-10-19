@@ -5,6 +5,7 @@ import { join } from 'path'
 import { getSettings } from './config'
 import { isIsolated } from './isolation'
 import { assertSafeId } from './versionManage'
+import { isVersionConfigTrusted, trustVersionConfig } from './versionTrust'
 import type { AppSettings, ModLoader, VersionConfig } from '../shared/types'
 
 const CONFIG_FILE = 'liuli-version.json'
@@ -72,10 +73,20 @@ export function isCustomized(config: VersionConfig): boolean {
 /** 每个版本的保存排队进行：读取→合并→写入不会被另一次保存打断，两次快速保存都不会丢 */
 const saveQueues = new Map<string, Promise<unknown>>()
 
-/** 保存版本设置（先写临时文件再重命名） */
-export function setVersionConfig(versionId: string, patch: Partial<VersionConfig>): Promise<VersionConfig> {
+/**
+ * 保存版本设置（先写临时文件再重命名）。
+ * fromUser：玩家在启动器的版本设置页里保存的。保存前的内容已被认可时，保存后的内容也记为认可
+ * （玩家看得到、改得到）；之前的内容来历不明时保持未认可，启动时再请玩家确认
+ */
+export function setVersionConfig(
+  versionId: string,
+  patch: Partial<VersionConfig>,
+  options: { fromUser?: boolean } = {}
+): Promise<VersionConfig> {
   const previous = saveQueues.get(versionId) ?? Promise.resolve()
-  const result = previous.catch(() => undefined).then(() => saveVersionConfig(versionId, patch))
+  const result = previous
+    .catch(() => undefined)
+    .then(() => saveVersionConfig(versionId, patch, options.fromUser === true))
   const tail = result.catch(() => undefined)
   saveQueues.set(versionId, tail)
   void tail.then(() => {
@@ -84,10 +95,16 @@ export function setVersionConfig(versionId: string, patch: Partial<VersionConfig
   return result
 }
 
-async function saveVersionConfig(versionId: string, patch: Partial<VersionConfig>): Promise<VersionConfig> {
+async function saveVersionConfig(
+  versionId: string,
+  patch: Partial<VersionConfig>,
+  fromUser: boolean
+): Promise<VersionConfig> {
   const { gameDir } = await getSettings()
   const path = configPath(gameDir, versionId)
-  const next = sanitize({ ...(await getVersionConfig(versionId, gameDir)), ...patch })
+  const current = await getVersionConfig(versionId, gameDir)
+  const trusted = await isVersionConfigTrusted(gameDir, versionId, current)
+  const next = sanitize({ ...current, ...patch })
   if (next.javaMode === 'custom' && !next.javaPath) throw new Error('请选择要使用的 Java')
   // 保存前检查参数能否正确拆分（例如引号没有配对）
   try {
@@ -116,6 +133,7 @@ async function saveVersionConfig(versionId: string, patch: Partial<VersionConfig
     await rm(temp, { force: true }).catch(() => undefined)
     throw e
   }
+  if (fromUser && trusted) await trustVersionConfig(gameDir, versionId, next).catch(() => undefined)
   return next
 }
 

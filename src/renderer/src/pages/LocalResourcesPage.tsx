@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ArrowLeft,
@@ -67,16 +67,25 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
   /** 检查更新的结果（文件名 → 更新），未检查时为 null */
   const [updates, setUpdates] = useState<Record<string, ModUpdate> | null>(null)
   const [checking, setChecking] = useState(false)
+  /** 当前显示的版本和类别：切换标签后，之前发出的请求结果不再使用（否则会把资源包的列表显示在光影标签下） */
+  const current = useRef({ versionId: version.id, kind })
+  current.current = { versionId: version.id, kind }
+  const isCurrent = (versionId: string, k: LocalResourceKind): boolean =>
+    current.current.versionId === versionId && current.current.kind === k
 
   const load = useCallback(async () => {
+    const versionId = version.id
+    const requested = kind
     setLoading(true)
     try {
-      setList(await window.api.listLocalResources(version.id, kind))
+      const result = await window.api.listLocalResources(versionId, requested)
+      if (!isCurrent(versionId, requested)) return
+      setList(result)
       setError('')
     } catch (e) {
-      setError(cleanError(e))
+      if (isCurrent(versionId, requested)) setError(cleanError(e))
     } finally {
-      setLoading(false)
+      if (isCurrent(versionId, requested)) setLoading(false)
     }
   }, [version.id, kind])
 
@@ -84,6 +93,7 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
     setList(null)
     setNotice('')
     setUpdates(null)
+    setChecking(false)
     load()
   }, [load])
 
@@ -102,11 +112,14 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
   }
 
   const checkUpdates = async (): Promise<void> => {
+    const versionId = version.id
+    const requested = kind
     setChecking(true)
     setError('')
     setNotice('')
     try {
-      const result = await window.api.checkResourceUpdates(version.id, kind)
+      const result = await window.api.checkResourceUpdates(versionId, requested)
+      if (!isCurrent(versionId, requested)) return
       setUpdates(Object.fromEntries(result.map((u) => [u.fileName, u])))
       setNotice(
         result.length > 0
@@ -114,9 +127,9 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
           : `没有发现新版本（只能检查从 Modrinth 下载的${label}）`
       )
     } catch (e) {
-      setError(cleanError(e))
+      if (isCurrent(versionId, requested)) setError(cleanError(e))
     } finally {
-      setChecking(false)
+      if (isCurrent(versionId, requested)) setChecking(false)
     }
   }
 

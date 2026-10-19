@@ -30,10 +30,20 @@ async function gameDirOf(versionId: string): Promise<string> {
   return dirname((await modsContextOf(versionId)).dir)
 }
 
-function assertGameStopped(versionId: string): void {
+/**
+ * 游戏运行时不能改动它正在使用的存档。没有开启版本隔离的版本共用同一个 saves 文件夹，
+ * 所以比较的是游戏目录，而不只是版本名
+ */
+async function assertGameStopped(versionId: string): Promise<void> {
   const game = getGameStatus()
-  if ((game.state === 'launching' || game.state === 'running') && game.versionId === versionId) {
-    throw new Error('游戏正在运行，请退出游戏后再操作存档')
+  if (!(game.state === 'launching' || game.state === 'running') || !game.versionId) return
+  if (game.versionId === versionId) throw new Error('游戏正在运行，请退出游戏后再操作存档')
+  const [running, target] = await Promise.all([
+    gameDirOf(game.versionId).catch(() => ''),
+    gameDirOf(versionId).catch(() => '')
+  ])
+  if (running && target && resolve(running).toLowerCase() === resolve(target).toLowerCase()) {
+    throw new Error(`游戏（${game.versionId}）正在使用同一个存档文件夹，请退出游戏后再操作存档`)
   }
 }
 
@@ -253,7 +263,7 @@ export async function getWorldDetails(versionId: string, folder: string): Promis
 
 /** 删除存档：移到系统回收站 */
 export async function deleteWorld(versionId: string, folder: string): Promise<void> {
-  assertGameStopped(versionId)
+  await assertGameStopped(versionId)
   await shell.trashItem(await worldDir(versionId, folder))
 }
 
@@ -264,7 +274,7 @@ function timestamp(date = new Date()): string {
 
 /** 备份存档：打包成 zip 放在游戏目录的 backups 文件夹，返回 zip 路径与大小 */
 export async function backupWorld(versionId: string, folder: string): Promise<{ path: string; size: number }> {
-  assertGameStopped(versionId)
+  await assertGameStopped(versionId)
   const dir = await worldDir(versionId, folder)
   const backups = join(await gameDirOf(versionId), 'backups')
   await mkdir(backups, { recursive: true })
@@ -300,6 +310,8 @@ function safeJoin(root: string, path: string): string {
     !path ||
     isAbsolute(path) ||
     /^[a-zA-Z]:/.test(path) ||
+    // 冒号会在 Windows 上写进别的文件的数据流；控制字符不是正常的文件名
+    /[:\u0000-\u001f]/.test(path) ||
     path.split(/[\\/]/).includes('..') ||
     rel.startsWith('..')
   ) {
@@ -319,7 +331,7 @@ function folderName(name: string): string {
 
 /** 从 zip 导入存档（zip 里可以直接是存档内容，也可以多一层文件夹），返回导入后的文件夹名 */
 export async function importWorld(versionId: string, win: BrowserWindow | null): Promise<string | null> {
-  assertGameStopped(versionId)
+  await assertGameStopped(versionId)
   const options: Electron.OpenDialogOptions = {
     title: `导入存档到 ${versionId}`,
     filters: [{ name: '存档压缩包', extensions: ['zip'] }],
@@ -379,7 +391,7 @@ async function withWorldZip<T>(
 }
 
 export async function importWorldFile(versionId: string, file: string): Promise<string> {
-  assertGameStopped(versionId)
+  await assertGameStopped(versionId)
   return withWorldZip(file, async ({ prefix, extract }) => {
     const saves = join(await gameDirOf(versionId), 'saves')
     const base = folderName(prefix ? basename(prefix.replace(/\/$/, '')) : basename(file).replace(/\.zip$/i, ''))
@@ -441,7 +453,7 @@ export async function restoreWorldBackup(
   file: string,
   asNew: boolean
 ): Promise<{ folder: string; safetyBackup?: string }> {
-  assertGameStopped(versionId)
+  await assertGameStopped(versionId)
   const path = await backupFile(versionId, file)
   if (asNew) return { folder: await importWorldFile(versionId, path) }
 
@@ -524,13 +536,13 @@ export async function listWorldDatapacks(versionId: string, folder: string): Pro
 }
 
 export async function deleteWorldDatapack(versionId: string, folder: string, fileName: string): Promise<void> {
-  assertGameStopped(versionId)
+  await assertGameStopped(versionId)
   assertSafeName(fileName, '数据包')
   await shell.trashItem(join(await worldDir(versionId, folder), 'datapacks', fileName))
 }
 
 export async function addWorldDatapacks(versionId: string, folder: string, win: BrowserWindow | null): Promise<number> {
-  assertGameStopped(versionId)
+  await assertGameStopped(versionId)
   const dir = join(await worldDir(versionId, folder), 'datapacks')
   const options: Electron.OpenDialogOptions = {
     title: `添加数据包到存档「${folder}」`,

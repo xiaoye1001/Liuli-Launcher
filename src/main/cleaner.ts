@@ -12,7 +12,7 @@
  */
 import { app } from 'electron'
 import { Version } from '@xmcl/core'
-import { readdir, readFile, rm, stat } from 'fs/promises'
+import { lstat, readdir, readFile, rm, stat } from 'fs/promises'
 import { join } from 'path'
 import { getSettings } from './config'
 import { getGameStatus } from './launch'
@@ -31,8 +31,18 @@ interface FoundFile {
   bytes: number
 }
 
+/**
+ * 要扫描的文件夹本身是不是真正的文件夹。logs、crash-reports 这些文件夹可能是指向别处的符号链接或
+ * Windows 目录联接（例如别人分享的游戏目录把 logs 链到了「文档」），这种不扫描，免得删到别处的文件
+ */
+async function isRealDir(dir: string): Promise<boolean> {
+  const info = await lstat(dir).catch(() => null)
+  return !!info && info.isDirectory() && !info.isSymbolicLink()
+}
+
 /** 列出文件夹里的文件（不跟随符号链接），filter 返回 true 的才保留 */
 async function filesIn(dir: string, filter: (name: string) => boolean): Promise<FoundFile[]> {
+  if (!(await isRealDir(dir))) return []
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
   const result: FoundFile[] = []
   for (const entry of entries) {
@@ -52,6 +62,7 @@ async function walk(
   skip: Set<string> = new Set(),
   minAge = 0
 ): Promise<FoundFile[]> {
+  if (!(await isRealDir(dir))) return []
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
   const result: FoundFile[] = []
   for (const entry of entries) {

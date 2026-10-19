@@ -52,6 +52,7 @@ function stringHeaders(headers: DownloadOptions['headers']): Record<string, stri
 export async function downloadWithFallback(options: DownloadOptions, source: FastDownloadSource): Promise<void> {
   const urls = Array.isArray(options.url) ? options.url : [options.url]
   let taskId: string | undefined
+  let cancelSignal: AbortSignal | undefined
   try {
     // 第一重：高速多线程引擎
     const started = startFastDownload({
@@ -72,14 +73,16 @@ export async function downloadWithFallback(options: DownloadOptions, source: Fas
     if (e instanceof DownloadCancelledError) throw e
     const reason = e instanceof Error ? e.message : String(e)
     log(`高速下载失败，改用原下载方式：${basename(options.destination)}（${reason}）`)
-    if (taskId) markFallbackStarted(taskId, reason)
+    if (taskId) cancelSignal = markFallbackStarted(taskId, reason)
   }
 
   // 第二重：原来的下载方式，参数原样传入
   try {
     const original = options.progressController
+    const signals = [options.abortSignal, cancelSignal].filter((s): s is AbortSignal => !!s)
     await download({
       ...options,
+      abortSignal: signals.length > 1 ? AbortSignal.any(signals) : signals[0],
       progressController: (url, chunk, written, total) => {
         if (taskId) reportFallbackProgress(taskId, written, total)
         original?.(url, chunk, written, total)
