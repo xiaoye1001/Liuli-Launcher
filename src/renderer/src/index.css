@@ -308,3 +308,249 @@ html.custom-titlebar .pt-titlebar {
     opacity: 0.65;
   }
 }
+
+/* ==================== 主题方案（html[data-preset]）==================== */
+/* 底色：深色主题用各方案的专属底色；浅色主题用柔和的同色系渐变。classic 沿用上面的默认渐变 */
+html[data-preset='aurora']:not(.light) {
+  --bg-app: linear-gradient(160deg, #0f1117, #11151d 60%, #0f1a17);
+  --c-popover: 17 20 28;
+}
+html.light[data-preset='aurora'] {
+  --bg-app: linear-gradient(160deg, #ecfdf5, #f0f9ff 55%, #eef2ff);
+}
+html[data-preset='sky']:not(.light) {
+  --bg-app: linear-gradient(180deg, #0b1d33, #0f172a 60%, #0b2540);
+}
+html.light[data-preset='sky'] {
+  --bg-app: linear-gradient(180deg, #b9e3ff 0%, #dff2ff 45%, #f6fbff 100%);
+}
+html[data-preset='cherry']:not(.light) {
+  --bg-app: linear-gradient(170deg, #1b1226, #2a1730 55%, #3b1d33);
+  --c-popover: 33 21 40;
+}
+html.light[data-preset='cherry'] {
+  --bg-app: linear-gradient(170deg, #fdf2f8, #faf5ff 55%, #fce7f3);
+}
+html[data-preset='end']:not(.light) {
+  --bg-app: linear-gradient(170deg, #090514, #110a22 60%, #170a2a);
+  --c-popover: 20 12 36;
+}
+html.light[data-preset='end'] {
+  --bg-app: linear-gradient(170deg, #f5f3ff, #ede9fe 55%, #f3e8ff);
+}
+html[data-preset='acrylic']:not(.light) {
+  --bg-app: linear-gradient(160deg, #151a24, #1a2130 60%, #192338);
+  --c-popover: 26 32 46;
+}
+html.light[data-preset='acrylic'] {
+  --bg-app: linear-gradient(160deg, #eef2f7, #e2e8f0 55%, #dbeafe);
+}
+html[data-preset='nether']:not(.light) {
+  --bg-app: linear-gradient(180deg, #110808, #1a0a0a 55%, #2e0f08);
+  --c-popover: 30 14 12;
+}
+html.light[data-preset='nether'] {
+  --bg-app: linear-gradient(180deg, #fff7ed, #fef2f2 55%, #ffedd5);
+}
+
+/* 极简亚克力：面板加上 Win11 风格的边缘高光 */
+html[data-preset='acrylic'] .backdrop-blur-xl.bg-white\/10 {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    inset 0 0 0 1px rgb(255 255 255 / 0.04),
+    0 25px 50px -12px rgb(0 0 0 / 0.35);
+}
+html.light[data-preset='acrylic'] .backdrop-blur-xl.bg-white\/10 {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    inset 0 0 0 1px rgb(255 255 255 / 0.5),
+    0 25px 50px -12px rgb(15 23 42 / 0.15);
+}
+
+/* ==================== 动态背景图层 ==================== */
+.theme-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+/* 暂停（游戏运行、窗口最小化）时停止所有背景动画 */
+.theme-layer.is-paused *,
+.theme-layer.is-paused {
+  animation-play-state: paused !important;
+}
+.theme-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  will-change: transform;
+}
+html.light .theme-blob {
+  opacity: 0.45;
+}
+
+/* 极光：三团光斑缓慢漂移、缩放 */
+@keyframes aurora-a {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(18vw, 10vh) scale(1.15);
+  }
+  100% {
+    transform: translate(-6vw, 4vh) scale(0.95);
+  }
+}
+@keyframes aurora-b {
+  0% {
+    transform: translate(0, 0) scale(1.1);
+  }
+  50% {
+    transform: translate(-16vw, 14vh) scale(0.9);
+  }
+  100% {
+    transform: translate(8vw, -6vh) scale(1.05);
+  }
+}
+@keyframes aurora-c {
+  0% {
+    transform: translate(0, 0) scale(0.95);
+  }
+  50% {
+    transform: translate(10vw, -12vh) scale(1.2);
+  }
+  100% {
+    transform: translate(-12vw, 6vh) scale(1);
+  }
+}
+.aurora-a {
+  animation: aurora-a 26s ease-in-out infinite alternate;
+}
+.aurora-b {
+  animation: aurora-b 32s ease-in-out infinite alternate;
+}
+.aurora-c {
+  animation: aurora-c 38s ease-in-out infinite alternate;
+}
+
+/* 晴空：太阳光晕呼吸、丁达尔光束轻摆、云雾缓慢飘过 */
+@keyframes sun-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+}
+@keyframes sun-rays {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+    opacity: 0.55;
+  }
+  50% {
+    transform: rotate(4deg);
+    opacity: 0.8;
+  }
+}
+@keyframes cloud-drift {
+  from {
+    transform: translateX(-30vw);
+  }
+  to {
+    transform: translateX(130vw);
+  }
+}
+.sky-sun {
+  animation: sun-breathe 7s ease-in-out infinite;
+}
+.sky-rays {
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 90vw;
+  height: 120vh;
+  transform-origin: 85% 10%;
+  background: repeating-conic-gradient(
+    from 200deg at 85% 10%,
+    rgb(255 255 255 / 0.22) 0deg 3deg,
+    transparent 3deg 11deg
+  );
+  -webkit-mask-image: radial-gradient(ellipse at 85% 10%, black 0%, transparent 70%);
+  mask-image: radial-gradient(ellipse at 85% 10%, black 0%, transparent 70%);
+  animation: sun-rays 14s ease-in-out infinite;
+}
+.sky-cloud {
+  position: absolute;
+  left: 0;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.55);
+  filter: blur(40px);
+  animation: cloud-drift linear infinite;
+}
+html:not(.light) .sky-cloud {
+  background: rgb(148 163 184 / 0.12);
+}
+
+/* 末地星云：光晕缓慢旋转 */
+@keyframes nebula-spin {
+  from {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.1);
+  }
+  to {
+    transform: rotate(360deg) scale(1);
+  }
+}
+.end-nebula {
+  animation: nebula-spin 90s linear infinite;
+}
+
+/* 下界：底部热浪呼吸 */
+@keyframes heat-pulse {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scaleY(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1.15);
+  }
+}
+.nether-heat {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: -25%;
+  height: 60%;
+  transform-origin: bottom;
+  background: radial-gradient(ellipse at 50% 100%, rgb(220 38 38 / 0.55), rgb(249 115 22 / 0.25) 40%, transparent 70%);
+  filter: blur(30px);
+  animation: heat-pulse 6s ease-in-out infinite;
+}
+
+/* 亚克力：细微噪点质感 */
+.acrylic-noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+html.light .acrylic-noise {
+  opacity: 0.12;
+  mix-blend-mode: multiply;
+}
+
+/* 设置页主题卡片的小预览 */
+.preset-preview-glow {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(14px);
+}

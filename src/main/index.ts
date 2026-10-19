@@ -1,5 +1,6 @@
 import { portableDir } from './paths'
 import {
+  addBackgroundFromUrl,
   addBackgrounds,
   clearBackground,
   pickBackground,
@@ -137,7 +138,8 @@ import type {
   GameDirInfo,
   DirectDownloadOptions
 } from '../shared/types'
-import { HIDEABLE_PAGES } from '../shared/types'
+import { HIDEABLE_PAGES, PARTICLE_EFFECTS, THEME_PRESETS } from '../shared/types'
+import type { ParticleEffect, ThemePreset } from '../shared/types'
 
 /** 设置变化后通知所有窗口（主题色、背景、动画等外观设置需要立即生效） */
 /** 用户输入的一行文字：去掉控制字符、首尾空白，限制长度 */
@@ -234,6 +236,12 @@ function registerIpc(): void {
     ] as const) {
       if (key in patch) patch = { ...patch, [key]: limitText(patch[key], max) }
     }
+    if ('themePreset' in patch && !THEME_PRESETS.includes(patch.themePreset as ThemePreset)) {
+      patch = { ...patch, themePreset: 'aurora' }
+    }
+    if ('particleEffect' in patch && !PARTICLE_EFFECTS.includes(patch.particleEffect as ParticleEffect)) {
+      patch = { ...patch, particleEffect: 'auto' }
+    }
     if ('hiddenPages' in patch) {
       const pages = Array.isArray(patch.hiddenPages) ? patch.hiddenPages : []
       patch = { ...patch, hiddenPages: HIDEABLE_PAGES.filter((p) => pages.includes(p)) }
@@ -256,6 +264,7 @@ function registerIpc(): void {
   ipcMain.handle('appearance:removeBackground', (_, name: string) =>
     removeBackground(String(name)).then(broadcastSettings)
   )
+  ipcMain.handle('appearance:addBackgroundUrl', (_, url: string) => addBackgroundFromUrl(url).then(broadcastSettings))
   ipcMain.handle('music:list', () => listMusic())
   // 高速多线程下载（百宝箱）：进度通过 download:progress 每 250 毫秒推送
   ipcMain.handle('download:create', (_, url: string, options?: DirectDownloadOptions) =>

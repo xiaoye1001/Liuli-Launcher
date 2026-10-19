@@ -209,6 +209,7 @@ const api = {
   clearBackground: () => ipcRenderer.invoke('appearance:clearBackground'),
   addBackgrounds: () => ipcRenderer.invoke('appearance:addBackgrounds'),
   removeBackground: (name: string) => ipcRenderer.invoke('appearance:removeBackground', name),
+  addBackgroundUrl: (url: string) => ipcRenderer.invoke('appearance:addBackgroundUrl', url),
   listMusic: () => ipcRenderer.invoke('music:list'),
   addMusic: () => ipcRenderer.invoke('music:add'),
   removeMusic: (name: string) => ipcRenderer.invoke('music:remove', name),

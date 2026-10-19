@@ -88,6 +88,8 @@ function defaultSettings(): AppSettings {
     backgroundMode: 'off',
     backgroundInterval: 10,
     backgroundFit: 'cover',
+    themePreset: 'aurora',
+    particleEffect: 'auto',
     backgroundBlur: 0,
     backgroundDim: 30,
     animations: true,

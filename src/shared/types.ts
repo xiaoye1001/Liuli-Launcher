@@ -129,6 +129,10 @@ export interface AppSettings {
   backgroundInterval: number
   /** 背景填充方式 */
   backgroundFit: BackgroundFit
+  /** 主题方案（决定底色与动态背景），classic 为原来的经典渐变 */
+  themePreset: ThemePreset
+  /** 背景粒子特效，auto 为跟随主题方案 */
+  particleEffect: ParticleEffect
   /** 背景模糊程度（像素，0~20） */
   backgroundBlur: number
   /** 背景遮罩浓度（百分比，0~80），让文字在明亮的图片上也看得清 */
@@ -239,6 +243,14 @@ export type SkinModel = 'default' | 'slim'
 
 /** 系统信息 */
 export type UpdateSource = 'auto' | 'official' | 'github'
+
+/** 主题方案 */
+export type ThemePreset = 'classic' | 'aurora' | 'sky' | 'cherry' | 'end' | 'acrylic' | 'nether'
+export const THEME_PRESETS: ThemePreset[] = ['classic', 'aurora', 'sky', 'cherry', 'end', 'acrylic', 'nether']
+
+/** 背景粒子特效 */
+export type ParticleEffect = 'auto' | 'none' | 'sakura' | 'ender' | 'fireflies' | 'rain' | 'embers'
+export const PARTICLE_EFFECTS: ParticleEffect[] = ['auto', 'none', 'sakura', 'ender', 'fireflies', 'rain', 'embers']
 
 /** 可以在侧边栏隐藏的页面（主页和设置始终显示） */
 export const HIDEABLE_PAGES = ['account', 'versions', 'servers', 'download', 'more']

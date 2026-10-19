@@ -251,6 +251,8 @@ declare global {
       addBackgrounds: () => Promise<AppSettings>
       /** 从背景库删除图片 */
       removeBackground: (name: string) => Promise<AppSettings>
+      /** 下载网络图片或视频到背景库，并设为当前背景 */
+      addBackgroundUrl: (url: string) => Promise<AppSettings>
       /** 背景音乐列表（music 文件夹里的音频文件名） */
       listMusic: () => Promise<string[]>
       /** 添加背景音乐（可以多选），返回新的列表 */

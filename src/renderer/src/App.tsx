@@ -14,7 +14,8 @@ import DropOverlay from './components/DropOverlay'
 import UpdateNotice from './components/UpdateNotice'
 import type { ModpackInfo, ResourceType } from '../../shared/types'
 import { useAppearance } from './utils/appearance'
-import AppBackground from './components/AppBackground'
+import DynamicBackground from './components/DynamicBackground'
+import { ThemeProvider } from './context/ThemeContext'
 
 interface PageContext {
   droppedModpack: ModpackInfo | null
@@ -92,48 +93,50 @@ function App(): JSX.Element {
 
   return (
     // 关闭动画时，framer-motion 的位移、缩放等动画也一并关闭
-    <MotionConfig reducedMotion={appearance.animations ? 'never' : 'always'}>
-      <div className="relative isolate flex h-full overflow-hidden app-background text-white">
-        {/* 自定义背景：图片 + 模糊 + 遮罩 */}
-        <AppBackground appearance={appearance} />
-        {/* 窗口顶部的拖动区域（Windows、Linux 隐藏了系统标题栏） */}
-        <div className="titlebar-drag fixed inset-x-0 top-0 z-30">
-          <WindowControls className="absolute right-0 top-0" />
+    <ThemeProvider>
+      <MotionConfig reducedMotion={appearance.animations ? 'never' : 'always'}>
+        <div className="relative isolate flex h-full overflow-hidden app-background text-white">
+          {/* 动态背景：主题方案的动态图层 + 自定义壁纸 + 粒子特效 */}
+          <DynamicBackground />
+          {/* 窗口顶部的拖动区域（Windows、Linux 隐藏了系统标题栏） */}
+          <div className="titlebar-drag fixed inset-x-0 top-0 z-30">
+            <WindowControls className="absolute right-0 top-0" />
+          </div>
+          <Sidebar current={page} onChange={setPage} />
+          <UpdateNotice />
+          <DropOverlay
+            onModpack={(info) => {
+              setDroppedModpack(info)
+              setPage('download')
+            }}
+          />
+          <main className="relative flex-1 overflow-hidden p-8">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={page}
+                className="h-full"
+                initial={{ opacity: 0, y: 16, filter: 'blur(6px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, y: -16, filter: 'blur(6px)' }}
+                transition={{ duration: appearance.animations ? 0.25 : 0, ease: 'easeOut' }}
+              >
+                {renderPage(page, {
+                  droppedModpack,
+                  clearDroppedModpack,
+                  navigate: setPage,
+                  versionSettings,
+                  downloadRequest,
+                  openDownload,
+                  clearDownloadRequest,
+                  openVersionSettings,
+                  clearVersionSettings
+                })}
+              </motion.div>
+            </AnimatePresence>
+          </main>
         </div>
-        <Sidebar current={page} onChange={setPage} />
-        <UpdateNotice />
-        <DropOverlay
-          onModpack={(info) => {
-            setDroppedModpack(info)
-            setPage('download')
-          }}
-        />
-        <main className="relative flex-1 overflow-hidden p-8">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={page}
-              className="h-full"
-              initial={{ opacity: 0, y: 16, filter: 'blur(6px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -16, filter: 'blur(6px)' }}
-              transition={{ duration: appearance.animations ? 0.25 : 0, ease: 'easeOut' }}
-            >
-              {renderPage(page, {
-                droppedModpack,
-                clearDroppedModpack,
-                navigate: setPage,
-                versionSettings,
-                downloadRequest,
-                openDownload,
-                clearDownloadRequest,
-                openVersionSettings,
-                clearVersionSettings
-              })}
-            </motion.div>
-          </AnimatePresence>
-        </main>
-      </div>
-    </MotionConfig>
+      </MotionConfig>
+    </ThemeProvider>
   )
 }
 
