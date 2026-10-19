@@ -1,4 +1,9 @@
 import type {
+  CleanCategory,
+  CleanResult,
+  CleanScan,
+  JavaCheckReport,
+  SpeedTestReport,
   UpdateDownload,
   NewsList,
   NetworkCheck,
@@ -83,6 +88,14 @@ declare global {
       getNews: (force?: boolean) => Promise<NewsList>
       /** 预览某个版本自动分配的内存；版本无法读取时返回 null */
       previewMemory: (versionId: string) => Promise<MemoryPlan | null>
+      /** 百宝箱：扫描可以清理的游戏垃圾缓存 */
+      scanCleanup: () => Promise<CleanScan>
+      /** 百宝箱：清理选中的类别（删除前会重新扫描） */
+      runCleanup: (categories: CleanCategory[]) => Promise<CleanResult>
+      /** 百宝箱：Java 环境深度检测 */
+      checkJavaEnvironment: () => Promise<JavaCheckReport>
+      /** 百宝箱：对比官方源与国内镜像的速度 */
+      runSpeedTest: () => Promise<SpeedTestReport>
       getVersionList: (force?: boolean) => Promise<VersionManifest>
       startInstall: (request: InstallRequest) => Promise<void>
       retryInstall: () => Promise<void>
