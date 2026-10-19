@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
+  CleanCategory,
   UpdateDownload,
   AppSettings,
   GameLogEvent,
@@ -44,6 +45,10 @@ const api = {
   checkNetwork: () => ipcRenderer.invoke('network:check'),
   getNews: (force?: boolean) => ipcRenderer.invoke('news:get', force),
   previewMemory: (versionId: string) => ipcRenderer.invoke('memory:preview', versionId),
+  scanCleanup: () => ipcRenderer.invoke('toolbox:scanCleanup'),
+  runCleanup: (categories: CleanCategory[]) => ipcRenderer.invoke('toolbox:runCleanup', categories),
+  checkJavaEnvironment: () => ipcRenderer.invoke('toolbox:checkJava'),
+  runSpeedTest: () => ipcRenderer.invoke('toolbox:speedTest'),
   getVersionList: (force = false) => ipcRenderer.invoke('versions:list', force),
   startInstall: (request: InstallRequest) => ipcRenderer.invoke('install:start', request),
   retryInstall: () => ipcRenderer.invoke('install:retry'),

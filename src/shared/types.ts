@@ -1186,3 +1186,106 @@ export interface DirectDownloadOptions {
   /** 保存的文件名，不填时用服务器提供的文件名或地址中的文件名；同名文件不会被覆盖，会自动改名 */
   fileName?: string
 }
+
+// ---------- 百宝箱：清理游戏垃圾缓存 ----------
+
+/** 可以清理的内容 */
+export type CleanCategory = 'logs' | 'crash' | 'partial' | 'cache' | 'assets'
+
+export interface CleanItem {
+  category: CleanCategory
+  /** 文件数量 */
+  count: number
+  /** 合计大小（字节） */
+  bytes: number
+}
+
+export interface CleanScan {
+  /** 扫描的游戏目录 */
+  gameDir: string
+  items: CleanItem[]
+  /** 无法判断哪些资源文件没用到时（例如有版本的 json 损坏）为 false，不提供「未使用的资源文件」 */
+  assetsReliable: boolean
+}
+
+export interface CleanResult {
+  /** 删除的文件数 */
+  count: number
+  /** 释放的空间（字节） */
+  bytes: number
+  /** 删除失败（例如被占用）的文件数 */
+  failed: number
+}
+
+// ---------- 百宝箱：Java 环境深度检测 ----------
+
+export type JavaIssueLevel = 'error' | 'warning' | 'info'
+
+export interface JavaIssue {
+  level: JavaIssueLevel
+  message: string
+}
+
+export interface JavaDetail {
+  path: string
+  version: string
+  majorVersion: number
+  /** 发行方，例如 Eclipse Adoptium、Microsoft、Azul Systems */
+  vendor: string
+  /** 虚拟机名称，例如 OpenJDK 64-Bit Server VM */
+  vmName: string
+  /** 32 或 64 */
+  bits: number
+  /** CPU 架构，例如 amd64、aarch64、x86 */
+  arch: string
+  /** 适合运行的游戏版本说明 */
+  suitable: string
+  /** 启动器下载的 Java */
+  managed: boolean
+  /** 当前设置里选择的 Java */
+  selected: boolean
+  issues: JavaIssue[]
+}
+
+export interface JavaVersionNeed {
+  versionId: string
+  /** 需要的 Java 主版本 */
+  required: number
+  /** 本机有合适的 Java */
+  satisfied: boolean
+}
+
+export interface JavaCheckReport {
+  /** 系统信息，例如 Windows 11 x64 */
+  system: string
+  /** 自动选择 Java 是否开启 */
+  javaAuto: boolean
+  javas: JavaDetail[]
+  /** 已安装版本对 Java 的需求 */
+  versions: JavaVersionNeed[]
+  /** 整体的问题与建议 */
+  issues: JavaIssue[]
+}
+
+// ---------- 百宝箱：下载源测速 ----------
+
+export interface SpeedTestResult {
+  /** 'mojang' 官方源，'bmclapi' 国内镜像（与下载源设置对应） */
+  source: DownloadSource
+  /** 测试项：游戏文件 / 模组 */
+  target: 'game' | 'mods'
+  host: string
+  /** 连接延迟（毫秒），失败时为 null */
+  latency: number | null
+  /** 下载速度（字节/秒），失败时为 null */
+  speed: number | null
+  error?: string
+}
+
+export interface SpeedTestReport {
+  results: SpeedTestResult[]
+  /** 推荐使用的下载源；都失败时为 null */
+  recommended: DownloadSource | null
+  /** 当前设置的下载源 */
+  current: DownloadSource
+}

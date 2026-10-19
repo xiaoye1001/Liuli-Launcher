@@ -104,6 +104,9 @@ import {
 import { getPlayStats } from './playStats'
 import { exportModpack, getModpackExportInfo, showExportedModpack } from './modpackExport'
 import { isTokenEncryptionStrong } from './secure'
+import { runCleanup, scanCleanup } from './cleaner'
+import { checkJavaEnvironment } from './javaCheck'
+import { runSpeedTest } from './speedTest'
 import { guardIpc, hardenWebContents } from './security'
 import { copyScreenshot, deleteScreenshot, listScreenshots, openScreenshotsDir, showScreenshot } from './screenshots'
 import { copyVersion, createDesktopShortcut, launchArgOf, renameVersion } from './versionOps'
@@ -512,6 +515,11 @@ function registerIpc(): void {
     const dir = await pickGameDir(BrowserWindow.fromWebContents(event.sender))
     return dir ? setGameDir(dir).then(afterGameDirChange) : null
   })
+  // 百宝箱
+  ipcMain.handle('toolbox:scanCleanup', () => scanCleanup())
+  ipcMain.handle('toolbox:runCleanup', (_, categories: unknown) => runCleanup(categories))
+  ipcMain.handle('toolbox:checkJava', () => checkJavaEnvironment())
+  ipcMain.handle('toolbox:speedTest', () => runSpeedTest())
   ipcMain.handle('memory:preview', (_, versionId: string) => previewMemory(versionId))
   ipcMain.handle(
     'system:info',
