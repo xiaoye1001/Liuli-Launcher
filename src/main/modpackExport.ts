@@ -37,6 +37,9 @@ const EXCLUDED = new Set([
   'liuli-version.json',
   'liuli-display.json',
   'liuli-icon.png',
+  // 整合包的安装记录和更新时的备份
+  'liuli-modpack.json',
+  'liuli-modpack-backup',
   'launcher_profiles.json',
   'launcher_accounts.json',
   'usercache.json',

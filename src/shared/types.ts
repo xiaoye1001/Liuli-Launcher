@@ -440,6 +440,8 @@ export interface InstalledVersion {
   icon?: string
   /** 自定义图标（PNG 的 data URL） */
   iconUrl?: string
+  /** 用启动器安装的整合包：名称、版本号，以及能否在线检查更新 */
+  modpack?: InstalledModpack
 }
 
 /** 版本的收藏与图标 */
@@ -1092,6 +1094,42 @@ export interface ModpackInfo {
   includedMods?: number
   /** 整合包里带着的游戏资源文件（assets、libraries）数量，安装时直接使用、不再下载 */
   includedGameFiles?: number
+}
+
+/** 整合包来自哪里（从下载页安装的整合包可以在线检查更新） */
+export interface ModpackSource {
+  platform: 'modrinth' | 'curseforge'
+  /** 项目 ID（CurseForge 为 cf:<modId>） */
+  projectId: string
+  /** 安装的版本 ID（CurseForge 为 cf:<modId>:<fileId>） */
+  versionId: string
+}
+
+/** 已安装版本对应的整合包（记录在 versions/<版本名>/liuli-modpack.json） */
+export interface InstalledModpack {
+  name: string
+  version: string
+  minecraftVersion: string
+  loader: ModpackInfo['loader']
+  loaderVersion: string
+  source?: ModpackSource
+}
+
+/** 检查整合包更新的结果 */
+export interface ModpackUpdateCheck {
+  /** 没有记录的整合包（旧版本启动器安装的，或者不是整合包）为 null */
+  current: InstalledModpack | null
+  /** 比当前更新的版本（新的在前）；不能在线检查时为空 */
+  updates: ModrinthProjectVersion[]
+  /** 能否在线检查（从下载页安装的整合包） */
+  online: boolean
+}
+
+/** 准备更新整合包：新版本的信息（确认后开始更新） */
+export interface ModpackUpdatePlan {
+  versionId: string
+  current: InstalledModpack | null
+  next: ModpackInfo
 }
 
 /** 下载页的社区资源类型（与 Modrinth 的项目类型一致） */

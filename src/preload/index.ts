@@ -175,6 +175,11 @@ const api = {
   listWorlds: (versionId: string) => ipcRenderer.invoke('resource:worlds', versionId),
   downloadModpack: (versionId: string) => ipcRenderer.invoke('modpack:download', versionId),
   downloadAndInstallModpack: (versionId: string) => ipcRenderer.invoke('modpack:downloadAndInstall', versionId),
+  checkModpackUpdate: (versionId: string) => ipcRenderer.invoke('modpack:checkUpdate', versionId),
+  prepareModpackUpdate: (versionId: string, packVersionId: string) =>
+    ipcRenderer.invoke('modpack:prepareUpdate', versionId, packVersionId),
+  pickModpackUpdateFile: (versionId: string) => ipcRenderer.invoke('modpack:pickUpdateFile', versionId),
+  applyModpackUpdate: (versionId: string) => ipcRenderer.invoke('modpack:applyUpdate', versionId),
   /** 拖入窗口的文件在本机的路径 */
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   searchModrinth: (versionId: string, query: string, offset: number) =>

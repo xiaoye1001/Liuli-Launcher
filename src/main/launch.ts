@@ -23,6 +23,7 @@ import { recordSession } from './playStats'
 import { parseAddress } from './serverPing'
 import { ensureAuthlibInjector } from './authlibInjector'
 import { readVersionDisplay } from './versionDisplay'
+import { installedModpackOf, readModpackRecord } from './modpackRecord'
 import { assertSafeId } from './versionManage'
 import { confirmVersionConfig } from './versionTrust'
 import type { GameLogEvent, GameStatus, InstalledVersion, JavaInfo, MemoryPlan, ModLoader } from '../shared/types'
@@ -64,6 +65,7 @@ export async function listInstalledVersions(): Promise<InstalledVersion[]> {
         isolated: isolatedWith(config, versionIsolation, loader),
         customized: isCustomized(config),
         ...(await readVersionDisplay(gameDir, id)),
+        modpack: await readModpackRecord(gameDir, id).then((r) => (r ? installedModpackOf(r) : undefined)),
         // 加载器版本继承自原版，原版版本的 id 就是版本号
         minecraftVersion: json.inheritsFrom ?? json.liuliMinecraftVersion ?? json.id ?? id
       })

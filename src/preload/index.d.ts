@@ -37,6 +37,8 @@ import type {
   MsLoginStatus,
   ModrinthInstallResult,
   ModpackInfo,
+  ModpackUpdateCheck,
+  ModpackUpdatePlan,
   ModrinthProjectHit,
   ResourceSearchFilters,
   ResourceTarget,
@@ -255,6 +257,14 @@ declare global {
       downloadModpack: (versionId: string) => Promise<ModpackInfo>
       /** 下载页一键安装：下载整合包并直接开始安装，返回使用的版本名 */
       downloadAndInstallModpack: (versionId: string) => Promise<string>
+      /** 检查整合包有没有新版本（从下载页安装的整合包） */
+      checkModpackUpdate: (versionId: string) => Promise<ModpackUpdateCheck>
+      /** 下载整合包的新版本并读取信息，确认后用 applyModpackUpdate 开始更新 */
+      prepareModpackUpdate: (versionId: string, packVersionId: string) => Promise<ModpackUpdatePlan>
+      /** 选择新版本的整合包文件来更新，取消时为 null */
+      pickModpackUpdateFile: (versionId: string) => Promise<ModpackUpdatePlan | null>
+      /** 开始更新整合包（进度通过 onInstallStatus 推送） */
+      applyModpackUpdate: (versionId: string) => Promise<void>
       /** 拖入窗口的文件在本机的路径 */
       getPathForFile: (file: File) => string
       installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>

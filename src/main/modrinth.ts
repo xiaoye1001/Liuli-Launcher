@@ -372,8 +372,8 @@ export async function getProjectVersions(projectId: string, type: ResourceType):
     }))
 }
 
-/** 下载整合包的某个版本（.mrpack）到缓存目录，返回文件路径 */
-export async function downloadModpackFile(versionId: string): Promise<string> {
+/** 下载整合包的某个版本（.mrpack）到缓存目录，返回文件路径和整合包的项目 ID */
+export async function downloadModpackFile(versionId: string): Promise<{ path: string; projectId: string }> {
   const version = await modrinthFetch<ModrinthVersion>(`/version/${encodeURIComponent(versionId)}`)
   const file = version.files.find((f) => f.primary) ?? version.files[0]
   if (!file?.filename.endsWith('.mrpack')) throw new Error('这个版本没有整合包文件')
@@ -388,7 +388,7 @@ export async function downloadModpackFile(versionId: string): Promise<string> {
     headers: { 'User-Agent': USER_AGENT },
     validator: file.hashes.sha1 ? { algorithm: 'sha1', hash: file.hashes.sha1 } : undefined
   })
-  return destination
+  return { path: destination, projectId: version.project_id }
 }
 
 /** 版本中要下载的文件：数据包优先 .zip（同一版本可能同时带有模组 jar），其余用主文件 */

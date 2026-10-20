@@ -142,7 +142,17 @@ import { getNews } from './news'
 import { applyNetworkSettings, checkNetwork, validateProxyUrl } from './network'
 import { addOfflineAccount, removeOfflineAccount, renameOfflineAccount, selectOfflineAccount } from './offline'
 import { loginExternal, removeExternalAccount, selectExternalProfile } from './yggdrasil'
-import { downloadAndInstallModpack, downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
+import {
+  applyModpackUpdate,
+  checkModpackUpdate,
+  downloadAndInstallModpack,
+  downloadModpack,
+  installModpack,
+  loadModpackFile,
+  pickModpack,
+  pickModpackUpdateFile,
+  prepareModpackUpdate
+} from './modpack'
 import { getCurseForgeVersions, installCurseForgeResource, isCurseForgeId, searchCurseForge } from './curseforge'
 import {
   cancelMicrosoftLogin,
@@ -498,6 +508,14 @@ function registerIpc(): void {
   ipcMain.handle('resource:worlds', (_, versionId: string) => listWorlds(versionId))
   ipcMain.handle('modpack:download', (_, versionId: string) => downloadModpack(versionId))
   ipcMain.handle('modpack:downloadAndInstall', (_, versionId: string) => downloadAndInstallModpack(String(versionId)))
+  ipcMain.handle('modpack:checkUpdate', (_, versionId: string) => checkModpackUpdate(String(versionId)))
+  ipcMain.handle('modpack:prepareUpdate', (_, versionId: string, packVersionId: string) =>
+    prepareModpackUpdate(String(versionId), String(packVersionId))
+  )
+  ipcMain.handle('modpack:pickUpdateFile', (event, versionId: string) =>
+    pickModpackUpdateFile(String(versionId), BrowserWindow.fromWebContents(event.sender))
+  )
+  ipcMain.handle('modpack:applyUpdate', (_, versionId: string) => applyModpackUpdate(String(versionId)))
   ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>
     searchModrinth(versionId, query, offset)
   )

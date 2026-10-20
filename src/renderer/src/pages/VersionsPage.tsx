@@ -19,6 +19,7 @@ import {
   PackageOpen,
   PenLine,
   Puzzle,
+  PackageCheck,
   RefreshCw,
   Search,
   Settings2,
@@ -26,6 +27,7 @@ import {
   Wrench
 } from 'lucide-react'
 import VersionIconPicker from '../components/VersionIconPicker'
+import ModpackUpdateDialog from '../components/ModpackUpdateDialog'
 import { formatDuration } from '../utils/format'
 import InstallProgressCard from '../components/InstallProgressCard'
 import LocalResourcesPage from './LocalResourcesPage'
@@ -94,10 +96,13 @@ function MoreMenu({
   onShareLog,
   onOpenFolder,
   onRepair,
-  onDelete
+  onDelete,
+  onUpdateModpack
 }: {
   busy: boolean
   repairing: boolean
+  /** 更新整合包（只有模组版本有） */
+  onUpdateModpack?: () => void
   onRename: () => void
   onCopy: () => void
   onShortcut: () => void
@@ -155,6 +160,7 @@ function MoreMenu({
           {item(<PenLine className="h-4 w-4" />, '重命名', onRename, false, busy)}
           {item(<Copy className="h-4 w-4" />, '复制版本', onCopy, false, busy)}
           {item(<MonitorSmartphone className="h-4 w-4" />, '创建桌面快捷方式', onShortcut)}
+          {onUpdateModpack && item(<PackageCheck className="h-4 w-4" />, '更新整合包', onUpdateModpack, false, busy)}
           {item(<PackageOpen className="h-4 w-4" />, '导出整合包', onExport)}
           {item(<Share2 className="h-4 w-4" />, '分享最近的日志', onShareLog)}
           <div className="my-1 border-t border-white/10" />
@@ -298,6 +304,7 @@ function VersionsPage({
   const [resourcesFor, setResourcesFor] = useState<InstalledVersion | null>(null)
   const [worldsFor, setWorldsFor] = useState<InstalledVersion | null>(null)
   const [exportFor, setExportFor] = useState<InstalledVersion | null>(null)
+  const [updatingFor, setUpdatingFor] = useState<InstalledVersion | null>(null)
   const lastState = useRef<string | undefined>(undefined)
   /** 分享哪个版本的 latest.log */
   const shareTarget = useRef('')
@@ -411,6 +418,16 @@ function VersionsPage({
           onDone={async (message) => {
             setNaming(null)
             await load()
+            setNotice(message)
+          }}
+        />
+      )}
+      {updatingFor && (
+        <ModpackUpdateDialog
+          version={updatingFor}
+          onClose={() => setUpdatingFor(null)}
+          onStarted={(message) => {
+            setUpdatingFor(null)
             setNotice(message)
           }}
         />
@@ -621,6 +638,14 @@ function VersionsPage({
                       <div className="mt-1 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs">
                         <span className={`shrink-0 rounded-md px-2 py-0.5 ${info.className}`}>{info.label}</span>
                         <span className="shrink-0 text-white/50">{version.minecraftVersion}</span>
+                        {version.modpack && (
+                          <span
+                            title={`用启动器安装的整合包：${version.modpack.name} ${version.modpack.version}`}
+                            className="min-w-0 max-w-40 truncate rounded-md bg-emerald-500/15 px-2 py-0.5 text-emerald-300"
+                          >
+                            整合包 {version.modpack.version}
+                          </span>
+                        )}
                         {version.isolated && (
                           <span
                             title="模组、存档、配置放在该版本自己的文件夹里"
@@ -707,6 +732,7 @@ function VersionsPage({
                     onOpenFolder={() => window.api.openVersionDir(version.id)}
                     onRepair={() => repair(version.id)}
                     onDelete={() => remove(version.id)}
+                    onUpdateModpack={isModded(version) || version.modpack ? () => setUpdatingFor(version) : undefined}
                   />
                 </div>
               )
