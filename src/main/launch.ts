@@ -1,5 +1,5 @@
 import { execFile, spawn, type ChildProcess } from 'child_process'
-import { createHash } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 import { readdir, readFile } from 'fs/promises'
 import { join } from 'path'
 import { BrowserWindow } from 'electron'
@@ -14,6 +14,8 @@ import { countMissing, findMissingFiles, type MissingFiles } from './fileCheck'
 import { autoMemory } from './memory'
 import { gcTuningArgs } from './gcTuning'
 import { onGameEnded, onGameWindowReady } from './windows'
+import { applyDarkLoadingScreen } from './gameOptions'
+import { onLaunchStatusForSplash } from './launchSplash'
 import { resolveJava } from './java'
 import { openLogWindow } from './logWindow'
 import { collectCrash } from './crashReport'
@@ -235,6 +237,8 @@ function setStatus(next: GameStatus): void {
   // 「游戏启动后」设置：窗口出现时最小化/隐藏启动器，游戏结束后恢复
   if (next.state === 'running' && previous !== 'running') void onGameWindowReady()
   if (next.state === 'exited' || next.state === 'crashed') onGameEnded()
+  // 桌面启动悬浮窗：启动中、启动器不在前台时显示，游戏窗口出现或启动结束后关闭
+  onLaunchStatusForSplash(next)
 }
 
 export function getGameStatus(): GameStatus {
@@ -358,11 +362,12 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
   cancellableProc = null
   setStatus({ state: 'launching', versionId })
   const startedAt = Date.now()
-  openLogWindow()
   launcherLog(`正在启动 ${versionId}${server ? `，进入游戏后连接服务器 ${server}` : ''}`)
 
   try {
     const settings = await getSettings()
+    // 日志窗口默认不打开（设置里可以打开「启动时自动打开日志窗口」）
+    if (settings.openLogOnLaunch) openLogWindow()
     // 版本设置优先，未设置的项跟随全局设置
     const config = await getVersionConfig(versionId, settings.gameDir)
     // 会运行程序的设置（命令、包装命令、环境变量、指定 Java、JVM 参数）必须是玩家认可过的
@@ -445,6 +450,12 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     const isolated = isolatedWith(config, settings.versionIsolation, detectLoader(version))
     const gamePath = versionGameDir(settings.gameDir, versionId, isolated)
     launcherLog(`游戏目录：${gamePath}${isolated ? '（版本隔离）' : ''}`)
+    // 游戏加载画面改成黑色背景（只是外观设置，失败不影响启动）
+    if (settings.darkLoadingScreen) {
+      await applyDarkLoadingScreen(gamePath, minecraftVersion)
+        .then((changed) => changed && launcherLog('已把游戏加载画面设为黑色背景'))
+        .catch(() => undefined)
+    }
 
     if (settings.checkFiles) await ensureGameFiles(versionId, version)
     throwIfCancelled()
@@ -517,6 +528,14 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       ],
       extraMCArgs: gameArgs,
       ...serverOptions(server, minecraftVersion),
+      // 1.19 起的版本带 --xuid ${auth_xuid} --clientId ${clientid}（只用于游戏的统计），不填时游戏会收到原样的占位符。
+      // 微软账号填 Xbox 用户 ID；clientId 每次启动随机生成，不包含任何身份信息
+      features: {
+        liuli_launcher_ids: {
+          auth_xuid: auth.xuid || '0',
+          clientid: Buffer.from(randomUUID()).toString('base64')
+        }
+      },
       resolution:
         config.fullscreen || config.windowWidth || config.windowHeight
           ? {

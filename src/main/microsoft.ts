@@ -33,10 +33,27 @@ let writeQueue: Promise<void> = Promise.resolve()
 
 async function loadAccounts(): Promise<StoredAccount[]> {
   if (stored) return stored
+  let text = ''
+  for (let attempt = 1; ; attempt++) {
+    try {
+      text = await readFile(ACCOUNTS_FILE, 'utf-8')
+      break
+    } catch (e) {
+      // 只有文件不存在才是「没有账号」；被占用（例如杀毒软件正在扫描）等读取失败时不能当成空列表，
+      // 否则下一次保存会把所有账号覆盖掉。先稍等重试几次
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+        stored = []
+        return stored
+      }
+      if (attempt >= 3) throw new Error(`读取账号文件失败，请稍后再试：${(e as Error).message}`)
+      await new Promise((resolve) => setTimeout(resolve, 300))
+    }
+  }
   try {
-    const data = JSON.parse(await readFile(ACCOUNTS_FILE, 'utf-8'))
+    const data = JSON.parse(text)
     stored = Array.isArray(data.accounts) ? data.accounts : []
   } catch {
+    // 文件内容损坏：无法恢复，按没有账号处理
     stored = []
   }
   return stored!
@@ -63,7 +80,15 @@ function publicAccount(a: StoredAccount): MicrosoftAccount {
 }
 
 export async function getAccounts(): Promise<AccountsInfo> {
-  const [accounts, external, settings] = await Promise.all([loadAccounts(), listExternalAccounts(), getSettings()])
+  const [accounts, external, settings] = await Promise.all([
+    // 账号文件暂时读不到时先不显示微软账号（不会保存，也不会覆盖文件），不让主页、账号页整个打不开
+    loadAccounts().catch((e) => {
+      console.error(e)
+      return [] as StoredAccount[]
+    }),
+    listExternalAccounts(),
+    getSettings()
+  ])
   const exists =
     accounts.some((a) => a.uuid === settings.activeAccount) || external.some((a) => a.id === settings.activeAccount)
   return {
@@ -99,24 +124,38 @@ interface OAuthTokens {
   refresh_token: string
 }
 
-/** 请求微软 OAuth 接口，错误时返回 { error } 而不是抛出，方便轮询时判断 */
+/** 连不上服务器、超时、返回的不是正常内容（例如代理返回的网页）：轮询时可以重试 */
+class NetworkError extends Error {}
+
+/** 每一步网络请求的超时：用户取消时立即停止，服务器没有响应时也不会一直等 */
+function withTimeout(signal: AbortSignal | undefined, ms: number): AbortSignal {
+  return signal ? AbortSignal.any([signal, AbortSignal.timeout(ms)]) : AbortSignal.timeout(ms)
+}
+
+/** 请求微软 OAuth 接口，接口返回的错误以 { error } 返回而不是抛出，方便轮询时判断；网络问题抛出 NetworkError */
 async function oauthPost(path: string, params: Record<string, string>, signal?: AbortSignal): Promise<any> {
-  const response = await fetch(`${OAUTH}/${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams(params),
-    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000)
-  })
-  return response.json()
+  try {
+    const response = await fetch(`${OAUTH}/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(params),
+      signal: withTimeout(signal, 15000)
+    })
+    return await response.json()
+  } catch (e) {
+    // 用户取消：原样抛出，由调用方处理
+    if (signal?.aborted) throw e
+    throw new NetworkError('无法连接微软登录服务器，请检查网络或代理设置')
+  }
 }
 
 function describeOAuthError(result: { error?: string; error_description?: string }): string {
   switch (result.error) {
     case 'unauthorized_client':
     case 'invalid_client':
-      return 'Client ID 无效，或 Azure 应用没有开启「允许公共客户端流」'
+      return 'Client ID 无效，或 Azure 应用没有开启「允许公共客户端流」、没有允许个人微软账号登录'
     case 'invalid_grant':
-      return '微软账号登录已失效，请重新登录'
+      return '微软账号的登录已过期'
     case 'expired_token':
       return '代码已过期，请重新登录'
     case 'authorization_declined':
@@ -150,7 +189,23 @@ const XSTS_ERRORS: Record<number, string> = {
   2148916235: '你所在的地区不支持 Xbox Live',
   2148916236: '该账号需要完成成人验证（韩国地区）',
   2148916237: '该账号需要完成成人验证（韩国地区）',
-  2148916238: '未成年账号需要由家长加入家庭组后才能登录'
+  2148916238: '未成年账号需要由家长加入家庭组后才能登录',
+  2148916227: '这个 Xbox 账号已被封禁',
+  2148916229: '家长没有允许这个账号进行在线游戏，请在 Xbox 家庭设置中允许',
+  2148916234: '这个账号还没有同意 Xbox 服务条款，请先登录 xbox.com 完成设置'
+}
+
+/** 第三方库的错误信息是英文，把常见情况转成中文 */
+function describeStepError(step: string, e: unknown): Error {
+  const message = e instanceof Error ? e.message : String(e)
+  if ((e as Error)?.name === 'AbortError' || (e as Error)?.name === 'TimeoutError') {
+    return new Error(`${step}超时，请检查网络或代理设置后重试`)
+  }
+  if (/fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket/i.test(message)) {
+    return new Error(`${step}失败：无法连接服务器，请检查网络或代理设置`)
+  }
+  if (/status code: 429/.test(message)) return new Error(`${step}失败：请求太频繁，请过几分钟再试`)
+  return new Error(`${step}失败：${message.slice(0, 200)}`)
 }
 
 /** 用微软令牌换取 Minecraft 令牌并读取档案 */
@@ -158,33 +213,55 @@ async function loginMinecraft(
   msAccessToken: string,
   signal?: AbortSignal
 ): Promise<{ token: string; expiresAt: number; profile: MicrosoftMinecraftProfile }> {
-  const xbl = await authenticator.authenticateXboxLive(msAccessToken, signal)
+  // 用户取消时（signal）立即停止；只是取消时原样抛出，由调用方显示「已取消」
+  const rethrowIfCancelled = (e: unknown): void => {
+    if (signal?.aborted) throw e
+  }
+  let xbl
+  try {
+    xbl = await authenticator.authenticateXboxLive(msAccessToken, withTimeout(signal, 20000))
+  } catch (e) {
+    rethrowIfCancelled(e)
+    throw describeStepError('登录 Xbox Live ', e)
+  }
   let xsts
   try {
-    xsts = await authenticator.authorizeXboxLive(xbl.Token, 'rp://api.minecraftservices.com/', signal)
+    xsts = await authenticator.authorizeXboxLive(
+      xbl.Token,
+      'rp://api.minecraftservices.com/',
+      withTimeout(signal, 20000)
+    )
   } catch (e) {
+    rethrowIfCancelled(e)
     const code = (e as { XErr?: number }).XErr
-    throw new Error(code && XSTS_ERRORS[code] ? XSTS_ERRORS[code] : `Xbox 授权失败：${(e as Error).message}`)
+    if (code && XSTS_ERRORS[code]) throw new Error(XSTS_ERRORS[code])
+    throw describeStepError('Xbox 授权', e)
   }
   let mc
   try {
-    mc = await authenticator.loginMinecraftWithXBox(xsts.DisplayClaims.xui[0].uhs, xsts.Token, signal)
+    mc = await authenticator.loginMinecraftWithXBox(
+      xsts.DisplayClaims.xui[0].uhs,
+      xsts.Token,
+      withTimeout(signal, 20000)
+    )
   } catch (e) {
+    rethrowIfCancelled(e)
+    // 启动器的 Azure 应用还没有通过 Mojang 审核时，Minecraft 服务器返回 403（Invalid app registration）
     if (/status code: 403/.test((e as Error).message)) {
-      throw new Error(
-        '这个 Client ID 还没有通过 Mojang 审核，无法登录 Minecraft（审核申请：https://aka.ms/mce-reviewappid）'
-      )
+      throw new Error('启动器的正版登录还在等待微软审核，暂时无法登录 Minecraft，请先使用离线账号')
     }
-    throw e
+    throw describeStepError('登录 Minecraft ', e)
   }
   let profile
   try {
-    profile = await mojang.getProfile(mc.access_token, signal)
+    profile = await mojang.getProfile(mc.access_token, withTimeout(signal, 20000))
   } catch (e) {
-    if ((e as { error?: string }).error === 'NOT_FOUND') {
-      throw new Error('这个账号没有购买 Minecraft Java 版，或还没有创建游戏档案')
+    rethrowIfCancelled(e)
+    if ((e as { error?: string }).error === 'NOT_FOUND' || (e as Error).name === 'ProfileNotFoundError') {
+      throw new Error('这个账号没有购买 Minecraft Java 版，或还没有创建游戏档案（请先在 minecraft.net 设置玩家名）')
     }
-    throw e
+    // 第三方库的错误对象带有 error 等字段，转成普通的错误，避免被当成别的错误显示
+    throw describeStepError('读取玩家档案', e)
   }
   return { token: mc.access_token, expiresAt: Date.now() + mc.expires_in * 1000, profile }
 }
@@ -230,7 +307,10 @@ async function saveLogin(
   }
   const accounts = await loadAccounts()
   if (existingOnly && !accounts.some((a) => a.uuid === account.uuid)) throw new Error('这个账号已被移除')
-  stored = [...accounts.filter((a) => a.uuid !== account.uuid), account]
+  // 已有的账号原地更新（不改变列表顺序），新账号加在最后
+  stored = accounts.some((a) => a.uuid === account.uuid)
+    ? accounts.map((a) => (a.uuid === account.uuid ? account : a))
+    : [...accounts, account]
   await saveAccounts()
   return publicAccount(account)
 }
@@ -266,21 +346,17 @@ let loginStarting: Promise<MsLoginStatus> | null = null
 
 export async function startMicrosoftLogin(): Promise<MsLoginStatus> {
   if (loginStatus.state === 'waiting' || loginStatus.state === 'authorizing') return loginStatus
-  // 正在获取设备代码时（连续点击）不再重复开始
+  // 正在获取设备代码时（连续点击）不再重复开始，等同一次开始完成后返回同样的状态
   if (loginStarting) return loginStarting
   assertLoginAvailable()
-
-  let device: Awaited<ReturnType<typeof oauthPost>>
-  const starting = oauthPost('devicecode', { client_id: CLIENT_ID, scope: SCOPE })
-  loginStarting = starting.then(
-    () => loginStatus,
-    () => loginStatus
-  )
-  try {
-    device = await starting
-  } finally {
+  loginStarting = beginLogin().finally(() => {
     loginStarting = null
-  }
+  })
+  return loginStarting
+}
+
+async function beginLogin(): Promise<MsLoginStatus> {
+  const device = await oauthPost('devicecode', { client_id: CLIENT_ID, scope: SCOPE })
   if (!device.device_code) throw new Error(describeOAuthError(device))
 
   const abort = new AbortController()
@@ -295,15 +371,22 @@ export async function startMicrosoftLogin(): Promise<MsLoginStatus> {
       while (!tokens) {
         if (Date.now() > expiresAt) throw new Error('代码已过期，请重新登录')
         await sleep(interval, abort.signal)
-        const result = await oauthPost(
-          'token',
-          {
-            grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-            client_id: CLIENT_ID,
-            device_code: device.device_code
-          },
-          abort.signal
-        )
+        let result
+        try {
+          result = await oauthPost(
+            'token',
+            {
+              grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+              client_id: CLIENT_ID,
+              device_code: device.device_code
+            },
+            abort.signal
+          )
+        } catch (e) {
+          // 网络偶尔不稳定：等下一次再查，直到代码过期
+          if (e instanceof NetworkError) continue
+          throw e
+        }
         if (result.access_token) tokens = result
         else if (result.error === 'slow_down') interval += 5000
         else if (result.error !== 'authorization_pending') throw new Error(describeOAuthError(result))
@@ -355,7 +438,20 @@ async function ensureFresh(account: StoredAccount): Promise<StoredAccount> {
       scope: SCOPE
     })
     if (!result.access_token) {
-      throw new Error(`${account.name} 的登录已失效（${describeOAuthError(result)}），请到账号页重新登录`)
+      throw new Error(`${account.name} 的登录已失效（${describeOAuthError(result)}），请到账号页重新登录这个微软账号`)
+    }
+    // 微软返回了新的刷新令牌时立即保存：后面的 Xbox / Minecraft 步骤失败也不会丢掉它
+    if (result.refresh_token && result.refresh_token !== refreshToken) {
+      const sealed = seal(result.refresh_token)
+      const current = (await loadAccounts()).find((a) => a.uuid === account.uuid)
+      if (current) {
+        // 两个令牌共用一个「是否加密」标记：Minecraft 令牌也按新的方式重新保存（先按旧的方式解开）
+        const mcToken = seal(unseal(current.mcToken, current.encrypted))
+        current.refreshToken = sealed.value
+        current.mcToken = mcToken.value
+        current.encrypted = sealed.encrypted
+        await saveAccounts()
+      }
     }
     const mc = await loginMinecraft(result.access_token)
     // 微软通常会返回新的刷新令牌；没有返回时继续使用旧的
@@ -380,6 +476,8 @@ export interface LaunchAuth {
   accessToken: string
   userType: 'msa' | 'legacy' | 'mojang'
   microsoft: boolean
+  /** 微软账号的 Xbox 用户 ID（新版本游戏的 --xuid 参数），读不到时为空 */
+  xuid?: string
   /** 外置登录：验证服务器信息（传给 authlib-injector） */
   yggdrasil?: { server: string; serverName: string; prefetched: string }
 }
@@ -402,12 +500,24 @@ export async function getMicrosoftLaunchAuth(): Promise<LaunchAuth | null> {
   const account = (await loadAccounts()).find((a) => a.uuid === activeAccount)
   if (!account) return null
   const fresh = await ensureFresh(account)
+  const accessToken = unseal(fresh.mcToken, fresh.encrypted)
   return {
     name: fresh.name,
     uuid: fresh.uuid,
-    accessToken: unseal(fresh.mcToken, fresh.encrypted),
+    accessToken,
     userType: 'msa',
-    microsoft: true
+    microsoft: true,
+    xuid: xuidOf(accessToken)
+  }
+}
+
+/** 从 Minecraft 令牌（JWT）里读取 Xbox 用户 ID；只读取，不校验 */
+function xuidOf(accessToken: string): string | undefined {
+  try {
+    const payload = JSON.parse(Buffer.from(accessToken.split('.')[1] ?? '', 'base64url').toString('utf-8'))
+    return typeof payload.xuid === 'string' && /^\d+$/.test(payload.xuid) ? payload.xuid : undefined
+  } catch {
+    return undefined
   }
 }
 
@@ -444,11 +554,13 @@ async function services<T>(uuid: string, path: string, init: RequestInit = {}): 
   } catch {
     throw new Error('无法连接 Minecraft 服务器，请检查网络')
   }
-  if (response.status === 401) throw new Error('登录已过期，请在账号页删除这个账号后重新登录')
+  if (response.status === 401) throw new Error('登录已过期，请在账号页重新登录这个微软账号')
   if (response.status === 429) throw new Error('操作太频繁，请过一会儿再试')
   if (!response.ok) {
     const text = await response.text().catch(() => '')
-    if (response.status === 400) throw new Error('皮肤文件无效，请使用 64×64 或 64×32 的 PNG 图片')
+    if (response.status === 400 && path.includes('/skins')) {
+      throw new Error('皮肤文件无效，请使用 64×64 或 64×32 的 PNG 图片')
+    }
     throw new Error(`Minecraft 服务器返回错误（${response.status}）${text ? `：${text.slice(0, 200)}` : ''}`)
   }
   const text = await response.text()

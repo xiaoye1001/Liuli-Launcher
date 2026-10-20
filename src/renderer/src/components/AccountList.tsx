@@ -295,9 +295,16 @@ function AccountList({ settings, accounts, onAccountsChange, onSettingsChange }:
         </div>
       )}
       {login.state === 'authorizing' && (
-        <div className="flex items-center gap-2 rounded-xl bg-sky-500/10 px-4 py-3 text-sm text-sky-200">
+        <div className="flex items-center gap-2 rounded-xl bg-sky-500/10 px-4 py-3 text-sm text-sky-300">
           <Loader2 className="h-4 w-4 animate-spin" />
           正在验证 Xbox 与 Minecraft 账号…
+          <button
+            onClick={() => window.api.cancelMicrosoftLogin()}
+            className="ml-auto flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-xs text-white/60 hover:bg-white/10 hover:text-white"
+          >
+            <X className="h-3.5 w-3.5" />
+            取消
+          </button>
         </div>
       )}
       {login.state === 'failed' && login.error && (

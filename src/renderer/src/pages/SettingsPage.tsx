@@ -28,6 +28,7 @@ import {
   RotateCcw,
   SlidersHorizontal,
   Sun,
+  Terminal,
   type LucideIcon
 } from 'lucide-react'
 import { backgroundUrl } from '../utils/appearance'
@@ -1054,6 +1055,93 @@ function SettingsPage(): JSX.Element {
                 <span
                   className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
                     settings.checkFiles ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Terminal className="h-4 w-4 text-sky-300" />
+                <div>
+                  <div className="text-sm font-medium">启动时自动打开日志窗口</div>
+                  <div className="text-xs text-white/50">
+                    关闭时也可以随时点主页的「日志」按钮打开或关闭；启动动画里也能查看实时启动日志
+                  </div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.openLogOnLaunch}
+                aria-label="启动时自动打开日志窗口"
+                onClick={() => update({ openLogOnLaunch: !settings.openLogOnLaunch })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.openLogOnLaunch ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.openLogOnLaunch ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Sparkles className="h-4 w-4 text-violet-300" />
+                <div>
+                  <div className="text-sm font-medium">桌面启动悬浮窗</div>
+                  <div className="text-xs text-white/50">
+                    启动器不在前台时（最小化、切到其他窗口），在屏幕中央显示启动动画和进度，游戏窗口出现后自动消失
+                  </div>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-3">
+                <button
+                  onClick={() => void window.api.previewLaunchSplash()}
+                  className="rounded-lg bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                >
+                  预览
+                </button>
+                <button
+                  role="switch"
+                  aria-checked={settings.launchSplash}
+                  aria-label="桌面启动悬浮窗"
+                  onClick={() => update({ launchSplash: !settings.launchSplash })}
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                    settings.launchSplash ? 'bg-emerald-500' : 'bg-white/20'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                      settings.launchSplash ? 'left-6' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Moon className="h-4 w-4 text-sky-300" />
+                <div>
+                  <div className="text-sm font-medium">游戏加载画面使用黑色背景</div>
+                  <div className="text-xs text-white/50">
+                    把游戏启动时 Mojang Studios 加载画面的红色背景换成黑色（1.17
+                    及以上，游戏里的「单色标志」选项）。关闭后不会改回，可以在游戏的 设置 → 辅助功能 里修改
+                  </div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.darkLoadingScreen}
+                aria-label="游戏加载画面使用黑色背景"
+                onClick={() => update({ darkLoadingScreen: !settings.darkLoadingScreen })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.darkLoadingScreen ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.darkLoadingScreen ? 'left-6' : 'left-1'
                   }`}
                 />
               </button>

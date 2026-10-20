@@ -143,6 +143,13 @@ body,
   margin: 0;
 }
 
+/* 桌面启动悬浮窗：透明窗口，只显示中间的卡片 */
+html.launch-splash-window,
+html.launch-splash-window body {
+  background: transparent !important;
+  overflow: hidden;
+}
+
 body {
   /* --app-font 为设置里选择的界面字体，缺字时回落到默认字体 */
   font-family: var(--app-font, 'Segoe UI'), 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
