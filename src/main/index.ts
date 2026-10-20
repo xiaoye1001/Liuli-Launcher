@@ -41,6 +41,7 @@ import {
 } from './launch'
 import { closeLogWindow, isLogWindowOpen, openLogWindow, toggleLogWindow } from './logWindow'
 import { cleanupOldPortableVersions } from './portableCleanup'
+import { applyBuiltinTheme } from './builtinThemes'
 import { closeLaunchSplash, previewLaunchSplash, watchMainWindowForSplash } from './launchSplash'
 import { pickVersionIcon, setVersionFavorite, setVersionIcon } from './versionDisplay'
 import { frameOptions, registerWindowControls, watchMaximize } from './windowFrame'
@@ -311,6 +312,11 @@ function registerIpc(): void {
   ipcMain.handle('theme:export', (event, themeId?: string) =>
     exportTheme(BrowserWindow.fromWebContents(event.sender), typeof themeId === 'string' ? themeId : undefined)
   )
+  ipcMain.handle('theme:applyBuiltin', async (_, id: string) => {
+    const settings = await applyBuiltinTheme(id)
+    nativeTheme.themeSource = settings.theme
+    return broadcastSettings(settings)
+  })
   ipcMain.handle('theme:import', async (event) => {
     const result = await importTheme(BrowserWindow.fromWebContents(event.sender))
     if (!result) return null

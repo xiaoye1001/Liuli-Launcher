@@ -15,6 +15,7 @@ import DropOverlay from './components/DropOverlay'
 import PageErrorBoundary from './components/PageErrorBoundary'
 import UpdateNotice from './components/UpdateNotice'
 import AppSplashScreen, { shouldShowSplash } from './components/AppSplashScreen'
+import ClickEffects from './components/ClickEffects'
 import GameLaunchOverlay from './components/GameLaunchOverlay'
 import type { ModpackInfo, ResourceType } from '../../shared/types'
 import { DEFAULT_TITLE, useAppearance, useAppearanceLoaded } from './utils/appearance'
@@ -151,6 +152,8 @@ function App(): JSX.Element {
           {/* 游戏启动动画：点「启动游戏」或收到「启动中」状态时显示 */}
           <GameLaunchOverlay />
           {/* 开屏动画：盖在最上层，主界面在下面照常加载 */}
+          {/* 鼠标点击效果（不拦截鼠标） */}
+          <ClickEffects />
           {/* 读到外观设置之前先用纯背景盖住（只有一瞬间），避免主界面闪一下或按默认设置播放开屏动画 */}
           {splash && !appearanceLoaded && <div className="app-background fixed inset-0 z-[70]" />}
           <AnimatePresence>

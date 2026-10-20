@@ -8,7 +8,7 @@ import { musicResponse } from './music'
 import type { AppSettings } from '../shared/types'
 
 /** 自定义背景图片存放在用户数据目录下 */
-const BACKGROUND_DIR = join(app.getPath('userData'), 'backgrounds')
+export const BACKGROUND_DIR = join(app.getPath('userData'), 'backgrounds')
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp']
 /** 动态视频壁纸（循环静音播放） */
 const VIDEO_EXTENSIONS = ['mp4', 'webm']
@@ -34,7 +34,7 @@ export function registerBackgroundProtocol(): void {
 }
 
 /** 背景库最多保存多少张图片、单张最大多少 */
-const MAX_BACKGROUNDS = 50
+export const MAX_BACKGROUNDS = 50
 const MAX_IMAGE_BYTES = 30 * 1024 * 1024
 const MAX_VIDEO_BYTES = 200 * 1024 * 1024
 

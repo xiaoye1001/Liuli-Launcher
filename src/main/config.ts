@@ -103,6 +103,8 @@ function defaultSettings(): AppSettings {
     backgroundBlur: 0,
     backgroundDim: 30,
     animations: true,
+    clickEffect: true,
+    themeMusic: '',
     fontFamily: '',
     uiScale: 100,
     musicEnabled: false,

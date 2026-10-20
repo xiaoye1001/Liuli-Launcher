@@ -73,6 +73,19 @@ function MusicSettings({ settings, update, updateSlider }: Props): JSX.Element {
 
       {enabled && (
         <div className="mt-4 border-t border-white/10 pt-4">
+          {/* 正在只播放主题的专属音乐 */}
+          {music.themeTrack && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+              <Music2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">正在循环播放主题音乐「{trackTitle(music.themeTrack)}」</span>
+              <button
+                onClick={() => update({ themeMusic: '' })}
+                className="shrink-0 rounded-md bg-white/10 px-2 py-1 text-white/80 hover:bg-white/20 hover:text-white"
+              >
+                播放全部音乐
+              </button>
+            </div>
+          )}
           {/* 曲目列表 */}
           <div className="max-h-56 overflow-y-auto rounded-lg border border-white/10" aria-label="音乐列表">
             {music.tracks.length === 0 ? (

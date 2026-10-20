@@ -31,6 +31,7 @@ import {
   type ThemePresetInfo
 } from '../themes/presets'
 import { backgroundUrl } from '../utils/appearance'
+import BuiltinThemeGallery from '../components/BuiltinThemeGallery'
 import { isVideoBackground } from '../components/AppBackground'
 import { MAX_CUSTOM_THEMES, sanitizeAutoTheme, themeDataFrom, themePatch, themePeriodAt } from '../../../shared/theme'
 import type { AppSettings, AutoThemeSettings, CustomTheme, ParticleDensity, ThemeData } from '../../../shared/types'
@@ -320,6 +321,13 @@ function Personalization({ settings, update, updateSlider }: Props): JSX.Element
           )
         })}
       </div>
+
+      {/* 精选主题：自带原创壁纸和音乐 */}
+      <div className="mt-6 flex items-baseline gap-2">
+        <div className="text-sm font-medium">精选主题</div>
+        <span className="text-xs text-white/40">原创高清壁纸 + 原创背景音乐，点一下整套应用</span>
+      </div>
+      <BuiltinThemeGallery settings={settings} onMessage={(text, error) => setMessage({ text, error })} />
 
       {/* 我的主题 */}
       <div className="mt-6 flex items-center gap-2">

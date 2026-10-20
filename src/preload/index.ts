@@ -242,6 +242,8 @@ const api = {
   addBackgroundUrl: (url: string) => ipcRenderer.invoke('appearance:addBackgroundUrl', url),
   exportTheme: (themeId?: string) => ipcRenderer.invoke('theme:export', themeId),
   importTheme: () => ipcRenderer.invoke('theme:import'),
+  /** 应用精选主题（复制壁纸和音乐后应用整套外观），返回新的设置 */
+  applyBuiltinTheme: (id: string): Promise<AppSettings> => ipcRenderer.invoke('theme:applyBuiltin', id),
   listMusic: () => ipcRenderer.invoke('music:list'),
   addMusic: () => ipcRenderer.invoke('music:add'),
   removeMusic: (name: string) => ipcRenderer.invoke('music:remove', name),

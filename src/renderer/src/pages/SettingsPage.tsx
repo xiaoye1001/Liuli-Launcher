@@ -21,6 +21,7 @@ import {
   XCircle,
   ShieldCheck,
   Monitor,
+  MousePointerClick,
   Moon,
   Palette,
   Pipette,
@@ -761,6 +762,33 @@ function SettingsPage(): JSX.Element {
                 <span
                   className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
                     settings.animations ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+            {/* 鼠标点击效果 */}
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <MousePointerClick className="h-4 w-4 text-emerald-300" />
+                <div>
+                  <div className="text-sm font-medium">鼠标点击特效</div>
+                  <div className="text-xs text-white/50">
+                    点击时在鼠标位置放出一圈波纹和光点，颜色跟随主题色；关闭界面动画时也不显示
+                  </div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.clickEffect}
+                aria-label="鼠标点击特效"
+                onClick={() => update({ clickEffect: !settings.clickEffect })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.clickEffect ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.clickEffect ? 'left-6' : 'left-1'
                   }`}
                 />
               </button>

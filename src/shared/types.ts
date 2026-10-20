@@ -159,12 +159,16 @@ export interface AppSettings {
   backgroundDim: number
   /** 是否开启界面动画 */
   animations: boolean
+  /** 鼠标点击时的波纹与光点效果（关闭界面动画时也不显示） */
+  clickEffect: boolean
   /** 界面字体（字体名称），空字符串表示使用默认字体 */
   fontFamily: string
   /** 界面缩放（%），取值见 UI_SCALES */
   uiScale: number
   /** 是否播放背景音乐 */
   musicEnabled: boolean
+  /** 当前主题的专属音乐（音乐文件夹里的文件名）：设置了就只循环播放这一首，空字符串表示播放全部音乐 */
+  themeMusic: string
   /** 背景音乐音量（0~100） */
   musicVolume: number
   /** 播放顺序 */
@@ -289,6 +293,8 @@ export interface ThemeData {
   backgroundFit: BackgroundFit
   backgroundBlur: number
   backgroundDim: number
+  /** 主题的背景音乐（音乐文件夹里的文件名），空字符串表示播放全部音乐 */
+  music: string
 }
 
 export interface CustomTheme {

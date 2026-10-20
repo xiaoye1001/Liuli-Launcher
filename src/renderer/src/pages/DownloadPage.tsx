@@ -79,7 +79,7 @@ function SectionButton({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition-colors ${
+      className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
         active ? 'bg-emerald-500/20 font-medium text-emerald-200' : 'text-white/60 hover:bg-white/10 hover:text-white'
       }`}
     >
@@ -280,8 +280,8 @@ function DownloadPage({
         </div>
       )}
       <div className={`flex h-full gap-4 ${setupFor || modpack ? 'hidden' : ''}`}>
-        {/* 分类 */}
-        <nav className="flex w-36 shrink-0 flex-col gap-1 rounded-2xl border border-white/10 bg-white/10 p-2 shadow-2xl backdrop-blur-xl">
+        {/* 分类：整体垂直居中，下面不留一大片空白 */}
+        <nav className="flex w-36 shrink-0 flex-col justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/10 p-2 shadow-2xl backdrop-blur-xl">
           <SectionButton
             icon={Gamepad2}
             label="原版游戏"

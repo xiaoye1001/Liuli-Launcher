@@ -59,6 +59,13 @@ function bool(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback
 }
 
+/** 音乐文件名：不能带路径，必须是音频文件 */
+function musicName(value: unknown): string {
+  if (typeof value !== 'string' || !value || /[\\/]/.test(value) || value === '.' || value === '..') return ''
+  if (!/\.(mp3|ogg|oga|opus|wav|flac|m4a|aac|webm)$/i.test(value)) return ''
+  return value.slice(0, 200)
+}
+
 /** 背景库文件名：不能带路径 */
 function libraryName(value: unknown): string {
   if (typeof value !== 'string' || !value || /[\\/]/.test(value) || value === '.' || value === '..') return ''
@@ -86,13 +93,14 @@ export function sanitizeThemeData(raw: unknown): ThemeData {
     backgroundImage: libraryName(r.backgroundImage),
     backgroundFit: pick(r.backgroundFit, BACKGROUND_FITS, 'cover' as BackgroundFit),
     backgroundBlur: num(r.backgroundBlur, 0, 40, 0),
-    backgroundDim: num(r.backgroundDim, 0, 90, 30)
+    backgroundDim: num(r.backgroundDim, 0, 90, 30),
+    music: musicName(r.music)
   }
 }
 
 /** 当前设置对应的主题数据 */
 export function themeDataFrom(settings: AppSettings): ThemeData {
-  return sanitizeThemeData(settings)
+  return sanitizeThemeData({ ...settings, music: settings.themeMusic })
 }
 
 /**
@@ -120,7 +128,10 @@ export function themePatch(data: ThemeData, library: string[]): Partial<AppSetti
     ...(hasWallpaper ? { backgroundImage: data.backgroundImage } : {}),
     backgroundFit: data.backgroundFit,
     backgroundBlur: data.backgroundBlur,
-    backgroundDim: data.backgroundDim
+    backgroundDim: data.backgroundDim,
+    // 带音乐的主题：只循环播放这首，并打开背景音乐；没有音乐的主题恢复播放全部音乐
+    themeMusic: data.music,
+    ...(data.music ? { musicEnabled: true } : {})
   }
 }
 

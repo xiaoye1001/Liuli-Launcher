@@ -23,6 +23,7 @@ export type Appearance = Pick<
   | 'backgroundBlur'
   | 'backgroundDim'
   | 'animations'
+  | 'clickEffect'
   | 'launcherTitle'
   | 'launcherSubtitle'
   | 'hiddenPages'
@@ -51,6 +52,7 @@ let current: Appearance = {
   backgroundBlur: 0,
   backgroundDim: 30,
   animations: true,
+  clickEffect: true,
   launcherTitle: '',
   launcherSubtitle: '',
   hiddenPages: [],
@@ -80,6 +82,7 @@ function apply(settings: AppSettings): void {
     backgroundBlur: settings.backgroundBlur,
     backgroundDim: settings.backgroundDim,
     animations: settings.animations,
+    clickEffect: settings.clickEffect !== false,
     launcherTitle: settings.launcherTitle ?? '',
     launcherSubtitle: settings.launcherSubtitle ?? '',
     hiddenPages: Array.isArray(settings.hiddenPages) ? settings.hiddenPages : [],

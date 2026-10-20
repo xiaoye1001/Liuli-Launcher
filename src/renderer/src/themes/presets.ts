@@ -136,6 +136,8 @@ export function presetPatch(key: ThemePreset): Partial<AppSettings> {
   return {
     themePreset: key,
     particleEffect: 'auto',
+    // 主题方案没有专属音乐：恢复播放全部音乐
+    themeMusic: '',
     panelOpacity: info.panelOpacity,
     panelBlur: info.panelBlur,
     ...(info.mode ? { theme: info.mode } : {}),

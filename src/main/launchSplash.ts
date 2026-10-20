@@ -136,8 +136,13 @@ function scheduleRefresh(fromFocus: boolean): void {
 
 /** 主窗口切到前台、最小化、隐藏时重新判断（index.ts 创建主窗口后调用） */
 export function watchMainWindowForSplash(win: BrowserWindow): void {
-  for (const event of ['focus', 'blur', 'minimize', 'restore', 'show', 'hide'] as const) {
+  // 只是焦点变化：游戏进程创建后多半是游戏窗口出现了，不再新弹出悬浮窗
+  for (const event of ['focus', 'blur', 'restore', 'show'] as const) {
     win.on(event as 'focus', () => scheduleRefresh(true))
+  }
+  // 玩家自己最小化或隐藏了启动器（游戏窗口出现不会让启动器最小化）：任何时候都可以显示悬浮窗
+  for (const event of ['minimize', 'hide'] as const) {
+    win.on(event as 'minimize', () => scheduleRefresh(false))
   }
 }
 
