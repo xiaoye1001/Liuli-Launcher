@@ -116,7 +116,7 @@
             <article class="feature reveal" style="--i: 1">
               <div class="feature-icon">🧩</div>
               <h3>加载器一键安装</h3>
-              <p>Forge、NeoForge、Fabric、Quilt、OptiFine 选好就装，自动选择并下载合适的 Java。</p>
+              <p>Forge、NeoForge、Fabric、Quilt、OptiFine 选好就装；启动时自动匹配 Java，本机没有就自动下载。</p>
             </article>
             <article class="feature reveal" style="--i: 2">
               <div class="feature-icon">🔍</div>
@@ -139,9 +139,9 @@
               <p>微软正版登录（皮肤、披风管理）、多个离线账号，以及 authlib-injector 外置登录。</p>
             </article>
             <article class="feature reveal" style="--i: 0">
-              <div class="feature-icon">🩺</div>
-              <h3>崩溃分析</h3>
-              <p>游戏崩溃后用中文说明原因和解决办法；日志一键上传 mclo.gs，发链接就能求助。</p>
+              <div class="feature-icon">🚀</div>
+              <h3>省心启动</h3>
+              <p>按模组、光影、材质包和渲染距离自动分配内存；每个版本可单独设置；崩溃后用中文说明原因，日志一键上传求助。</p>
             </article>
             <article class="feature reveal" style="--i: 1">
               <div class="feature-icon">🗺️</div>
@@ -151,7 +151,7 @@
             <article class="feature reveal" style="--i: 2">
               <div class="feature-icon">🎨</div>
               <h3>好看也好用</h3>
-              <p>玻璃质感界面，深浅色主题、主题色、自定义背景；版本收藏与图标，多个游戏目录随时切换。</p>
+              <p>玻璃质感界面，7 套主题方案与动态背景，开屏与启动动画，主题色和壁纸随心换；版本收藏与图标，多个游戏目录随时切换。</p>
             </article>
           </div>
         </div>
@@ -186,10 +186,13 @@
           <h2 class="section-title reveal">看看界面</h2>
           <div class="shot-tabs reveal" role="tablist">
             <button role="tab" aria-selected="true" data-shot="home">主页</button>
+            <button role="tab" aria-selected="false" data-shot="launch">启动动画</button>
             <button role="tab" aria-selected="false" data-shot="download">下载资源</button>
             <button role="tab" aria-selected="false" data-shot="versions">版本管理</button>
+            <button role="tab" aria-selected="false" data-shot="vsettings">版本设置</button>
             <button role="tab" aria-selected="false" data-shot="mods">模组管理</button>
             <button role="tab" aria-selected="false" data-shot="worlds">存档详情</button>
+            <button role="tab" aria-selected="false" data-shot="theme">个性化</button>
           </div>
           <figure class="shot-frame reveal">
             <img id="shot-image" src="images/home.webp" alt="主页截图" width="1100" height="700" loading="lazy" />
@@ -235,8 +238,8 @@
             <summary>安装版和免安装版有什么区别？</summary>
             <p>
               安装版会安装到电脑上，创建桌面和开始菜单快捷方式，数据保存在
-              <code>%APPDATA%\mc_launcher</code>。免安装版是单个 exe，双击直接运行，数据保存在 exe 旁边的
-              <code>LiuliLauncher-Data</code> 文件夹，整个文件夹复制到 U 盘就能带走。
+              <code>%APPDATA%\mc_launcher</code>。免安装版是单个 exe，双击直接运行，程序文件和数据都保存在 exe 旁边的
+              <code>LiuliLauncher-Data</code> 文件夹，不往系统里写东西，整个文件夹复制到 U 盘就能带走。
             </p>
           </details>
           <details class="reveal">
