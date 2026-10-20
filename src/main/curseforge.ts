@@ -71,20 +71,41 @@ export function isCurseForgeId(id: string): boolean {
   return id.startsWith('cf:')
 }
 
-async function cfFetch<T>(path: string): Promise<T> {
-  let response: Response
-  try {
-    response = await fetch(`${API}${path}`, {
-      headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
-      signal: AbortSignal.timeout(20000)
-    })
-  } catch (e) {
-    throw new Error(`无法连接 CurseForge 镜像（MCIM）：${e instanceof Error ? e.message : String(e)}`)
+/** 镜像服务器偶尔会暂时不可用（502 / 503 / 504）或限流（429）：等一会儿自动重试 */
+const RETRY_DELAYS = [800, 2000]
+
+function retryable(status: number): boolean {
+  return status === 429 || status >= 500
+}
+
+/** 请求 CurseForge 镜像（MCIM），返回完整的 JSON；网络错误、限流和服务器错误会自动重试两次 */
+async function cfRequest<T>(path: string): Promise<T> {
+  let lastError = ''
+  for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+    if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS[attempt - 1]))
+    let response: Response
+    try {
+      response = await fetch(`${API}${path}`, {
+        headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+        signal: AbortSignal.timeout(20000)
+      })
+    } catch (e) {
+      lastError = `无法连接 CurseForge 镜像（MCIM）：${e instanceof Error ? e.message : String(e)}`
+      continue
+    }
+    if (response.ok) return (await response.json()) as T
+    if (response.status === 404) throw new Error('在 CurseForge 上找不到这个资源')
+    if (!retryable(response.status)) throw new Error(`CurseForge 镜像返回错误（${response.status}）`)
+    lastError =
+      response.status === 429
+        ? 'CurseForge 镜像请求太频繁，请稍后再试'
+        : `CurseForge 镜像暂时不可用（${response.status}），请稍后再试，或先用 Modrinth 搜索`
   }
-  if (response.status === 404) throw new Error('在 CurseForge 上找不到这个资源')
-  if (response.status === 429) throw new Error('请求太频繁，请稍后再试')
-  if (!response.ok) throw new Error(`CurseForge 镜像返回错误（${response.status}）`)
-  return ((await response.json()) as { data: T }).data
+  throw new Error(lastError)
+}
+
+async function cfFetch<T>(path: string): Promise<T> {
+  return (await cfRequest<{ data: T }>(path)).data
 }
 
 function numberId(id: string, what: string): number {
@@ -135,14 +156,7 @@ export async function searchCurseForge(
   if (query.trim()) params.set('searchFilter', query.trim())
   if (filters.gameVersion) params.set('gameVersion', filters.gameVersion)
   if (filters.loader && LOADER_TYPES[filters.loader]) params.set('modLoaderType', String(LOADER_TYPES[filters.loader]))
-  const response = await fetch(`${API}/mods/search?${params}`, {
-    headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
-    signal: AbortSignal.timeout(20000)
-  }).catch((e) => {
-    throw new Error(`无法连接 CurseForge 镜像（MCIM）：${e instanceof Error ? e.message : String(e)}`)
-  })
-  if (!response.ok) throw new Error(`CurseForge 镜像返回错误（${response.status}）`)
-  const result = (await response.json()) as { data: CurseMod[]; pagination?: { totalCount?: number } }
+  const result = await cfRequest<{ data: CurseMod[]; pagination?: { totalCount?: number } }>(`/mods/search?${params}`)
   return {
     hits: result.data.map((mod) => {
       const indexes = mod.latestFilesIndexes ?? []
