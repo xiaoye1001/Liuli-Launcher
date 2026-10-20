@@ -640,6 +640,8 @@ export interface ModInfo {
   icon?: string
   /** 文件大小（字节） */
   size: number
+  /** 常用模组的中文名（见 shared/modNames.ts） */
+  zhName?: string
 }
 
 /** 可以更新的模组 */
@@ -936,6 +938,8 @@ export interface ModrinthProject {
   downloads: number
   /** 当前版本的 mods 文件夹中是否已经有这个模组 */
   installed: boolean
+  /** 常用模组的中文名（见 shared/modNames.ts） */
+  zhName?: string
 }
 
 export interface ModrinthSearchResult {
@@ -1121,6 +1125,8 @@ export interface ModrinthProjectHit {
   loaders: string[]
   /** 支持的最新 Minecraft 版本 */
   latestGameVersion: string
+  /** 常用模组的中文名（见 shared/modNames.ts） */
+  zhName?: string
 }
 
 /** 项目的一个版本 */

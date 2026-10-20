@@ -12,6 +12,7 @@ import { detectLoader, getGameStatus } from './launch'
 import { assertSafeId } from './versionManage'
 import { findModIssues, openLimitedFileSystem, readRelations, zipEntrySize, type ModRelations } from './modCheck'
 import type { ModInfo, ModIssue, ModKind, ModList, ModLoader } from '../shared/types'
+import { zhNameByModId } from '../shared/modNames'
 
 const DISABLED_SUFFIX = '.disabled'
 /** 图标超过这个大小就不显示，避免列表过大 */
@@ -231,7 +232,7 @@ export async function listMods(versionId: string): Promise<ModList> {
     isolated,
     minecraftVersion,
     loader,
-    mods: mods.map(({ relations: _, ...mod }) => mod),
+    mods: mods.map(({ relations: _, ...mod }) => ({ ...mod, zhName: zhNameByModId(mod.modId) })),
     issues
   }
 }

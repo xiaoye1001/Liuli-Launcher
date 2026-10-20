@@ -196,6 +196,7 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
         (m) =>
           !kw ||
           m.name.toLowerCase().includes(kw) ||
+          (m.zhName ?? '').toLowerCase().includes(kw) ||
           m.modId.toLowerCase().includes(kw) ||
           m.fileName.toLowerCase().includes(kw)
       ),
@@ -293,7 +294,7 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
               <input
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
-                placeholder="搜索模组名称或文件名"
+                placeholder="搜索模组名称（支持中文名）或文件名"
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-white/30"
               />
             </div>
@@ -375,7 +376,9 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-semibold">{mod.name}</span>
+                      {/* 常用模组显示中文名，原名放在后面 */}
+                      <span className="truncate text-sm font-semibold">{mod.zhName ?? mod.name}</span>
+                      {mod.zhName && <span className="truncate text-xs text-white/50">{mod.name}</span>}
                       {mod.version && <span className="shrink-0 font-mono text-xs text-white/50">{mod.version}</span>}
                       {kindInfo && (
                         <span className={`shrink-0 rounded px-1.5 text-xs ${kindInfo.className}`}>

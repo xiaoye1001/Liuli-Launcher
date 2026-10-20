@@ -117,7 +117,7 @@ function ModrinthBrowser({ versionId, onInstalled, preset }: ModrinthBrowserProp
           <input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="在 Modrinth 搜索模组（英文名效果更好，例如 sodium）"
+            placeholder="在 Modrinth 搜索模组（常用模组可以搜中文名，例如 钠、机械动力）"
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-white/30"
           />
           {loading && <Loader2 className="h-4 w-4 animate-spin text-white/40" />}
@@ -144,7 +144,9 @@ function ModrinthBrowser({ versionId, onInstalled, preset }: ModrinthBrowserProp
               <ProjectIcon url={project.iconUrl} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-semibold">{project.title}</span>
+                  {/* 常用模组显示中文名，原名放在后面 */}
+                  <span className="truncate text-sm font-semibold">{project.zhName ?? project.title}</span>
+                  {project.zhName && <span className="truncate text-xs text-white/50">{project.title}</span>}
                   <span className="shrink-0 text-xs text-white/40">by {project.author}</span>
                 </div>
                 <div className="truncate text-xs text-white/50" title={project.description}>

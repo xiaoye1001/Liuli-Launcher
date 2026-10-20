@@ -6,6 +6,7 @@ import { basename, dirname, join } from 'path'
 import { getSettings } from './config'
 import { assertGameStopped, modsContextOf, type ModsContext } from './mods'
 import { downloadDispatcher } from './network'
+import { hasChinese, matchChineseName, zhNameBySlug } from '../shared/modNames'
 import type {
   ModrinthInstallResult,
   ModrinthProjectHit,
@@ -138,12 +139,72 @@ function compareGameVersions(a: string, b: string): number {
 const isGameVersion = (v: string): boolean => /^\d+\.\d+(\.\d+)?$/.test(v)
 
 /** 在 CurseForge 搜索某类资源 */
+/** CurseForge 项目转换成搜索结果 */
+function toHit(mod: CurseMod, type: ResourceType): ModrinthProjectHit {
+  const indexes = mod.latestFilesIndexes ?? []
+  const loaders = [...new Set(indexes.map((i) => (i.modLoader ? LOADER_NAMES[i.modLoader] : '')).filter(Boolean))]
+  const versions = [...new Set(indexes.map((i) => i.gameVersion).filter(isGameVersion))].sort(compareGameVersions)
+  return {
+    projectId: `cf:${mod.id}`,
+    title: mod.name,
+    description: mod.summary,
+    author: mod.authors?.[0]?.name ?? '',
+    iconUrl: mod.logo?.thumbnailUrl || mod.logo?.url || undefined,
+    downloads: mod.downloadCount,
+    loaders,
+    latestGameVersion: versions[0] ?? '',
+    zhName: type === 'mod' ? zhNameBySlug('curseforge', mod.slug) : undefined
+  }
+}
+
+/** 中文名搜索一次最多查几个模组（CurseForge 只能按项目标识一个一个查） */
+const CHINESE_LOOKUP_LIMIT = 8
+
+/**
+ * 中文关键字搜索模组：在中文名表里找到对应的模组，按项目标识逐个查找（筛选条件照常生效），按匹配程度排序。
+ * 中文名表里没有时返回 null，照常搜索
+ */
+async function searchChineseNames(
+  query: string,
+  offset: number,
+  filters: ResourceSearchFilters
+): Promise<{ hits: ModrinthProjectHit[]; total: number } | null> {
+  if (!hasChinese(query)) return null
+  const slugs = matchChineseName(query)
+    .map((entry) => entry.curseforge)
+    .filter(Boolean)
+    .slice(0, CHINESE_LOOKUP_LIMIT)
+  if (slugs.length === 0) return null
+  const found = await Promise.allSettled(
+    slugs.map((slug) => {
+      const params = new URLSearchParams({ gameId: String(GAME_ID), classId: String(CLASS_IDS.mod), slug })
+      if (filters.gameVersion) params.set('gameVersion', filters.gameVersion)
+      if (filters.loader && LOADER_TYPES[filters.loader])
+        params.set('modLoaderType', String(LOADER_TYPES[filters.loader]))
+      return cfRequest<{ data: CurseMod[] }>(`/mods/search?${params}`)
+    })
+  )
+  // 全部失败（例如镜像暂时不可用）时报告错误；部分失败只少显示几个
+  if (found.every((r) => r.status === 'rejected')) throw (found[0] as PromiseRejectedResult).reason
+  const mods = found.flatMap((r, i) =>
+    r.status === 'fulfilled' ? r.value.data.filter((mod) => mod.slug === slugs[i]).slice(0, 1) : []
+  )
+  if (filters.sort === 'downloads') mods.sort((a, b) => b.downloadCount - a.downloadCount)
+  const hits = mods.map((mod) => toHit(mod, 'mod'))
+  // 结果都在第一页
+  return { hits: offset > 0 ? [] : hits, total: hits.length }
+}
+
 export async function searchCurseForge(
   type: ResourceType,
   query: string,
   offset = 0,
   filters: ResourceSearchFilters = {}
 ): Promise<{ hits: ModrinthProjectHit[]; total: number }> {
+  if (type === 'mod') {
+    const chinese = await searchChineseNames(query, offset, filters)
+    if (chinese) return chinese
+  }
   const sort = filters.sort && SORT_FIELDS[filters.sort] ? filters.sort : query.trim() ? 'relevance' : 'downloads'
   const params = new URLSearchParams({
     gameId: String(GAME_ID),
@@ -158,21 +219,7 @@ export async function searchCurseForge(
   if (filters.loader && LOADER_TYPES[filters.loader]) params.set('modLoaderType', String(LOADER_TYPES[filters.loader]))
   const result = await cfRequest<{ data: CurseMod[]; pagination?: { totalCount?: number } }>(`/mods/search?${params}`)
   return {
-    hits: result.data.map((mod) => {
-      const indexes = mod.latestFilesIndexes ?? []
-      const loaders = [...new Set(indexes.map((i) => (i.modLoader ? LOADER_NAMES[i.modLoader] : '')).filter(Boolean))]
-      const versions = [...new Set(indexes.map((i) => i.gameVersion).filter(isGameVersion))].sort(compareGameVersions)
-      return {
-        projectId: `cf:${mod.id}`,
-        title: mod.name,
-        description: mod.summary,
-        author: mod.authors?.[0]?.name ?? '',
-        iconUrl: mod.logo?.thumbnailUrl || mod.logo?.url || undefined,
-        downloads: mod.downloadCount,
-        loaders,
-        latestGameVersion: versions[0] ?? ''
-      }
-    }),
+    hits: result.data.map((mod) => toHit(mod, type)),
     // CurseForge 最多只能翻到第 10000 条
     total: Math.min(result.pagination?.totalCount ?? result.data.length, 10000)
   }

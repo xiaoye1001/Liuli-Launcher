@@ -6,6 +6,7 @@ import { basename, dirname, join } from 'path'
 import { getSettings } from './config'
 import { assertGameStopped, fileSha1, listModFiles, modsContextOf, type ModsContext } from './mods'
 import { downloadDispatcher } from './network'
+import { hasChinese, matchChineseName, zhNameBySlug } from '../shared/modNames'
 import type {
   ModrinthInstallResult,
   ModUpdate,
@@ -102,15 +103,49 @@ async function installedProjects(dir: string): Promise<Set<string>> {
   return new Set(hashes.map((h) => hashToProject.get(h)).filter((id): id is string => !!id))
 }
 
+/** Modrinth 项目标识 → 项目 ID（中文名搜索用，项目 ID 不会变，记住后不用重复查） */
+const slugToId = new Map<string, string | null>()
+
+/**
+ * 中文名搜索：关键字是中文时，先在中文名表里找到对应的模组，返回只搜索这些模组的条件（按匹配程度排好的项目 ID）。
+ * 中文名表里没有时返回 null，照常搜索
+ */
+async function chineseSearch(query: string): Promise<{ facet: string[]; order: string[] } | null> {
+  if (!hasChinese(query)) return null
+  const slugs = matchChineseName(query)
+    .map((entry) => entry.modrinth)
+    .filter(Boolean)
+  if (slugs.length === 0) return null
+  const missing = slugs.filter((slug) => !slugToId.has(slug))
+  if (missing.length > 0) {
+    // /projects 的 ids 参数也接受项目标识
+    const projects = await modrinthFetch<{ id: string; slug: string }[]>(
+      `/projects?${new URLSearchParams({ ids: JSON.stringify(missing) })}`
+    )
+    for (const slug of missing) slugToId.set(slug, projects.find((p) => p.slug === slug)?.id ?? null)
+  }
+  const order = slugs.map((slug) => slugToId.get(slug)).filter((id): id is string => !!id)
+  return order.length > 0 ? { facet: order.map((id) => `project_id:${id}`), order } : null
+}
+
+/** 中文名搜索的结果按中文名的匹配程度排序（最符合的在前） */
+function byChineseOrder<T>(hits: T[], order: string[] | undefined, idOf: (hit: T) => string): T[] {
+  if (!order) return hits
+  return [...hits].sort((a, b) => order.indexOf(idOf(a)) - order.indexOf(idOf(b)))
+}
+
 /** 在 Modrinth 搜索适用于该版本（Minecraft 版本 + 加载器）的模组 */
 export async function searchModrinth(versionId: string, query: string, offset = 0): Promise<ModrinthSearchResult> {
   const ctx = await modsContextOf(versionId)
   const loaders = loadersOf(ctx)
   const facets = [['project_type:mod'], loaders.map((l) => `categories:${l}`), [`versions:${ctx.minecraftVersion}`]]
+  // 中文关键字：改为只搜索中文名对应的模组
+  const chinese = await chineseSearch(query)
+  if (chinese) facets.push(chinese.facet)
   const params = new URLSearchParams({
-    query: query.trim(),
+    query: chinese ? '' : query.trim(),
     facets: JSON.stringify(facets),
-    index: query.trim() ? 'relevance' : 'downloads',
+    index: query.trim() && !chinese ? 'relevance' : 'downloads',
     offset: String(offset),
     limit: '20'
   })
@@ -130,7 +165,7 @@ export async function searchModrinth(versionId: string, query: string, offset = 
     installedProjects(ctx.dir)
   ])
   return {
-    hits: result.hits.map((hit) => ({
+    hits: byChineseOrder(result.hits, chinese?.order, (hit) => hit.project_id).map((hit) => ({
       projectId: hit.project_id,
       slug: hit.slug,
       title: hit.title,
@@ -138,7 +173,8 @@ export async function searchModrinth(versionId: string, query: string, offset = 
       author: hit.author,
       iconUrl: hit.icon_url || undefined,
       downloads: hit.downloads,
-      installed: installed.has(hit.project_id)
+      installed: installed.has(hit.project_id),
+      zhName: zhNameBySlug('modrinth', hit.slug)
     })),
     total: result.total_hits,
     minecraftVersion: ctx.minecraftVersion,
@@ -269,10 +305,14 @@ export async function searchProjects(
   if (filters.gameVersion) facets.push([`versions:${filters.gameVersion}`])
   if (filters.loader) facets.push([`categories:${filters.loader}`])
   if (filters.category) facets.push([`categories:${filters.category}`])
+  // 中文关键字搜索模组：改为只搜索中文名对应的模组
+  const chinese = type === 'mod' ? await chineseSearch(query) : null
+  if (chinese) facets.push(chinese.facet)
   const sorts = ['relevance', 'downloads', 'follows', 'newest', 'updated']
-  const index = filters.sort && sorts.includes(filters.sort) ? filters.sort : query.trim() ? 'relevance' : 'downloads'
+  const index =
+    filters.sort && sorts.includes(filters.sort) ? filters.sort : query.trim() && !chinese ? 'relevance' : 'downloads'
   const params = new URLSearchParams({
-    query: query.trim(),
+    query: chinese ? '' : query.trim(),
     facets: JSON.stringify(facets),
     index,
     offset: String(offset),
@@ -281,6 +321,7 @@ export async function searchProjects(
   const result = await modrinthFetch<{
     hits: {
       project_id: string
+      slug?: string
       title: string
       description: string
       author: string
@@ -291,8 +332,10 @@ export async function searchProjects(
     }[]
     total_hits: number
   }>(`/search?${params}`)
+  // 没有指定排序时，中文名搜索的结果按匹配程度排序
+  const hits = filters.sort ? result.hits : byChineseOrder(result.hits, chinese?.order, (hit) => hit.project_id)
   return {
-    hits: result.hits.map((hit) => ({
+    hits: hits.map((hit) => ({
       projectId: hit.project_id,
       title: hit.title,
       description: hit.description,
@@ -301,7 +344,8 @@ export async function searchProjects(
       downloads: hit.downloads,
       loaders: (hit.categories ?? []).filter((c) => LOADER_CATEGORIES.includes(c)),
       // versions 按发布顺序排列，最后一个是最新支持的版本
-      latestGameVersion: hit.versions?.[hit.versions.length - 1] ?? ''
+      latestGameVersion: hit.versions?.[hit.versions.length - 1] ?? '',
+      zhName: type === 'mod' ? zhNameBySlug('modrinth', hit.slug) : undefined
     })),
     total: result.total_hits
   }
