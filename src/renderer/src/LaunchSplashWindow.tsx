@@ -137,8 +137,8 @@ function LaunchSplashWindow(): JSX.Element {
           </div>
           <motion.div
             key={progress.detail || stageIndex}
-            className="mt-1 h-5 max-w-[260px] truncate text-xs"
-            style={{ color: accent(300) }}
+            // 用主题色的文字类：浅色主题下会自动换成更深的颜色
+            className="mt-1 h-5 max-w-[260px] truncate text-xs text-emerald-300"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}

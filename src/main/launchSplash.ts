@@ -21,6 +21,11 @@ const PREVIEW_DURATION = 6500
 
 let splash: BrowserWindow | null = null
 let launching = false
+/**
+ * 游戏进程已经创建：游戏窗口（或 Forge / NeoForge 的加载窗口）随时会出现并获得焦点，
+ * 这时不能再因为「启动器不在前台」而弹出悬浮窗，已经显示的也不再置顶，免得挡住游戏窗口
+ */
+let processStarted = false
 let previewing = false
 let closeTimer: ReturnType<typeof setTimeout> | null = null
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
@@ -77,7 +82,9 @@ function createSplash(preview: boolean): BrowserWindow {
   }
   // 页面加载完再显示，避免闪一下白底
   win.once('ready-to-show', () => {
-    if (alive(win) && (previewing || (launching && !launcherInFront()))) win.showInactive()
+    if (!alive(win)) return
+    if (processStarted) win.setAlwaysOnTop(false)
+    if (previewing || (launching && !launcherInFront())) win.showInactive()
   })
   return win
 }
@@ -96,11 +103,15 @@ function closeSplash(): void {
   splash = null
 }
 
-/** 按当前情况显示或隐藏悬浮窗 */
-async function refresh(): Promise<void> {
+/**
+ * 按当前情况显示或隐藏悬浮窗。fromFocus：由窗口焦点变化触发——游戏进程创建后，
+ * 焦点离开启动器多半是游戏窗口出现了，这时只隐藏、不再新显示
+ */
+async function refresh(fromFocus: boolean): Promise<void> {
   if (previewing) return
   const want = launching && (await getSettings()).launchSplash && !launcherInFront()
   if (!launching) return
+  if (want && fromFocus && processStarted && !(alive(splash) && splash.isVisible())) return
   if (want) {
     if (!alive(splash)) splash = createSplash(false)
     else if (!splash.isVisible() && !splash.webContents.isLoading()) splash.showInactive()
@@ -109,20 +120,24 @@ async function refresh(): Promise<void> {
   }
 }
 
+/** 等待中的判断是否由焦点变化触发（同时有状态变化时按状态变化处理） */
+let pendingFromFocus = true
+
 /** 窗口切换时焦点会短暂地不在任何窗口上：稍等一下再判断，避免悬浮窗闪烁 */
-function scheduleRefresh(): void {
+function scheduleRefresh(fromFocus: boolean): void {
   if (!launching) return
+  pendingFromFocus = refreshTimer ? pendingFromFocus && fromFocus : fromFocus
   if (refreshTimer) clearTimeout(refreshTimer)
   refreshTimer = setTimeout(() => {
     refreshTimer = null
-    void refresh().catch(() => undefined)
+    void refresh(pendingFromFocus).catch(() => undefined)
   }, 200)
 }
 
 /** 主窗口切到前台、最小化、隐藏时重新判断（index.ts 创建主窗口后调用） */
 export function watchMainWindowForSplash(win: BrowserWindow): void {
   for (const event of ['focus', 'blur', 'minimize', 'restore', 'show', 'hide'] as const) {
-    win.on(event as 'focus', scheduleRefresh)
+    win.on(event as 'focus', () => scheduleRefresh(true))
   }
 }
 
@@ -134,10 +149,17 @@ export function onLaunchStatusForSplash(status: GameStatus): void {
       closeSplash()
     }
     launching = true
-    scheduleRefresh()
+    if (!status.startedAt) processStarted = false
+    else if (!processStarted) {
+      processStarted = true
+      // 游戏窗口出现时要在悬浮窗上面
+      if (alive(splash)) splash.setAlwaysOnTop(false)
+    }
+    scheduleRefresh(false)
     return
   }
   launching = false
+  processStarted = false
   if (previewing) return
   if (status.state === 'running' && alive(splash) && splash.isVisible()) {
     // 游戏窗口出现：页面自己播放淡出动画，播完后关闭

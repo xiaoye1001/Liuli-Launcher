@@ -33,17 +33,21 @@ let writeQueue: Promise<void> = Promise.resolve()
 
 async function loadAccounts(): Promise<StoredAccount[]> {
   if (stored) return stored
-  let text: string
-  try {
-    text = await readFile(ACCOUNTS_FILE, 'utf-8')
-  } catch (e) {
-    // 只有文件不存在才是「没有账号」；被占用（例如杀毒软件正在扫描）等读取失败时不能当成空列表，
-    // 否则下一次保存会把所有账号覆盖掉
-    if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
-      stored = []
-      return stored
+  let text = ''
+  for (let attempt = 1; ; attempt++) {
+    try {
+      text = await readFile(ACCOUNTS_FILE, 'utf-8')
+      break
+    } catch (e) {
+      // 只有文件不存在才是「没有账号」；被占用（例如杀毒软件正在扫描）等读取失败时不能当成空列表，
+      // 否则下一次保存会把所有账号覆盖掉。先稍等重试几次
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+        stored = []
+        return stored
+      }
+      if (attempt >= 3) throw new Error(`读取账号文件失败，请稍后再试：${(e as Error).message}`)
+      await new Promise((resolve) => setTimeout(resolve, 300))
     }
-    throw new Error(`读取账号文件失败，请稍后再试：${(e as Error).message}`)
   }
   try {
     const data = JSON.parse(text)
@@ -76,7 +80,15 @@ function publicAccount(a: StoredAccount): MicrosoftAccount {
 }
 
 export async function getAccounts(): Promise<AccountsInfo> {
-  const [accounts, external, settings] = await Promise.all([loadAccounts(), listExternalAccounts(), getSettings()])
+  const [accounts, external, settings] = await Promise.all([
+    // 账号文件暂时读不到时先不显示微软账号（不会保存，也不会覆盖文件），不让主页、账号页整个打不开
+    loadAccounts().catch((e) => {
+      console.error(e)
+      return [] as StoredAccount[]
+    }),
+    listExternalAccounts(),
+    getSettings()
+  ])
   const exists =
     accounts.some((a) => a.uuid === settings.activeAccount) || external.some((a) => a.id === settings.activeAccount)
   return {

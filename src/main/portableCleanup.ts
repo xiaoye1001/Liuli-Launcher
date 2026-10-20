@@ -1,4 +1,4 @@
-import { readdir, rm } from 'fs/promises'
+import { readdir, rm, unlink } from 'fs/promises'
 import { dirname, join } from 'path'
 import { portableDir } from './paths'
 
@@ -27,6 +27,11 @@ export async function cleanupOldPortableVersions(): Promise<void> {
   for (let attempt = 0; attempt < 30 && names.length > 0; attempt++) {
     for (const dir of [...names]) {
       try {
+        // 先删「已解压完成」的标记：文件夹只删掉一部分时，那个版本下次打开会重新解压，不会运行残缺的文件
+        const markers = (await readdir(dir).catch(() => [] as string[])).filter((n) =>
+          n.startsWith('.liuli-extracted-')
+        )
+        for (const marker of markers) await unlink(join(dir, marker)).catch(() => undefined)
         await rm(dir, { recursive: true, force: true })
         names.splice(names.indexOf(dir), 1)
       } catch {

@@ -20,7 +20,10 @@ function installPortableTemplate() {
   const custom = readFileSync(join(__dirname, '..', 'build', 'portable.nsi'), 'utf8')
   const current = readFileSync(target, 'utf8')
   if (current === custom) return
-  if (sha256(current) !== ORIGINAL_SHA256) {
+  // 已经替换过、但 build/portable.nsi 之后又改过：直接换成最新的（自己的模板第一行是固定的说明）
+  const ownHeader = custom.split('\n', 1)[0]
+  const replacedBefore = current.split('\n', 1)[0] === ownHeader
+  if (!replacedBefore && sha256(current) !== ORIGINAL_SHA256) {
     throw new Error(
       `electron-builder 的免安装版模板（${target}）和检查过的版本不同，请对照它检查 build/portable.nsi，` +
         '然后更新 scripts/portable-template.cjs 里的 ORIGINAL_SHA256'
