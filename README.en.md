@@ -10,7 +10,7 @@ Glass-style UI · Dark & light themes · Fast downloads via mirrors · One-click
 
 </div>
 
-![Home](docs/screenshots/home.png)
+![Home](docs/screenshots/home.webp)
 
 > The screenshots show the Chinese UI. The launcher interface is currently available in Simplified Chinese only.
 
@@ -45,10 +45,11 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 - Mods go to `mods` (required dependencies are installed too), resource packs to `resourcepacks`, shader packs to `shaderpacks`, and data packs to the chosen world's `datapacks`; modpacks open the install page after downloading
 
 ### Launching
-- **Automatic Java**: picks the right Java for each game version and downloads it automatically when missing (the same Java runtimes as the official launcher); Java 8 / 17 / 21 / 25 can also be downloaded from Settings with one click, or chosen manually
-- **Automatic memory allocation** (on by default): decided at launch from the game version, the number of mods and available memory, enough but not more (1–2 GB for vanilla, from 2.5 GB for modded versions and more with more mods), or set it manually; Java garbage collection is tuned by default to return unused memory to the system and reduce GC stutter
+- **Automatic Java**: picks a suitable installed Java for each game version and downloads the right one automatically at launch when missing (the same Java runtimes as the official launcher); you can also pick a Java from the drop-down list in Settings or in a version's settings
+- **Automatic memory allocation** (on by default): decided at launch from the game version, the number and size of mods, whether shaders, Distant Horizons or high-resolution resource packs are in use, the render distance and the available memory, enough but not more (1–2 GB for vanilla, from 2.5 GB for modded versions, up to 16 GB); Settings shows what the recommendation is made of. You can also set it manually; Java garbage collection is tuned by default to return unused memory to the system and reduce GC stutter
+- **Launch animations**: a splash animation when the launcher opens; after clicking Play, a step-by-step launch progress screen (account, Java, game files, process, window ready) that can be cancelled until the game window appears and can show the live log; when the launcher is not in the foreground, a small launch window is shown in the middle of the screen; the game's loading screen can use a black background (1.17 and newer)
 - **File check before launch**: missing or corrupted game jars, libraries and assets are downloaded automatically before the game starts; only the broken files are fetched (can be turned off in Settings)
-- Live game log window with search filtering and one-click copy
+- Live game log window with search filtering and one-click copy; it no longer opens automatically at launch — the Log button on Home opens or closes it at any time
 - **Play stats**: tracks total playtime and launch count for each version; Home shows your recently played versions so you can launch them in one click, plus a timer for the current session
 - **Crash analysis**: after a crash, the launcher reads the game output, crash report and Java crash log and explains the cause and how to fix it: missing dependencies, mods that don't match the game version or conflict with each other, duplicate mods, Mixin failures, Java too old or too new, out of memory, invalid JVM arguments, graphics drivers, incompatible OptiFine, corrupted files and more. You can open the crash report directly, or export all related files as a zip to ask others for help
 - **Version isolation**: modded versions (or all versions) each get their own `mods`, worlds and config, so they never interfere with each other
@@ -82,11 +83,15 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 - Dark / light / follow-system themes
 - **Update check**: checks GitHub for new versions at startup and shows a notice in the bottom-right corner, with the release notes; click "Download and update" to download the new version inside the launcher (verified with SHA-256), then "Restart and update" to replace the launcher and reopen it automatically (portable, installer, AppImage and macOS builds), with no manual file replacing; check manually or turn this off under Settings → About
 
-| Install setup | Mod management |
+| Launch animation | Per-version settings |
 |---|---|
-| ![Install setup](docs/screenshots/install.png) | ![Mod management](docs/screenshots/mods.png) |
+| ![Launch animation](docs/screenshots/launch.webp) | ![Per-version settings](docs/screenshots/vsettings.webp) |
 
-![Accounts](docs/screenshots/account.png)
+| Community resources | Mod management |
+|---|---|
+| ![Community resources](docs/screenshots/download.webp) | ![Mod management](docs/screenshots/mods.webp) |
+
+![Personalization](docs/screenshots/theme.webp)
 
 ## Getting started
 

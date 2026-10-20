@@ -7,10 +7,13 @@
   // ---------- 截图 ----------
   var SHOTS = {
     home: '主页：选择版本一键启动，最近游玩一目了然，还能换上自己喜欢的背景',
+    launch: '启动动画：账号、Java、游戏文件、进程逐步点亮，随时可以取消，还能查看实时日志',
     download: '下载资源：同时搜索 Modrinth 和 CurseForge，自动安装前置模组',
     versions: '版本管理：收藏常玩的版本、换上喜欢的图标，多个游戏目录随时切换',
+    vsettings: '版本设置：每个版本单独设置内存、Java、隔离和窗口大小，内存建议值一目了然',
     mods: '模组管理：启用禁用、检查更新，自动发现缺少的前置和重复模组',
-    worlds: '存档详情：种子、难度、游戏规则，备份与还原'
+    worlds: '存档详情：种子、难度、游戏规则，备份与还原',
+    theme: '个性化：7 套主题方案与动态背景，主题色、壁纸、字体随心调'
   }
   var tabs = document.querySelectorAll('.shot-tabs button')
   var shotImage = document.getElementById('shot-image')
