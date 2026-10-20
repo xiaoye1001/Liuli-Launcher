@@ -14,6 +14,8 @@ import { countMissing, findMissingFiles, type MissingFiles } from './fileCheck'
 import { autoMemory } from './memory'
 import { gcTuningArgs } from './gcTuning'
 import { onGameEnded, onGameWindowReady } from './windows'
+import { applyDarkLoadingScreen } from './gameOptions'
+import { onLaunchStatusForSplash } from './launchSplash'
 import { resolveJava } from './java'
 import { openLogWindow } from './logWindow'
 import { collectCrash } from './crashReport'
@@ -235,6 +237,8 @@ function setStatus(next: GameStatus): void {
   // 「游戏启动后」设置：窗口出现时最小化/隐藏启动器，游戏结束后恢复
   if (next.state === 'running' && previous !== 'running') void onGameWindowReady()
   if (next.state === 'exited' || next.state === 'crashed') onGameEnded()
+  // 桌面启动悬浮窗：启动中、启动器不在前台时显示，游戏窗口出现或启动结束后关闭
+  onLaunchStatusForSplash(next)
 }
 
 export function getGameStatus(): GameStatus {
@@ -446,6 +450,12 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     const isolated = isolatedWith(config, settings.versionIsolation, detectLoader(version))
     const gamePath = versionGameDir(settings.gameDir, versionId, isolated)
     launcherLog(`游戏目录：${gamePath}${isolated ? '（版本隔离）' : ''}`)
+    // 游戏加载画面改成黑色背景（只是外观设置，失败不影响启动）
+    if (settings.darkLoadingScreen) {
+      await applyDarkLoadingScreen(gamePath, minecraftVersion)
+        .then((changed) => changed && launcherLog('已把游戏加载画面设为黑色背景'))
+        .catch(() => undefined)
+    }
 
     if (settings.checkFiles) await ensureGameFiles(versionId, version)
     throwIfCancelled()

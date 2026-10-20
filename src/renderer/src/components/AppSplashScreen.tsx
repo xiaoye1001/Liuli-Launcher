@@ -68,7 +68,7 @@ const FACES: { transform: string; shade: number }[] = [
 ]
 
 /** 立体发光方块：CSS 3D 绘制，每个面带像素格纹理，整体缓慢旋转 */
-function GlowCube({ size = 84 }: { size?: number }): JSX.Element {
+export function GlowCube({ size = 84 }: { size?: number }): JSX.Element {
   return (
     <div className="relative" style={{ width: size, height: size, perspective: size * 8 }}>
       <motion.div

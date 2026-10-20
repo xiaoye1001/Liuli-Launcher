@@ -288,6 +288,8 @@ const api = {
   /** 打开或关闭日志窗口，返回操作后是否打开着 */
   toggleLogWindow: (): Promise<boolean> => ipcRenderer.invoke('logs:toggle'),
   isLogWindowOpen: (): Promise<boolean> => ipcRenderer.invoke('logs:isOpen'),
+  /** 预览桌面启动悬浮窗 */
+  previewLaunchSplash: (): Promise<void> => ipcRenderer.invoke('splash:preview'),
   /** 订阅日志窗口的打开、关闭，返回取消订阅函数 */
   onLogWindowState: (callback: (open: boolean) => void) => {
     const listener = (_: Electron.IpcRendererEvent, open: boolean): void => callback(open)

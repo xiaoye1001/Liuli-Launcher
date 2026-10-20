@@ -79,6 +79,10 @@ export interface AppSettings {
   checkFiles: boolean
   /** 启动游戏时自动打开日志窗口（默认关闭，可以随时在主页点「日志」打开） */
   openLogOnLaunch: boolean
+  /** 启动器不在前台时（最小化、切到其他窗口），在桌面中央显示启动悬浮窗，游戏窗口出现后自动消失 */
+  launchSplash: boolean
+  /** 启动前把游戏加载画面（Mojang Studios）的红色背景改成黑色（1.17 及以上，游戏的「单色标志」选项） */
+  darkLoadingScreen: boolean
   /** 主页显示 Minecraft 新闻 */
   showNews: boolean
   /** 主页显示「最近游玩」 */

@@ -63,6 +63,8 @@ function defaultSettings(): AppSettings {
     optimizeGc: true,
     checkFiles: true,
     openLogOnLaunch: false,
+    launchSplash: true,
+    darkLoadingScreen: true,
     downloadSource: 'bmclapi',
     showNews: true,
     showRecentPlays: true,

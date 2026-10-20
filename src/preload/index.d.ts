@@ -369,6 +369,8 @@ declare global {
       /** 打开或关闭日志窗口，返回操作后是否打开着 */
       toggleLogWindow: () => Promise<boolean>
       isLogWindowOpen: () => Promise<boolean>
+      /** 预览桌面启动悬浮窗 */
+      previewLaunchSplash: () => Promise<void>
       onLogWindowState: (callback: (open: boolean) => void) => () => void
       /** 上传到 mclo.gs：日志窗口里的游戏输出 */
       shareGameLog: () => Promise<SharedLog[]>
