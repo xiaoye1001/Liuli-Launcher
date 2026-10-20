@@ -9,7 +9,7 @@ import { versionGameDir } from './isolation'
 import { getVersionConfig, isCustomized, isolatedWith, parseEnvVars, splitArgs } from './versionConfig'
 import { getMicrosoftLaunchAuth } from './microsoft'
 import { pickJava, requirementOf } from './javaRuntime'
-import { completeMissingFiles, startJavaInstall } from './install'
+import { cancelInstall, completeMissingFiles, startJavaInstall } from './install'
 import { countMissing, findMissingFiles, type MissingFiles } from './fileCheck'
 import { autoMemory } from './memory'
 import { gcTuningArgs } from './gcTuning'
@@ -82,6 +82,42 @@ function offlineUuid(name: string): string {
 
 const MAX_LOG_LINES = 5000
 let status: GameStatus = { state: 'idle', versionId: '' }
+
+/** 玩家在启动动画里点了「取消启动」（游戏窗口出现之前有效） */
+let cancelRequested = false
+/** 已经创建、但窗口还没出现的游戏进程（取消时结束它） */
+let cancellableProc: ChildProcess | null = null
+/** 启动过程中自动开始的下载（Java、补全游戏文件）正在进行：取消启动时一起取消 */
+let launchDownloading = false
+
+/** 在启动过程中进行下载，取消启动时可以一起取消 */
+async function launchDownload<T>(run: () => Promise<T>): Promise<T> {
+  launchDownloading = true
+  try {
+    return await run()
+  } finally {
+    launchDownloading = false
+  }
+}
+
+/**
+ * 取消正在进行的启动：游戏进程还没创建时，在创建之前停下；已经创建但窗口还没出现时，结束游戏进程。
+ * 游戏窗口出现后不能再取消（返回 false）
+ */
+export function cancelLaunch(): boolean {
+  if (status.state !== 'launching') return false
+  if (!cancelRequested) launcherLog('正在取消启动…')
+  cancelRequested = true
+  if (cancellableProc) killTree(cancellableProc)
+  // 正在自动下载 Java 或补全游戏文件：立即停止下载，不用等下载完成
+  if (launchDownloading) void cancelInstall().catch(() => undefined)
+  return true
+}
+
+/** 启动准备过程中检查是否已取消 */
+function throwIfCancelled(): void {
+  if (cancelRequested) throw new Error('已取消启动')
+}
 let logs: string[] = []
 /** 等待推送到界面的新日志（每 100ms 合并发送一次，避免消息过多） */
 let pendingLines: string[] = []
@@ -243,7 +279,11 @@ export function supportsQuickPlay(minecraftVersion: string): boolean {
 }
 
 function describePlan(plan: MemoryPlan): string {
-  const parts = [plan.mods > 0 ? `${plan.mods} 个模组，建议 ${plan.recommended} MB` : `建议 ${plan.recommended} MB`]
+  const parts = [
+    `建议 ${plan.recommended} MB：${plan.factors.map((f, i) => (i === 0 ? `${f.label} ${f.mb} MB` : `${f.label} ${f.mb > 0 ? '+' : ''}${f.mb} MB`)).join('、')}`
+  ]
+  if (plan.capped) parts.push(`本机最多分配 ${plan.upper} MB`)
+  if (plan.limited) parts.push('可用内存不足，已适当减少')
   if (plan.free !== null) parts.push(`当前可用 ${plan.free} MB`)
   return parts.join('，')
 }
@@ -269,7 +309,7 @@ async function ensureGameFiles(versionId: string, version: ResolvedVersion): Pro
     return
   }
   launcherLog(`发现 ${count} 个缺失或损坏的文件，正在自动补全（进度见「下载」页）`)
-  await completeMissingFiles(versionId, version, missing)
+  await launchDownload(() => completeMissingFiles(versionId, version, missing))
   launcherLog('游戏文件已补全')
 }
 
@@ -294,6 +334,17 @@ export async function previewMemory(versionId: string): Promise<MemoryPlan | nul
   }
 }
 
+/** 版本需要的 Java 主版本（版本设置页提示用）；读不到版本信息时返回 null */
+export async function javaRequirementOf(versionId: string): Promise<number | null> {
+  try {
+    assertSafeId(versionId)
+    const { gameDir } = await getSettings()
+    return requirementOf(await Version.parse(gameDir, versionId)).majorVersion
+  } catch {
+    return null
+  }
+}
+
 /** 启动游戏。server 不为空时，进入游戏后直接连接该服务器 */
 export async function launchGame(versionId: string, server?: string): Promise<void> {
   assertSafeId(versionId)
@@ -303,6 +354,8 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
 
   // 在第一次等待之前就标记为启动中，同时到达的两次启动请求只有一个能继续
   resetLogs()
+  cancelRequested = false
+  cancellableProc = null
   setStatus({ state: 'launching', versionId })
   const startedAt = Date.now()
   openLogWindow()
@@ -352,7 +405,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       java = (await pickJava(requirement)) ?? undefined
       if (!java) {
         launcherLog(`本机没有合适的 Java ${required}，正在自动下载（进度见「下载」页）`)
-        const path = await startJavaInstall(requirement.component)
+        const path = await launchDownload(() => startJavaInstall(requirement.component))
         java = await resolveJava(path)
         if (!java) throw new Error(`下载的 Java ${required} 无法运行`)
         launcherLog(`Java ${required} 下载完成`)
@@ -370,6 +423,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
         )
       }
     }
+    throwIfCancelled()
     launcherLog(`Java ${java.version}：${java.path}`)
     const accountLabel = auth.microsoft
       ? '微软账号'
@@ -393,6 +447,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     launcherLog(`游戏目录：${gamePath}${isolated ? '（版本隔离）' : ''}`)
 
     if (settings.checkFiles) await ensureGameFiles(versionId, version)
+    throwIfCancelled()
 
     // 自定义环境变量（只显示名称，值可能包含不想公开的内容）
     const customEnv = parseEnvVars(config.envVars)
@@ -409,6 +464,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       INST_MC_VERSION: minecraftVersion
     }
     if (config.preLaunchCommand.trim()) {
+      throwIfCancelled()
       const code = await runHook('启动前命令', config.preLaunchCommand, gamePath, hookEnv)
       if (code !== 0) throw new Error(`启动前命令执行失败（退出码 ${code}），已取消启动`)
     }
@@ -434,6 +490,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       launcherLog(gcArgs.length > 0 ? '已优化内存回收（G1）' : '版本设置里指定了回收器，不添加内存回收优化参数')
     }
 
+    throwIfCancelled()
     const proc = await launch({
       gamePath,
       resourcePath: settings.gameDir,
@@ -472,6 +529,9 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       extraExecOption: { windowsHide: false, env: gameEnv }
     })
     launcherLog(`游戏进程已创建（PID ${proc.pid}）`)
+    cancellableProc = proc
+    // 创建进程期间点了取消：直接结束刚创建的进程
+    if (cancelRequested) killTree(proc)
     const processStartedAt = Date.now()
     setStatus({ state: 'launching', versionId, startedAt: processStartedAt })
 
@@ -480,6 +540,12 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
 
     const watcher = createMinecraftProcessWatcher(proc)
     watcher.on('minecraft-window-ready', () => {
+      cancellableProc = null
+      // 窗口已经出现，启动不能再取消：清除取消标记，否则正常退出游戏时会被当成「已取消启动」
+      if (cancelRequested) {
+        cancelRequested = false
+        launcherLog('游戏窗口已出现，无法再取消启动')
+      }
       if (status.state === 'launching') {
         launcherLog('游戏窗口已出现')
         setStatus({ state: 'running', versionId, startedAt: processStartedAt })
@@ -495,6 +561,14 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
         runHook('退出后命令', config.postExitCommand, gamePath, { ...hookEnv, INST_EXIT_CODE: String(code) })
           .then((exit) => exit !== 0 && launcherLog(`退出后命令执行失败（退出码 ${exit}）`))
           .catch((e) => launcherLog(e instanceof Error ? e.message : String(e)))
+      }
+      // 玩家取消的启动：不算游玩记录，也不做崩溃分析
+      if (cancelRequested) {
+        cancelRequested = false
+        cancellableProc = null
+        launcherLog('已取消启动')
+        setStatus({ state: 'exited', versionId, exitCode: code })
+        return
       }
       // 记录游玩时长（从游戏进程启动到退出）
       void recordSession(versionId, processStartedAt, Date.now(), code !== 0).catch(() => undefined)
@@ -537,6 +611,13 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
       }
     })
   } catch (e) {
+    if (cancelRequested) {
+      // 玩家取消了启动：不算启动失败
+      cancelRequested = false
+      launcherLog('已取消启动')
+      setStatus({ state: 'exited', versionId, exitCode: null })
+      return
+    }
     // 启动失败的原因通过状态推送给界面显示
     launcherLog(`启动失败：${describeLaunchError(e)}`)
     setStatus({ state: 'crashed', versionId, error: describeLaunchError(e) })

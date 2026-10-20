@@ -9,6 +9,7 @@ import { formatClock } from '../utils/format'
 import { useAppearance } from '../utils/appearance'
 import { renderWelcome } from '../utils/welcome'
 import SkinHead from '../components/SkinHead'
+import { closeGameLaunchOverlay, openGameLaunchOverlay } from '../components/GameLaunchOverlay'
 import type { AccountsInfo, AppSettings, GameStatus, InstallStatus, InstalledVersion } from '../../../shared/types'
 
 /** 去掉 Electron 给 IPC 错误加的前缀 */
@@ -181,8 +182,13 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
     setLaunchError('')
     try {
       await saveName()
-      await window.api.launchGame(await prepare())
+      const versionId = await prepare()
+      // 立即播放启动动画，不等主进程（动画会跟随真实的启动进度）
+      openGameLaunchOverlay(versionId)
+      await window.api.launchGame(versionId)
     } catch (e) {
+      // 启动请求被拒绝（例如游戏已在运行）：收起动画，在下方显示原因
+      closeGameLaunchOverlay()
       setLaunchError(cleanError(e))
     } finally {
       launching.current = false
