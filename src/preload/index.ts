@@ -207,6 +207,8 @@ const api = {
   getJavaRequirement: (versionId: string): Promise<number | null> =>
     ipcRenderer.invoke('versions:javaRequirement', versionId),
   cancelLaunch: (): Promise<boolean> => ipcRenderer.invoke('game:cancel'),
+  /** 强制结束正在运行的游戏，游戏没有在运行时返回 false */
+  killGame: (): Promise<boolean> => ipcRenderer.invoke('game:kill'),
   /** 订阅游戏运行状态，返回取消订阅函数 */
   getAccounts: () => ipcRenderer.invoke('accounts:list'),
   setActiveAccount: (id: string) => ipcRenderer.invoke('accounts:setActive', id),

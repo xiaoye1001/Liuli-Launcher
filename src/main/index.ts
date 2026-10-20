@@ -32,6 +32,7 @@ import {
 } from './install'
 import {
   cancelLaunch,
+  killGame,
   getGameLogs,
   getGameStatus,
   javaRequirementOf,
@@ -520,6 +521,7 @@ function registerIpc(): void {
   ipcMain.handle('servers:ping', (_, address: string) => pingServer(address))
   ipcMain.handle('game:status', () => getGameStatus())
   ipcMain.handle('game:cancel', () => cancelLaunch())
+  ipcMain.handle('game:kill', () => killGame())
   ipcMain.handle('stats:get', () => getPlayStats())
   ipcMain.handle('export:show', () => showExportedModpack())
   ipcMain.handle('export:info', (_, versionId: string) => getModpackExportInfo(versionId))

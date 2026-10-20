@@ -89,6 +89,10 @@ let status: GameStatus = { state: 'idle', versionId: '' }
 let cancelRequested = false
 /** 已经创建、但窗口还没出现的游戏进程（取消时结束它） */
 let cancellableProc: ChildProcess | null = null
+/** 正在运行的游戏进程（强制结束游戏时使用），游戏退出后清空 */
+let gameProc: ChildProcess | null = null
+/** 玩家点了「结束游戏」：游戏退出后不当作崩溃 */
+let killRequested = false
 /** 启动过程中自动开始的下载（Java、补全游戏文件）正在进行：取消启动时一起取消 */
 let launchDownloading = false
 
@@ -113,6 +117,18 @@ export function cancelLaunch(): boolean {
   if (cancellableProc) killTree(cancellableProc)
   // 正在自动下载 Java 或补全游戏文件：立即停止下载，不用等下载完成
   if (launchDownloading) void cancelInstall().catch(() => undefined)
+  return true
+}
+
+/**
+ * 强制结束正在运行的游戏（游戏卡死、无法正常关闭时使用）：连同游戏启动的子进程一起结束。
+ * 游戏没有在运行时返回 false。没有保存的游戏进度会丢失
+ */
+export function killGame(): boolean {
+  if (status.state !== 'running' || !gameProc) return false
+  if (!killRequested) launcherLog('正在强制结束游戏…')
+  killRequested = true
+  killTree(gameProc)
   return true
 }
 
@@ -549,6 +565,8 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     })
     launcherLog(`游戏进程已创建（PID ${proc.pid}）`)
     cancellableProc = proc
+    gameProc = proc
+    killRequested = false
     // 创建进程期间点了取消：直接结束刚创建的进程
     if (cancelRequested) killTree(proc)
     const processStartedAt = Date.now()
@@ -575,6 +593,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     })
     watcher.on('minecraft-exit', async ({ code, crashReportLocation }) => {
       launcherLog(`游戏进程已退出，退出码 ${code}`)
+      if (gameProc === proc) gameProc = null
       if (config.postExitCommand.trim()) {
         // 不等待退出后命令结束，避免影响崩溃分析与界面状态
         runHook('退出后命令', config.postExitCommand, gamePath, { ...hookEnv, INST_EXIT_CODE: String(code) })
@@ -586,6 +605,14 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
         cancelRequested = false
         cancellableProc = null
         launcherLog('已取消启动')
+        setStatus({ state: 'exited', versionId, exitCode: code })
+        return
+      }
+      // 玩家强制结束的游戏：记录游玩时长，但不算崩溃，也不做崩溃分析
+      if (killRequested) {
+        killRequested = false
+        launcherLog('已强制结束游戏')
+        void recordSession(versionId, processStartedAt, Date.now(), false).catch(() => undefined)
         setStatus({ state: 'exited', versionId, exitCode: code })
         return
       }

@@ -288,6 +288,8 @@ declare global {
       getJavaRequirement: (versionId: string) => Promise<number | null>
       /** 取消正在进行的启动（游戏窗口出现之前有效），返回是否已发出取消 */
       cancelLaunch: () => Promise<boolean>
+      /** 强制结束正在运行的游戏，游戏没有在运行时返回 false */
+      killGame: () => Promise<boolean>
       onGameStatus: (callback: (status: GameStatus) => void) => () => void
       /** 选择背景图片，取消时返回原设置 */
       pickBackground: () => Promise<AppSettings>
