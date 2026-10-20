@@ -59,11 +59,9 @@ module.exports = {
   },
   // 免安装版：单个 exe，双击直接运行，数据保存在 exe 旁边的 LiuliLauncher-Data 文件夹
   portable: {
-    artifactName: 'LiuliLauncher-Portable-${version}.${ext}',
-    // 内部程序文件用 zip（Deflate）压缩，而不是默认的 7z：
-    // 压缩软件会把免安装版 exe 识别成「自解压 ZIP」而不是「自解压 7-Zip」，部分杀毒软件对后者误报更多。
-    // 代价是免安装版 exe 会比用 7z 时大一些（Deflate 比 LZMA 压得松）
-    useZip: true
+    artifactName: 'LiuliLauncher-Portable-${version}.${ext}'
+    // 不要开启 useZip：内部改用 zip（Deflate）后免安装版从约 117 MB 变成 165 MB（v0.4.5 试过），
+    // Deflate 开到最高压缩也只省 1 MB 左右，所以保持默认的 7z（LZMA）
   },
   nsis: {
     artifactName: 'LiuliLauncher-Setup-${version}.${ext}',
