@@ -157,23 +157,30 @@ function DownloadPage({
   const tabRefs = useRef<Partial<Record<Filter, HTMLButtonElement | null>>>({})
   const [tabIndicator, setTabIndicator] = useState<{ left: number; width: number } | null>(null)
 
-  // 左侧分类的上边缘与右侧当前显示的内容面板（data-download-card）对齐：
-  // 右侧面板上方有标题、最新版本等，高度随分类和内容变化，所以每次测量
+  // 左侧分类的上边缘与「原版游戏」的版本列表面板（data-version-card）对齐，所有分类都一样，切换时不跳动。
+  // 版本列表上方有标题和最新版本卡片，高度随内容变化，所以每次测量；
+  // 其他分类显示时原版页面只是隐形（不是 display: none），仍然可以测量
   const layoutRef = useRef<HTMLDivElement>(null)
+  const vanillaRef = useRef<HTMLDivElement>(null)
   const [navTop, setNavTop] = useState(0)
+  // 隐形的原版页面不能被 Tab 键选中（React 18 的类型里还没有 inert 属性，直接设置）
+  useEffect(() => {
+    vanillaRef.current?.toggleAttribute('inert', section !== 'vanilla')
+  }, [section])
   useLayoutEffect(() => {
     const layout = layoutRef.current
     if (!layout) return
     const measure = (): void => {
-      const card = [...layout.querySelectorAll<HTMLElement>('[data-download-card]')].find((el) => el.offsetParent)
-      if (!card) return
+      const card = layout.querySelector<HTMLElement>('[data-version-card]')
+      if (!card || !card.offsetParent) return
       const top = Math.max(0, Math.round(card.getBoundingClientRect().top - layout.getBoundingClientRect().top))
       setNavTop((prev) => (prev === top ? prev : top))
     }
     measure()
     // 面板上方的内容变高或变矮时，面板自身的高度也会变化（flex-1），观察面板就能及时重新测量
     const observer = new ResizeObserver(measure)
-    layout.querySelectorAll('[data-download-card]').forEach((el) => observer.observe(el))
+    const card = layout.querySelector('[data-version-card]')
+    if (card) observer.observe(card)
     observer.observe(layout)
     return () => observer.disconnect()
   }, [section, visited, setupFor, modpack])
@@ -324,7 +331,7 @@ function DownloadPage({
           ))}
         </nav>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
+        <div className="relative flex min-w-0 flex-1 flex-col gap-4">
           {/* 安装进度：所有分类共用 */}
           <AnimatePresence>
             {install && (
@@ -357,7 +364,14 @@ function DownloadPage({
             </div>
           ))}
 
-          <div className={`flex min-h-0 flex-1 flex-col gap-5 ${section === 'vanilla' ? '' : 'hidden'}`}>
+          {/* 原版游戏：其他分类显示时隐形并叠在下面（不占位置），左侧分类栏仍然按版本列表的位置对齐 */}
+          <div
+            aria-hidden={section !== 'vanilla'}
+            ref={vanillaRef}
+            className={`flex min-h-0 flex-1 flex-col gap-5 ${
+              section === 'vanilla' ? '' : 'pointer-events-none invisible absolute inset-0'
+            }`}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold tracking-tight">原版游戏</h1>
@@ -411,7 +425,7 @@ function DownloadPage({
 
             {/* 版本列表 */}
             <section
-              data-download-card
+              data-version-card
               className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl"
             >
               <div className="flex items-center gap-3">
