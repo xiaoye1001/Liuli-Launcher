@@ -589,7 +589,10 @@ function ResourceBrowser({
       )}
       {topExtra}
 
-      <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
+      <section
+        data-download-card
+        className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl"
+      >
         <div className="flex items-center gap-3">
           <div className="flex flex-1 items-center gap-2 rounded-xl bg-black/20 px-3 py-2">
             <Search className="h-4 w-4 text-white/40" />

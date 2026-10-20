@@ -157,6 +157,27 @@ function DownloadPage({
   const tabRefs = useRef<Partial<Record<Filter, HTMLButtonElement | null>>>({})
   const [tabIndicator, setTabIndicator] = useState<{ left: number; width: number } | null>(null)
 
+  // 左侧分类的上边缘与右侧当前显示的内容面板（data-download-card）对齐：
+  // 右侧面板上方有标题、最新版本等，高度随分类和内容变化，所以每次测量
+  const layoutRef = useRef<HTMLDivElement>(null)
+  const [navTop, setNavTop] = useState(0)
+  useLayoutEffect(() => {
+    const layout = layoutRef.current
+    if (!layout) return
+    const measure = (): void => {
+      const card = [...layout.querySelectorAll<HTMLElement>('[data-download-card]')].find((el) => el.offsetParent)
+      if (!card) return
+      const top = Math.max(0, Math.round(card.getBoundingClientRect().top - layout.getBoundingClientRect().top))
+      setNavTop((prev) => (prev === top ? prev : top))
+    }
+    measure()
+    // 面板上方的内容变高或变矮时，面板自身的高度也会变化（flex-1），观察面板就能及时重新测量
+    const observer = new ResizeObserver(measure)
+    layout.querySelectorAll('[data-download-card]').forEach((el) => observer.observe(el))
+    observer.observe(layout)
+    return () => observer.disconnect()
+  }, [section, visited, setupFor, modpack])
+
   const loadInstalled = useCallback(async (): Promise<void> => {
     setInstalled(await window.api.getInstalledVersions())
   }, [])
@@ -279,9 +300,12 @@ function DownloadPage({
           />
         </div>
       )}
-      <div className={`flex h-full gap-4 ${setupFor || modpack ? 'hidden' : ''}`}>
-        {/* 分类：整体垂直居中，下面不留一大片空白 */}
-        <nav className="flex w-36 shrink-0 flex-col justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/10 p-2 shadow-2xl backdrop-blur-xl">
+      <div ref={layoutRef} className={`flex h-full gap-4 ${setupFor || modpack ? 'hidden' : ''}`}>
+        {/* 分类：上下边缘与右侧的内容面板对齐，分类整体垂直居中 */}
+        <nav
+          style={{ marginTop: navTop }}
+          className="flex w-36 shrink-0 flex-col justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/10 p-2 shadow-2xl backdrop-blur-xl transition-[margin] duration-300 ease-out"
+        >
           <SectionButton
             icon={Gamepad2}
             label="原版游戏"
@@ -386,7 +410,10 @@ function DownloadPage({
             )}
 
             {/* 版本列表 */}
-            <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
+            <section
+              data-download-card
+              className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl"
+            >
               <div className="flex items-center gap-3">
                 <div className="relative flex rounded-xl bg-black/20 p-1">
                   {tabIndicator && (
