@@ -39,7 +39,8 @@ import {
   listInstalledVersions,
   previewMemory
 } from './launch'
-import { closeLogWindow, openLogWindow } from './logWindow'
+import { closeLogWindow, isLogWindowOpen, openLogWindow, toggleLogWindow } from './logWindow'
+import { cleanupOldPortableVersions } from './portableCleanup'
 import { pickVersionIcon, setVersionFavorite, setVersionIcon } from './versionDisplay'
 import { frameOptions, registerWindowControls, watchMaximize } from './windowFrame'
 import { addMusic, listMusic, openMusicDir, removeMusic } from './music'
@@ -518,6 +519,8 @@ function registerIpc(): void {
   )
   ipcMain.handle('game:logs', () => getGameLogs())
   ipcMain.handle('logs:open', () => openLogWindow())
+  ipcMain.handle('logs:toggle', () => toggleLogWindow())
+  ipcMain.handle('logs:isOpen', () => isLogWindowOpen())
   ipcMain.handle('logs:shareGame', () => shareGameLog())
   // 复制日志前去掉登录令牌和用户文件夹路径
   ipcMain.handle('logs:sanitize', (_, text: unknown) => sanitizeLog(typeof text === 'string' ? text : ''))
@@ -622,6 +625,8 @@ app.whenReady().then(async () => {
   setTimeout(() => void cleanUpdateFiles(), 60_000)
   // 免安装版更新后，删除旧版本的文件
   void cleanupAfterUpdate().catch(() => undefined)
+  // 免安装版：删除旧版本解压出来的程序文件夹
+  void cleanupOldPortableVersions().catch(() => undefined)
   const shortcutVersion = launchArgOf(process.argv)
   if (shortcutVersion) void launchFromShortcut(shortcutVersion)
 

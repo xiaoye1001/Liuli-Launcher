@@ -107,6 +107,21 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
   const [launchError, setLaunchError] = useState('')
   /** 正在发起启动：防止连续点击重复启动 */
   const launching = useRef(false)
+  /** 日志窗口是否打开着（「日志」按钮可以打开或关闭它） */
+  const [logOpen, setLogOpen] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    const off = window.api.onLogWindowState(setLogOpen)
+    window.api
+      .isLogWindowOpen()
+      .then((open) => alive && setLogOpen(open))
+      .catch(() => undefined)
+    return () => {
+      alive = false
+      off()
+    }
+  }, [])
 
   useEffect(() => {
     /** 加载期间已经收到了游戏状态推送：推送的更新，不再用加载开始时取到的旧状态覆盖 */
@@ -309,9 +324,19 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
           </div>
 
           <button
-            onClick={() => window.api.openLogWindow()}
-            title="打开游戏日志窗口"
-            className="ml-auto flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white/80 hover:bg-black/30 hover:text-white"
+            onClick={() =>
+              window.api
+                .toggleLogWindow()
+                .then(setLogOpen)
+                .catch(() => undefined)
+            }
+            aria-pressed={logOpen}
+            title={logOpen ? '关闭游戏日志窗口' : '打开游戏日志窗口'}
+            className={`ml-auto flex items-center gap-2 rounded-xl border px-4 py-3 text-sm transition-colors ${
+              logOpen
+                ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25'
+                : 'border-white/10 bg-black/20 text-white/80 hover:bg-black/30 hover:text-white'
+            }`}
           >
             <Terminal className="h-4 w-4" />
             日志

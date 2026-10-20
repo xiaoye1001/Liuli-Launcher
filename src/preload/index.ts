@@ -285,6 +285,17 @@ const api = {
   removeGameDir: (dir: string) => ipcRenderer.invoke('gamedir:remove', dir),
   getGameLogs: () => ipcRenderer.invoke('game:logs'),
   openLogWindow: () => ipcRenderer.invoke('logs:open'),
+  /** 打开或关闭日志窗口，返回操作后是否打开着 */
+  toggleLogWindow: (): Promise<boolean> => ipcRenderer.invoke('logs:toggle'),
+  isLogWindowOpen: (): Promise<boolean> => ipcRenderer.invoke('logs:isOpen'),
+  /** 订阅日志窗口的打开、关闭，返回取消订阅函数 */
+  onLogWindowState: (callback: (open: boolean) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, open: boolean): void => callback(open)
+    ipcRenderer.on('logs:windowState', listener)
+    return () => {
+      ipcRenderer.removeListener('logs:windowState', listener)
+    }
+  },
   shareGameLog: () => ipcRenderer.invoke('logs:shareGame'),
   sanitizeLog: (text: string) => ipcRenderer.invoke('logs:sanitize', text),
   shareCrashLogs: () => ipcRenderer.invoke('logs:shareCrash'),

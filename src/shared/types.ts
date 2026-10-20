@@ -77,6 +77,8 @@ export interface AppSettings {
   optimizeGc: boolean
   /** 启动前检查游戏文件，自动补全缺失或损坏的文件 */
   checkFiles: boolean
+  /** 启动游戏时自动打开日志窗口（默认关闭，可以随时在主页点「日志」打开） */
+  openLogOnLaunch: boolean
   /** 主页显示 Minecraft 新闻 */
   showNews: boolean
   /** 主页显示「最近游玩」 */

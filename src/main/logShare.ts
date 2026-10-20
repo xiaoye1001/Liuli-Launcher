@@ -23,7 +23,7 @@ function escapeRegExp(text: string): string {
 export function sanitizeLog(text: string): string {
   let result = text
     // 启动参数和各种格式里的访问令牌
-    .replace(/(--(?:accessToken|session)\s+)\S+/gi, '$1***')
+    .replace(/(--(?:accessToken|session|xuid|clientId)\s+)\S+/gi, '$1***')
     .replace(
       /((?:access_?token|refresh_?token|mc_?token|session_?id|client_?token)["']?\s*[:=]\s*["']?)[^"'\s,;}]+/gi,
       '$1***'

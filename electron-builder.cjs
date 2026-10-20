@@ -6,6 +6,9 @@
 // - Windows：设置了 AZURE_SIGN_ENDPOINT 等变量时用 Azure Artifact Signing 签名；
 //   设置了 WIN_CSC_LINK（pfx 证书）时 electron-builder 会自动用它签名。都没有时不签名。
 
+// 免安装版：程序文件解压到 exe 旁边的数据文件夹，而不是每次解压到系统临时文件夹（见 build/portable.nsi）
+require('./scripts/portable-template.cjs').installPortableTemplate()
+
 const env = process.env
 const macSigned = env.MAC_SIGN === 'true'
 const azureSign =

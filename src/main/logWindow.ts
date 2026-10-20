@@ -6,6 +6,29 @@ import { manageUiScale } from './uiScale'
 
 let logWindow: BrowserWindow | null = null
 
+/** 是否打开着日志窗口 */
+export function isLogWindowOpen(): boolean {
+  return !!logWindow && !logWindow.isDestroyed()
+}
+
+/** 通知所有窗口日志窗口打开或关闭了（主页的「日志」按钮显示当前状态） */
+function broadcastState(): void {
+  const open = isLogWindowOpen()
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send('logs:windowState', open)
+  }
+}
+
+/** 打开或关闭日志窗口，返回操作后是否打开着 */
+export function toggleLogWindow(): boolean {
+  if (isLogWindowOpen()) {
+    closeLogWindow()
+    return false
+  }
+  openLogWindow()
+  return true
+}
+
 /** 打开（或聚焦）游戏日志窗口。日志窗口与主窗口加载同一个页面，通过 #logs 区分 */
 export function openLogWindow(): void {
   if (logWindow && !logWindow.isDestroyed()) {
@@ -36,7 +59,9 @@ export function openLogWindow(): void {
   // 链接（例如分享日志得到的 mclo.gs 链接）用系统浏览器打开
   logWindow.on('closed', () => {
     logWindow = null
+    broadcastState()
   })
+  broadcastState()
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     logWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}#logs`)

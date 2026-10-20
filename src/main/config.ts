@@ -62,6 +62,7 @@ function defaultSettings(): AppSettings {
     memoryAuto: true,
     optimizeGc: true,
     checkFiles: true,
+    openLogOnLaunch: false,
     downloadSource: 'bmclapi',
     showNews: true,
     showRecentPlays: true,
