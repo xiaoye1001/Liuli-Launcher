@@ -31,10 +31,11 @@ import type { GameLogEvent, GameStatus, InstalledVersion, JavaInfo, MemoryPlan, 
 /** 根据版本 json 的启动类与依赖库判断模组加载器 */
 export function detectLoader(json: { mainClass?: string; libraries?: { name?: string }[] }): ModLoader | undefined {
   const text = `${json.mainClass ?? ''} ${(json.libraries ?? []).map((l) => l.name ?? '').join(' ')}`
-  // Quilt 版本也会用到 Fabric 的 intermediary 映射库，所以先判断 Quilt
-  if (/org\.quiltmc/.test(text)) return 'quilt'
-  if (/net\.fabricmc/.test(text)) return 'fabric'
-  if (/net\.neoforged/.test(text)) return 'neoforge'
+  // 按各加载器自己的核心库判断：NeoForge、新版 Forge 也会带 Fabric 的 Mixin 库（net.fabricmc:sponge-mixin），
+  // Quilt 也会带 Fabric 的 intermediary 映射库，不能只看 net.fabricmc
+  if (/org\.quiltmc[.:](quilt-loader|loader\.)/.test(text)) return 'quilt'
+  if (/net\.neoforged[.:]/.test(text)) return 'neoforge'
+  if (/net\.fabricmc[.:](fabric-loader|loader\.)/.test(text)) return 'fabric'
   if (/net\.minecraftforge|cpw\.mods/.test(text)) return 'forge'
   if (/(^|\s)optifine:/i.test(text)) return 'optifine'
   return undefined
