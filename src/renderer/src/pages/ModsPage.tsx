@@ -217,29 +217,29 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-500/20">
-            <Puzzle className="h-5 w-5 text-violet-300" />
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-violet-500/20">
+            <Puzzle className="h-6 w-6 text-violet-300" />
           </div>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-xl font-bold" title={version.id}>
-              模组管理 · {version.id}
+              {version.id}
             </h1>
             <p className="truncate text-xs text-white/50" title={list?.dir}>
-              {list ? `${list.isolated ? '版本隔离' : '共用游戏目录'} · ${list.dir}` : '正在读取…'}
+              {list ? `模组 · ${list.isolated ? '版本隔离' : '共用游戏目录'} · ${list.dir}` : '模组 · 正在读取…'}
             </p>
           </div>
           <button
             onClick={add}
             disabled={pending !== null}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2 text-sm font-medium shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500 disabled:opacity-50"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3.5 w-3.5" />
             添加模组
           </button>
           <button
             onClick={() => run(null, () => window.api.openModsDir(version.id))}
             title="打开 mods 文件夹"
-            className="rounded-xl border border-white/10 bg-white/10 p-2.5 hover:bg-white/20"
+            className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
           >
             <FolderOpen className="h-4 w-4" />
           </button>
@@ -247,7 +247,7 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
             onClick={load}
             disabled={loading}
             title="刷新"
-            className="rounded-xl border border-white/10 bg-white/10 p-2.5 hover:bg-white/20 disabled:opacity-50"
+            className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </button>

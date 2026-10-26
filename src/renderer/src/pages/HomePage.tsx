@@ -402,7 +402,7 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
             disabled={running ? killing : busy || !selected || !nameValid}
             aria-label={running ? (killConfirm ? '确认结束游戏' : '结束游戏') : undefined}
             title={running ? '强制结束游戏：游戏卡死或无法正常关闭时使用，没有保存的进度会丢失' : undefined}
-            className={`flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r px-8 py-3 font-semibold transition-colors disabled:cursor-not-allowed disabled:from-slate-600 disabled:to-slate-500 disabled:shadow-none ${
+            className={`flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r px-8 py-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:from-slate-600 disabled:to-slate-500 disabled:shadow-none ${
               running
                 ? // 运行中固定最小宽度：切换「结束游戏」「确认结束？」文字时按钮宽度不变，这一行不会跳动
                   'min-w-56 ' +

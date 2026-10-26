@@ -59,6 +59,7 @@ import type {
   UpdateSource,
   VersionIsolation
 } from '../../../shared/types'
+import PageHeader from '../components/PageHeader'
 
 const SOURCES: { key: DownloadSource; label: string; desc: string }[] = [
   { key: 'bmclapi', label: 'BMCLAPI 镜像', desc: '国内高速镜像，推荐' },
@@ -320,28 +321,31 @@ function SettingsPage(): JSX.Element {
   const backgroundMode: BackgroundMode = backgroundImages.length > 0 ? (settings.backgroundMode ?? 'off') : 'off'
 
   return (
-    <div className="flex h-full flex-col gap-5">
-      <div className="flex items-center gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">设置</h1>
-        <div className="flex rounded-xl bg-black/20 p-1" role="tablist">
-          {SETTINGS_TABS.map((t) => (
-            <button
-              key={t.key}
-              role="tab"
-              aria-selected={tab === t.key}
-              onClick={() => changeTab(t.key)}
-              className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm transition-colors ${
-                tab === t.key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
-              }`}
-            >
-              <t.icon className="h-4 w-4" />
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="flex h-full flex-col gap-4">
+      <PageHeader
+        title="设置"
+        subtitle="修改后立即生效并自动保存"
+        after={
+          <div className="flex rounded-xl bg-black/20 p-1" role="tablist">
+            {SETTINGS_TABS.map((t) => (
+              <button
+                key={t.key}
+                role="tab"
+                aria-selected={tab === t.key}
+                onClick={() => changeTab(t.key)}
+                className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm transition-colors ${
+                  tab === t.key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
+                }`}
+              >
+                <t.icon className="h-4 w-4" />
+                {t.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pb-4 pr-1">
+      <div ref={scrollRef} className="page-scroll min-h-0 flex-1 pb-4">
         <div className={tab === 'personal' ? 'flex flex-col gap-6' : 'hidden'}>
           {/* 主题方案与粒子特效 */}
           <Personalization settings={settings} update={update} updateSlider={updateSlider} />

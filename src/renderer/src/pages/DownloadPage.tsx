@@ -26,6 +26,7 @@ import type {
   VersionManifest,
   VersionType
 } from '../../../shared/types'
+import PageHeader from '../components/PageHeader'
 
 type Section = 'vanilla' | ResourceType
 
@@ -368,36 +369,35 @@ function DownloadPage({
           <div
             aria-hidden={section !== 'vanilla'}
             ref={vanillaRef}
-            className={`flex min-h-0 flex-1 flex-col gap-5 ${
+            className={`flex min-h-0 flex-1 flex-col gap-4 ${
               section === 'vanilla' ? '' : 'pointer-events-none invisible absolute inset-0'
             }`}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">原版游戏</h1>
-                <p className="mt-1 text-xs text-white/50">
-                  {manifest
-                    ? `当前下载源：${SOURCE_LABELS[manifest.source]} · 共 ${manifest.versions.length} 个版本`
-                    : '正在获取版本列表'}
-                  {` · 已安装 ${installed.length} 个`}
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <motion.button
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => {
-                    load(true)
-                    loadInstalled()
-                  }}
-                  disabled={loading}
-                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-60"
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  刷新
-                </motion.button>
-              </div>
-            </div>
+            <PageHeader
+              title="原版游戏"
+              subtitle={`${
+                manifest
+                  ? `当前下载源：${SOURCE_LABELS[manifest.source]} · 共 ${manifest.versions.length} 个版本`
+                  : '正在获取版本列表'
+              } · 已安装 ${installed.length} 个`}
+              actions={
+                <>
+                  <motion.button
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => {
+                      load(true)
+                      loadInstalled()
+                    }}
+                    disabled={loading}
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-60"
+                  >
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    刷新
+                  </motion.button>
+                </>
+              }
+            />
 
             {/* 最新版本 */}
             {manifest && !install && (

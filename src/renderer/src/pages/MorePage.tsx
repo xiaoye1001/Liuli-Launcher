@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Coffee, Gauge, Trash2, Wrench, Zap, type LucideIcon } from 'lucide-react'
+import { Coffee, Gauge, Trash2, Zap, type LucideIcon } from 'lucide-react'
 import FastDownloadPanel from '../components/FastDownloadPanel'
 import CleanerPanel from '../components/CleanerPanel'
 import JavaCheckPanel from '../components/JavaCheckPanel'
 import SpeedTestPanel from '../components/SpeedTestPanel'
+import PageHeader from '../components/PageHeader'
 
 type ToolKey = 'download' | 'clean' | 'java' | 'speed'
 
@@ -68,14 +69,8 @@ function MorePage(): JSX.Element {
   }
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-y-auto pr-1">
-      <div className="flex shrink-0 items-center gap-3">
-        <h1 className="text-3xl font-bold tracking-tight">更多</h1>
-        <span className="flex items-center gap-1.5 rounded-xl bg-black/20 px-3 py-1.5 text-sm text-white/70">
-          <Wrench className="h-4 w-4 text-emerald-300" />
-          百宝箱
-        </span>
-      </div>
+    <div className="page-scroll flex h-full flex-col gap-4">
+      <PageHeader title="更多" subtitle="百宝箱：高速下载、清理缓存、Java 检测和下载源测速" />
 
       {/* 小工具入口 */}
       <div className="grid shrink-0 grid-cols-4 gap-3" role="tablist" aria-label="百宝箱工具">

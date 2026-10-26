@@ -24,6 +24,7 @@ import type {
   SavedServer,
   ServerStatus
 } from '../../../shared/types'
+import PageHeader from '../components/PageHeader'
 
 function cleanError(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e)
@@ -182,50 +183,48 @@ function ServersPage(): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">服务器</h1>
-          <p className="mt-1 text-xs text-white/50">
-            共 {servers?.length ?? 0} 个 · 点「加入」会启动游戏并直接进入服务器
-          </p>
-        </div>
-        <div className="flex shrink-0 gap-3">
-          <button
-            onClick={() =>
-              run(async () => {
-                const { added, list } = await window.api.importGameServers()
-                setServers(list)
-                pingAll(list.slice(list.length - added))
-                setNotice(
-                  added > 0 ? `从游戏的多人游戏列表导入了 ${added} 个服务器` : '游戏的多人游戏列表里没有新的服务器'
-                )
-              })
-            }
-            title="导入游戏「多人游戏」里保存的服务器（servers.dat）"
-            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
-          >
-            <Download className="h-4 w-4" />
-            从游戏导入
-          </button>
-          <button
-            onClick={() => servers && pingAll(servers)}
-            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
-          >
-            <RefreshCw className="h-4 w-4" />
-            刷新
-          </button>
-          <button
-            onClick={() => {
-              setFormError('')
-              setForm({ ...EMPTY_FORM })
-            }}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2 text-sm font-medium shadow-lg shadow-emerald-500/20"
-          >
-            <Plus className="h-4 w-4" />
-            添加服务器
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="服务器"
+        subtitle={`共 ${servers?.length ?? 0} 个 · 点「加入」会启动游戏并直接进入服务器`}
+        actions={
+          <>
+            <button
+              onClick={() =>
+                run(async () => {
+                  const { added, list } = await window.api.importGameServers()
+                  setServers(list)
+                  pingAll(list.slice(list.length - added))
+                  setNotice(
+                    added > 0 ? `从游戏的多人游戏列表导入了 ${added} 个服务器` : '游戏的多人游戏列表里没有新的服务器'
+                  )
+                })
+              }
+              title="导入游戏「多人游戏」里保存的服务器（servers.dat）"
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+            >
+              <Download className="h-4 w-4" />
+              从游戏导入
+            </button>
+            <button
+              onClick={() => servers && pingAll(servers)}
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+            >
+              <RefreshCw className="h-4 w-4" />
+              刷新
+            </button>
+            <button
+              onClick={() => {
+                setFormError('')
+                setForm({ ...EMPTY_FORM })
+              }}
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2 text-sm font-medium shadow-lg shadow-emerald-500/20"
+            >
+              <Plus className="h-4 w-4" />
+              添加服务器
+            </button>
+          </>
+        }
+      />
 
       {form && (
         <section className="rounded-2xl border border-white/10 bg-white/10 p-5 shadow-xl backdrop-blur-xl">

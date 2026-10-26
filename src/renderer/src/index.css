@@ -614,3 +614,41 @@ html.light .acrylic-noise {
     opacity: 0;
   }
 }
+
+/* ---------- 滚动条与页面滚动区 ---------- */
+
+/* 细滚动条：半透明圆角，不带上下箭头（深色、浅色主题各一套颜色） */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-color: rgb(255 255 255 / 0.18);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(255 255 255 / 0.32);
+}
+html.light ::-webkit-scrollbar-thumb {
+  background-color: rgb(15 23 42 / 0.2);
+}
+html.light ::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(15 23 42 / 0.35);
+}
+
+/*
+ * 整页滚动的区域（设置、账号、联机、更多、版本设置等）：滚动条放进页面的右边距里，
+ * 不管有没有滚动条，内容的右边缘都和其他页面对齐（18px 外扩 = 10px 滚动条 + 8px 间距）
+ */
+.page-scroll {
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  margin-right: -18px;
+  padding-right: 8px;
+}
