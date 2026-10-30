@@ -115,7 +115,7 @@ interface Mote {
   drift: number
 }
 
-/** 环绕上升的微光粒子 */
+/** 环绕上升的微光粒子（一直循环，用 CSS 动画 .splash-mote，见 index.css） */
 function RisingMotes(): JSX.Element {
   const motes = useMemo<Mote[]>(
     () =>
@@ -135,20 +135,20 @@ function RisingMotes(): JSX.Element {
   return (
     <div className="pointer-events-none absolute left-1/2 top-1/2">
       {motes.map((m, i) => (
-        <motion.span
+        <span
           key={i}
-          className="absolute rounded-full"
+          className="splash-mote absolute rounded-full"
           style={{
             left: m.x,
             top: 60,
             width: m.size,
             height: m.size,
             background: accent(200),
-            boxShadow: `0 0 ${m.size * 3}px ${accent(300, 0.9)}`
+            boxShadow: `0 0 ${m.size * 3}px ${accent(300, 0.9)}`,
+            ['--mote-drift' as string]: `${m.drift}px`,
+            ['--mote-duration' as string]: `${m.duration}s`,
+            ['--mote-delay' as string]: `${m.delay}s`
           }}
-          initial={{ y: 0, x: 0, opacity: 0 }}
-          animate={{ y: -170, x: m.drift, opacity: [0, 1, 0] }}
-          transition={{ duration: m.duration, delay: m.delay, repeat: Infinity, ease: 'easeOut' }}
         />
       ))}
     </div>
@@ -217,11 +217,10 @@ function AppSplashScreen({ title, onDone }: AppSplashScreenProps): JSX.Element {
 
       {/* 中央：呼吸光晕 + 旋转方块 + 上升粒子 */}
       <div className="relative flex h-56 w-56 items-center justify-center">
-        <motion.div
-          className="absolute h-40 w-40 rounded-full"
+        {/* 呼吸光晕：一直循环，用 CSS 动画 .splash-glow（见 index.css） */}
+        <div
+          className="splash-glow absolute h-40 w-40 rounded-full"
           style={{ background: `radial-gradient(circle, ${accent(400, 0.55)}, transparent 70%)`, filter: 'blur(18px)' }}
-          animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.55, 1, 0.55] }}
-          transition={{ duration: 2.2, ease: 'easeInOut', repeat: Infinity }}
         />
         <motion.div
           className="absolute h-44 w-44 rounded-full border"

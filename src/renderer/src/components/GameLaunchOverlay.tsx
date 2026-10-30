@@ -315,12 +315,11 @@ function StageRow({
             transition={{ duration: 0.9, ease: 'linear', repeat: Infinity }}
           />
         )}
+        {/* 呼吸光点：一直循环，用 CSS 动画 .launch-stage-pulse（见 index.css） */}
         {state === 'active' && (
-          <motion.span
-            className="absolute inset-1 rounded-full"
+          <span
+            className="launch-stage-pulse absolute inset-1 rounded-full"
             style={{ background: accent(400, 0.25) }}
-            animate={{ scale: [0.85, 1.1, 0.85], opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 1.4, repeat: Infinity }}
           />
         )}
         {state === 'done' ? (
@@ -692,14 +691,12 @@ function GameLaunchOverlay(): JSX.Element {
             animate={{ scale: 1 }}
             transition={{ duration: 0.8, ease: 'easeOut' }}
           />
-          {/* 主题色呼吸暗角 */}
-          <motion.div
-            className="pointer-events-none absolute inset-0"
+          {/* 主题色呼吸暗角：一直循环，用 CSS 动画 .launch-vignette（见 index.css） */}
+          <div
+            className="launch-vignette pointer-events-none absolute inset-0"
             style={{
               background: `radial-gradient(ellipse at center, transparent 35%, ${accent(500, 0.28)} 75%, ${accent(600, 0.45)} 100%)`
             }}
-            animate={{ opacity: [0.55, 1, 0.55] }}
-            transition={{ duration: 2.6, ease: 'easeInOut', repeat: Infinity }}
           />
           {/* 汇聚的星尘（关闭界面动画时不画） */}
           {animations && phase === 'launching' && <WarpField />}

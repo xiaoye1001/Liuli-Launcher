@@ -256,6 +256,82 @@ html.no-anim *::after {
   animation: slide-in 0.2s ease-out;
 }
 
+/*
+ * 一直循环的装饰动画（开屏动画、游戏启动动画）用 CSS 实现，元素移除时动画随之结束。
+ * 不要改回 framer-motion 的 repeat: Infinity：framer-motion 11 停止这类透明度动画时，
+ * 会另外创建一个同样无限循环的采样动画，元素移除后它还在后台每帧运行，每打开一次就多几个。
+ * 缓动与 framer-motion 一致：easeOut = ease-out，easeInOut = ease-in-out（同样的贝塞尔曲线）。
+ * 关闭界面动画（html.no-anim）时停在第一帧。
+ */
+@keyframes splash-glow {
+  0%,
+  100% {
+    transform: scale(0.85);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+.splash-glow {
+  transform: scale(0.85);
+  opacity: 0.55;
+  animation: splash-glow 2.2s ease-in-out infinite;
+}
+
+/* 开屏动画的上升微光：横向飘动、时长和延迟由元素上的 --mote-drift、--mote-duration、--mote-delay 给出 */
+@keyframes splash-mote {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--mote-drift), -170px);
+    opacity: 0;
+  }
+}
+.splash-mote {
+  opacity: 0;
+  animation: splash-mote var(--mote-duration) ease-out var(--mote-delay) infinite backwards;
+}
+
+/* 游戏启动动画：进行中阶段图标后面的呼吸光点 */
+@keyframes launch-stage-pulse {
+  0%,
+  100% {
+    transform: scale(0.85);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+.launch-stage-pulse {
+  transform: scale(0.85);
+  opacity: 0.5;
+  animation: launch-stage-pulse 1.4s ease-out infinite;
+}
+
+/* 游戏启动动画：主题色呼吸暗角 */
+@keyframes launch-vignette {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.launch-vignette {
+  opacity: 0.55;
+  animation: launch-vignette 2.6s ease-in-out infinite;
+}
+
 /* 隐藏了系统标题栏时（Windows、Linux）：窗口顶部的拖动区域，右上角是系统画的窗口按钮 */
 .titlebar-drag {
   -webkit-app-region: drag;
