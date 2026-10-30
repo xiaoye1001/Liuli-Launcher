@@ -104,7 +104,7 @@ async function installedProjects(dir: string): Promise<Set<string>> {
 }
 
 /** Modrinth 项目标识 → 项目 ID（中文名搜索用，项目 ID 不会变，记住后不用重复查） */
-const slugToId = new Map<string, string | null>()
+const slugToId = new Map<string, string>()
 
 /**
  * 中文名搜索：关键字是中文时，先在中文名表里找到对应的模组，返回只搜索这些模组的条件（按匹配程度排好的项目 ID）。
@@ -118,11 +118,18 @@ async function chineseSearch(query: string): Promise<{ facet: string[]; order: s
   if (slugs.length === 0) return null
   const missing = slugs.filter((slug) => !slugToId.has(slug))
   if (missing.length > 0) {
-    // /projects 的 ids 参数也接受项目标识
-    const projects = await modrinthFetch<{ id: string; slug: string }[]>(
-      `/projects?${new URLSearchParams({ ids: JSON.stringify(missing) })}`
-    )
-    for (const slug of missing) slugToId.set(slug, projects.find((p) => p.slug === slug)?.id ?? null)
+    try {
+      // /projects 的 ids 参数也接受项目标识
+      const projects = await modrinthFetch<{ id: string; slug: string }[]>(
+        `/projects?${new URLSearchParams({ ids: JSON.stringify(missing) })}`
+      )
+      // 只记住找到的；没找到的（例如镜像还没同步）下次再查
+      for (const p of Array.isArray(projects) ? projects : []) {
+        if (typeof p?.id === 'string' && missing.includes(p.slug)) slugToId.set(p.slug, p.id)
+      }
+    } catch {
+      // 查不到中文名对应的项目时照常按关键字搜索，不让整个搜索失败
+    }
   }
   const order = slugs.map((slug) => slugToId.get(slug)).filter((id): id is string => !!id)
   return order.length > 0 ? { facet: order.map((id) => `project_id:${id}`), order } : null
@@ -332,8 +339,11 @@ export async function searchProjects(
     }[]
     total_hits: number
   }>(`/search?${params}`)
-  // 没有指定排序时，中文名搜索的结果按匹配程度排序
-  const hits = filters.sort ? result.hits : byChineseOrder(result.hits, chinese?.order, (hit) => hit.project_id)
+  // 没有指定排序（或按相关度）时，中文名搜索的结果按匹配程度排序
+  const hits =
+    filters.sort && filters.sort !== 'relevance'
+      ? result.hits
+      : byChineseOrder(result.hits, chinese?.order, (hit) => hit.project_id)
   return {
     hits: hits.map((hit) => ({
       projectId: hit.project_id,

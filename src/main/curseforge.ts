@@ -94,7 +94,17 @@ async function cfRequest<T>(path: string): Promise<T> {
       lastError = `无法连接 CurseForge 镜像（MCIM）：${e instanceof Error ? e.message : String(e)}`
       continue
     }
-    if (response.ok) return (await response.json()) as T
+    if (response.ok) {
+      try {
+        return (await response.json()) as T
+      } catch {
+        // 镜像偶尔返回网页（例如维护页）而不是数据：和服务器错误一样等一会儿重试
+        lastError = 'CurseForge 镜像返回的数据格式不对，请稍后再试，或先用 Modrinth 搜索'
+        continue
+      }
+    }
+    // 不读取的响应内容要释放，否则连接要等垃圾回收才会关闭
+    await response.body?.cancel().catch(() => undefined)
     if (response.status === 404) throw new Error('在 CurseForge 上找不到这个资源')
     if (!retryable(response.status)) throw new Error(`CurseForge 镜像返回错误（${response.status}）`)
     lastError =
@@ -106,7 +116,10 @@ async function cfRequest<T>(path: string): Promise<T> {
 }
 
 async function cfFetch<T>(path: string): Promise<T> {
-  return (await cfRequest<{ data: T }>(path)).data
+  const result = await cfRequest<{ data?: T }>(path)
+  if (result?.data === undefined || result.data === null)
+    throw new Error('CurseForge 镜像返回的数据格式不对，请稍后再试')
+  return result.data
 }
 
 function numberId(id: string, what: string): number {
@@ -187,7 +200,7 @@ async function searchChineseNames(
   // 全部失败（例如镜像暂时不可用）时报告错误；部分失败只少显示几个
   if (found.every((r) => r.status === 'rejected')) throw (found[0] as PromiseRejectedResult).reason
   const mods = found.flatMap((r, i) =>
-    r.status === 'fulfilled' ? r.value.data.filter((mod) => mod.slug === slugs[i]).slice(0, 1) : []
+    r.status === 'fulfilled' ? (r.value?.data ?? []).filter((mod) => mod.slug === slugs[i]).slice(0, 1) : []
   )
   if (filters.sort === 'downloads') mods.sort((a, b) => b.downloadCount - a.downloadCount)
   const hits = mods.map((mod) => toHit(mod, 'mod'))
@@ -219,9 +232,9 @@ export async function searchCurseForge(
   if (filters.loader && LOADER_TYPES[filters.loader]) params.set('modLoaderType', String(LOADER_TYPES[filters.loader]))
   const result = await cfRequest<{ data: CurseMod[]; pagination?: { totalCount?: number } }>(`/mods/search?${params}`)
   return {
-    hits: result.data.map((mod) => toHit(mod, type)),
+    hits: (result?.data ?? []).map((mod) => toHit(mod, type)),
     // CurseForge 最多只能翻到第 10000 条
-    total: Math.min(result.pagination?.totalCount ?? result.data.length, 10000)
+    total: Math.min(result?.pagination?.totalCount ?? result?.data?.length ?? 0, 10000)
   }
 }
 

@@ -228,7 +228,15 @@ export function matchChineseName(query: string, limit = 12): ModName[] {
       const n = normalize(name)
       if (!n) continue
       const s =
-        n === q ? 4 : n.startsWith(q) ? 3 : n.includes(q) ? 2 : GENERIC_SUFFIXES.includes(q.replace(n, '')) ? 1 : 0
+        n === q
+          ? 4
+          : n.startsWith(q)
+            ? 3
+            : n.includes(q)
+              ? 2
+              : GENERIC_SUFFIXES.some((suffix) => q === n + suffix)
+                ? 1
+                : 0
       // 中文名本身匹配比其他叫法优先
       if (s > 0) score = Math.max(score, s * 2 + (name === entry.zh ? 1 : 0))
     }
