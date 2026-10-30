@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
-  ArrowLeft,
   ArrowUpCircle,
   CheckCircle2,
   Download,
@@ -16,6 +15,9 @@ import {
   Trash2
 } from 'lucide-react'
 import ScreenshotsPanel from '../components/ScreenshotsPanel'
+import PageHeader from '../components/PageHeader'
+import { EmptyState, LoadingState } from '../components/EmptyState'
+import { HEADER_BUTTON, HEADER_ICON_BUTTON, HEADER_PRIMARY } from '../components/headerButtons'
 import type {
   InstalledVersion,
   LocalResource,
@@ -179,112 +181,99 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
 
   return (
     <div className="flex h-full flex-col gap-4">
-      <div className="rounded-2xl border border-white/10 bg-white/10 p-5 shadow-lg backdrop-blur-xl">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            title="返回版本列表"
-            className="rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20">
-            <ImageIcon className="h-6 w-6 text-emerald-300" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-bold" title={version.id}>
-              {version.id}
-            </h1>
-            <p className="truncate text-xs text-white/50" title={list?.dir}>
-              {showShots ? '资源包、光影与截图' : `资源包与光影 · ${list?.dir ?? '…'}`}
-            </p>
-          </div>
-        </div>
-        <div className="mt-4 flex items-center gap-3">
-          <div className="flex rounded-xl bg-black/20 p-1">
-            {TABS.map(([key, text]) => (
+      {/* 顶部：返回、标题、操作（与其他页面的标题栏对齐） */}
+      <PageHeader
+        onBack={onBack}
+        backTitle="返回版本列表"
+        icon={<ImageIcon className="h-6 w-6 text-emerald-300" />}
+        title={version.id}
+        titleHint={version.id}
+        subtitle={
+          <span className="truncate" title={list?.dir}>
+            {showShots ? '资源包、光影与截图' : `资源包与光影 · ${list?.dir ?? '…'}`}
+          </span>
+        }
+        actions={
+          showShots ? undefined : (
+            <>
               <button
-                key={key}
-                onClick={() => {
-                  setKind(key)
-                  setShowShots(false)
-                }}
-                className={`rounded-lg px-4 py-1.5 text-sm transition-colors ${
-                  !showShots && kind === key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
-                }`}
+                onClick={() => window.api.openLocalResourceDir(version.id, kind).catch((e) => setError(cleanError(e)))}
+                title="打开文件夹"
+                className={HEADER_ICON_BUTTON}
               >
-                {text}
+                <FolderOpen className="h-4 w-4" />
               </button>
-            ))}
+              <button onClick={load} title="刷新" className={HEADER_ICON_BUTTON}>
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </>
+          )
+        }
+      />
+
+      {/* 分类与操作 */}
+      <div className="flex shrink-0 items-center gap-3">
+        <div className="flex rounded-xl bg-black/20 p-1">
+          {TABS.map(([key, text]) => (
             <button
-              onClick={() => setShowShots(true)}
+              key={key}
+              onClick={() => {
+                setKind(key)
+                setShowShots(false)
+              }}
               className={`rounded-lg px-4 py-1.5 text-sm transition-colors ${
-                showShots ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
+                !showShots && kind === key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
               }`}
             >
-              截图
+              {text}
             </button>
-          </div>
-          <div className={`ml-auto flex gap-2 ${showShots ? 'hidden' : ''}`}>
-            {updateCount > 0 ? (
-              <button
-                onClick={updateAll}
-                disabled={pending !== null}
-                className="flex items-center gap-1.5 rounded-lg bg-sky-500/80 px-3 py-1.5 text-xs font-medium hover:bg-sky-500 disabled:opacity-50"
-              >
-                {pending === '' ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <ArrowUpCircle className="h-3.5 w-3.5" />
-                )}
-                全部更新（{updateCount}）
-              </button>
-            ) : (
-              <button
-                onClick={checkUpdates}
-                disabled={checking || pending !== null}
-                title={`在 Modrinth 上检查${label}的新版本`}
-                className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
-              >
-                {checking ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <ArrowUpCircle className="h-3.5 w-3.5" />
-                )}
-                检查更新
-              </button>
-            )}
+          ))}
+          <button
+            onClick={() => setShowShots(true)}
+            className={`rounded-lg px-4 py-1.5 text-sm transition-colors ${
+              showShots ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
+            }`}
+          >
+            截图
+          </button>
+        </div>
+        <div className={`ml-auto flex gap-3 ${showShots ? 'hidden' : ''}`}>
+          {updateCount > 0 ? (
             <button
-              onClick={() => act(null, () => window.api.addLocalResources(version.id, kind))}
+              onClick={updateAll}
               disabled={pending !== null}
-              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-xl bg-sky-500/80 px-4 py-2 text-sm font-medium transition-colors hover:bg-sky-500 disabled:opacity-50"
             >
-              <Plus className="h-3.5 w-3.5" />
-              添加文件
+              {pending === '' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpCircle className="h-4 w-4" />}
+              全部更新（{updateCount}）
             </button>
+          ) : (
             <button
-              onClick={() => onDownloadMore(kind)}
-              title={`从 Modrinth 下载${label}到这个版本`}
-              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+              onClick={checkUpdates}
+              disabled={checking || pending !== null}
+              title={`在 Modrinth 上检查${label}的新版本`}
+              className={HEADER_BUTTON}
             >
-              <Download className="h-3.5 w-3.5" />
-              下载{label}
+              {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpCircle className="h-4 w-4" />}
+              检查更新
             </button>
-            <button
-              onClick={() => window.api.openLocalResourceDir(version.id, kind).catch((e) => setError(cleanError(e)))}
-              title="打开文件夹"
-              className="rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
-            >
-              <FolderOpen className="h-4 w-4" />
-            </button>
-            <button
-              onClick={load}
-              title="刷新"
-              className="rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
+          )}
+          <button
+            onClick={() => act(null, () => window.api.addLocalResources(version.id, kind))}
+            disabled={pending !== null}
+            className={HEADER_BUTTON}
+          >
+            <Plus className="h-4 w-4" />
+            添加文件
+          </button>
+          <button
+            onClick={() => onDownloadMore(kind)}
+            title={`从 Modrinth 下载${label}到这个版本`}
+            className={HEADER_PRIMARY}
+          >
+            <Download className="h-4 w-4" />
+            下载{label}
+          </button>
         </div>
       </div>
 
@@ -358,19 +347,13 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
             </div>
 
             <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-              {!list && loading && (
-                <div className="flex justify-center py-10 text-white/50">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
-              )}
+              {!list && loading && <LoadingState />}
               {list && list.items.length === 0 && (
-                <div className="py-10 text-center text-sm text-white/40">
+                <EmptyState icon={ImageIcon}>
                   还没有{label}，可以点「下载{label}」或「添加文件」
-                </div>
+                </EmptyState>
               )}
-              {list && list.items.length > 0 && items.length === 0 && (
-                <div className="py-10 text-center text-sm text-white/40">没有匹配的{label}</div>
-              )}
+              {list && list.items.length > 0 && items.length === 0 && <EmptyState>没有匹配的{label}</EmptyState>}
               {items.map((item) => (
                 <div
                   key={item.fileName}

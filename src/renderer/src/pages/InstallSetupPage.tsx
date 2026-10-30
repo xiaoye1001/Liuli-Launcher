@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertTriangle, ArrowLeft, Check, ChevronRight, Download, Loader2, X } from 'lucide-react'
+import { AlertTriangle, Check, ChevronRight, Download, Loader2, X } from 'lucide-react'
 import GrassBlockIcon from '../components/GrassBlockIcon'
+import PageHeader from '../components/PageHeader'
 import type {
   FabricLoaderVersion,
   ForgeVersionInfo,
@@ -355,34 +356,37 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
   }
 
   return (
-    <div className="relative flex h-full flex-col">
+    <div className="relative flex h-full flex-col gap-4">
+      {/* 顶部：返回、要安装的版本（与其他页面的标题栏对齐） */}
+      <PageHeader
+        onBack={onBack}
+        backTitle="返回版本列表"
+        icon={<GrassBlockIcon className="h-9 w-9" />}
+        title={`安装 Minecraft ${mc}`}
+        titleHint={mc}
+        subtitle="可以修改版本名称、选择要一起安装的模组加载器，然后点下方的「开始下载」"
+      />
       <div className="page-scroll flex min-h-0 flex-1 flex-col gap-4 pb-24">
-        {/* 顶部：返回、图标、版本名 */}
-        <div className="rounded-2xl border border-white/10 bg-white/10 p-5 shadow-lg backdrop-blur-xl">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={onBack}
-              title="返回版本列表"
-              className="rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
-            <GrassBlockIcon className="h-12 w-12 shrink-0" />
-            <input
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value)
-                setNameEdited(true)
-              }}
-              maxLength={64}
-              spellCheck={false}
-              className={`min-w-0 flex-1 rounded-lg border bg-black/10 px-4 py-2.5 text-lg outline-none transition-colors focus:bg-black/20 ${
-                nameError ? 'border-red-400/60' : 'border-white/15 focus:border-sky-400/70'
-              }`}
-            />
-          </div>
-          {nameError && <p className="ml-[7.5rem] mt-2 text-xs text-red-300">{nameError}</p>}
-        </div>
+        {/* 版本名称 */}
+        <section className="shrink-0 rounded-2xl border border-white/10 bg-white/10 p-5 shadow-lg backdrop-blur-xl">
+          <label htmlFor="install-version-name" className="block text-sm font-medium">
+            版本名称
+          </label>
+          <input
+            id="install-version-name"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value)
+              setNameEdited(true)
+            }}
+            maxLength={64}
+            spellCheck={false}
+            className={`mt-2 w-full rounded-lg border bg-black/10 px-4 py-2.5 text-lg outline-none transition-colors focus:bg-black/20 ${
+              nameError ? 'border-red-400/60' : 'border-white/15 focus:border-sky-400/70'
+            }`}
+          />
+          {nameError && <p className="mt-1.5 text-xs text-red-300">{nameError}</p>}
+        </section>
 
         <div className="h-2" />
 

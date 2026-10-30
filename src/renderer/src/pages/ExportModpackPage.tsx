@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, ArrowLeft, CheckCircle2, File, Folder, FolderOpen, Loader2, PackageOpen } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, File, Folder, FolderOpen, Loader2, PackageOpen } from 'lucide-react'
+import PageHeader from '../components/PageHeader'
 import type {
   InstalledVersion,
   ModpackExportFormat,
@@ -116,31 +117,22 @@ function ExportModpackPage({ version, onBack }: ExportModpackPageProps): JSX.Ele
 
   return (
     <div className="flex h-full flex-col gap-4">
-      <div className="rounded-2xl border border-white/10 bg-white/10 p-5 shadow-lg backdrop-blur-xl">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            title="返回版本列表"
-            className="rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20">
-            <PackageOpen className="h-6 w-6 text-emerald-300" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-bold" title={version.id}>
-              {version.id}
-            </h1>
-            <p className="truncate text-xs text-white/50">
-              导出整合包 ·{' '}
-              {info
-                ? `Minecraft ${info.minecraftVersion}${info.loader ? ` · ${LOADER_NAMES[info.loader]} ${info.loaderVersion}` : ' · 原版'}`
-                : '正在读取版本信息…'}
-            </p>
-          </div>
-        </div>
-      </div>
+      {/* 顶部：返回、版本名（与其他页面的标题栏对齐） */}
+      <PageHeader
+        onBack={onBack}
+        backTitle="返回版本列表"
+        icon={<PackageOpen className="h-6 w-6 text-emerald-300" />}
+        title={version.id}
+        titleHint={version.id}
+        subtitle={
+          <span className="truncate">
+            导出整合包 ·{' '}
+            {info
+              ? `Minecraft ${info.minecraftVersion}${info.loader ? ` · ${LOADER_NAMES[info.loader]} ${info.loaderVersion}` : ' · 原版'}`
+              : '正在读取版本信息…'}
+          </span>
+        }
+      />
 
       <div className="page-scroll min-h-0 flex-1 space-y-4">
         {/* 格式 */}

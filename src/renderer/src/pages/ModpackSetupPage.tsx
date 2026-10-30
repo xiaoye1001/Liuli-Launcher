@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { AlertTriangle, ArrowLeft, Download, FileArchive, Loader2, Package } from 'lucide-react'
+import { AlertTriangle, Download, FileArchive, Loader2, Package } from 'lucide-react'
+import PageHeader from '../components/PageHeader'
 import type { ModpackInfo } from '../../../shared/types'
 
 const LOADER_NAMES = { fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge', quilt: 'Quilt' }
@@ -85,27 +86,20 @@ function ModpackSetupPage({ modpack, installedIds, busy, onBack, onStarted }: Mo
 
   return (
     <div className="flex h-full flex-col gap-4">
-      <div className="rounded-2xl border border-white/10 bg-white/10 p-5 shadow-lg backdrop-blur-xl">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            title="返回版本列表"
-            className="rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20">
-            <Package className="h-6 w-6 text-emerald-300" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-bold">
-              {modpack.name}
-              <span className="ml-2 text-sm font-normal text-white/50">{modpack.version}</span>
-            </h1>
-            {modpack.summary && <p className="truncate text-xs text-white/50">{modpack.summary}</p>}
-          </div>
-        </div>
-      </div>
+      {/* 顶部：返回、整合包名称（与其他页面的标题栏对齐） */}
+      <PageHeader
+        onBack={onBack}
+        backTitle="返回版本列表"
+        icon={<Package className="h-6 w-6 text-emerald-300" />}
+        title={
+          <>
+            {modpack.name}
+            <span className="ml-2 text-base font-normal text-white/50">{modpack.version}</span>
+          </>
+        }
+        titleHint={`${modpack.name} ${modpack.version}`}
+        subtitle={modpack.summary ? <span className="truncate">{modpack.summary}</span> : undefined}
+      />
 
       <section className="rounded-2xl border border-white/10 bg-white/10 p-5 shadow-2xl backdrop-blur-xl">
         <label className="block text-sm font-medium">安装为版本</label>

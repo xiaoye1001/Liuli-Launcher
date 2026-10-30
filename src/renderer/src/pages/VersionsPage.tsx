@@ -10,6 +10,7 @@ import {
   FolderOpen,
   HardDrive,
   Globe,
+  Layers,
   Image as ImageIcon,
   Loader2,
   MonitorSmartphone,
@@ -29,6 +30,7 @@ import {
 import VersionIconPicker from '../components/VersionIconPicker'
 import ModpackUpdateDialog from '../components/ModpackUpdateDialog'
 import PageHeader from '../components/PageHeader'
+import { EmptyState, LoadingState } from '../components/EmptyState'
 import { formatDuration } from '../utils/format'
 import InstallProgressCard from '../components/InstallProgressCard'
 import LocalResourcesPage from './LocalResourcesPage'
@@ -577,26 +579,24 @@ function VersionsPage({
           </div>
 
           <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-            {installed === null && (
-              <div className="flex justify-center py-10 text-white/50">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
-            )}
+            {installed === null && <LoadingState />}
             {installed?.length === 0 && (
-              <div className="flex flex-col items-center gap-3 py-12 text-sm text-white/50">
+              <EmptyState
+                icon={Layers}
+                action={
+                  <button
+                    onClick={onInstallNew}
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-white hover:bg-white/20"
+                  >
+                    <Download className="h-4 w-4" />
+                    去下载
+                  </button>
+                }
+              >
                 还没有安装任何版本
-                <button
-                  onClick={onInstallNew}
-                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-white hover:bg-white/20"
-                >
-                  <Download className="h-4 w-4" />
-                  去下载
-                </button>
-              </div>
+              </EmptyState>
             )}
-            {installed && installed.length > 0 && visible.length === 0 && (
-              <div className="py-10 text-center text-sm text-white/40">没有匹配的版本</div>
-            )}
+            {installed && installed.length > 0 && visible.length === 0 && <EmptyState>没有匹配的版本</EmptyState>}
             {visible.map((version) => {
               const info = typeInfo(version)
               const current = version.id === selected

@@ -49,11 +49,13 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
     window.api.getSystemInfo().then((info) => setPortableDir(info.portableDir))
   }, [])
 
-  // 导航项只有两三个字：侧边栏窄一些，右侧不留大片空白，主内容区也更宽
+  // 导航项只有两三个字：侧边栏窄一些，右侧不留大片空白，主内容区也更宽。
+  // 与页面对齐：名称这一行和页面标题栏同高同位置（上边距 32px、高 60px），导航从页面内容的上边缘开始，
+  // 底部和页面内容的下边缘对齐
   return (
-    <aside className="flex w-44 shrink-0 flex-col border-r border-white/10 bg-white/5 px-3 py-4 backdrop-blur-xl">
-      <div className="mb-8 flex items-center gap-3 px-2 pt-2">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 shadow-lg shadow-emerald-500/30">
+    <aside className="flex w-44 shrink-0 flex-col border-r border-white/10 bg-white/5 px-3 pb-8 pt-8 backdrop-blur-xl">
+      <div className="flex h-[60px] shrink-0 items-center gap-3 px-2">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 shadow-lg shadow-emerald-500/30">
           <Boxes className="h-6 w-6 text-white" />
         </div>
         <div className="min-w-0">
@@ -66,7 +68,8 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
         </div>
       </div>
 
-      <nav className="flex flex-col gap-1">
+      {/* 窗口很矮时导航项变紧凑，仍放不下时可以滚动，不会和底部的音乐播放器重叠 */}
+      <nav className="no-scrollbar mt-4 flex min-h-0 flex-col gap-1 overflow-y-auto">
         {NAV_ITEMS.filter((item) => !hiddenPages.includes(item.key)).map((item) => {
           const active = item.key === current
           const Icon = item.icon
@@ -74,7 +77,8 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
             <button
               key={item.key}
               onClick={() => onChange(item.key)}
-              className={`relative flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm transition-colors ${
+              aria-current={active ? 'page' : undefined}
+              className={`relative flex shrink-0 items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-colors [@media(max-height:640px)]:py-2 ${
                 active ? 'text-white' : 'text-white/60 hover:bg-white/5 hover:text-white'
               }`}
             >
@@ -83,16 +87,19 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
                   layoutId="sidebar-active"
                   className="absolute inset-0 rounded-xl border border-white/10 bg-white/15 shadow-inner"
                   transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                />
+                >
+                  {/* 选中项左侧的主题色竖条 */}
+                  <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-emerald-400" />
+                </motion.div>
               )}
-              <Icon className="relative z-10 h-5 w-5" />
+              <Icon className={`relative z-10 h-5 w-5 ${active ? 'text-emerald-300' : ''}`} />
               <span className="relative z-10 font-medium">{item.label}</span>
             </button>
           )
         })}
       </nav>
 
-      <div className="mt-auto" />
+      <div className="mt-auto pt-4" />
       <MiniPlayer />
       <div className="px-2 text-xs text-white/30" title={portableDir ? `数据保存在 ${portableDir}` : undefined}>
         v{__APP_VERSION__}
