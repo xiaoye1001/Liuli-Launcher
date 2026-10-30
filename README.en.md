@@ -4,100 +4,114 @@
 
 A clean, ready-to-use launcher for **Minecraft: Java Edition**
 
-Glass-style UI · Dark & light themes · Fast downloads via mirrors · One-click mod loaders · Microsoft account login
+[![Release](https://img.shields.io/github/v/release/xiaoye1001/Liuli-Launcher)](https://github.com/xiaoye1001/Liuli-Launcher/releases/latest)
+[![License](https://img.shields.io/github/license/xiaoye1001/Liuli-Launcher)](LICENSE)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)
 
 [简体中文](README.md) | **English**
 
 </div>
 
-![Home](website/images/home.webp)
+## Contents
 
-> The screenshots show the Chinese UI. The launcher interface is currently available in Simplified Chinese only.
+- [About](#about)
+- [Download](#download)
+- [Features](#features)
+- [Microsoft Account Login](#microsoft-account-login)
+- [Data Location](#data-location)
+- [Development](#development)
+- [Tech Stack](#tech-stack)
+- [Contributing](#contributing)
+- [Acknowledgements](#acknowledgements)
+- [Disclaimer](#disclaimer)
+- [License](#license)
 
-*"Liuli" (琉璃) is the Chinese word for colored glass, a nod to the launcher's glass-style design.*
+## About
+
+Liuli Launcher is built with Electron and React and runs on Windows, macOS and Linux. It brings game installation, mod loaders, community resources, modpacks, multiplayer and appearance customization together in one glass-style interface, with mirror acceleration for networks in mainland China.
+
+*"Liuli" (琉璃) is the Chinese word for colored glass. The launcher interface is currently available in Simplified Chinese only.*
+
+## Download
+
+Download the package for your system from [Releases](https://github.com/xiaoye1001/Liuli-Launcher/releases/latest):
+
+| System | File | Notes |
+|---|---|---|
+| Windows | `LiuliLauncher-Setup-<version>.exe` | Installer with a choice of install location and shortcuts |
+| Windows | `LiuliLauncher-Portable-<version>.exe` | Portable; data is stored in `LiuliLauncher-Data` next to the exe |
+| macOS (Apple silicon) | `LiuliLauncher-<version>-arm64.dmg` | Drag into Applications |
+| macOS (Intel) | `LiuliLauncher-<version>-x64.dmg` | Same as above |
+| Linux | `LiuliLauncher-<version>.AppImage` | Make executable and run; requires FUSE 2 |
+
+Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16 for 1.17 and Java 8 for older versions. The launcher can download the right Java automatically.
+
+> The packages are not code-signed yet. On Windows, if SmartScreen appears, click "More info" → "Run anyway"; on macOS, right-click the app in Applications and choose "Open" the first time.
 
 ## Features
 
-### Game download & installation
-- Version list split into releases, snapshots and old versions, with search
-- Two download sources: the **BMCLAPI mirror** (recommended in mainland China) or the **official Mojang servers**; automatically falls back to the official source if the mirror fails
-- Multi-threaded downloads with live progress and speed; installs can be cancelled and retried
-- **Fast multi-threaded downloads**: mods, modpacks and resource packs are downloaded in parallel chunks when the server supports ranges (files over 2 MB), and automatically fall back to the regular downloader if anything goes wrong; **More → Toolbox** downloads any HTTP/HTTPS link with selectable thread count and folder, pause/resume/cancel, and a per-thread chunk progress bar with speed and time remaining
-- **Toolbox** (More page):
-  - Clean game cache: old logs, crash reports, interrupted downloads, launcher cache and asset files no installed version uses; shows sizes first and deletes only what you tick, never touching worlds, mods or settings
-  - Java environment check: version, vendor, 32/64-bit, CPU architecture and suitable game versions of every Java found, with warnings for 32-bit Java, Intel Java on Apple silicon, JVM-option environment variables, and installed versions missing a suitable Java
-  - Download source speed test: compares latency and download speed of the official servers and the China mirrors (game files and mods), recommends the faster one and switches with one click
-- **Themes & dynamic backgrounds**: 7 one-click themes (flowing aurora, sunny sky with drifting clouds, falling cherry petals, rising End dust, Win11-style acrylic, Nether embers, and the classic look); optional background particles (cherry petals, End dust, fireflies, drizzle, embers) that pause automatically while the game runs or the window is minimized; image or MP4/WebM video wallpapers, also from a web link; adjustable particle density and speed, particles that dodge the mouse, and mouse parallax; save looks as **My themes**, export/import them as `.liulitheme` files (wallpaper included), and switch day/night themes automatically by time
-- **Download & network settings**: adjust how many files download at once; use the system proxy or a manual HTTP proxy (used for downloads, version lists, Modrinth, sign-in and images in the UI), and test which servers are reachable in one click
-- Choose a custom version name and attach a mod loader before installing:
-  - **Forge**, **NeoForge**, **Fabric** or **Quilt** (pick one)
-  - **OptiFine** (on its own, or together with Forge)
-- Import local modpacks (pick a file, or just drag it onto the window): Modrinth (`.mrpack`), CurseForge, MultiMC / Prism and MCBBS (`.zip`) formats are supported; the matching Minecraft version and mod loader, every mod, and the bundled config files are installed in one go
-- **Export modpacks**: export a version as a Modrinth (`.mrpack`), CurseForge, MultiMC / Prism or MCBBS pack, choosing which mods, configs, resource packs, worlds and so on to include; the Modrinth format can reference files available on Modrinth instead of bundling them, keeping the pack small
-- "Check & repair" installed versions: only missing or corrupted files are downloaded again
-- Before deleting a version, the launcher checks whether other versions depend on it, and warns you if its folder contains worlds
+### Game installation
+- Release, snapshot and old versions with search; choose the **BMCLAPI mirror** or the **official Mojang source**, with automatic fallback
+- One-click install of **Forge**, **NeoForge**, **Fabric**, **Quilt** and **OptiFine**
+- Multi-threaded chunked downloads with cancel and retry; "Check and repair" for installed versions
+- Import and export Modrinth (`.mrpack`), CurseForge, MultiMC / Prism and MCBBS modpacks; modpacks installed from the download page can be **updated in one click**, keeping worlds and edited configs
 
 ### Community resources
-The **Download** page has a side menu with **Vanilla** and **Community resources** (mods, modpacks, data packs, resource packs, shader packs), all from Modrinth:
-- Search every resource type and filter by Minecraft version, loader and category, or sort by downloads, last update and more
-- Expand a project to see all of its versions, with the ones matching your filters listed first, and pick exactly which one to download
-- Choose which installed game version to install into, and the filters follow that version's Minecraft version and loader
-- Mods go to `mods` (required dependencies are installed too), resource packs to `resourcepacks`, shader packs to `shaderpacks`, and data packs to the chosen world's `datapacks`; modpacks open the install page after downloading
+- Search **Modrinth** and **CurseForge** together (CurseForge via the MCIM mirror) for mods, modpacks, data packs, resource packs and shaders
+- Filter by game version, loader and category; required dependencies are installed automatically
+- Popular mods show their Chinese names and can be searched in Chinese
 
 ### Launching
-- **Automatic Java**: picks a suitable installed Java for each game version and downloads the right one automatically at launch when missing (the same Java runtimes as the official launcher); you can also pick a Java from the drop-down list in Settings or in a version's settings
-- **Automatic memory allocation** (on by default): decided at launch from the game version, the number and size of mods, whether shaders, Distant Horizons or high-resolution resource packs are in use, the render distance and the available memory, enough but not more (1–2 GB for vanilla, from 2.5 GB for modded versions, up to 16 GB); Settings shows what the recommendation is made of. You can also set it manually; Java garbage collection is tuned by default to return unused memory to the system and reduce GC stutter
-- **Launch animations**: a splash animation when the launcher opens; after clicking Play, a step-by-step launch progress screen (account, Java, game files, process, window ready) that can be cancelled until the game window appears and can show the live log; when the launcher is not in the foreground, a small launch window is shown in the middle of the screen; the game's loading screen can use a black background (1.17 and newer)
-- **File check before launch**: missing or corrupted game jars, libraries and assets are downloaded automatically before the game starts; only the broken files are fetched (can be turned off in Settings)
-- Live game log window with search filtering and one-click copy; it no longer opens automatically at launch — the Log button on Home opens or closes it at any time
-- **Play stats**: tracks total playtime and launch count for each version; Home shows your recently played versions so you can launch them in one click, plus a timer for the current session
-- **Crash analysis**: after a crash, the launcher reads the game output, crash report and Java crash log and explains the cause and how to fix it: missing dependencies, mods that don't match the game version or conflict with each other, duplicate mods, Mixin failures, Java too old or too new, out of memory, invalid JVM arguments, graphics drivers, incompatible OptiFine, corrupted files and more. You can open the crash report directly, or export all related files as a zip to ask others for help
-- **Version isolation**: modded versions (or all versions) each get their own `mods`, worlds and config, so they never interfere with each other
-- **Version management**: the Versions page gathers everything for installed versions: choosing the version to launch, mods, worlds, resources, version settings, opening the folder, check & repair, and deleting; you can also rename or copy a version (optionally with its worlds), or create a desktop shortcut that launches the version directly
-- **World management**: see each world's name, icon, game mode (hardcore / cheats), game version and last played time; back up a world to a zip in one click and restore any backup later (over the current world, which is backed up automatically first, or as a new world; backups of deleted worlds can be restored too), import worlds from zip files, or move them to the recycle bin; manage each world's data packs (with their enabled state; add, download or delete)
-- **Screenshots**: browse each version's screenshots as thumbnails, open a large preview and switch with the arrow keys, copy an image to the clipboard to paste into chat apps, show it in the folder, or delete it
-- **Resource pack & shader management**: see each version's resource packs (with icon and description) and shader packs; enable resource packs, switch or turn off shaders (Iris, Oculus and OptiFine supported) right from the launcher, add files, or move them to the recycle bin; check Modrinth for newer versions of resource packs and shaders and update them in one click (enabled packs and the active shader stay enabled)
-- **Per-version settings** (from the Versions page or the gear button next to the version on Home): set memory, Java, version isolation, game window size (or fullscreen) and extra JVM / game arguments for each version, plus a wrapper command (such as gamemoderun or prime-run), environment variables, a command to run before launch (the launch is cancelled if it fails) and a command to run after the game exits; commands can use variables such as `INST_NAME` and `INST_DIR`. Anything not set follows the global settings. The settings are stored in `liuli-version.json` inside the version's folder
+- Automatically picks or downloads the right Java; **automatic memory allocation** based on version, mods, shaders and available RAM
+- Verifies game files before launch and repairs missing or corrupted ones
+- Staged launch animation and live log window; stop the game from the launcher while it runs
+- **Crash analysis** explains causes and fixes, with one-click log sharing to [mclo.gs](https://mclo.gs/)
+- Per-version memory, Java, window size, JVM arguments, pre-launch / post-exit commands and more
+- Multiple game directories, version isolation, favorites and custom icons, playtime statistics
 
-### Servers
-- Save your favorite servers on the Servers page, with each server's icon, colored MOTD, player count, latency and server version; SRV records (domains without a port) are supported
-- Click **Join** to launch the game and connect to the server directly (Quick Play on 1.20+, the `--server` argument on older versions); each server can use its own game version
-- Import the servers from the game's Multiplayer list (`servers.dat`) in one click
+### Version and world management
+- Mods: enable / disable, dependency checks, update checks
+- Worlds: backup and restore, import, seed and game rules, data packs
+- Resource packs, shader packs and screenshots
 
-### Mod management
-- Shows each mod's name, version, description and icon; supports Fabric / Quilt / Forge / NeoForge
-- Enable or disable mods (using the `.disabled` suffix, compatible with other launchers); deleted mods go to the recycle bin
-- Flags mods that don't match the version's mod loader
-- **Mod updates**: finds newer versions of mods published on Modrinth that fit the game version and loader; update one at a time or all at once. Stable releases are never upgraded to betas, disabled mods stay disabled, and old files go to the recycle bin
-- **Search and install mods from Modrinth** right inside the launcher: only mods compatible with the current version are shown, and required dependencies are installed automatically
+### Servers and multiplayer
+- Save servers with player count, ping and MOTD; join directly
+- Three ways to play together, all with a single room code: **direct connection**, **P2P networking** (powered by [EasyTier](https://github.com/EasyTier/EasyTier)) and **tunnels**
 
 ### Accounts
-- **Offline accounts**: keep several offline accounts, each with its own player name and skin, and switch with one click; preview skins on an animated 3D model
-- **Microsoft login**: sign in by entering a code on Microsoft's website, so the launcher never sees your password; switch between multiple accounts, with sessions refreshed automatically at launch
-- **Skins and capes for Microsoft accounts**: upload a new skin (classic or slim model), reset to the default skin, and choose which cape to show, right from the Accounts page; the 3D preview shows the cape too
-- **External login**: accounts from LittleSkin and other authlib-injector skin sites (just enter the site's address); authlib-injector is downloaded automatically at launch. Only encrypted login tokens are stored, never your password
+- Offline accounts, **Microsoft accounts** and authlib-injector skin sites such as LittleSkin
+- 3D skin preview; change skins and capes for Microsoft accounts
 
-### Interface
-- **Minecraft news**: the Home page shows official Java Edition news and update posts; click one to read it in your browser. When offline, the last fetched news is shown. You can turn it off on Home or in Settings
-- Glass-style design with page transition animations
-- Dark / light / follow-system themes
-- **Update check**: checks GitHub for new versions at startup and shows a notice in the bottom-right corner, with the release notes; click "Download and update" to download the new version inside the launcher (verified with SHA-256), then "Restart and update" to replace the launcher and reopen it automatically (portable, installer, AppImage and macOS builds), with no manual file replacing; check manually or turn this off under Settings → About
+### Appearance
+- Dark / light / system themes, theme presets and animated particle backgrounds
+- Original built-in themes (HD wallpapers and background music); custom wallpapers (images or video), accent colors, fonts and UI scale
+- Background music player, click effects and official Minecraft news
+- Automatic updates with signature verification and one-click restart
 
-| Launch animation | Per-version settings |
+## Microsoft Account Login
+
+The launcher uses Microsoft's official device code sign-in: enter the code shown by the launcher on Microsoft's website and you are signed in. The launcher never sees your password.
+
+- Add multiple Microsoft accounts and switch between them
+- Credentials are encrypted with the operating system's secure storage and refreshed automatically when you launch the game
+- Change your skin and cape from the Accounts page after signing in
+
+## Data Location
+
+The portable version stores data in `LiuliLauncher-Data` next to the exe. The installed version uses:
+
+| System | Path |
 |---|---|
-| ![Launch animation](website/images/launch.webp) | ![Per-version settings](website/images/vsettings.webp) |
+| Windows | `%APPDATA%\mc_launcher` |
+| macOS | `~/Library/Application Support/mc_launcher` |
+| Linux | `~/.config/mc_launcher` |
 
-| Community resources | Mod management |
-|---|---|
-| ![Community resources](website/images/download.webp) | ![Mod management](website/images/mods.webp) |
+This data is kept when you uninstall.
 
-![Personalization](website/images/theme.webp)
-
-## Getting started
+## Development
 
 ### Requirements
 - [Node.js](https://nodejs.org/) 22.12 or later
-- Java is required to run the game: Java 21 for 1.20.5 and later, Java 17 for 1.18–1.20.4, Java 16 for 1.17, and Java 8 for older versions
 
 ### Run
 ```bash
@@ -107,107 +121,54 @@ npm install
 npm run dev
 ```
 
-The project ships with an `.npmrc` that downloads Electron from a mirror in China. If you are elsewhere and the mirror is slow, delete that line from `.npmrc` to use the default source.
-
-### Other commands
+### Commands
 | Command | Description |
 |---|---|
-| `npm run dev` | Run in development mode (reloads on code changes) |
-| `npm run build` | Build into the `out/` directory |
-| `npm run typecheck` | Run TypeScript type checking |
-| `npm run format` | Format code with Prettier (`format:check` only checks) |
-| `npm run build:win` | Build both the Windows installer and the portable version |
-| `npm run build:win:setup` | Build the installer only |
-| `npm run build:win:portable` | Build the portable version only |
-| `npm run build:unpack` | Build an unpacked app folder (no installer, for quick testing) |
+| `npm run dev` | Run in development mode |
+| `npm run build` | Build into `out/` |
+| `npm run typecheck` | TypeScript type check |
+| `npm run format` | Format with Prettier (`format:check` only checks) |
+| `npm run build:win` | Package the Windows installer and portable version |
+| `npm run build:mac` | Package the macOS dmg (run on macOS) |
+| `npm run build:linux` | Package the Linux AppImage |
 
-### Building for Windows
-On Windows, run:
-```bash
-npm run build:win
+Packages are written to `dist/`. Official releases are built and published by the Release workflow on GitHub Actions.
+
+### Project structure
 ```
-Two files are written to `dist/`:
+src/
+├── main/        # Main process: installation, launching, accounts, mods, etc.
+├── preload/     # Preload script exposing window.api to the UI
+├── renderer/    # UI (React)
+└── shared/      # Types and helpers shared by main and renderer
+```
 
-| File | Description |
-|---|---|
-| `LiuliLauncher-Setup-<version>.exe` | **Installer**: lets you choose the install location and creates desktop and Start menu shortcuts. Uninstalling keeps your settings, accounts and game files |
-| `LiuliLauncher-Portable-<version>.exe` | **Portable**: a single exe that runs without installation. Data is stored in the `LiuliLauncher-Data` folder next to the exe, so you can carry both on a USB drive |
-
-The portable version unpacks itself on every start, so it launches a few seconds slower than the installed one. If the exe's folder is not writable (e.g. inside `C:\Program Files`), data is stored in the same place as the installed version instead.
-
-> The installer is currently not code-signed, so Windows SmartScreen may show "Windows protected your PC" on first run. Click **More info** → **Run anyway**.
-
-`build:mac` / `build:linux` build a macOS dmg and a Linux AppImage respectively, and must be run on those systems.
-
-To publish a new version, go to Actions → Release → Run workflow and enter the version (e.g. `0.2.0`). Windows, macOS (Apple silicon and Intel) and Linux builds are created and published to Releases automatically. Once a Windows code signing certificate and an Apple developer certificate are configured in the repository, builds are signed automatically (macOS builds are also notarized by Apple) and the signatures are verified before publishing; see [Code signing](docs/code-signing.md) (Chinese). Without them, unsigned builds are published: on macOS, right-click → **Open** the first time, and if macOS says the app is damaged, run `xattr -cr /Applications/琉璃启动器.app` in Terminal.
-
-## Microsoft login
-
-Minecraft's login API only accepts **Azure apps approved by Mojang**. The Client ID is compiled into the app **at build time**: it is not shown in the UI and not stored in the source code (so others can't simply reuse it). To build with Microsoft login, first register your own Client ID:
-
-1. Sign in to the [Azure portal](https://portal.azure.com), search for **App registrations** → **New registration**:
-   - Name: e.g. `Liuli Launcher`
-   - Supported account types: **Personal Microsoft accounts only**
-   - Redirect URI: leave empty
-2. Under **Authentication**, set **Allow public client flows** to **Yes** and save (no client secret is needed)
-3. Submit the [Mojang review form](https://aka.ms/mce-reviewappid), choose *New AppID for Approval*, and fill in the Application (client) ID and Directory (tenant) ID from the app's **Overview** page
-4. Copy `.env.example` in the project root to `.env` and fill in the Client ID:
-   ```
-   MAIN_VITE_MS_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-   ```
-   `.env` is listed in `.gitignore` and will not be committed. Both `npm run dev` and packaged builds will then have Microsoft login enabled
-5. For releases built by GitHub Actions, add a secret named `MS_CLIENT_ID` under the repository's Settings → Secrets and variables → Actions
-
-Without a Client ID, the **添加微软账号 (Add Microsoft account)** button is disabled and only offline accounts are available. Until the app is approved, login fails at the last step with a "not approved by Mojang" message. This is expected.
-
-## Data location
-
-The portable version keeps its data in the `LiuliLauncher-Data` folder next to the exe. The installed version and development mode use:
-
-| OS | Path |
-|---|---|
-| Windows | `%APPDATA%\mc_launcher` |
-| macOS | `~/Library/Application Support/mc_launcher` |
-| Linux | `~/.config/mc_launcher` |
-
-- `settings.json`: launcher settings
-- `accounts.json`: Microsoft accounts (credentials are encrypted with the OS secure storage)
-- `.minecraft/`: default game directory (can be changed in Settings to the official launcher's directory or any folder)
-- `cache/`: cached files such as OptiFine installers
-
-## Tech stack
+## Tech Stack
 
 - [Electron](https://www.electronjs.org/) + [electron-vite](https://electron-vite.org/)
 - [React 18](https://react.dev/) + TypeScript + [Tailwind CSS](https://tailwindcss.com/) + [Framer Motion](https://www.framer.com/motion/) + [Lucide](https://lucide.dev/)
-- [@xmcl](https://github.com/Voxelum/minecraft-launcher-core-node) libraries for game installation, launching, mod parsing and Microsoft login
-- [skinview3d](https://github.com/bs-community/skinview3d) for 3D skin preview
-
-```
-src/
-├── main/        # Main process: downloads, installation, launching, accounts, mods
-├── preload/     # Preload script: exposes window.api to the UI
-├── renderer/    # UI (React)
-└── shared/      # Types shared by the main process and the UI
-```
-
-## Acknowledgements
-
-- [BMCLAPI](https://bmclapi2.bangbang93.com/): download mirror
-- [MCIM](https://mod.mcimirror.top/): Modrinth mirror
-- [Modrinth](https://modrinth.com/): mod search and downloads
-- [@xmcl / minecraft-launcher-core-node](https://github.com/Voxelum/minecraft-launcher-core-node)
-- [skinview3d](https://github.com/bs-community/skinview3d)
+- [@xmcl](https://github.com/Voxelum/minecraft-launcher-core-node): game installation, launching, mod parsing and sign-in
+- [skinview3d](https://github.com/bs-community/skinview3d): 3D skin preview
 
 ## Contributing
 
-Issues and pull requests are welcome. Please read the [contributing guide](CONTRIBUTING.md) (Chinese) and the [code of conduct](CODE_OF_CONDUCT.md) first. Report security issues privately as described in [SECURITY.md](SECURITY.md).
+Issues and pull requests are welcome. Please read the [contributing guide](CONTRIBUTING.md) and [code of conduct](CODE_OF_CONDUCT.md) first. Report security vulnerabilities privately as described in the [security policy](SECURITY.md).
+
+## Acknowledgements
+
+- [BMCLAPI](https://bmclapi2.bangbang93.com/): download mirror for mainland China
+- [MCIM](https://mod.mcimirror.top/): Modrinth and CurseForge mirror
+- [Modrinth](https://modrinth.com/), [CurseForge](https://www.curseforge.com/minecraft): community resources
+- [mclo.gs](https://mclo.gs/): log sharing
+- [EasyTier](https://github.com/EasyTier/EasyTier): P2P multiplayer
+- [@xmcl / minecraft-launcher-core-node](https://github.com/Voxelum/minecraft-launcher-core-node), [skinview3d](https://github.com/bs-community/skinview3d)
 
 ## Disclaimer
 
 This project is not affiliated with Mojang Studios or Microsoft. Minecraft is a trademark of Mojang Studios. Please buy the game to support its developers.
 
-The launcher collects no data; see the [Privacy Policy](PRIVACY.md).
+The launcher does not collect any data. See the [privacy policy](PRIVACY.md).
 
 ## License
 
-[MIT](LICENSE)
+Released under the [MIT License](LICENSE).

@@ -18,7 +18,7 @@ npm install
 npm run dev        # 开发模式运行
 ```
 
-微软登录需要自己的 Azure 应用 Client ID，配置方法见 README 的「微软正版登录」。没有配置时只能使用离线账号，其他功能不受影响。
+微软登录需要经过 Mojang 审核的 Azure 应用 Client ID，构建时通过环境变量传入（参考 `.env.example`）。没有配置时只能使用离线账号，其他功能不受影响。
 
 ## 提交代码
 

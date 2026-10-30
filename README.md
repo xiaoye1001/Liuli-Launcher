@@ -4,112 +4,112 @@
 
 一个界面清爽、开箱即用的 **Minecraft: Java Edition** 启动器
 
-玻璃质感界面 · 深浅色主题 · 国内镜像高速下载 · 模组加载器一键安装 · 微软正版登录
+[![Release](https://img.shields.io/github/v/release/xiaoye1001/Liuli-Launcher)](https://github.com/xiaoye1001/Liuli-Launcher/releases/latest)
+[![License](https://img.shields.io/github/license/xiaoye1001/Liuli-Launcher)](LICENSE)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)
 
 **简体中文** | [English](README.en.md)
 
 </div>
 
-![主页](website/images/home.webp)
+## 目录
+
+- [简介](#简介)
+- [下载安装](#下载安装)
+- [功能](#功能)
+- [微软正版登录](#微软正版登录)
+- [数据存放位置](#数据存放位置)
+- [开发](#开发)
+- [技术栈](#技术栈)
+- [参与贡献](#参与贡献)
+- [致谢](#致谢)
+- [声明](#声明)
+- [许可证](#许可证)
+
+## 简介
+
+琉璃启动器基于 Electron + React 开发，支持 Windows、macOS 和 Linux。它把游戏下载、模组加载器安装、社区资源、整合包、多人联机和个性化外观放在一个玻璃质感的界面里，面向国内网络环境做了镜像加速，安装后即可直接使用。
+
+## 下载安装
+
+在 [Releases](https://github.com/xiaoye1001/Liuli-Launcher/releases/latest) 页面下载对应系统的安装包：
+
+| 系统 | 文件 | 说明 |
+|---|---|---|
+| Windows | `LiuliLauncher-Setup-<版本号>.exe` | 安装版，可选择安装位置并创建快捷方式 |
+| Windows | `LiuliLauncher-Portable-<版本号>.exe` | 免安装版，数据保存在 exe 旁边的 `LiuliLauncher-Data` 文件夹 |
+| macOS（Apple 芯片） | `LiuliLauncher-<版本号>-arm64.dmg` | 打开后拖入「应用程序」 |
+| macOS（Intel） | `LiuliLauncher-<版本号>-x64.dmg` | 同上 |
+| Linux | `LiuliLauncher-<版本号>.AppImage` | 添加执行权限后直接运行，需要 FUSE 2 |
+
+运行游戏需要 Java：1.20.5 及以上需要 Java 21，1.18 ~ 1.20.4 需要 Java 17，1.17 需要 Java 16，更早的版本需要 Java 8。启动器可以自动下载合适的 Java。
+
+> 安装包目前没有代码签名。Windows 首次运行如果提示「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」；macOS 首次打开请在「应用程序」中右键 →「打开」。
 
 ## 功能
 
 ### 游戏下载与安装
-- 版本列表分为正式版、快照版和远古版，支持搜索
-- 两个下载源可选：**BMCLAPI 镜像**（国内推荐）或 **Mojang 官方源**，镜像失败时自动回退到官方
-- 多线程下载，实时显示进度和速度；安装过程中可以取消，失败后可以重试
-- **高速多线程下载**：模组、整合包、资源包优先用多线程分块下载（服务器支持分块且文件大于 2 MB 时自动切块并发下载），出现任何问题时自动改用普通方式重新下载，保证下载成功；「更多 → 百宝箱」里可以输入任意 HTTP / HTTPS 直链高速下载，可选线程数和保存位置，支持暂停、继续、取消，用分块进度条显示每个线程的进度以及网速和剩余时间
-- **百宝箱**（「更多」页面）：
-  - 清理游戏垃圾缓存：旧日志、崩溃报告、下载残留、启动器缓存，以及没有版本使用的资源文件；先显示大小，勾选后再删除，不碰存档、模组和设置
-  - Java 环境深度检测：本机每个 Java 的版本、发行方、32 / 64 位、CPU 架构和适合的游戏版本，提示 32 位 Java、Apple 芯片上用 Intel 版 Java、环境变量注入参数等问题，并检查已安装的版本是否都有合适的 Java
-  - 下载源测速：对比官方源与国内镜像（游戏文件、模组）的延迟和下载速度，推荐更快的一个并一键切换
-- **下载与网络设置**：可以调整同时下载数；支持系统代理或手动设置 HTTP 代理（下载、版本列表、Modrinth、登录和界面图片都走代理），可以一键测试各服务器能否连接
-- 安装前可以自定义版本名，并选择要附加的模组加载器：
-  - **Forge**、**NeoForge**、**Fabric**、**Quilt**（四选一）
-  - **OptiFine**（可以单独安装，也可以和 Forge 一起安装）
-- 导入本地整合包（点按钮选择，或直接拖进窗口）：支持 Modrinth（`.mrpack`）、CurseForge、MultiMC / Prism、MCBBS（`.zip`）格式，自动安装对应的 Minecraft 与模组加载器（Forge / NeoForge / Fabric / Quilt）、下载全部模组并放好配置文件
-- **导出整合包**：把版本导出为 Modrinth（`.mrpack`）、CurseForge、MultiMC / Prism、MCBBS 格式，自由勾选要带上的模组、配置、资源包、存档等；Modrinth 格式可以把 Modrinth 上能找到的文件改为下载地址，整合包更小
-- 已安装版本可以「检查并修复」，只重新下载缺失或损坏的文件
-- 删除版本前会检查是否有其他版本依赖它；版本文件夹里有存档时会特别提醒
+- 正式版、快照版、远古版列表，支持搜索；可选 **BMCLAPI 镜像** 或 **Mojang 官方源**，镜像失败时自动回退
+- 一键安装 **Forge**、**NeoForge**、**Fabric**、**Quilt** 和 **OptiFine**
+- 多线程分块下载，支持取消、重试；已安装版本可以「检查并修复」
+- 导入、导出 Modrinth（`.mrpack`）、CurseForge、MultiMC / Prism、MCBBS 格式整合包；从下载页安装的整合包支持 **一键更新**，保留存档和改过的配置
 
 ### 社区资源
-「下载」页左侧分为 **原版游戏** 和 **社区资源**（Mod、整合包、数据包、资源包、光影包），来源可以选 **全部**（同时搜索 Modrinth 和 CurseForge，合并显示并标出来源，两边都有的项目只显示 Modrinth 的）、**Modrinth** 或 **CurseForge**：
-- CurseForge 通过 MCIM 镜像访问，不需要 API Key；下载源选 BMCLAPI 时文件也优先从镜像下载
-- 每类资源都可以搜索，并按 Minecraft 版本、加载器、分类（仅 Modrinth）筛选，按下载量、更新时间等排序
-- 展开项目可以看到全部版本，符合筛选条件的排在前面，可以自己挑要下载的版本
-- 选好「安装到」哪个游戏版本后，筛选条件会自动跟随该版本的 Minecraft 版本和加载器
-- 模组放进 `mods`（自动安装前置模组），资源包放进 `resourcepacks`，光影包放进 `shaderpacks`，数据包放进所选存档的 `datapacks`；整合包下载后进入安装页
+- 同时搜索 **Modrinth** 与 **CurseForge**（CurseForge 通过 MCIM 镜像访问），下载模组、整合包、数据包、资源包和光影包
+- 按游戏版本、加载器、分类筛选和排序；安装模组时自动安装前置模组
+- 常用模组显示中文名，可以直接用中文名搜索
 
 ### 启动
-- **自动选择 Java**：按每个游戏版本的要求挑选本机合适的 Java，没有时启动游戏会自动下载（与官方启动器相同的 Java 运行环境）；也可以在设置或版本设置的下拉列表里手动指定
-- **自动分配内存**（默认开启）：启动时根据游戏版本、模组数量和体积、是否开着光影、Distant Horizons、高清材质包、渲染距离以及电脑的可用内存决定，够用而不多给（原版 1 ~ 2 GB，模组版本 2.5 GB 起，最多 16 GB），设置里会列出建议值由哪几项组成；也可以改为手动设置；默认同时优化 Java 内存回收，不用的内存及时还给系统、减少回收造成的卡顿
-- **启动动画**：打开启动器时播放开屏动画；点「启动游戏」后显示分阶段的启动进度（账号、Java、游戏文件、拉起进程、窗口就绪），游戏窗口出现前可以随时取消，也能展开实时日志；启动器不在前台时，在屏幕中央显示启动悬浮窗；游戏加载画面可以改用黑色背景（1.17 及以上）
-- **启动前检查游戏文件**：发现缺失或损坏的游戏本体、依赖库、资源文件时自动下载补全再启动，只下载有问题的文件（可在设置中关闭）
-- 实时游戏日志窗口，支持搜索过滤和一键复制；默认启动时不自动打开，主页的「日志」按钮可以随时打开或关闭
-- **游玩统计**：记录每个版本的累计游玩时长与启动次数；主页显示「最近游玩」，点一下直接启动（可以收起，也可以在主页或设置中关闭）；游戏运行时显示本次已玩时长
-- **崩溃分析**：游戏崩溃后自动读取日志、崩溃报告和 Java 崩溃日志，用中文说明原因和解决办法：缺少前置模组、模组版本不匹配或冲突、重复模组、Mixin 注入失败、Java 版本过高或过低、内存不足、JVM 参数无效、显卡驱动、OptiFine 不兼容、文件损坏等；可以一键打开崩溃报告，或把相关文件导出为 zip 发给别人求助
-- **多个游戏目录**：在「设置」中添加多个 `.minecraft` 文件夹（例如官方启动器的目录、各个整合包的文件夹），可以重命名、从列表移除（不删除文件）；在「版本」页顶部随时切换，每个目录记住各自选中的版本
-- **日志分享**：在日志窗口、崩溃提示或版本的「更多」菜单（最近一次运行的 `latest.log`）中一键上传到 [mclo.gs](https://mclo.gs/)，得到链接自动复制，方便发给别人求助；上传前会去掉登录令牌和用户文件夹路径
-- **版本收藏与图标**：在「版本」页点星标收藏常玩的版本，收藏的版本在版本列表和主页的版本选择里排在前面，也可以只看收藏；点版本图标可以换成内置的方块图标（泥土、工作台、TNT、钻石块等 18 种）或自己的图片（自动裁成正方形并缩小）
-- **版本隔离**：模组版本（或全部版本）各自使用独立的 `mods`、存档和配置，互不干扰
-- **版本管理**：「版本」页集中管理已安装的版本：设为启动版本、模组、存档、资源、版本设置、打开文件夹、检查修复、删除；还可以重命名、复制版本（可选是否带上存档），或在桌面创建快捷方式，双击直接启动这个版本
-- **存档管理**：显示存档名称、图标、游戏模式（极限 / 作弊）、游戏版本和最后游玩时间；一键备份为 zip，随时从备份还原（覆盖原存档前会自动备份当前存档，也可以还原为新存档；已删除的存档也能从备份找回）、从 zip 导入存档、删除到回收站；管理存档里的数据包（显示启用状态，可以添加、下载、删除）
-- **存档详情**：在存档列表里展开「详情」查看种子（一键复制）、难度、世界类型、游戏内天数和时间、天气、出生点、玩家所在位置和状态、存档大小，以及全部游戏规则（常用规则显示中文名，和默认值不同的会标出来，可以只看改过的）；支持 1.12 等旧版本到最新版本的存档格式
-- **截图管理**：按版本查看游戏截图（缩略图网格），点开大图预览、键盘左右切换，可以复制到剪贴板直接粘贴到聊天软件、在文件夹中显示或删除
-- **资源包与光影管理**：查看每个版本的资源包（显示图标和简介）和光影包；在启动器里直接启用资源包、切换或关闭光影（支持 Iris、Oculus、OptiFine），也可以添加文件、删除到回收站；可以检查 Modrinth 上的资源包和光影包有没有新版本并一键更新，启用中的资源包和正在使用的光影更新后保持启用
-- **版本设置**（「版本」页或主页版本旁的齿轮按钮）：每个版本可以单独设置内存、Java、版本隔离、游戏窗口大小（或全屏）以及附加的 JVM / 游戏参数；还可以设置包装命令（如 gamemoderun、prime-run）、环境变量、启动前执行的命令（失败时取消启动）和游戏退出后执行的命令，命令中可以使用 `INST_NAME`、`INST_DIR` 等变量。没有单独设置的项跟随全局设置。设置保存在该版本文件夹的 `liuli-version.json` 中。会在电脑上运行程序的设置（启动前 / 退出后命令、包装命令、环境变量、指定的 Java、JVM 参数）如果不是在本启动器里设置的（例如别人分享的版本文件夹自带的），第一次启动前会列出来请你确认
+- 自动选择或下载合适的 Java；按游戏版本、模组、光影和电脑内存 **自动分配内存**
+- 启动前检查游戏文件，缺失或损坏时自动补全
+- 分阶段的启动动画、实时日志窗口；游戏运行中可以一键结束游戏
+- **崩溃分析**：用中文说明崩溃原因和解决办法，可一键分享日志到 [mclo.gs](https://mclo.gs/)
+- 每个版本可以单独设置内存、Java、窗口大小、JVM 参数、启动前 / 退出后命令等
+- 支持多个游戏目录、版本隔离、版本收藏与自定义图标、游玩时长统计
 
-### 服务器
-- 侧栏「服务器」页收藏常玩的服务器，显示服务器图标、彩色简介（MOTD）、在线人数、延迟和服务端版本，支持 SRV 记录（不写端口的域名）
-- 点「加入」启动游戏并直接进入服务器（1.20 及以上使用 Quick Play，更早的版本使用 `--server` 参数），每个服务器可以指定使用的游戏版本
-- 可以从游戏「多人游戏」列表（`servers.dat`）一键导入
+### 版本与存档管理
+- 模组管理：启用 / 禁用、依赖检查、检查更新
+- 存档管理：备份与还原、导入、查看种子与游戏规则、管理数据包
+- 资源包、光影包和游戏截图管理
 
-### 多人联机
-- 侧栏「联机」页，三种方式和好友一起玩，都用一个房间码搞定：在游戏里点「对局域网开放」，启动器自动识别端口，点「创建房间」把房间码发给好友；好友在「加入房间」里粘贴，房间会出现在游戏「多人游戏」列表底部，也可以手动连接显示的本地地址
-- **极速直连**（`MCL-D-` 房间码）：适合有公网 IPv6 / 公网 IPv4 或在同一局域网，不需要任何组件
-- **P2P 组网**（`MCL-P2P-` 房间码）：基于开源的 [EasyTier](https://github.com/EasyTier/EasyTier)，自动打洞，打洞失败时通过中继服务器连接；首次使用一键下载联机内核（下载后校验 SHA-256），房主没有内核时自动先生成直连房间码；可以填写自己的中继服务器，房间码会带上它
-- **内网穿透**（`MCL-T-` 房间码）：填写樱花穿透、ChmlFrp 等工具得到的地址，生成房间码发给好友
-- 房客实时显示延迟、上下行流量和连接数；加入失败（例如还没下载内核）时下载后可以一键重新加入
-- 房主实时显示世界里的在线玩家（P2P 房间还显示流量和好友连接数）；退出世界或关闭游戏时会提醒，重新对局域网开放后自动恢复；降级为直连的房间下载内核后可以一键改用 P2P 房间
-- 一键给模组版本安装联机模组 e4mc 或 World Host（自动安装前置）
-
-### 模组管理
-- 读取每个模组的名称、版本、简介和图标，支持 Fabric / Quilt / Forge / NeoForge
-- 启用或禁用模组（与其他启动器通用的 `.disabled` 方式）；删除的模组会移到回收站
-- 标出与当前版本加载器不兼容的模组
-- **模组依赖检查**：打开模组管理时自动检查缺少的前置模组（读取 Fabric / Quilt / Forge / NeoForge 的描述文件，包括模组内嵌的子模组）、被禁用的前置和重复安装的模组；可以一键启用被禁用的前置、禁用重复的模组，或直接搜索下载缺少的前置
-- **检查模组更新**：识别 Modrinth 上发布的模组，找出适用于当前游戏版本和加载器的新版本，可以逐个或一键全部更新；正式版不会被升级成测试版，禁用的模组更新后仍然禁用，旧版本移到回收站
-- 在启动器里直接 **从 Modrinth 搜索并安装模组**：只显示适用于当前版本的模组，并自动安装必需的前置模组
+### 服务器与多人联机
+- 收藏服务器，显示在线人数、延迟和 MOTD，点「加入」直接进入
+- 三种联机方式，都用一个房间码完成：**极速直连**、**P2P 组网**（基于 [EasyTier](https://github.com/EasyTier/EasyTier)）和 **内网穿透**
 
 ### 账号
-- **离线账号**：可以保存多个离线账号，每个账号有自己的玩家名和皮肤，一键切换；皮肤用 3D 模型预览，提供多种动作
-- **微软正版登录**：在微软官网输入代码完成登录，启动器不接触你的密码；支持多个账号切换，启动时自动续期登录状态
-- **正版皮肤与披风**：在账号页直接上传新皮肤（可选经典或纤细体型）、恢复默认皮肤、选择显示哪件披风，3D 预览同步显示披风
-- **外置登录**：支持 LittleSkin 等 authlib-injector 皮肤站账号（填皮肤站首页地址即可），启动时自动下载 authlib-injector；只保存加密的登录令牌，不保存密码
+- 离线账号、**微软正版账号**、外置登录（LittleSkin 等 authlib-injector 皮肤站）
+- 3D 皮肤预览，正版账号可以直接更换皮肤和披风
 
-### 界面
-- **Minecraft 新闻**：主页显示 Minecraft 官方发布的 Java 版新闻与更新公告，点击在浏览器中阅读全文；没有网络时显示上次获取的新闻，可以在主页或设置中关闭
-- 玻璃质感设计，页面切换动画
-- 深色 / 浅色 / 跟随系统 三种主题
-- **主题方案与动态背景**（「设置 → 个性化」）：7 套一键切换的主题——极夜流光（流动极光）、晴空柔光（阳光光晕与飘动云雾）、樱花物语（花瓣飘落）、末地星云（紫色星尘上浮）、极简亚克力（微噪点与边缘高光）、下界余烬（热浪与升腾火星）以及经典琉璃；背景粒子特效可单独选择（樱花、末影星尘、萤火虫、细雨微尘、下界余烬），启动游戏或最小化窗口时自动暂停，不占用性能；壁纸支持图片和 MP4 / WebM 视频（循环静音播放），也可以输入网络图片直链添加；粒子数量、速度可调，鼠标靠近时粒子会躲开；鼠标视差让背景分层轻微移动；可以把调好的外观保存为「我的主题」（最多 20 个），导出为 .liulitheme 文件分享（壁纸一起打包），或导入别人的主题；可以按时间自动切换白天 / 夜晚主题
-- **个性化**（「设置 → 个性化」）：10 种预设主题色，也可以用取色器或输入颜色代码自定义（太亮或太暗的颜色会自动调整，保证文字清楚）；面板不透明度和毛玻璃模糊程度可调；背景库可一次添加多张图片（最多 50 张），支持固定一张、每次启动随机、定时轮播（淡入淡出），填充方式可选填充 / 适应 / 拉伸 / 居中 / 平铺，并可调模糊和遮罩；界面字体可从电脑已安装的字体中选择（可搜索、可预览，也能直接输入字体名称）；界面缩放 80%～150%，也可以用 Ctrl + 加号 / 减号 / 0 或 Ctrl + 鼠标滚轮调整；背景音乐：可添加多首（或直接放进音乐文件夹），列表循环 / 随机播放 / 单曲循环，淡入淡出，游戏运行时自动暂停，侧边栏有迷你播放器；可以自定义侧边栏的启动器名称、隐藏不常用的页面，以及主页欢迎语（支持插入玩家名、问候语、当前版本、随机小贴士）
-- **检查更新**：启动时自动检查 GitHub 上的新版本，在窗口右下角提示，可以查看更新内容；点「下载并更新」在启动器里下载新版本（校验 SHA-256），再点「重启并更新」自动替换并重新打开（免安装版、安装版、AppImage、macOS 都支持），不用自己替换文件；也可以在「设置 → 其它」的「关于」中手动检查或关闭自动检查；配置了官网时，可以选择更新来源（自动 / 官网 / GitHub），国内从官网下载更快
+### 界面与个性化
+- 深色 / 浅色 / 跟随系统主题，多套主题方案和动态粒子背景
+- 原创精选主题（高清壁纸与背景音乐）；自定义壁纸（图片或视频）、主题色、字体、界面缩放
+- 背景音乐播放器、鼠标点击特效、Minecraft 官方新闻
+- 自动检查更新，下载后校验签名并一键重启更新
 
-| 启动动画 | 版本设置 |
+## 微软正版登录
+
+启动器使用微软官方的设备代码登录：在微软官网输入启动器显示的代码即可完成登录，启动器不会接触你的账号密码。
+
+- 支持添加多个微软账号并随时切换
+- 登录凭证使用系统的安全存储加密保存，启动游戏时自动续期
+- 登录后可以在账号页更换正版皮肤和披风
+
+## 数据存放位置
+
+免安装版的数据在 exe 旁边的 `LiuliLauncher-Data` 文件夹；安装版保存在：
+
+| 系统 | 路径 |
 |---|---|
-| ![启动动画](website/images/launch.webp) | ![版本设置](website/images/vsettings.webp) |
+| Windows | `%APPDATA%\mc_launcher` |
+| macOS | `~/Library/Application Support/mc_launcher` |
+| Linux | `~/.config/mc_launcher` |
 
-| 下载资源 | 模组管理 |
-|---|---|
-| ![下载资源](website/images/download.webp) | ![模组管理](website/images/mods.webp) |
+卸载时不会删除这些数据。
 
-![个性化](website/images/theme.webp)
-
-## 快速开始
+## 开发
 
 ### 环境要求
 - [Node.js](https://nodejs.org/) 22.12 或更高版本
-- 运行游戏需要安装 Java：1.20.5 及以上需要 Java 21，1.18 ~ 1.20.4 需要 Java 17，1.17 需要 Java 16，更早的版本需要 Java 8
 
 ### 运行
 ```bash
@@ -119,105 +119,47 @@ npm install
 npm run dev
 ```
 
-项目自带 `.npmrc`，Electron 会从国内镜像下载，安装速度更快。
-
-### 其他命令
+### 常用命令
 | 命令 | 作用 |
 |---|---|
-| `npm run dev` | 开发模式运行（修改代码后自动刷新） |
+| `npm run dev` | 开发模式运行 |
 | `npm run build` | 构建到 `out/` 目录 |
 | `npm run typecheck` | TypeScript 类型检查 |
-| `npm run format` | 用 Prettier 格式化代码（`format:check` 只检查不修改） |
-| `npm run build:win` | 同时打包 Windows 安装版与免安装版 |
-| `npm run build:win:setup` | 只打包安装版 |
-| `npm run build:win:portable` | 只打包免安装版 |
-| `npm run build:unpack` | 打包成免安装文件夹（不生成安装程序，用于快速测试） |
+| `npm run format` | 用 Prettier 格式化代码（`format:check` 只检查） |
+| `npm run build:win` | 打包 Windows 安装版与免安装版 |
+| `npm run build:mac` | 打包 macOS dmg（需要在 macOS 上运行） |
+| `npm run build:linux` | 打包 Linux AppImage |
 
-### 打包 Windows 版本
-在 Windows 上运行：
-```bash
-npm run build:win
-```
-完成后在 `dist/` 目录得到两个文件：
+打包结果在 `dist/` 目录。正式版本由 GitHub Actions 的 Release 工作流自动构建并发布。
 
-| 文件 | 说明 |
-|---|---|
-| `LiuliLauncher-Setup-<版本号>.exe` | **安装版**：可以选择安装位置，会创建桌面和开始菜单快捷方式；卸载时不会删除你的设置、账号和游戏文件 |
-| `LiuliLauncher-Portable-<版本号>.exe` | **免安装版**：单个 exe，双击直接运行；数据保存在 exe 旁边的 `LiuliLauncher-Data` 文件夹，连同 exe 一起复制到 U 盘就能带走 |
-
-免安装版每次启动需要先解压，会比安装版慢几秒。exe 所在位置不可写时（例如放在 `C:\Program Files` 里），数据会改存到与安装版相同的位置。
-
-> 安装包目前没有代码签名，第一次运行时 Windows 可能提示「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」即可。
-
-`build:mac` / `build:linux` 分别用于打包 macOS（dmg）和 Linux（AppImage），需要在对应系统上运行。
-
-发布新版本时，在仓库的 Actions → Release → Run workflow 中填写版本号（例如 `0.2.0`），会自动打包 Windows、macOS（Apple 芯片与 Intel）、Linux 三个平台并发布到 Releases。在仓库里配置好 Windows 代码签名证书、Apple 开发者证书后，发布时会自动签名（macOS 还会提交 Apple 公证），并自动检查签名是否有效，配置方法见 [代码签名](docs/code-signing.md)。没有配置时打包未签名的版本：macOS 第一次打开需要右键 →「打开」，提示「已损坏」时在终端运行 `xattr -cr /Applications/琉璃启动器.app`。
-
-## 微软正版登录
-
-Minecraft 的登录接口只允许 **经过 Mojang 审核的 Azure 应用** 使用。Client ID 在**构建时**写入程序，界面中不会显示，也不保存在源码里（避免被他人直接复用）。自己构建时需要先申请一个 Client ID：
-
-1. 登录 [Azure 门户](https://portal.azure.com)，搜索「**应用注册**」→「**新注册**」：
-   - 名称：例如 `Liuli Launcher`
-   - 受支持的帐户类型：**仅个人 Microsoft 帐户**
-   - 重定向 URI：留空
-2. 在应用的「**身份验证**」中，把「**允许公共客户端流**」设为「是」并保存（不需要创建客户端密码）
-3. 在 [Mojang 审核表单](https://aka.ms/mce-reviewappid) 提交申请，选择 *New AppID for Approval*，并填写「概述」页中的应用程序(客户端) ID 和目录(租户) ID
-4. 把项目根目录的 `.env.example` 复制为 `.env`，填入 Client ID：
-   ```
-   MAIN_VITE_MS_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-   ```
-   `.env` 已加入 `.gitignore`，不会被提交。之后 `npm run dev` 与打包出的程序都会开启微软登录
-5. 用 GitHub Actions 发布时，在仓库的 Settings → Secrets and variables → Actions 中添加名为 `MS_CLIENT_ID` 的 Secret
-
-没有配置 Client ID 时，「添加微软账号」按钮不可用，只能使用离线账号。审核通过前，登录会在最后一步提示「未通过 Mojang 审核」，这是正常的。
-
-## 数据存放位置
-
-免安装版的数据在 exe 旁边的 `LiuliLauncher-Data` 文件夹；安装版与开发模式如下：
-
-| 系统 | 路径 |
-|---|---|
-| Windows | `%APPDATA%\mc_launcher` |
-| macOS | `~/Library/Application Support/mc_launcher` |
-| Linux | `~/.config/mc_launcher` |
-
-- `settings.json`：启动器设置
-- `accounts.json`：微软账号（登录凭证用系统安全存储加密）
-- `.minecraft/`：默认游戏目录（可以在「设置」中添加官方启动器的目录或任意文件夹并切换）
-- `cache/`：OptiFine 安装器等缓存
-
-## 官网
-
-`website/` 是启动器的官网（纯静态网页，自动显示最新版本和下载按钮）。部署到自己的服务器（宝塔面板）的方法见 [deploy/README.md](deploy/README.md)：服务器上的脚本会定时检查新版本，自动下载安装包并更新网页。官网提供的版本信息可以用数字签名保护，见 [docs/update-signing.md](docs/update-signing.md)。
-
-## 技术栈
-
-- [Electron](https://www.electronjs.org/) + [electron-vite](https://electron-vite.org/)
-- [React 18](https://react.dev/) + TypeScript + [Tailwind CSS](https://tailwindcss.com/) + [Framer Motion](https://www.framer.com/motion/) + [Lucide](https://lucide.dev/)
-- [@xmcl](https://github.com/Voxelum/minecraft-launcher-core-node) 系列库：游戏安装、启动、模组解析、微软登录
-- [skinview3d](https://github.com/bs-community/skinview3d)：3D 皮肤预览
-
+### 项目结构
 ```
 src/
 ├── main/        # 主进程：下载安装、启动游戏、账号、模组管理等
 ├── preload/     # 预加载脚本：向界面暴露 window.api
 ├── renderer/    # 界面（React）
-└── shared/      # 主进程与界面共用的类型定义
+└── shared/      # 主进程与界面共用的类型和工具
 ```
+
+## 技术栈
+
+- [Electron](https://www.electronjs.org/) + [electron-vite](https://electron-vite.org/)
+- [React 18](https://react.dev/) + TypeScript + [Tailwind CSS](https://tailwindcss.com/) + [Framer Motion](https://www.framer.com/motion/) + [Lucide](https://lucide.dev/)
+- [@xmcl](https://github.com/Voxelum/minecraft-launcher-core-node)：游戏安装、启动、模组解析与登录
+- [skinview3d](https://github.com/bs-community/skinview3d)：3D 皮肤预览
+
+## 参与贡献
+
+欢迎提交 Issue 和 Pull Request，请先阅读 [贡献指南](CONTRIBUTING.md) 与 [行为准则](CODE_OF_CONDUCT.md)。安全漏洞请按 [安全策略](SECURITY.md) 私下报告。
 
 ## 致谢
 
 - [BMCLAPI](https://bmclapi2.bangbang93.com/)：国内下载镜像
 - [MCIM](https://mod.mcimirror.top/)：Modrinth 与 CurseForge 国内镜像
+- [Modrinth](https://modrinth.com/)、[CurseForge](https://www.curseforge.com/minecraft)：社区资源
 - [mclo.gs](https://mclo.gs/)：日志分享
-- [Modrinth](https://modrinth.com/)、[CurseForge](https://www.curseforge.com/minecraft)：模组搜索与下载
-- [@xmcl / minecraft-launcher-core-node](https://github.com/Voxelum/minecraft-launcher-core-node)
-- [skinview3d](https://github.com/bs-community/skinview3d)
-
-## 参与贡献
-
-欢迎提交问题和代码，请先阅读 [贡献指南](CONTRIBUTING.md) 与 [行为准则](CODE_OF_CONDUCT.md)。安全漏洞请按 [安全策略](SECURITY.md) 私下报告。
+- [EasyTier](https://github.com/EasyTier/EasyTier)：P2P 联机
+- [@xmcl / minecraft-launcher-core-node](https://github.com/Voxelum/minecraft-launcher-core-node)、[skinview3d](https://github.com/bs-community/skinview3d)
 
 ## 声明
 
@@ -227,4 +169,4 @@ src/
 
 ## 许可证
 
-[MIT](LICENSE)
+本项目基于 [MIT 许可证](LICENSE) 开源。
