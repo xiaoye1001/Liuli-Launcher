@@ -45,12 +45,20 @@ module.exports = {
     '!{README.md,README.en.md,PRIVACY.md,CONTRIBUTING.md,SECURITY.md,CODE_OF_CONDUCT.md}',
     '!{.env,.env.*,.npmrc,pnpm-lock.yaml}',
     '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,*.tsbuildinfo}',
-    '!{tailwind.config.js,postcss.config.js}'
+    '!{tailwind.config.js,postcss.config.js}',
+    // 依赖库里运行时用不到的文件：源码映射、说明文档、类型定义（约 3.5 MB）
+    '!**/node_modules/**/*.{map,md,markdown}',
+    '!**/node_modules/undici/{docs,types}/**',
+    '!**/node_modules/readable-stream/doc/**'
   ],
+  // Electron 自带 55 种语言的界面文字（约 47 MB），启动器界面是中文，只保留简体、繁体中文和英文（其他语言回退到英文）
+  electronLanguages: ['zh-CN', 'zh-TW', 'en-US'],
   asarUnpack: ['resources/**'],
   win: {
     // 可执行文件用英文名，避免部分环境下中文路径出问题
     executableName: 'LiuliLauncher',
+    // 最高压缩：安装版、免安装版都小约 10%，只是打包慢一些（解压只在安装 / 首次运行时进行一次）
+    compression: 'maximum',
     target: [
       { target: 'nsis', arch: ['x64'] },
       { target: 'portable', arch: ['x64'] }
@@ -80,6 +88,8 @@ module.exports = {
   },
   mac: {
     target: ['dmg'],
+    // 最高压缩：dmg 只在安装时解压一次
+    compression: 'maximum',
     artifactName: 'LiuliLauncher-${version}-${arch}.${ext}',
     category: 'public.app-category.games',
     ...(macSigned
@@ -103,6 +113,7 @@ module.exports = {
   },
   linux: {
     target: ['AppImage'],
+    // AppImage 每次启动都要边读边解压，保持默认压缩，不拖慢启动
     executableName: 'liuli-launcher',
     artifactName: 'LiuliLauncher-${version}.${ext}',
     category: 'Game'
