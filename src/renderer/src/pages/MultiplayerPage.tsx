@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ArrowDown,
   ArrowUp,
@@ -376,7 +376,6 @@ function MultiplayerPage(): JSX.Element {
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const roleRef = useRef<MultiplayerStatus['role']>('idle')
 
   const refreshCore = (): void => {
     void window.api.getP2PCoreStatus().then(setCore)
@@ -387,20 +386,17 @@ function MultiplayerPage(): JSX.Element {
     void window.api.getMultiplayerStatus().then((s) => {
       if (!alive) return
       setStatus(s)
-      roleRef.current = s.role
     })
     void window.api.getLocalAddresses().then((a) => alive && setAddresses(a))
     refreshCore()
-    const off = window.api.onMultiplayerStatus((s) => {
-      setStatus(s)
-      roleRef.current = s.role
-    })
-    // 在这个页面时自动检测「对局域网开放」的世界；有房间进行中时离开页面也继续检测
+    const off = window.api.onMultiplayerStatus(setStatus)
+    // 在这个页面时自动检测「对局域网开放」的世界；离开页面时告诉主进程，
+    // 由主进程决定是否继续检测（有正常进行中的房间时继续，房间结束或出错后停止）
     void window.api.setLanSniffer(true)
     return () => {
       alive = false
       off()
-      if (roleRef.current === 'idle') void window.api.setLanSniffer(false)
+      void window.api.setLanSniffer(false)
     }
   }, [])
 
@@ -417,7 +413,6 @@ function MultiplayerPage(): JSX.Element {
     try {
       const next = await action()
       setStatus(next)
-      roleRef.current = next.role
     } catch (e) {
       setError(cleanIpcError(e))
     } finally {
