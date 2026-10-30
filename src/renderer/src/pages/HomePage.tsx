@@ -1,6 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Box, Check, ChevronDown, Gamepad2, Loader2, Play, Settings2, Star, Terminal, UserRound } from 'lucide-react'
+import {
+  Box,
+  Check,
+  ChevronDown,
+  Gamepad2,
+  Loader2,
+  Play,
+  Settings2,
+  Square,
+  Star,
+  Terminal,
+  UserRound
+} from 'lucide-react'
 import CrashCard from '../components/CrashCard'
 import RecentPlays from '../components/RecentPlays'
 import VersionIcon from '../components/VersionIcon'
@@ -219,6 +231,52 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
       return id
     })
 
+  /** 「结束游戏」按钮：第一次点击后进入确认状态，3 秒内再点一次才真正结束（防止误点丢失进度） */
+  const [killConfirm, setKillConfirm] = useState(false)
+  const [killing, setKilling] = useState(false)
+  const [killError, setKillError] = useState('')
+  /** 进入确认状态的时间：双击时第二下来得太快，不当作确认（防止习惯性双击直接结束游戏） */
+  const killArmedAt = useRef(0)
+  useEffect(() => {
+    if (!killConfirm) return
+    const timer = setTimeout(() => setKillConfirm(false), 3000)
+    return () => clearTimeout(timer)
+  }, [killConfirm])
+  /** 鼠标在启动按钮上（游戏运行中时显示为「结束游戏」） */
+  const [launchHover, setLaunchHover] = useState(false)
+  // 游戏状态变化时恢复按钮（游戏窗口挡住启动器时收不到鼠标移开的事件，悬停状态也一起清掉）
+  useEffect(() => {
+    setLaunchHover(false)
+    if (game.state !== 'running') {
+      setKillConfirm(false)
+      setKilling(false)
+    }
+    if (game.state === 'launching') setKillError('')
+  }, [game.state])
+  const running = game.state === 'running'
+  const stopStyle = killConfirm || killing || launchHover
+
+  const onKill = async (): Promise<void> => {
+    if (killing) return
+    if (!killConfirm) {
+      killArmedAt.current = Date.now()
+      setKillError('')
+      setKillConfirm(true)
+      return
+    }
+    // 双击的第二下：不算确认
+    if (Date.now() - killArmedAt.current < 400) return
+    setKillConfirm(false)
+    setKilling(true)
+    try {
+      // 已经不在运行（刚好自己退出了）时返回 false，按钮跟随状态推送消失
+      if (!(await window.api.killGame())) setKilling(false)
+    } catch (e) {
+      setKilling(false)
+      setKillError(cleanError(e))
+    }
+  }
+
   // 游戏运行时每秒刷新「本次已玩」时长
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
@@ -342,20 +400,41 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
             日志
           </button>
 
+          {/* 游戏运行中时，启动按钮变成「结束游戏」按钮：鼠标移上去变红，3 秒内点两次才结束（防止误点丢失进度） */}
           <motion.button
             whileHover={!busy && selected && nameValid ? { scale: 1.04 } : undefined}
             whileTap={!busy && selected && nameValid ? { scale: 0.96 } : undefined}
-            onClick={onLaunch}
-            disabled={busy || !selected || !nameValid}
-            className="flex min-w-44 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-8 py-3 font-semibold shadow-lg shadow-emerald-500/30 disabled:cursor-not-allowed disabled:from-slate-600 disabled:to-slate-500 disabled:shadow-none"
+            onClick={running ? () => void onKill() : onLaunch}
+            onMouseEnter={() => setLaunchHover(true)}
+            onMouseLeave={() => setLaunchHover(false)}
+            disabled={running ? killing : busy || !selected || !nameValid}
+            aria-label={running ? (killConfirm ? '确认结束游戏' : '结束游戏') : undefined}
+            title={running ? '强制结束游戏：游戏卡死或无法正常关闭时使用，没有保存的进度会丢失' : undefined}
+            className={`flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r px-8 py-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:from-slate-600 disabled:to-slate-500 disabled:shadow-none ${
+              running
+                ? // 运行中固定最小宽度：切换「结束游戏」「确认结束？」文字时按钮宽度不变，这一行不会跳动
+                  'min-w-56 ' +
+                  (stopStyle
+                    ? 'from-red-600 to-rose-500 shadow-lg shadow-red-500/30 disabled:cursor-wait'
+                    : 'from-slate-600 to-slate-500')
+                : 'min-w-44 from-emerald-500 to-cyan-500 shadow-lg shadow-emerald-500/30'
+            }`}
           >
             {game.state === 'launching' && <Loader2 className="h-5 w-5 animate-spin" />}
-            {game.state === 'running' && <Gamepad2 className="h-5 w-5" />}
+            {running && killing && <Loader2 className="h-5 w-5 animate-spin" />}
+            {running && !killing && stopStyle && <Square className="h-4 w-4 fill-current" />}
+            {running && !stopStyle && <Gamepad2 className="h-5 w-5" />}
             {!busy && <Play className="h-5 w-5 fill-current" />}
             {game.state === 'launching'
               ? '正在启动...'
-              : game.state === 'running'
-                ? `游戏运行中${game.startedAt ? ` · ${formatClock(now - game.startedAt)}` : ''}`
+              : running
+                ? killing
+                  ? '正在结束…'
+                  : killConfirm
+                    ? '确认结束？'
+                    : launchHover
+                      ? '结束游戏'
+                      : `游戏运行中${game.startedAt ? ` · ${formatClock(now - game.startedAt)}` : ''}`
                 : '启动游戏'}
           </motion.button>
         </div>
@@ -371,8 +450,12 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
             </div>
           </div>
         )}
+        {killConfirm && (
+          <p className="mt-2 text-xs text-red-300">再点一次「确认结束？」强制结束游戏，没有保存的进度会丢失</p>
+        )}
         {!nameValid && <p className="mt-2 text-xs text-red-300">玩家名只能包含字母、数字和下划线，长度 3~16</p>}
         {launchError && <p className="mt-2 text-xs text-red-300">启动失败：{launchError}</p>}
+        {killError && <p className="mt-2 text-xs text-red-300">结束游戏失败：{killError}</p>}
       </div>
     </div>
   )

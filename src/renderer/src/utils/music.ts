@@ -13,6 +13,8 @@ export interface MusicState {
   /** 因游戏运行而暂停 */
   gamePaused: boolean
   error: string
+  /** 正在只循环播放当前主题的专属音乐（音乐文件夹里有这首时） */
+  themeTrack: string
 }
 
 let state: MusicState = {
@@ -22,11 +24,14 @@ let state: MusicState = {
   playing: false,
   userPaused: false,
   gamePaused: false,
-  error: ''
+  error: '',
+  themeTrack: ''
 }
 let volume = 40
 let order: MusicOrder = 'sequential'
 let pauseInGame = true
+/** 设置里的主题音乐（文件可能已经被删除，实际是否生效看 state.themeTrack） */
+let themeMusic = ''
 let gameRunning = false
 /** 连续播放失败的次数：全部失败时停下，避免一直循环 */
 let failures = 0
@@ -73,12 +78,29 @@ function fadeTo(target: number, ms: number, done?: () => void): void {
   }, 30)
 }
 
+/** 实际播放的列表：主题有专属音乐时只播这一首，否则播放全部音乐 */
+function playlist(): string[] {
+  return state.themeTrack ? [state.themeTrack] : state.tracks
+}
+
+/** 根据设置和音乐列表算出主题音乐是否生效 */
+/** 已经为哪首主题音乐重新读取过音乐列表 */
+let refreshedFor = ''
+
+function updateThemeTrack(): boolean {
+  const themeTrack = themeMusic && state.tracks.includes(themeMusic) ? themeMusic : ''
+  if (themeTrack === state.themeTrack) return false
+  set({ themeTrack })
+  return true
+}
+
 function shouldPlay(): boolean {
   return state.enabled && state.tracks.length > 0 && !state.userPaused && !state.gamePaused
 }
 
 function pickNext(direction: 1 | -1): string {
-  const { tracks, current } = state
+  const tracks = playlist()
+  const { current } = state
   if (tracks.length === 0) return ''
   if (order === 'shuffle' && tracks.length > 1) {
     if (direction === -1 && history.length > 1) {
@@ -102,7 +124,7 @@ function load(name: string): void {
   if (history[history.length - 1] !== name) history.push(name)
   if (history.length > 50) history.shift()
   audio.src = musicUrl(name)
-  audio.loop = order === 'single'
+  audio.loop = order === 'single' || state.themeTrack !== ''
 }
 
 /** 根据当前状态开始或停止播放 */
@@ -112,7 +134,8 @@ function sync(): void {
     set({ playing: false })
     return
   }
-  if (!state.current || !state.tracks.includes(state.current)) load(state.tracks[0])
+  const list = playlist()
+  if (!state.current || !list.includes(state.current)) load(list[0])
   if (audio.paused) {
     audio.volume = 0
     void audio.play().catch(() => undefined)
@@ -132,7 +155,8 @@ audio.addEventListener('ended', () => {
 audio.addEventListener('error', () => {
   if (!state.current) return
   failures++
-  if (failures >= state.tracks.length) {
+  // 只循环主题音乐时列表里只有一首：失败一次就停下，不反复重试
+  if (failures >= playlist().length) {
     set({ playing: false, error: `无法播放「${trackTitle(state.current)}」，文件可能已损坏或格式不受支持` })
     return
   }
@@ -145,7 +169,25 @@ function applySettings(settings: AppSettings): void {
   volume = Number.isFinite(settings.musicVolume) ? settings.musicVolume : 40
   order = settings.musicOrder ?? 'sequential'
   pauseInGame = settings.musicPauseInGame !== false
-  audio.loop = order === 'single'
+  themeMusic = typeof settings.themeMusic === 'string' ? settings.themeMusic : ''
+  // 主题音乐是刚复制进音乐文件夹的：重新读取列表后再切换（每首只读一次，文件被删掉时不会每次改设置都去读）
+  if (themeMusic && !state.tracks.includes(themeMusic) && refreshedFor !== themeMusic) {
+    refreshedFor = themeMusic
+    void refreshMusic()
+  }
+  // 切换到带音乐的主题（或取消）：淡出当前曲目，换成主题音乐（或全部音乐的第一首）
+  let swapping = false
+  if (updateThemeTrack() && state.current && !playlist().includes(state.current)) {
+    const next = playlist()[0]
+    if (!audio.paused) {
+      swapping = true
+      fadeTo(0, 500, () => {
+        load(next)
+        sync()
+      })
+    } else load(next)
+  }
+  audio.loop = order === 'single' || state.themeTrack !== ''
   const enabled = settings.musicEnabled === true
   // 重新开启时取消之前的手动暂停
   set({
@@ -153,6 +195,8 @@ function applySettings(settings: AppSettings): void {
     userPaused: enabled && !state.enabled ? false : state.userPaused,
     gamePaused: pauseInGame && gameRunning
   })
+  // 正在淡出换曲：淡出结束后会自己换曲并继续播放，这里不能打断淡出
+  if (swapping) return
   if (!audio.paused) fadeTo(targetVolume(), 200)
   sync()
 }
@@ -173,11 +217,15 @@ export async function refreshMusic(): Promise<void> {
   if (same) return
   failures = 0
   set({ tracks, error: '' })
+  const themeChanged = updateThemeTrack()
   if (state.current && !tracks.includes(state.current)) {
     // 正在播放的曲目被删除了
     audio.pause()
     audio.removeAttribute('src')
     set({ current: '' })
+  } else if (themeChanged && state.current && !playlist().includes(state.current)) {
+    // 主题音乐刚复制进来：换成主题音乐
+    load(playlist()[0])
   }
   sync()
 }
@@ -190,9 +238,12 @@ export function initMusic(): void {
   void Promise.all([window.api.getSettings(), window.api.getGameStatus(), window.api.listMusic()]).then(
     ([settings, status, tracks]) => {
       gameRunning = status.state === 'launching' || status.state === 'running'
-      // 启动时从随机一首开始（随机播放）或第一首开始
+      // 启动时从随机一首开始（随机播放）或第一首开始；主题有专属音乐时从那一首开始
       set({ tracks })
-      if (settings.musicOrder === 'shuffle' && tracks.length) {
+      themeMusic = typeof settings.themeMusic === 'string' ? settings.themeMusic : ''
+      updateThemeTrack()
+      if (state.themeTrack) load(state.themeTrack)
+      else if (settings.musicOrder === 'shuffle' && tracks.length) {
         load(tracks[Math.floor(Math.random() * tracks.length)])
       }
       applySettings(settings)
@@ -213,7 +264,16 @@ export function togglePlay(): void {
   sync()
 }
 
+/** 手动切歌或选择其他曲目：不再只播主题音乐，回到全部音乐 */
+function leaveThemeMusic(): void {
+  if (!state.themeTrack) return
+  themeMusic = ''
+  set({ themeTrack: '' })
+  void window.api.updateSettings({ themeMusic: '' }).catch(() => undefined)
+}
+
 export function nextTrack(): void {
+  leaveThemeMusic()
   failures = 0
   load(pickNext(1))
   set({ userPaused: false })
@@ -227,6 +287,7 @@ export function prevTrack(): void {
     audio.currentTime = 0
     return
   }
+  leaveThemeMusic()
   failures = 0
   load(pickNext(-1))
   set({ userPaused: false })
@@ -236,6 +297,7 @@ export function prevTrack(): void {
 
 export function playTrack(name: string): void {
   if (!state.tracks.includes(name)) return
+  if (name !== state.themeTrack) leaveThemeMusic()
   failures = 0
   if (name !== state.current) load(name)
   set({ userPaused: false })

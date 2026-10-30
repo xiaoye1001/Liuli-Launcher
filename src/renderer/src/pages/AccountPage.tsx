@@ -5,6 +5,7 @@ import SkinViewer3D, { type SkinAnimation } from '../components/SkinViewer3D'
 import AccountList from '../components/AccountList'
 import MsSkinPanel from '../components/MsSkinPanel'
 import type { AccountsInfo, AppSettings, MsSkinProfile, SkinModel } from '../../../shared/types'
+import PageHeader from '../components/PageHeader'
 
 const ANIMATIONS: { key: SkinAnimation; label: string }[] = [
   { key: 'idle', label: '站立' },
@@ -135,8 +136,8 @@ function AccountPage(): JSX.Element {
       </section>
 
       {/* 账号与皮肤设置 */}
-      <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-y-auto pr-1">
-        <h1 className="text-3xl font-bold tracking-tight">账号</h1>
+      <div className="page-scroll flex min-w-0 flex-1 flex-col gap-4">
+        <PageHeader title="账号" subtitle="切换启动游戏使用的账号，更换皮肤和披风" />
 
         <section className="rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
           <div className="mb-4 flex items-center gap-3">

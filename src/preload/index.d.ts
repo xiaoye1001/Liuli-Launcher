@@ -37,6 +37,8 @@ import type {
   MsLoginStatus,
   ModrinthInstallResult,
   ModpackInfo,
+  ModpackUpdateCheck,
+  ModpackUpdatePlan,
   ModrinthProjectHit,
   ResourceSearchFilters,
   ResourceTarget,
@@ -255,6 +257,14 @@ declare global {
       downloadModpack: (versionId: string) => Promise<ModpackInfo>
       /** 下载页一键安装：下载整合包并直接开始安装，返回使用的版本名 */
       downloadAndInstallModpack: (versionId: string) => Promise<string>
+      /** 检查整合包有没有新版本（从下载页安装的整合包） */
+      checkModpackUpdate: (versionId: string) => Promise<ModpackUpdateCheck>
+      /** 下载整合包的新版本并读取信息，确认后用 applyModpackUpdate 开始更新 */
+      prepareModpackUpdate: (versionId: string, packVersionId: string) => Promise<ModpackUpdatePlan>
+      /** 选择新版本的整合包文件来更新，取消时为 null */
+      pickModpackUpdateFile: (versionId: string) => Promise<ModpackUpdatePlan | null>
+      /** 开始更新整合包（进度通过 onInstallStatus 推送） */
+      applyModpackUpdate: (versionId: string, token: string) => Promise<void>
       /** 拖入窗口的文件在本机的路径 */
       getPathForFile: (file: File) => string
       installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>
@@ -288,6 +298,8 @@ declare global {
       getJavaRequirement: (versionId: string) => Promise<number | null>
       /** 取消正在进行的启动（游戏窗口出现之前有效），返回是否已发出取消 */
       cancelLaunch: () => Promise<boolean>
+      /** 强制结束正在运行的游戏，游戏没有在运行时返回 false */
+      killGame: () => Promise<boolean>
       onGameStatus: (callback: (status: GameStatus) => void) => () => void
       /** 选择背景图片，取消时返回原设置 */
       pickBackground: () => Promise<AppSettings>
@@ -302,6 +314,8 @@ declare global {
       exportTheme: (themeId?: string) => Promise<{ path: string; wallpaperSkipped: boolean } | null>
       /** 导入主题：保存到「我的主题」并立即应用；取消时返回 null */
       importTheme: () => Promise<{ settings: AppSettings; themeId: string; name: string } | null>
+      /** 应用精选主题（复制壁纸和音乐后应用整套外观），返回新的设置 */
+      applyBuiltinTheme: (id: string) => Promise<AppSettings>
       /** 背景音乐列表（music 文件夹里的音频文件名） */
       listMusic: () => Promise<string[]>
       /** 添加背景音乐（可以多选），返回新的列表 */

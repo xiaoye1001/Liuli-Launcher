@@ -19,6 +19,7 @@ import {
   PackageOpen,
   PenLine,
   Puzzle,
+  PackageCheck,
   RefreshCw,
   Search,
   Settings2,
@@ -26,6 +27,8 @@ import {
   Wrench
 } from 'lucide-react'
 import VersionIconPicker from '../components/VersionIconPicker'
+import ModpackUpdateDialog from '../components/ModpackUpdateDialog'
+import PageHeader from '../components/PageHeader'
 import { formatDuration } from '../utils/format'
 import InstallProgressCard from '../components/InstallProgressCard'
 import LocalResourcesPage from './LocalResourcesPage'
@@ -94,10 +97,13 @@ function MoreMenu({
   onShareLog,
   onOpenFolder,
   onRepair,
-  onDelete
+  onDelete,
+  onUpdateModpack
 }: {
   busy: boolean
   repairing: boolean
+  /** 更新整合包（只有模组版本有） */
+  onUpdateModpack?: () => void
   onRename: () => void
   onCopy: () => void
   onShortcut: () => void
@@ -155,6 +161,7 @@ function MoreMenu({
           {item(<PenLine className="h-4 w-4" />, '重命名', onRename, false, busy)}
           {item(<Copy className="h-4 w-4" />, '复制版本', onCopy, false, busy)}
           {item(<MonitorSmartphone className="h-4 w-4" />, '创建桌面快捷方式', onShortcut)}
+          {onUpdateModpack && item(<PackageCheck className="h-4 w-4" />, '更新整合包', onUpdateModpack, false, busy)}
           {item(<PackageOpen className="h-4 w-4" />, '导出整合包', onExport)}
           {item(<Share2 className="h-4 w-4" />, '分享最近的日志', onShareLog)}
           <div className="my-1 border-t border-white/10" />
@@ -298,6 +305,7 @@ function VersionsPage({
   const [resourcesFor, setResourcesFor] = useState<InstalledVersion | null>(null)
   const [worldsFor, setWorldsFor] = useState<InstalledVersion | null>(null)
   const [exportFor, setExportFor] = useState<InstalledVersion | null>(null)
+  const [updatingFor, setUpdatingFor] = useState<InstalledVersion | null>(null)
   const lastState = useRef<string | undefined>(undefined)
   /** 分享哪个版本的 latest.log */
   const shareTarget = useRef('')
@@ -415,6 +423,16 @@ function VersionsPage({
           }}
         />
       )}
+      {updatingFor && (
+        <ModpackUpdateDialog
+          version={updatingFor}
+          onClose={() => setUpdatingFor(null)}
+          onStarted={(message) => {
+            setUpdatingFor(null)
+            setNotice(message)
+          }}
+        />
+      )}
       {settingsFor && (
         <div key={settingsFor.id} className="h-full animate-slide-in">
           <VersionSettingsPage version={settingsFor} onBack={() => setSettingsFor(null)} onChanged={load} />
@@ -449,12 +467,12 @@ function VersionsPage({
         </div>
       )}
       <div
-        className={`flex h-full flex-col gap-5 ${settingsFor || modsFor || resourcesFor || worldsFor || exportFor ? 'hidden' : ''}`}
+        className={`flex h-full flex-col gap-4 ${settingsFor || modsFor || resourcesFor || worldsFor || exportFor ? 'hidden' : ''}`}
       >
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-3xl font-bold tracking-tight">版本</h1>
-            <div className="mt-1 flex min-w-0 items-center gap-1 text-xs text-white/50">
+        <PageHeader
+          title="版本"
+          subtitle={
+            <>
               <span className="shrink-0">已安装 {installed?.length ?? 0} 个版本 · 游戏目录：</span>
               {dirs.length > 1 ? (
                 <select
@@ -462,7 +480,7 @@ function VersionsPage({
                   onChange={(e) => switchGameDir(e.target.value)}
                   aria-label="切换游戏目录"
                   title={`${gameDir}\n可以在「设置 → 启动」中添加、重命名游戏目录`}
-                  className="min-w-0 max-w-xs cursor-pointer rounded-lg border border-white/10 bg-black/20 px-2 py-1 text-xs text-white/80 outline-none hover:bg-black/30"
+                  className="min-w-0 max-w-xs cursor-pointer h-5 rounded-md border border-white/10 bg-black/20 px-1.5 py-0 text-xs leading-4 text-white/80 outline-none hover:bg-black/30"
                 >
                   {dirs.map((d) => (
                     <option key={d.path} value={d.path} className="bg-slate-800 text-white">
@@ -475,33 +493,35 @@ function VersionsPage({
                   {gameDir}
                 </span>
               )}
-            </div>
-          </div>
-          <div className="flex shrink-0 gap-3">
-            <button
-              onClick={() => window.api.openGameDir()}
-              title="在文件管理器中打开游戏目录"
-              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
-            >
-              <HardDrive className="h-4 w-4" />
-              游戏目录
-            </button>
-            <button
-              onClick={() => run(load)}
-              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
-            >
-              <RefreshCw className="h-4 w-4" />
-              刷新
-            </button>
-            <button
-              onClick={onInstallNew}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2 text-sm font-medium shadow-lg shadow-emerald-500/20"
-            >
-              <Download className="h-4 w-4" />
-              安装新版本
-            </button>
-          </div>
-        </div>
+            </>
+          }
+          actions={
+            <>
+              <button
+                onClick={() => window.api.openGameDir()}
+                title="在文件管理器中打开游戏目录"
+                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+              >
+                <HardDrive className="h-4 w-4" />
+                游戏目录
+              </button>
+              <button
+                onClick={() => run(load)}
+                className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+              >
+                <RefreshCw className="h-4 w-4" />
+                刷新
+              </button>
+              <button
+                onClick={onInstallNew}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2 text-sm font-medium shadow-lg shadow-emerald-500/20"
+              >
+                <Download className="h-4 w-4" />
+                安装新版本
+              </button>
+            </>
+          }
+        />
 
         {/* 检查修复的进度 */}
         <AnimatePresence>
@@ -621,6 +641,14 @@ function VersionsPage({
                       <div className="mt-1 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs">
                         <span className={`shrink-0 rounded-md px-2 py-0.5 ${info.className}`}>{info.label}</span>
                         <span className="shrink-0 text-white/50">{version.minecraftVersion}</span>
+                        {version.modpack && (
+                          <span
+                            title={`用启动器安装的整合包：${version.modpack.name} ${version.modpack.version}`}
+                            className="min-w-0 max-w-40 truncate rounded-md bg-emerald-500/15 px-2 py-0.5 text-emerald-300"
+                          >
+                            整合包 {version.modpack.version}
+                          </span>
+                        )}
                         {version.isolated && (
                           <span
                             title="模组、存档、配置放在该版本自己的文件夹里"
@@ -658,11 +686,17 @@ function VersionsPage({
                   >
                     <Star className={`h-4 w-4 ${version.favorite ? 'fill-current' : ''}`} />
                   </button>
-                  {isModded(version) && (
+                  {isModded(version) ? (
                     <button onClick={() => setModsFor(version)} title="管理该版本的模组" className={actionClass}>
                       <Puzzle className="h-3.5 w-3.5" />
                       模组
                     </button>
+                  ) : (
+                    // 原版没有「模组」按钮：留出同样宽的空位，每一行的按钮都上下对齐
+                    <span aria-hidden className={`${actionClass} invisible`}>
+                      <Puzzle className="h-3.5 w-3.5" />
+                      模组
+                    </span>
                   )}
                   <button
                     onClick={() => setWorldsFor(version)}
@@ -707,6 +741,7 @@ function VersionsPage({
                     onOpenFolder={() => window.api.openVersionDir(version.id)}
                     onRepair={() => repair(version.id)}
                     onDelete={() => remove(version.id)}
+                    onUpdateModpack={isModded(version) || version.modpack ? () => setUpdatingFor(version) : undefined}
                   />
                 </div>
               )

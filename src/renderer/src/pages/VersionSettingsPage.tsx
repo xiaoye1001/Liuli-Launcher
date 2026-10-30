@@ -457,27 +457,27 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-black/20 p-2">
-            <VersionIcon icon={version.icon} iconUrl={version.iconUrl} className="h-10 w-10" />
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-black/20">
+            <VersionIcon icon={version.icon} iconUrl={version.iconUrl} className="h-9 w-9" />
           </div>
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-xl font-bold" title={version.id}>
               {version.id}
             </h1>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="rounded-md bg-white/10 px-2 py-0.5">Minecraft {version.minecraftVersion}</span>
+            <div className="mt-0.5 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs leading-[18px]">
+              <span className="rounded-md bg-white/10 shrink-0 px-2">Minecraft {version.minecraftVersion}</span>
               {version.loader && (
-                <span className="rounded-md bg-sky-500/15 px-2 py-0.5 text-sky-300">
+                <span className="rounded-md bg-sky-500/15 shrink-0 px-2 text-sky-300">
                   {LOADER_NAMES[version.loader]}
                 </span>
               )}
               {required && (
-                <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-amber-200">需要 Java {required}+</span>
+                <span className="rounded-md bg-amber-500/15 shrink-0 px-2 text-amber-200">需要 Java {required}+</span>
               )}
-              <span className="rounded-md bg-white/10 px-2 py-0.5 text-white/60">
+              <span className="rounded-md bg-white/10 shrink-0 px-2 text-white/60">
                 {isolatedNow ? '版本隔离' : '共用游戏目录'}
               </span>
-              <span className="text-white/40">
+              <span className="truncate text-white/40">
                 {overriddenCount > 0 ? `已单独设置 ${overriddenCount} 项，其余跟随全局设置` : '全部跟随全局设置'}
               </span>
             </div>
@@ -504,9 +504,9 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
             }}
             disabled={!customized}
             title="清除该版本的所有单独设置，全部跟随全局设置"
-            className="flex shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <RotateCcw className="h-4 w-4" />
+            <RotateCcw className="h-3.5 w-3.5" />
             全部恢复默认
           </button>
         </div>
@@ -519,7 +519,7 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+      <div className="page-scroll min-h-0 flex-1">
         <div className="grid gap-4 lg:grid-cols-2">
           {/* 内存 */}
           <Card

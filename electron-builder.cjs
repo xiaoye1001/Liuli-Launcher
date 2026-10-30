@@ -60,6 +60,8 @@ module.exports = {
   // 免安装版：单个 exe，双击直接运行，数据保存在 exe 旁边的 LiuliLauncher-Data 文件夹
   portable: {
     artifactName: 'LiuliLauncher-Portable-${version}.${ext}'
+    // 不要开启 useZip：内部改用 zip（Deflate）后免安装版从约 117 MB 变成 165 MB（v0.4.5 试过），
+    // Deflate 开到最高压缩也只省 1 MB 左右，所以保持默认的 7z（LZMA）
   },
   nsis: {
     artifactName: 'LiuliLauncher-Setup-${version}.${ext}',

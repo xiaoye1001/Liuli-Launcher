@@ -9,7 +9,7 @@ import { versionGameDir } from './isolation'
 import { getVersionConfig, isCustomized, isolatedWith, parseEnvVars, splitArgs } from './versionConfig'
 import { getMicrosoftLaunchAuth } from './microsoft'
 import { pickJava, requirementOf } from './javaRuntime'
-import { cancelInstall, completeMissingFiles, startJavaInstall } from './install'
+import { cancelInstall, completeMissingFiles, getInstallStatus, startJavaInstall } from './install'
 import { countMissing, findMissingFiles, type MissingFiles } from './fileCheck'
 import { autoMemory } from './memory'
 import { gcTuningArgs } from './gcTuning'
@@ -23,6 +23,7 @@ import { recordSession } from './playStats'
 import { parseAddress } from './serverPing'
 import { ensureAuthlibInjector } from './authlibInjector'
 import { readVersionDisplay } from './versionDisplay'
+import { installedModpackOf, readModpackRecord } from './modpackRecord'
 import { assertSafeId } from './versionManage'
 import { confirmVersionConfig } from './versionTrust'
 import type { GameLogEvent, GameStatus, InstalledVersion, JavaInfo, MemoryPlan, ModLoader } from '../shared/types'
@@ -30,10 +31,11 @@ import type { GameLogEvent, GameStatus, InstalledVersion, JavaInfo, MemoryPlan, 
 /** 根据版本 json 的启动类与依赖库判断模组加载器 */
 export function detectLoader(json: { mainClass?: string; libraries?: { name?: string }[] }): ModLoader | undefined {
   const text = `${json.mainClass ?? ''} ${(json.libraries ?? []).map((l) => l.name ?? '').join(' ')}`
-  // Quilt 版本也会用到 Fabric 的 intermediary 映射库，所以先判断 Quilt
-  if (/org\.quiltmc/.test(text)) return 'quilt'
-  if (/net\.fabricmc/.test(text)) return 'fabric'
-  if (/net\.neoforged/.test(text)) return 'neoforge'
+  // 按各加载器自己的核心库判断：NeoForge、新版 Forge 也会带 Fabric 的 Mixin 库（net.fabricmc:sponge-mixin），
+  // Quilt 也会带 Fabric 的 intermediary 映射库，不能只看 net.fabricmc
+  if (/org\.quiltmc[.:](quilt-loader|loader\.)/.test(text)) return 'quilt'
+  if (/net\.neoforged[.:]/.test(text)) return 'neoforge'
+  if (/net\.fabricmc[.:](fabric-loader|loader\.)/.test(text)) return 'fabric'
   if (/net\.minecraftforge|cpw\.mods/.test(text)) return 'forge'
   if (/(^|\s)optifine:/i.test(text)) return 'optifine'
   return undefined
@@ -64,6 +66,7 @@ export async function listInstalledVersions(): Promise<InstalledVersion[]> {
         isolated: isolatedWith(config, versionIsolation, loader),
         customized: isCustomized(config),
         ...(await readVersionDisplay(gameDir, id)),
+        modpack: await readModpackRecord(gameDir, id).then((r) => (r ? installedModpackOf(r) : undefined)),
         // 加载器版本继承自原版，原版版本的 id 就是版本号
         minecraftVersion: json.inheritsFrom ?? json.liuliMinecraftVersion ?? json.id ?? id
       })
@@ -89,6 +92,10 @@ let status: GameStatus = { state: 'idle', versionId: '' }
 let cancelRequested = false
 /** 已经创建、但窗口还没出现的游戏进程（取消时结束它） */
 let cancellableProc: ChildProcess | null = null
+/** 正在运行的游戏进程（强制结束游戏时使用），游戏退出后清空 */
+let gameProc: ChildProcess | null = null
+/** 玩家点了「结束游戏」：游戏退出后不当作崩溃 */
+let killRequested = false
 /** 启动过程中自动开始的下载（Java、补全游戏文件）正在进行：取消启动时一起取消 */
 let launchDownloading = false
 
@@ -113,6 +120,18 @@ export function cancelLaunch(): boolean {
   if (cancellableProc) killTree(cancellableProc)
   // 正在自动下载 Java 或补全游戏文件：立即停止下载，不用等下载完成
   if (launchDownloading) void cancelInstall().catch(() => undefined)
+  return true
+}
+
+/**
+ * 强制结束正在运行的游戏（游戏卡死、无法正常关闭时使用）：连同游戏启动的子进程一起结束。
+ * 游戏没有在运行时返回 false。没有保存的游戏进度会丢失
+ */
+export function killGame(): boolean {
+  if (status.state !== 'running' || !gameProc) return false
+  if (!killRequested) launcherLog('正在强制结束游戏…')
+  killRequested = true
+  killTree(gameProc)
   return true
 }
 
@@ -355,6 +374,11 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
   if (status.state === 'launching' || status.state === 'running') {
     throw new Error('游戏已经在运行中')
   }
+  // 这个版本正在安装、修复或更新整合包：文件还没装完，启动会出错（Windows 上还会占用正在替换的文件）
+  const install = getInstallStatus()
+  if (install?.state === 'running' && install.versionId === versionId) {
+    throw new Error('这个版本正在安装或更新，请等完成后再启动')
+  }
 
   // 在第一次等待之前就标记为启动中，同时到达的两次启动请求只有一个能继续
   resetLogs()
@@ -549,6 +573,8 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     })
     launcherLog(`游戏进程已创建（PID ${proc.pid}）`)
     cancellableProc = proc
+    gameProc = proc
+    killRequested = false
     // 创建进程期间点了取消：直接结束刚创建的进程
     if (cancelRequested) killTree(proc)
     const processStartedAt = Date.now()
@@ -575,6 +601,7 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     })
     watcher.on('minecraft-exit', async ({ code, crashReportLocation }) => {
       launcherLog(`游戏进程已退出，退出码 ${code}`)
+      if (gameProc === proc) gameProc = null
       if (config.postExitCommand.trim()) {
         // 不等待退出后命令结束，避免影响崩溃分析与界面状态
         runHook('退出后命令', config.postExitCommand, gamePath, { ...hookEnv, INST_EXIT_CODE: String(code) })
@@ -586,6 +613,14 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
         cancelRequested = false
         cancellableProc = null
         launcherLog('已取消启动')
+        setStatus({ state: 'exited', versionId, exitCode: code })
+        return
+      }
+      // 玩家强制结束的游戏：记录游玩时长，但不算崩溃，也不做崩溃分析
+      if (killRequested) {
+        killRequested = false
+        launcherLog('已强制结束游戏')
+        void recordSession(versionId, processStartedAt, Date.now(), false).catch(() => undefined)
         setStatus({ state: 'exited', versionId, exitCode: code })
         return
       }

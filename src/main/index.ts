@@ -32,6 +32,7 @@ import {
 } from './install'
 import {
   cancelLaunch,
+  killGame,
   getGameLogs,
   getGameStatus,
   javaRequirementOf,
@@ -41,6 +42,7 @@ import {
 } from './launch'
 import { closeLogWindow, isLogWindowOpen, openLogWindow, toggleLogWindow } from './logWindow'
 import { cleanupOldPortableVersions } from './portableCleanup'
+import { applyBuiltinTheme } from './builtinThemes'
 import { closeLaunchSplash, previewLaunchSplash, watchMainWindowForSplash } from './launchSplash'
 import { pickVersionIcon, setVersionFavorite, setVersionIcon } from './versionDisplay'
 import { frameOptions, registerWindowControls, watchMaximize } from './windowFrame'
@@ -140,7 +142,17 @@ import { getNews } from './news'
 import { applyNetworkSettings, checkNetwork, validateProxyUrl } from './network'
 import { addOfflineAccount, removeOfflineAccount, renameOfflineAccount, selectOfflineAccount } from './offline'
 import { loginExternal, removeExternalAccount, selectExternalProfile } from './yggdrasil'
-import { downloadAndInstallModpack, downloadModpack, installModpack, loadModpackFile, pickModpack } from './modpack'
+import {
+  applyModpackUpdate,
+  checkModpackUpdate,
+  downloadAndInstallModpack,
+  downloadModpack,
+  installModpack,
+  loadModpackFile,
+  pickModpack,
+  pickModpackUpdateFile,
+  prepareModpackUpdate
+} from './modpack'
 import { getCurseForgeVersions, installCurseForgeResource, isCurseForgeId, searchCurseForge } from './curseforge'
 import {
   cancelMicrosoftLogin,
@@ -311,6 +323,11 @@ function registerIpc(): void {
   ipcMain.handle('theme:export', (event, themeId?: string) =>
     exportTheme(BrowserWindow.fromWebContents(event.sender), typeof themeId === 'string' ? themeId : undefined)
   )
+  ipcMain.handle('theme:applyBuiltin', async (_, id: string) => {
+    const settings = await applyBuiltinTheme(id)
+    nativeTheme.themeSource = settings.theme
+    return broadcastSettings(settings)
+  })
   ipcMain.handle('theme:import', async (event) => {
     const result = await importTheme(BrowserWindow.fromWebContents(event.sender))
     if (!result) return null
@@ -491,6 +508,16 @@ function registerIpc(): void {
   ipcMain.handle('resource:worlds', (_, versionId: string) => listWorlds(versionId))
   ipcMain.handle('modpack:download', (_, versionId: string) => downloadModpack(versionId))
   ipcMain.handle('modpack:downloadAndInstall', (_, versionId: string) => downloadAndInstallModpack(String(versionId)))
+  ipcMain.handle('modpack:checkUpdate', (_, versionId: string) => checkModpackUpdate(String(versionId)))
+  ipcMain.handle('modpack:prepareUpdate', (_, versionId: string, packVersionId: string) =>
+    prepareModpackUpdate(String(versionId), String(packVersionId))
+  )
+  ipcMain.handle('modpack:pickUpdateFile', (event, versionId: string) =>
+    pickModpackUpdateFile(String(versionId), BrowserWindow.fromWebContents(event.sender))
+  )
+  ipcMain.handle('modpack:applyUpdate', (_, versionId: string, token: string) =>
+    applyModpackUpdate(String(versionId), String(token))
+  )
   ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>
     searchModrinth(versionId, query, offset)
   )
@@ -514,6 +541,7 @@ function registerIpc(): void {
   ipcMain.handle('servers:ping', (_, address: string) => pingServer(address))
   ipcMain.handle('game:status', () => getGameStatus())
   ipcMain.handle('game:cancel', () => cancelLaunch())
+  ipcMain.handle('game:kill', () => killGame())
   ipcMain.handle('stats:get', () => getPlayStats())
   ipcMain.handle('export:show', () => showExportedModpack())
   ipcMain.handle('export:info', (_, versionId: string) => getModpackExportInfo(versionId))

@@ -1,18 +1,40 @@
-import { createHash } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 import { BrowserWindow, dialog } from 'electron'
 import { AbortableTask } from '@xmcl/task'
 import { open, openEntryReadStream, readAllEntries, readEntry } from '@xmcl/unzip'
-import { createWriteStream } from 'fs'
-import { mkdir, readdir, stat } from 'fs/promises'
+import { createReadStream, createWriteStream } from 'fs'
+import { copyFile, lstat, mkdir, readdir, rename, rm, stat } from 'fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'path'
 import type { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import { assertIdle, startCustomInstall, type InstallExtraStep } from './install'
-import { downloadModpackFile, isAllowedModpackUrl, modrinthFileUrls, MODRINTH_USER_AGENT } from './modrinth'
-import { downloadCurseForgeModpack, isCurseForgeId } from './curseforge'
+import {
+  downloadModpackFile,
+  getProjectVersions,
+  isAllowedModpackUrl,
+  modrinthFileUrls,
+  MODRINTH_USER_AGENT
+} from './modrinth'
+import { downloadCurseForgeModpack, getCurseForgeVersions, isCurseForgeId } from './curseforge'
 import { getSettings } from './config'
 import { abortedPause, AbortedError, WatchedDownloadTask } from './fileDownload'
-import type { InstallRequest, ModpackInfo } from '../shared/types'
+import { assertGameStopped, fileSha1 } from './mods'
+import { assertSafeId } from './versionManage'
+import {
+  installedModpackOf,
+  isModpackVersionId,
+  readModpackRecord,
+  writeModpackRecord,
+  type ModpackRecord
+} from './modpackRecord'
+import type {
+  InstallRequest,
+  ModpackInfo,
+  ModpackSource,
+  ModpackUpdateCheck,
+  ModpackUpdatePlan,
+  ModrinthProjectVersion
+} from '../shared/types'
 
 /**
  * 整合包导入，支持四种常见格式：
@@ -80,7 +102,10 @@ export function isForbiddenModpackPath(path: string, versionName: string): boole
   const first = segments[0]
   if (!first) return true
   if (first === 'versions') return true
-  if (/^liuli-.*\.json$/.test(first) || first === 'liuli-icon.png') return true
+  // 启动器自己的文件（版本设置、图标、整合包的安装记录和更新备份）都以 liuli- 开头
+  if (first.startsWith('liuli-')) return true
+  // Windows 的 8.3 短文件名（例如 LIULI-~1.JSO 指向 liuli-version.json）可以绕过上面按名字的检查
+  if (segments.some((segment) => /~\d/.test(segment))) return true
   const name = versionName.toLowerCase().replace(/[. ]+$/, '')
   return name !== '' && [`${name}.json`, `${name}.jar`, `${name}-natives`].includes(first)
 }
@@ -310,6 +335,24 @@ const MAX_META_SIZE = 16 * 1024 * 1024
 /** 压缩包里最多的文件数 */
 const MAX_ENTRIES = 200000
 
+type ZipFile = Awaited<ReturnType<typeof open>>
+type ZipEntry = Awaited<ReturnType<typeof readAllEntries>>[number]
+
+/**
+ * 压缩包里一个文件的 SHA-1，边读边算，不把整个文件读进内存。
+ * 用事件读取：没有压缩的条目返回的旧式读取流不支持 for await（会一直等不到结束）
+ */
+async function entrySha1(zip: ZipFile, entry: ZipEntry): Promise<string> {
+  const stream = await openEntryReadStream(zip, entry)
+  const hash = createHash('sha1')
+  await new Promise<void>((resolve, reject) => {
+    stream.on('data', (chunk: Buffer) => hash.update(chunk))
+    stream.on('end', resolve)
+    stream.on('error', reject)
+  })
+  return hash.digest('hex')
+}
+
 /** 读取整合包，自动识别格式，并检查所有要写入的路径是否安全 */
 async function parseModpack(path: string): Promise<ParsedModpack> {
   const zipFile = await open(path).catch(() => {
@@ -390,10 +433,7 @@ async function parseModpack(path: string): Promise<ParsedModpack> {
         if (!sizes.has(o.size)) continue
         const entry = byName.get(o.entryName)
         if (!entry) continue
-        // 边读边算，不把整个文件读进内存
-        const hash = createHash('sha1')
-        for await (const chunk of await openEntryReadStream(zipFile, entry)) hash.update(chunk as Buffer)
-        provided.add(hash.digest('hex'))
+        provided.add(await entrySha1(zipFile, entry))
       }
       const remaining = parsed.downloads.filter(
         (d) => !included.has(d.path.toLowerCase()) && !provided.has(d.sha1.toLowerCase())
@@ -471,8 +511,11 @@ async function resolveCurseFiles(
 
 // ---------- 对外接口 ----------
 
-/** 用户最近选择的整合包（安装时只使用主进程自己记录的路径，不接受界面传入的路径） */
-let pending: { path: string; info: ModpackInfo } | null = null
+/**
+ * 用户最近选择的整合包（安装时只使用主进程自己记录的路径，不接受界面传入的路径）。
+ * 从下载页下载的整合包记下来源，以后可以在线检查更新
+ */
+let pending: { path: string; info: ModpackInfo; source?: ModpackSource } | null = null
 
 const EXTENSIONS = ['mrpack', 'zip']
 
@@ -490,9 +533,9 @@ export async function pickModpack(win: BrowserWindow | null): Promise<ModpackInf
 }
 
 /** 读取整合包并记为待安装 */
-export async function loadModpack(path: string): Promise<ModpackInfo> {
+export async function loadModpack(path: string, source?: ModpackSource): Promise<ModpackInfo> {
   const { info } = await parseModpack(path)
-  pending = { path, info }
+  pending = { path, info, source }
   return info
 }
 
@@ -506,11 +549,23 @@ export async function loadModpackFile(path: string): Promise<ModpackInfo> {
   return loadModpack(path)
 }
 
-/** 从 Modrinth 下载整合包的某个版本并读取信息 */
+/** 下载整合包的某个版本（Modrinth 或 CurseForge），返回文件路径和来源 */
+async function fetchModpackVersion(versionId: string): Promise<{ path: string; source: ModpackSource }> {
+  if (isCurseForgeId(versionId)) {
+    const path = await downloadCurseForgeModpack(versionId)
+    return {
+      path,
+      source: { platform: 'curseforge', projectId: versionId.split(':').slice(0, 2).join(':'), versionId }
+    }
+  }
+  const { path, projectId } = await downloadModpackFile(versionId)
+  return { path, source: { platform: 'modrinth', projectId, versionId } }
+}
+
+/** 从 Modrinth 或 CurseForge 下载整合包的某个版本并读取信息 */
 export async function downloadModpack(versionId: string): Promise<ModpackInfo> {
-  return loadModpack(
-    isCurseForgeId(versionId) ? await downloadCurseForgeModpack(versionId) : await downloadModpackFile(versionId)
-  )
+  const { path, source } = await fetchModpackVersion(versionId)
+  return loadModpack(path, source)
 }
 
 /** 整合包的加载器版本转换为安装请求 */
@@ -580,50 +635,126 @@ class ExtractTask extends AbortableTask<void> {
   }
 }
 
-/**
- * 整合包的安装步骤：
- * - 安装原版之前：把整合包自带的 assets、libraries 解压到游戏目录根部，原版与加载器的文件校验通过就不再下载；
- * - 安装之后：先把整合包自带的其余文件解压到该版本的游戏目录，再下载清单里缺少的模组（压缩包里已经有的跳过）
- */
-function modpackStep(path: string, versionName: string): InstallExtraStep {
-  /** 跳过不能写入的位置（记录到控制台，不中断安装） */
-  const allowed = (rel: string): boolean => {
+/** 跳过整合包不能写入的位置（记录到控制台，不中断安装） */
+function allowedFor(versionName: string): (rel: string) => boolean {
+  return (rel) => {
     if (!isForbiddenModpackPath(rel, versionName)) return true
     console.warn(`整合包试图写入受保护的位置，已跳过：${rel}`)
     return false
   }
-  const step: InstallExtraStep = async (context, gameDir) => {
-    const parsed = await parseModpack(path)
-    const included = new Set(parsed.overrides.map((o) => o.rel.toLowerCase()))
-    const modrinthFiles = await Promise.all(
-      parsed.downloads
-        .filter((d) => !included.has(d.path.toLowerCase()) && allowed(d.path))
-        .map(async (d) => {
-          // Modrinth 整合包规定的下载网站（https），其他地址不访问
-          const urls = d.urls.filter((u) => typeof u === 'string' && isAllowedModpackUrl(u))
-          if (urls.length === 0)
-            throw new Error(`整合包中的文件 ${d.path} 的下载地址不在 Modrinth 允许的网站内，已拒绝安装`)
-          return { path: d.path, urls: await modrinthFileUrls(urls), sha1: d.sha1, size: d.size }
-        })
-    )
-    let curseFiles: { path: string; urls: string[]; sha1?: string; size?: number }[] = []
-    if (parsed.curseFileIds.length > 0) {
-      try {
-        curseFiles = (await resolveCurseFiles(parsed.curseFileIds)).filter(
-          (f) => !included.has(f.path.toLowerCase()) && allowed(f.path)
-        )
-      } catch (e) {
-        // 整合包已经带了全部模组时，查不到下载信息也可以继续安装
-        if ((parsed.info.includedMods ?? 0) < parsed.curseFileIds.length) throw e
-      }
+}
+
+/** 整合包要放进版本游戏目录的文件：压缩包里自带的（解压）和清单里列出的（下载） */
+interface ModpackFiles {
+  parsed: ParsedModpack
+  extract: { rel: string; entryName: string; size: number }[]
+  downloads: { path: string; urls: string[]; sha1?: string; size?: number }[]
+}
+
+async function collectModpackFiles(path: string, versionName: string): Promise<ModpackFiles> {
+  const allowed = allowedFor(versionName)
+  const parsed = await parseModpack(path)
+  const included = new Set(parsed.overrides.map((o) => o.rel.toLowerCase()))
+  const modrinthFiles = await Promise.all(
+    parsed.downloads
+      .filter((d) => !included.has(d.path.toLowerCase()) && allowed(d.path))
+      .map(async (d) => {
+        // Modrinth 整合包规定的下载网站（https），其他地址不访问
+        const urls = d.urls.filter((u) => typeof u === 'string' && isAllowedModpackUrl(u))
+        if (urls.length === 0)
+          throw new Error(`整合包中的文件 ${d.path} 的下载地址不在 Modrinth 允许的网站内，已拒绝安装`)
+        return { path: d.path, urls: await modrinthFileUrls(urls), sha1: d.sha1, size: d.size }
+      })
+  )
+  let curseFiles: { path: string; urls: string[]; sha1?: string; size?: number }[] = []
+  if (parsed.curseFileIds.length > 0) {
+    try {
+      curseFiles = (await resolveCurseFiles(parsed.curseFileIds)).filter(
+        (f) => !included.has(f.path.toLowerCase()) && allowed(f.path)
+      )
+    } catch (e) {
+      // 整合包已经带了全部模组时，查不到下载信息也可以继续安装
+      if ((parsed.info.includedMods ?? 0) < parsed.curseFileIds.length) throw e
     }
+  }
+  const extract = parsed.overrides
+    .filter((o) => !isShared(o.rel) && allowed(o.rel))
+    .map((o) => ({ rel: o.rel, entryName: o.entryName, size: o.size }))
+  return { parsed, extract, downloads: [...modrinthFiles, ...curseFiles] }
+}
+
+/** 安装原版之前：把整合包自带的资源文件放进公共的 assets（只补充缺少的，不覆盖已有的） */
+async function preseedAssets(context: Parameters<InstallExtraStep>[0], path: string): Promise<void> {
+  const parsed = await parseModpack(path)
+  const root = (await getSettings()).gameDir
+  // 公共的 assets、libraries 被所有版本共用：只补充缺少的文件，不覆盖已有的，避免整合包替换其他版本用到的库
+  const shared: { entryName: string; target: string; size: number }[] = []
+  for (const o of parsed.overrides) {
+    if (!isPreseedAsset(o.rel)) continue
+    const target = safeJoin(root, o.rel)
+    if (
+      !(await stat(target).then(
+        () => true,
+        () => false
+      ))
+    )
+      shared.push({ entryName: o.entryName, target, size: o.size })
+  }
+  if (shared.length === 0) return
+  await context.yield(new ExtractTask(path, shared).setName('modpackGameFiles'))
+}
+
+/**
+ * 文件的 SHA-1，文件不存在时为 null。边读边算（大文件不读进内存）；
+ * 读不了（被占用、没有权限等）时报错，不能当成「没有这个文件」直接覆盖
+ */
+async function currentSha1(path: string): Promise<string | null> {
+  try {
+    const hash = createHash('sha1')
+    await pipeline(createReadStream(path), hash)
+    return hash.digest('hex')
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR') return null
+    throw e
+  }
+}
+
+/** 路径本身是不是符号链接（不跟随链接） */
+async function isSymlink(path: string): Promise<boolean> {
+  return (await lstat(path).catch(() => null))?.isSymbolicLink() ?? false
+}
+
+/** 新建的安装记录 */
+function newRecord(info: ModpackInfo, files: Record<string, string>, source?: ModpackSource): ModpackRecord {
+  return {
+    format: 1,
+    name: info.name,
+    version: info.version,
+    minecraftVersion: info.minecraftVersion,
+    loader: info.loader,
+    loaderVersion: info.loaderVersion,
+    source,
+    files,
+    installedAt: new Date().toJSON()
+  }
+}
+
+/**
+ * 整合包的安装步骤：
+ * - 安装原版之前：把整合包自带的 assets、libraries 解压到游戏目录根部，原版与加载器的文件校验通过就不再下载；
+ * - 安装之后：先把整合包自带的其余文件解压到该版本的游戏目录，再下载清单里缺少的模组（压缩包里已经有的跳过）；
+ * - 最后记下整合包放进去的文件（以后更新整合包时用）
+ */
+function modpackStep(path: string, versionName: string, source?: ModpackSource): InstallExtraStep {
+  /** 全部装好后要做的事（保存安装记录） */
+  let finish: (() => Promise<void>) | null = null
+  const step: InstallExtraStep = async (context, gameDir) => {
+    const { parsed, extract, downloads } = await collectModpackFiles(path, versionName)
     // 先把整合包自带的文件解压出来，再下载缺少的文件
-    const files = parsed.overrides
-      .filter((o) => !isShared(o.rel) && allowed(o.rel))
-      .map((o) => ({ entryName: o.entryName, target: safeJoin(gameDir, o.rel), size: o.size }))
+    const files = extract.map((o) => ({ entryName: o.entryName, target: safeJoin(gameDir, o.rel), size: o.size }))
     if (files.length > 0) await context.yield(new ExtractTask(path, files).setName('modpackOverrides'))
 
-    const downloads = [...modrinthFiles, ...curseFiles]
     if (downloads.length > 0) {
       await context.yield(
         new WatchedDownloadTask(
@@ -632,27 +763,311 @@ function modpackStep(path: string, versionName: string): InstallExtraStep {
         ).setName('modpackFiles')
       )
     }
-  }
-  step.before = async (context) => {
-    const parsed = await parseModpack(path)
-    const root = (await getSettings()).gameDir
-    // 公共的 assets、libraries 被所有版本共用：只补充缺少的文件，不覆盖已有的，避免整合包替换其他版本用到的库
-    const shared: { entryName: string; target: string; size: number }[] = []
-    for (const o of parsed.overrides) {
-      if (!isPreseedAsset(o.rel)) continue
-      const target = safeJoin(root, o.rel)
-      if (
-        !(await stat(target).then(
-          () => true,
-          () => false
-        ))
-      )
-        shared.push({ entryName: o.entryName, target, size: o.size })
+
+    // 安装记录：整合包放进去的每个文件和它的 SHA-1。等游戏本体和加载器也装好后再保存（见 step.after）
+    finish = async () => {
+      try {
+        const recorded: Record<string, string> = {}
+        for (const o of extract) {
+          const sha1 = await currentSha1(safeJoin(gameDir, o.rel))
+          if (sha1) recorded[o.rel] = sha1
+        }
+        for (const d of downloads) {
+          const sha1 = d.sha1?.toLowerCase() || (await currentSha1(safeJoin(gameDir, d.path)))
+          if (sha1) recorded[d.path] = sha1
+        }
+        const root = (await getSettings()).gameDir
+        await writeModpackRecord(root, versionName, newRecord(parsed.info, recorded, source))
+      } catch (e) {
+        // 记录失败不影响游戏，只是以后不能自动更新
+        console.warn('无法保存整合包的安装记录：', e)
+      }
     }
-    if (shared.length === 0) return
-    await context.yield(new ExtractTask(path, shared).setName('modpackGameFiles'))
+  }
+  step.before = (context) => preseedAssets(context, path)
+  step.after = async () => {
+    await finish?.()
   }
   return step
+}
+
+// ---------- 更新整合包 ----------
+
+/** mods 文件夹里的模组（玩家禁用的模组文件名后面多了 .disabled） */
+function isModJar(rel: string): boolean {
+  return /^mods\/[^/]+\.jar$/i.test(rel)
+}
+
+/** 存档：更新整合包时从不删除或覆盖 */
+function inSaves(rel: string): boolean {
+  return normalizedSegments(rel)[0] === 'saves'
+}
+
+/** 玩家自己的设置（按键、视频设置、服务器列表）：没有安装记录时保留现有的 */
+const PERSONAL_FILES = ['options.txt', 'optionsof.txt', 'optionsshaders.txt', 'servers.dat']
+
+/** 压缩包里各个文件的 SHA-1（边读边算，不把文件读进内存） */
+async function hashEntries(zipPath: string, entryNames: string[]): Promise<Map<string, string>> {
+  const result = new Map<string, string>()
+  if (entryNames.length === 0) return result
+  const wanted = new Set(entryNames)
+  const zip = await open(zipPath)
+  try {
+    for (const entry of await readAllEntries(zip)) {
+      if (!wanted.has(entry.fileName)) continue
+      result.set(entry.fileName, await entrySha1(zip, entry))
+    }
+  } finally {
+    zip.close()
+  }
+  return result
+}
+
+/**
+ * 更新整合包的步骤（游戏本体和模组加载器按新版本重新安装，同时同步整合包的文件）：
+ * - 新版本不再包含的整合包文件：玩家没改过的删除（存档从不删除）；
+ * - 新版本的文件：没有的放进去，和现有的一样的跳过，整合包原来的、玩家没改过的直接替换，模组总是替换成新版本；
+ *   玩家改过的配置文件保留玩家的版本；
+ * - 没有安装记录（旧版本启动器安装的）时：新版本里没有的模组移到备份文件夹，要替换的文件先备份，
+ *   按键等个人设置保留现有的
+ */
+function modpackUpdateStep(
+  path: string,
+  versionName: string,
+  old: ModpackRecord | null,
+  source?: ModpackSource
+): InstallExtraStep {
+  /** 全部装好后要做的事（删除旧文件、保存安装记录） */
+  let finish: (() => Promise<void>) | null = null
+  const step: InstallExtraStep = async (context, gameDir) => {
+    const { parsed, extract, downloads } = await collectModpackFiles(path, versionName)
+    const entryHashes = await hashEntries(
+      path,
+      extract.map((o) => o.entryName)
+    )
+    /** 新版本的文件：相对路径 → SHA-1（部分 CurseForge 文件没有 SHA-1） */
+    const nextFiles = new Map<string, string | undefined>()
+    for (const o of extract) nextFiles.set(o.rel, entryHashes.get(o.entryName))
+    for (const d of downloads) nextFiles.set(d.path, d.sha1?.toLowerCase())
+    const nextLower = new Set([...nextFiles.keys()].map((rel) => rel.toLowerCase()))
+    const oldFiles = old?.files ?? {}
+    const allowed = allowedFor(versionName)
+    const backupDir = join(gameDir, 'liuli-modpack-backup', new Date().toISOString().replace(/[:.]/g, '-'))
+    const backup = async (rel: string): Promise<void> => {
+      const target = safeJoin(backupDir, rel)
+      await mkdir(dirname(target), { recursive: true })
+      await copyFile(safeJoin(gameDir, rel), target)
+    }
+
+    // 决定每个新文件要不要写入
+    /** 保留了玩家版本的文件 */
+    const kept: string[] = []
+    const destinationOf = async (rel: string, sha1: string | undefined): Promise<string | null> => {
+      // 玩家禁用的模组：更新后仍然禁用
+      let target = rel
+      if (isModJar(rel) && !(await stat(safeJoin(gameDir, rel)).catch(() => null))) {
+        if (await stat(safeJoin(gameDir, `${rel}.disabled`)).catch(() => null)) target = `${rel}.disabled`
+      }
+      const abs = safeJoin(gameDir, target)
+      // 存档：已经有的世界里一个文件都不写（整合包的地图文件不能混进玩家的世界），只放整合包新带来的世界
+      if (inSaves(rel)) {
+        // 用原来的大小写（normalizedSegments 转成了小写，区分大小写的系统上会找不到世界文件夹）
+        const world = rel
+          .split(/[\\/]+/)
+          .filter(Boolean)
+          .slice(0, 2)
+        if (world.length < 2 || (await stat(safeJoin(gameDir, world.join('/'))).catch(() => null))) {
+          kept.push(rel)
+          return null
+        }
+      }
+      // 版本文件夹里被换成符号链接的文件：删掉链接再写，不顺着链接写到别处
+      if (await isSymlink(abs)) await rm(abs, { force: true })
+      const current = await currentSha1(abs)
+      if (current === null) return abs
+      // 内容相同，或者不知道新文件的 SHA-1（文件名里带版本号，同名就是同一个文件）
+      if (!sha1 || current === sha1) return null
+      if (inSaves(rel)) {
+        kept.push(rel)
+        return null
+      }
+      if (old) {
+        // 模组总是换成新版本；其他文件玩家没改过才替换
+        if (isModJar(rel) || current === oldFiles[rel]) return abs
+        kept.push(rel)
+        return null
+      }
+      // 没有安装记录：个人设置保留现有的，其他文件先备份再替换
+      if (PERSONAL_FILES.includes(rel.toLowerCase())) {
+        kept.push(rel)
+        return null
+      }
+      await backup(target)
+      return abs
+    }
+
+    const files: { entryName: string; target: string; size: number }[] = []
+    for (const o of extract) {
+      const target = await destinationOf(o.rel, entryHashes.get(o.entryName))
+      if (target) files.push({ entryName: o.entryName, target, size: o.size })
+    }
+    const toDownload: { urls: string[]; destination: string; sha1?: string; size?: number }[] = []
+    for (const d of downloads) {
+      const target = await destinationOf(d.path, d.sha1?.toLowerCase())
+      if (target) toDownload.push({ urls: d.urls, destination: target, sha1: d.sha1, size: d.size })
+    }
+    if (files.length > 0) await context.yield(new ExtractTask(path, files).setName('modpackOverrides'))
+    if (toDownload.length > 0) {
+      await context.yield(
+        new WatchedDownloadTask(toDownload, { 'User-Agent': MODRINTH_USER_AGENT }).setName('modpackFiles')
+      )
+    }
+    if (kept.length > 0)
+      console.info(`更新整合包时保留了玩家修改过的 ${kept.length} 个文件：${kept.slice(0, 20).join('、')}`)
+
+    finish = async () => {
+      // 删除新版本不再包含的文件（新文件全部写好、游戏和加载器也装好后才删，中途失败时旧版本的文件还在）
+      if (old) {
+        for (const [rel, sha1] of Object.entries(oldFiles)) {
+          if (nextLower.has(rel.toLowerCase()) || inSaves(rel) || !isSafePath(rel) || !allowed(rel)) continue
+          for (const candidate of isModJar(rel) ? [rel, `${rel}.disabled`] : [rel]) {
+            const abs = safeJoin(gameDir, candidate)
+            if ((await currentSha1(abs)) === sha1) await rm(abs, { force: true })
+          }
+        }
+      } else {
+        // 没有安装记录：不知道哪些模组是整合包的，新版本里没有的模组移到备份文件夹（玩家自己加的模组可以从那里找回）
+        const modsDir = join(gameDir, 'mods')
+        for (const name of await readdir(modsDir).catch(() => [] as string[])) {
+          if (!/\.jar(\.disabled)?$/i.test(name)) continue
+          const rel = `mods/${name.replace(/\.disabled$/i, '')}`
+          if (nextLower.has(rel.toLowerCase())) continue
+          const target = safeJoin(backupDir, `mods/${name}`)
+          await mkdir(dirname(target), { recursive: true })
+          await rename(join(modsDir, name), target)
+        }
+      }
+
+      // 新的安装记录：记录整合包这个版本的文件（玩家改过的文件下次更新时仍然算作改过）
+      const recorded: Record<string, string> = {}
+      for (const [rel, sha1] of nextFiles) {
+        const value = sha1 ?? (await currentSha1(safeJoin(gameDir, rel)).catch(() => null))
+        if (value) recorded[rel] = value
+      }
+      const root = (await getSettings()).gameDir
+      await writeModpackRecord(root, versionName, newRecord(parsed.info, recorded, source))
+    }
+  }
+  step.before = (context) => preseedAssets(context, path)
+  step.after = async () => {
+    await finish?.()
+  }
+  return step
+}
+
+/** 准备好的整合包更新（确认后开始，只使用主进程自己记录的文件路径） */
+let pendingUpdate: {
+  versionId: string
+  token: string
+  path: string
+  info: ModpackInfo
+  source?: ModpackSource
+} | null = null
+
+/** 整合包的某个版本是不是正式版以外的版本（测试版只在当前也是测试版时提示） */
+function isStable(version: ModrinthProjectVersion): boolean {
+  return version.versionType === 'release'
+}
+
+/** 检查整合包有没有新版本（只有从下载页安装的整合包能在线检查） */
+export async function checkModpackUpdate(versionId: string): Promise<ModpackUpdateCheck> {
+  assertSafeId(versionId)
+  const { gameDir } = await getSettings()
+  const record = await readModpackRecord(gameDir, versionId)
+  if (!record?.source) return { current: record ? installedModpackOf(record) : null, updates: [], online: false }
+  const { platform, projectId } = record.source
+  const versions =
+    platform === 'curseforge'
+      ? await getCurseForgeVersions(projectId, 'modpack')
+      : await getProjectVersions(projectId, 'modpack')
+  // 从文件更新过的整合包没有版本 ID，按版本号找
+  const current =
+    versions.find((v) => v.id === record.source?.versionId) ??
+    versions.find((v) => record.version && v.versionNumber === record.version)
+  const sorted = [...versions].sort((a, b) => b.datePublished.localeCompare(a.datePublished))
+  const updates = sorted
+    .filter((v) => (current ? v.datePublished > current.datePublished && v.id !== current.id : true))
+    .filter((v) => isStable(v) || (current ? !isStable(current) : false))
+    .slice(0, 20)
+  return { current: installedModpackOf(record), updates, online: true }
+}
+
+/** 下载整合包的新版本并读取信息（确认后再开始更新） */
+export async function prepareModpackUpdate(versionId: string, packVersionId: string): Promise<ModpackUpdatePlan> {
+  assertSafeId(versionId)
+  const { gameDir } = await getSettings()
+  const record = await readModpackRecord(gameDir, versionId)
+  if (!record?.source) throw new Error('这个版本不是从下载页安装的整合包，请用整合包文件更新')
+  // 版本 ID 会拼进下载地址：只接受接口返回的格式
+  if (typeof packVersionId !== 'string' || !isModpackVersionId(record.source.platform, packVersionId)) {
+    throw new Error('无效的整合包版本')
+  }
+  // 只能更新成同一个整合包的版本
+  const sameProject =
+    record.source.platform === 'curseforge'
+      ? packVersionId.startsWith(`${record.source.projectId}:`)
+      : !isCurseForgeId(packVersionId)
+  if (!sameProject) throw new Error('只能更新为同一个整合包的版本')
+  const { path, source } = await fetchModpackVersion(packVersionId)
+  if (source.projectId !== record.source.projectId) throw new Error('只能更新为同一个整合包的版本')
+  const { info } = await parseModpack(path)
+  const token = randomUUID()
+  pendingUpdate = { versionId, token, path, info, source }
+  return { versionId, token, current: installedModpackOf(record), next: info }
+}
+
+/** 选择整合包文件来更新（离线导入的整合包，或旧版本启动器安装的整合包），取消时返回 null */
+export async function pickModpackUpdateFile(
+  versionId: string,
+  win: BrowserWindow | null
+): Promise<ModpackUpdatePlan | null> {
+  assertSafeId(versionId)
+  const options: Electron.OpenDialogOptions = {
+    title: '选择新版本的整合包',
+    filters: [{ name: '整合包（Modrinth / CurseForge / MultiMC / MCBBS）', extensions: EXTENSIONS }],
+    properties: ['openFile']
+  }
+  const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+  const path = result.filePaths[0]
+  if (result.canceled || !path) return null
+  const { gameDir } = await getSettings()
+  const record = await readModpackRecord(gameDir, versionId)
+  const { info } = await parseModpack(path)
+  // 同一个整合包：保留来源（以后仍可在线检查，按版本号对应），否则不再记录来源
+  const source = record?.source && record.name === info.name ? { ...record.source, versionId: '' } : undefined
+  const token = randomUUID()
+  pendingUpdate = { versionId, token, path, info, source }
+  return { versionId, token, current: record ? installedModpackOf(record) : null, next: info }
+}
+
+/** 开始更新整合包（游戏本体与模组加载器按新版本重新安装到同一个版本里） */
+export async function applyModpackUpdate(versionId: string, token: string): Promise<void> {
+  assertSafeId(versionId)
+  // 只更新确认页上显示的那一次准备（同时准备了别的版本时，旧的确认页不能用）
+  if (!pendingUpdate || pendingUpdate.versionId !== versionId || pendingUpdate.token !== token) {
+    throw new Error('要更新的版本已经变了，请重新选择')
+  }
+  // 立即取走（两次很快的点击只有第一次生效）
+  const { path, info, source } = pendingUpdate
+  pendingUpdate = null
+  assertIdle()
+  assertGameStopped(versionId)
+  const { gameDir } = await getSettings()
+  if (!(await stat(join(gameDir, 'versions', versionId)).catch(() => null))?.isDirectory()) {
+    throw new Error('找不到这个版本')
+  }
+  const record = await readModpackRecord(gameDir, versionId)
+  await startCustomInstall(toRequest(info, versionId), true, modpackUpdateStep(path, versionId, record, source))
 }
 
 /** 整合包名称转为可用的版本名：去掉不能用的字符，已有同名版本时在后面加 (2)、(3)… */
@@ -688,6 +1103,6 @@ export async function downloadAndInstallModpack(versionId: string): Promise<stri
 /** 安装最近选择的整合包 */
 export async function installModpack(name: string): Promise<void> {
   if (!pending) throw new Error('请先选择整合包')
-  const { path, info } = pending
-  await startCustomInstall(toRequest(info, name), false, modpackStep(path, name))
+  const { path, info, source } = pending
+  await startCustomInstall(toRequest(info, name), false, modpackStep(path, name, source))
 }

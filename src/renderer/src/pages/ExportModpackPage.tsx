@@ -129,8 +129,11 @@ function ExportModpackPage({ version, onBack }: ExportModpackPageProps): JSX.Ele
             <PackageOpen className="h-6 w-6 text-emerald-300" />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-bold">导出整合包 · {version.id}</h1>
-            <p className="text-xs text-white/50">
+            <h1 className="truncate text-xl font-bold" title={version.id}>
+              {version.id}
+            </h1>
+            <p className="truncate text-xs text-white/50">
+              导出整合包 ·{' '}
               {info
                 ? `Minecraft ${info.minecraftVersion}${info.loader ? ` · ${LOADER_NAMES[info.loader]} ${info.loaderVersion}` : ' · 原版'}`
                 : '正在读取版本信息…'}
@@ -139,7 +142,7 @@ function ExportModpackPage({ version, onBack }: ExportModpackPageProps): JSX.Ele
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+      <div className="page-scroll min-h-0 flex-1 space-y-4">
         {/* 格式 */}
         <section className="rounded-2xl border border-white/10 bg-white/10 p-5 shadow-xl backdrop-blur-xl">
           <div className="mb-3 font-semibold">格式</div>

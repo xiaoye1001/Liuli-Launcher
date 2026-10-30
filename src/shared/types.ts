@@ -159,12 +159,16 @@ export interface AppSettings {
   backgroundDim: number
   /** 是否开启界面动画 */
   animations: boolean
+  /** 鼠标点击时的波纹与光点效果（关闭界面动画时也不显示） */
+  clickEffect: boolean
   /** 界面字体（字体名称），空字符串表示使用默认字体 */
   fontFamily: string
   /** 界面缩放（%），取值见 UI_SCALES */
   uiScale: number
   /** 是否播放背景音乐 */
   musicEnabled: boolean
+  /** 当前主题的专属音乐（音乐文件夹里的文件名）：设置了就只循环播放这一首，空字符串表示播放全部音乐 */
+  themeMusic: string
   /** 背景音乐音量（0~100） */
   musicVolume: number
   /** 播放顺序 */
@@ -289,6 +293,8 @@ export interface ThemeData {
   backgroundFit: BackgroundFit
   backgroundBlur: number
   backgroundDim: number
+  /** 主题的背景音乐（音乐文件夹里的文件名），空字符串表示播放全部音乐 */
+  music: string
 }
 
 export interface CustomTheme {
@@ -434,6 +440,8 @@ export interface InstalledVersion {
   icon?: string
   /** 自定义图标（PNG 的 data URL） */
   iconUrl?: string
+  /** 用启动器安装的整合包：名称、版本号，以及能否在线检查更新 */
+  modpack?: InstalledModpack
 }
 
 /** 版本的收藏与图标 */
@@ -634,6 +642,8 @@ export interface ModInfo {
   icon?: string
   /** 文件大小（字节） */
   size: number
+  /** 常用模组的中文名（见 shared/modNames.ts） */
+  zhName?: string
 }
 
 /** 可以更新的模组 */
@@ -930,6 +940,8 @@ export interface ModrinthProject {
   downloads: number
   /** 当前版本的 mods 文件夹中是否已经有这个模组 */
   installed: boolean
+  /** 常用模组的中文名（见 shared/modNames.ts） */
+  zhName?: string
 }
 
 export interface ModrinthSearchResult {
@@ -1084,6 +1096,44 @@ export interface ModpackInfo {
   includedGameFiles?: number
 }
 
+/** 整合包来自哪里（从下载页安装的整合包可以在线检查更新） */
+export interface ModpackSource {
+  platform: 'modrinth' | 'curseforge'
+  /** 项目 ID（CurseForge 为 cf:<modId>） */
+  projectId: string
+  /** 安装的版本 ID（CurseForge 为 cf:<modId>:<fileId>） */
+  versionId: string
+}
+
+/** 已安装版本对应的整合包（记录在 versions/<版本名>/liuli-modpack.json） */
+export interface InstalledModpack {
+  name: string
+  version: string
+  minecraftVersion: string
+  loader: ModpackInfo['loader']
+  loaderVersion: string
+  source?: ModpackSource
+}
+
+/** 检查整合包更新的结果 */
+export interface ModpackUpdateCheck {
+  /** 没有记录的整合包（旧版本启动器安装的，或者不是整合包）为 null */
+  current: InstalledModpack | null
+  /** 比当前更新的版本（新的在前）；不能在线检查时为空 */
+  updates: ModrinthProjectVersion[]
+  /** 能否在线检查（从下载页安装的整合包） */
+  online: boolean
+}
+
+/** 准备更新整合包：新版本的信息（确认后开始更新） */
+export interface ModpackUpdatePlan {
+  versionId: string
+  /** 这次准备的标识：开始更新时要带上，保证更新的是确认页上显示的版本 */
+  token: string
+  current: InstalledModpack | null
+  next: ModpackInfo
+}
+
 /** 下载页的社区资源类型（与 Modrinth 的项目类型一致） */
 export type ResourceType = 'mod' | 'modpack' | 'datapack' | 'resourcepack' | 'shader'
 
@@ -1115,6 +1165,8 @@ export interface ModrinthProjectHit {
   loaders: string[]
   /** 支持的最新 Minecraft 版本 */
   latestGameVersion: string
+  /** 常用模组的中文名（见 shared/modNames.ts） */
+  zhName?: string
 }
 
 /** 项目的一个版本 */

@@ -105,7 +105,8 @@ export async function importTheme(win: BrowserWindow | null): Promise<ThemeImpor
   if (settings.customThemes.length >= MAX_CUSTOM_THEMES) {
     throw new Error(`「我的主题」最多 ${MAX_CUSTOM_THEMES} 个，请先删除一些`)
   }
-  const data = sanitizeThemeData({ ...(file.data as object), backgroundImage: '' })
+  // 主题文件不带音乐，导入后播放全部音乐
+  const data = sanitizeThemeData({ ...(file.data as object), backgroundImage: '', music: '' })
   let library = settings.backgroundImages
 
   // 壁纸：校验大小与类型后放进背景库

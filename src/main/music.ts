@@ -4,7 +4,7 @@ import { basename, extname, join } from 'path'
 import { pathToFileURL } from 'url'
 
 /** 背景音乐存放在用户数据目录下的 music 文件夹，也可以直接把文件放进去 */
-const MUSIC_DIR = join(app.getPath('userData'), 'music')
+export const MUSIC_DIR = join(app.getPath('userData'), 'music')
 const AUDIO_EXTENSIONS = ['mp3', 'ogg', 'oga', 'opus', 'wav', 'flac', 'm4a', 'aac', 'webm']
 const MAX_TRACKS = 500
 const MAX_TRACK_BYTES = 200 * 1024 * 1024

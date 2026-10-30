@@ -27,6 +27,7 @@ import type {
   MultiplayerStatus,
   P2PCoreStatus
 } from '../../../shared/types'
+import PageHeader from '../components/PageHeader'
 
 const MODES: { key: MultiplayerMode; title: string; desc: string; icon: LucideIcon; tint: string }[] = [
   {
@@ -440,14 +441,8 @@ function MultiplayerPage(): JSX.Element {
     !busy && (mode === 'tunnel' ? tunnelAddress.trim() !== '' : lanGame !== null || manualPort.trim() !== '')
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-y-auto pr-1">
-      <div className="flex shrink-0 items-center gap-3">
-        <h1 className="text-3xl font-bold tracking-tight">联机</h1>
-        <span className="flex items-center gap-1.5 rounded-xl bg-black/20 px-3 py-1.5 text-sm text-white/70">
-          <Users className="h-4 w-4 text-emerald-300" />
-          和好友一起玩
-        </span>
-      </div>
+    <div className="page-scroll flex h-full flex-col gap-4">
+      <PageHeader title="联机" subtitle="和好友一起玩：创建房间把房间码发给好友，或者粘贴好友的房间码加入" />
 
       {active && status && <RoomCard status={status} core={core} onCoreChange={refreshCore} />}
 
@@ -515,7 +510,8 @@ function MultiplayerPage(): JSX.Element {
                     <button
                       key={item.key}
                       onClick={() => setMode(item.key)}
-                      className={`rounded-xl border p-3 text-left transition-colors ${
+                      // 内容从顶部排列：说明行数不同的卡片，标题也在同一高度
+                      className={`flex flex-col justify-start rounded-xl border p-3 text-left transition-colors ${
                         selected
                           ? 'border-emerald-400/50 bg-emerald-500/15'
                           : 'border-white/5 bg-black/20 hover:bg-black/30'

@@ -21,6 +21,7 @@ import {
   XCircle,
   ShieldCheck,
   Monitor,
+  MousePointerClick,
   Moon,
   Palette,
   Pipette,
@@ -58,6 +59,7 @@ import type {
   UpdateSource,
   VersionIsolation
 } from '../../../shared/types'
+import PageHeader from '../components/PageHeader'
 
 const SOURCES: { key: DownloadSource; label: string; desc: string }[] = [
   { key: 'bmclapi', label: 'BMCLAPI 镜像', desc: '国内高速镜像，推荐' },
@@ -319,28 +321,31 @@ function SettingsPage(): JSX.Element {
   const backgroundMode: BackgroundMode = backgroundImages.length > 0 ? (settings.backgroundMode ?? 'off') : 'off'
 
   return (
-    <div className="flex h-full flex-col gap-5">
-      <div className="flex items-center gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">设置</h1>
-        <div className="flex rounded-xl bg-black/20 p-1" role="tablist">
-          {SETTINGS_TABS.map((t) => (
-            <button
-              key={t.key}
-              role="tab"
-              aria-selected={tab === t.key}
-              onClick={() => changeTab(t.key)}
-              className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm transition-colors ${
-                tab === t.key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
-              }`}
-            >
-              <t.icon className="h-4 w-4" />
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="flex h-full flex-col gap-4">
+      <PageHeader
+        title="设置"
+        subtitle="修改后立即生效并自动保存"
+        after={
+          <div className="flex rounded-xl bg-black/20 p-1" role="tablist">
+            {SETTINGS_TABS.map((t) => (
+              <button
+                key={t.key}
+                role="tab"
+                aria-selected={tab === t.key}
+                onClick={() => changeTab(t.key)}
+                className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm transition-colors ${
+                  tab === t.key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
+                }`}
+              >
+                <t.icon className="h-4 w-4" />
+                {t.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pb-4 pr-1">
+      <div ref={scrollRef} className="page-scroll min-h-0 flex-1 pb-4">
         <div className={tab === 'personal' ? 'flex flex-col gap-6' : 'hidden'}>
           {/* 主题方案与粒子特效 */}
           <Personalization settings={settings} update={update} updateSlider={updateSlider} />
@@ -761,6 +766,33 @@ function SettingsPage(): JSX.Element {
                 <span
                   className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
                     settings.animations ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+            {/* 鼠标点击效果 */}
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <MousePointerClick className="h-4 w-4 text-emerald-300" />
+                <div>
+                  <div className="text-sm font-medium">鼠标点击特效</div>
+                  <div className="text-xs text-white/50">
+                    点击时在鼠标位置放出一圈波纹和光点，颜色跟随主题色；关闭界面动画时也不显示
+                  </div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.clickEffect}
+                aria-label="鼠标点击特效"
+                onClick={() => update({ clickEffect: !settings.clickEffect })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.clickEffect ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.clickEffect ? 'left-6' : 'left-1'
                   }`}
                 />
               </button>

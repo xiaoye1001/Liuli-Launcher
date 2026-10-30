@@ -49,8 +49,9 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
     window.api.getSystemInfo().then((info) => setPortableDir(info.portableDir))
   }, [])
 
+  // 导航项只有两三个字：侧边栏窄一些，右侧不留大片空白，主内容区也更宽
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-r border-white/10 bg-white/5 p-4 backdrop-blur-xl">
+    <aside className="flex w-44 shrink-0 flex-col border-r border-white/10 bg-white/5 px-3 py-4 backdrop-blur-xl">
       <div className="mb-8 flex items-center gap-3 px-2 pt-2">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 shadow-lg shadow-emerald-500/30">
           <Boxes className="h-6 w-6 text-white" />
@@ -73,7 +74,7 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
             <button
               key={item.key}
               onClick={() => onChange(item.key)}
-              className={`relative flex items-center gap-3 rounded-xl px-4 py-3 text-sm transition-colors ${
+              className={`relative flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm transition-colors ${
                 active ? 'text-white' : 'text-white/60 hover:bg-white/5 hover:text-white'
               }`}
             >

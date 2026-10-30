@@ -26,6 +26,7 @@ import type {
   VersionManifest,
   VersionType
 } from '../../../shared/types'
+import PageHeader from '../components/PageHeader'
 
 type Section = 'vanilla' | ResourceType
 
@@ -79,7 +80,7 @@ function SectionButton({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition-colors ${
+      className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
         active ? 'bg-emerald-500/20 font-medium text-emerald-200' : 'text-white/60 hover:bg-white/10 hover:text-white'
       }`}
     >
@@ -156,6 +157,34 @@ function DownloadPage({
   const lastState = useRef<string | undefined>(undefined)
   const tabRefs = useRef<Partial<Record<Filter, HTMLButtonElement | null>>>({})
   const [tabIndicator, setTabIndicator] = useState<{ left: number; width: number } | null>(null)
+
+  // 左侧分类的上边缘与「原版游戏」的版本列表面板（data-version-card）对齐，所有分类都一样，切换时不跳动。
+  // 版本列表上方有标题和最新版本卡片，高度随内容变化，所以每次测量；
+  // 其他分类显示时原版页面只是隐形（不是 display: none），仍然可以测量
+  const layoutRef = useRef<HTMLDivElement>(null)
+  const vanillaRef = useRef<HTMLDivElement>(null)
+  const [navTop, setNavTop] = useState(0)
+  // 隐形的原版页面不能被 Tab 键选中（React 18 的类型里还没有 inert 属性，直接设置）
+  useEffect(() => {
+    vanillaRef.current?.toggleAttribute('inert', section !== 'vanilla')
+  }, [section])
+  useLayoutEffect(() => {
+    const layout = layoutRef.current
+    if (!layout) return
+    const measure = (): void => {
+      const card = layout.querySelector<HTMLElement>('[data-version-card]')
+      if (!card || !card.offsetParent) return
+      const top = Math.max(0, Math.round(card.getBoundingClientRect().top - layout.getBoundingClientRect().top))
+      setNavTop((prev) => (prev === top ? prev : top))
+    }
+    measure()
+    // 面板上方的内容变高或变矮时，面板自身的高度也会变化（flex-1），观察面板就能及时重新测量
+    const observer = new ResizeObserver(measure)
+    const card = layout.querySelector('[data-version-card]')
+    if (card) observer.observe(card)
+    observer.observe(layout)
+    return () => observer.disconnect()
+  }, [section, visited, setupFor, modpack])
 
   const loadInstalled = useCallback(async (): Promise<void> => {
     setInstalled(await window.api.getInstalledVersions())
@@ -279,9 +308,12 @@ function DownloadPage({
           />
         </div>
       )}
-      <div className={`flex h-full gap-4 ${setupFor || modpack ? 'hidden' : ''}`}>
-        {/* 分类 */}
-        <nav className="flex w-36 shrink-0 flex-col gap-1 rounded-2xl border border-white/10 bg-white/10 p-2 shadow-2xl backdrop-blur-xl">
+      <div ref={layoutRef} className={`flex h-full gap-4 ${setupFor || modpack ? 'hidden' : ''}`}>
+        {/* 分类：上下边缘与右侧的内容面板对齐，分类整体垂直居中 */}
+        <nav
+          style={{ marginTop: navTop }}
+          className="flex w-36 shrink-0 flex-col justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/10 p-2 shadow-2xl backdrop-blur-xl transition-[margin] duration-300 ease-out"
+        >
           <SectionButton
             icon={Gamepad2}
             label="原版游戏"
@@ -300,7 +332,7 @@ function DownloadPage({
           ))}
         </nav>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
+        <div className="relative flex min-w-0 flex-1 flex-col gap-4">
           {/* 安装进度：所有分类共用 */}
           <AnimatePresence>
             {install && (
@@ -333,33 +365,39 @@ function DownloadPage({
             </div>
           ))}
 
-          <div className={`flex min-h-0 flex-1 flex-col gap-5 ${section === 'vanilla' ? '' : 'hidden'}`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight">原版游戏</h1>
-                <p className="mt-1 text-xs text-white/50">
-                  {manifest
-                    ? `当前下载源：${SOURCE_LABELS[manifest.source]} · 共 ${manifest.versions.length} 个版本`
-                    : '正在获取版本列表'}
-                  {` · 已安装 ${installed.length} 个`}
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <motion.button
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => {
-                    load(true)
-                    loadInstalled()
-                  }}
-                  disabled={loading}
-                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-60"
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  刷新
-                </motion.button>
-              </div>
-            </div>
+          {/* 原版游戏：其他分类显示时隐形并叠在下面（不占位置），左侧分类栏仍然按版本列表的位置对齐 */}
+          <div
+            aria-hidden={section !== 'vanilla'}
+            ref={vanillaRef}
+            className={`flex min-h-0 flex-1 flex-col gap-4 ${
+              section === 'vanilla' ? '' : 'pointer-events-none invisible absolute inset-0'
+            }`}
+          >
+            <PageHeader
+              title="原版游戏"
+              subtitle={`${
+                manifest
+                  ? `当前下载源：${SOURCE_LABELS[manifest.source]} · 共 ${manifest.versions.length} 个版本`
+                  : '正在获取版本列表'
+              } · 已安装 ${installed.length} 个`}
+              actions={
+                <>
+                  <motion.button
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => {
+                      load(true)
+                      loadInstalled()
+                    }}
+                    disabled={loading}
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-60"
+                  >
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    刷新
+                  </motion.button>
+                </>
+              }
+            />
 
             {/* 最新版本 */}
             {manifest && !install && (
@@ -386,7 +424,10 @@ function DownloadPage({
             )}
 
             {/* 版本列表 */}
-            <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
+            <section
+              data-version-card
+              className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl"
+            >
               <div className="flex items-center gap-3">
                 <div className="relative flex rounded-xl bg-black/20 p-1">
                   {tabIndicator && (

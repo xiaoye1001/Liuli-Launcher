@@ -356,7 +356,7 @@ function InstallSetupPage({ version, installedIds, busy, onBack, onStarted }: In
 
   return (
     <div className="relative flex h-full flex-col">
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-24 pr-1">
+      <div className="page-scroll flex min-h-0 flex-1 flex-col gap-4 pb-24">
         {/* 顶部：返回、图标、版本名 */}
         <div className="rounded-2xl border border-white/10 bg-white/10 p-5 shadow-lg backdrop-blur-xl">
           <div className="flex items-center gap-4">

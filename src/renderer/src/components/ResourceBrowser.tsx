@@ -22,6 +22,7 @@ import type {
   ResourceSource,
   ResourceType
 } from '../../../shared/types'
+import PageHeader from './PageHeader'
 
 /** 各类资源的显示信息与可用的筛选项 */
 export const RESOURCE_TYPES: Record<
@@ -536,49 +537,53 @@ function ResourceBrowser({
   }, [gameVersions, filters.gameVersion])
 
   return (
-    <div className="flex h-full min-w-0 flex-col gap-3">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">{meta.label}</h1>
-          <p className="truncate text-xs text-white/50">
+    <div className="flex h-full min-w-0 flex-col gap-4">
+      <PageHeader
+        title={meta.label}
+        subtitle={
+          <span className="truncate">
             来自 {source === 'all' ? 'Modrinth 和 CurseForge' : SOURCE_NAMES[source]} · {meta.desc}
-          </p>
-        </div>
-        {needsTarget ? (
-          <div className="flex shrink-0 items-center gap-2">
-            <span className="text-xs text-white/50">安装到</span>
-            {installed.length === 0 ? (
-              <span className="text-xs text-amber-300">请先安装一个游戏版本</span>
-            ) : (
-              <FilterSelect
-                value={targetId}
-                onChange={setTargetId}
-                options={installed.map((v): [string, string] => [v.id, v.id])}
-                title="下载的内容会放进这个版本使用的游戏目录"
-              />
-            )}
-            {type === 'datapack' && targetId && (
-              <>
-                {worlds === null ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-white/40" />
-                ) : worlds.length === 0 ? (
-                  <span className="text-xs text-amber-300" title="数据包要放进存档里，先进入游戏创建一个世界">
-                    该版本还没有存档
-                  </span>
+          </span>
+        }
+        actions={
+          <>
+            {needsTarget ? (
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="text-xs text-white/50">安装到</span>
+                {installed.length === 0 ? (
+                  <span className="text-xs text-amber-300">请先安装一个游戏版本</span>
                 ) : (
                   <FilterSelect
-                    value={world}
-                    onChange={setWorld}
-                    options={worlds.map((w): [string, string] => [w, `存档：${w}`])}
+                    value={targetId}
+                    onChange={setTargetId}
+                    options={installed.map((v): [string, string] => [v.id, v.id])}
+                    title="下载的内容会放进这个版本使用的游戏目录"
                   />
                 )}
-              </>
+                {type === 'datapack' && targetId && (
+                  <>
+                    {worlds === null ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-white/40" />
+                    ) : worlds.length === 0 ? (
+                      <span className="text-xs text-amber-300" title="数据包要放进存档里，先进入游戏创建一个世界">
+                        该版本还没有存档
+                      </span>
+                    ) : (
+                      <FilterSelect
+                        value={world}
+                        onChange={setWorld}
+                        options={worlds.map((w): [string, string] => [w, `存档：${w}`])}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+            ) : (
+              headerExtra
             )}
-          </div>
-        ) : (
-          headerExtra
-        )}
-      </div>
+          </>
+        }
+      />
 
       {type === 'mod' && target && !(target.loader && MOD_LOADERS.includes(target.loader)) && (
         <p className="flex items-center gap-2 px-1 text-xs text-amber-300">
@@ -589,14 +594,21 @@ function ResourceBrowser({
       )}
       {topExtra}
 
-      <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
+      <section
+        data-download-card
+        className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl"
+      >
         <div className="flex items-center gap-3">
           <div className="flex flex-1 items-center gap-2 rounded-xl bg-black/20 px-3 py-2">
             <Search className="h-4 w-4 text-white/40" />
             <input
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              placeholder={`搜索${meta.label}（英文名效果更好）`}
+              placeholder={
+                type === 'mod'
+                  ? '搜索模组（常用模组可以搜中文名，例如 钠、机械动力）'
+                  : `搜索${meta.label}（英文名效果更好）`
+              }
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-white/30"
             />
             {loading && <Loader2 className="h-4 w-4 animate-spin text-white/40" />}
@@ -689,7 +701,9 @@ function ResourceBrowser({
                   <ProjectIcon url={project.iconUrl} fallback={meta.icon} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-semibold">{project.title}</span>
+                      {/* 常用模组显示中文名，原名放在后面 */}
+                      <span className="truncate text-sm font-semibold">{project.zhName ?? project.title}</span>
+                      {project.zhName && <span className="truncate text-xs text-white/50">{project.title}</span>}
                       <span className="shrink-0 text-xs text-white/40">by {project.author}</span>
                     </div>
                     <div className="truncate text-xs text-white/50" title={project.description}>

@@ -175,6 +175,11 @@ const api = {
   listWorlds: (versionId: string) => ipcRenderer.invoke('resource:worlds', versionId),
   downloadModpack: (versionId: string) => ipcRenderer.invoke('modpack:download', versionId),
   downloadAndInstallModpack: (versionId: string) => ipcRenderer.invoke('modpack:downloadAndInstall', versionId),
+  checkModpackUpdate: (versionId: string) => ipcRenderer.invoke('modpack:checkUpdate', versionId),
+  prepareModpackUpdate: (versionId: string, packVersionId: string) =>
+    ipcRenderer.invoke('modpack:prepareUpdate', versionId, packVersionId),
+  pickModpackUpdateFile: (versionId: string) => ipcRenderer.invoke('modpack:pickUpdateFile', versionId),
+  applyModpackUpdate: (versionId: string, token: string) => ipcRenderer.invoke('modpack:applyUpdate', versionId, token),
   /** 拖入窗口的文件在本机的路径 */
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   searchModrinth: (versionId: string, query: string, offset: number) =>
@@ -207,6 +212,8 @@ const api = {
   getJavaRequirement: (versionId: string): Promise<number | null> =>
     ipcRenderer.invoke('versions:javaRequirement', versionId),
   cancelLaunch: (): Promise<boolean> => ipcRenderer.invoke('game:cancel'),
+  /** 强制结束正在运行的游戏，游戏没有在运行时返回 false */
+  killGame: (): Promise<boolean> => ipcRenderer.invoke('game:kill'),
   /** 订阅游戏运行状态，返回取消订阅函数 */
   getAccounts: () => ipcRenderer.invoke('accounts:list'),
   setActiveAccount: (id: string) => ipcRenderer.invoke('accounts:setActive', id),
@@ -242,6 +249,8 @@ const api = {
   addBackgroundUrl: (url: string) => ipcRenderer.invoke('appearance:addBackgroundUrl', url),
   exportTheme: (themeId?: string) => ipcRenderer.invoke('theme:export', themeId),
   importTheme: () => ipcRenderer.invoke('theme:import'),
+  /** 应用精选主题（复制壁纸和音乐后应用整套外观），返回新的设置 */
+  applyBuiltinTheme: (id: string): Promise<AppSettings> => ipcRenderer.invoke('theme:applyBuiltin', id),
   listMusic: () => ipcRenderer.invoke('music:list'),
   addMusic: () => ipcRenderer.invoke('music:add'),
   removeMusic: (name: string) => ipcRenderer.invoke('music:remove', name),

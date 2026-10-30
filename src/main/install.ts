@@ -418,6 +418,8 @@ async function exists(path: string): Promise<boolean> {
 export type InstallExtraStep = ((context: TaskContext, gameDir: string) => Promise<void>) & {
   /** 在安装原版之前执行（例如解压整合包自带的游戏资源，让之后的下载直接跳过） */
   before?: (context: TaskContext) => Promise<void>
+  /** 游戏本体、模组加载器和附加步骤全部成功后执行（例如保存整合包的安装记录、删除旧版本整合包的文件） */
+  after?: () => Promise<void>
 }
 
 /** 附加步骤中可以 yield 子任务，让进度计入总进度 */
@@ -672,6 +674,7 @@ async function customInstall(request: InstallRequest, allowExisting: boolean, ex
     }
     // 整合包的文件与游戏本体、模组加载器同时下载（与 PCL 等启动器相同），不用等前面全部装完
     await Promise.all([installGame(), extra ? extra(this, gameDirFor(loader)) : null])
+    if (extra?.after) await extra.after()
     // 整合包：记录为独立文件夹，以后修改全局的版本隔离设置也不影响它
     if (extra) await setVersionConfig(name, { isolation: 'on' })
   })
