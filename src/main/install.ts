@@ -28,7 +28,7 @@ import { isIsolated, versionGameDir } from './isolation'
 import { assertSafeId } from './versionManage'
 import { isReservedName } from './services/fastDownloader'
 import { setVersionConfig } from './versionConfig'
-import { closeInstallDispatcher, installDispatcher } from './network'
+import { closeInstallDispatcher, installDispatcher, discardBody } from './network'
 import type { MissingFiles } from './fileCheck'
 import type {
   DownloadSource,
@@ -149,6 +149,10 @@ async function prepare<T>(fn: () => Promise<T>): Promise<T> {
   starting = true
   try {
     return await fn()
+  } catch (e) {
+    // 准备阶段就失败（例如版本名重复、网络不通）：关闭这次准备时建好的连接池，下次安装用最新的网络设置重新建
+    if (!currentTask) closeInstallDispatcher()
+    throw e
   } finally {
     starting = false
   }
@@ -331,7 +335,10 @@ export async function completeMissingFiles(
 /** 带超时与状态码检查的 fetch */
 async function fetchChecked(url: string, init?: RequestInit): Promise<Response> {
   const response = await fetch(url, { ...init, signal: AbortSignal.timeout(15000) })
-  if (!response.ok) throw new Error(`HTTP ${response.status}：${url}`)
+  if (!response.ok) {
+    await discardBody(response)
+    throw new Error(`HTTP ${response.status}：${url}`)
+  }
   return response
 }
 
@@ -361,7 +368,10 @@ export async function getQuiltLoaders(minecraftVersion: string): Promise<FabricL
     signal: AbortSignal.timeout(15000)
   })
   if (response.status === 404 || response.status === 400) return []
-  if (!response.ok) throw new Error(`HTTP ${response.status}：Quilt 版本列表`)
+  if (!response.ok) {
+    await discardBody(response)
+    throw new Error(`HTTP ${response.status}：Quilt 版本列表`)
+  }
   const list = (await response.json()) as { loader?: { version?: unknown } }[]
   if (!Array.isArray(list)) return []
   return list
@@ -467,7 +477,10 @@ async function forgeInstallerSha1(mc: string, forge: string): Promise<{ path: st
   for (const host of [FORGE_MAVEN.replace(/\/$/, ''), `${BMCLAPI}/maven`]) {
     try {
       const response = await fetch(`${host}/${path}.sha1`, { signal: AbortSignal.timeout(15000) })
-      if (!response.ok) continue
+      if (!response.ok) {
+        await discardBody(response)
+        continue
+      }
       const sha1 = (await response.text()).trim().slice(0, 40).toLowerCase()
       if (/^[0-9a-f]{40}$/.test(sha1)) return { path, sha1 }
     } catch {

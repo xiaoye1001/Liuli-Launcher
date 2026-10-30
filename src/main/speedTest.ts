@@ -7,6 +7,7 @@
  */
 import { getSettings } from './config'
 import type { DownloadSource, SpeedTestReport, SpeedTestResult } from '../shared/types'
+import { discardBody } from './network'
 
 const BMCLAPI = 'https://bmclapi2.bangbang93.com'
 const MOJANG_MANIFEST = 'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json'
@@ -87,7 +88,10 @@ async function speedOf(url: string): Promise<number> {
 
 async function getJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(REQUEST_TIMEOUT) })
-  if (!response.ok) throw new Error(`服务器返回 ${response.status}`)
+  if (!response.ok) {
+    await discardBody(response)
+    throw new Error(`服务器返回 ${response.status}`)
+  }
   return (await response.json()) as T
 }
 

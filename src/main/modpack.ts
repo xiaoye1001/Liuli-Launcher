@@ -35,6 +35,7 @@ import type {
   ModpackUpdatePlan,
   ModrinthProjectVersion
 } from '../shared/types'
+import { discardBody } from './network'
 
 /**
  * 整合包导入，支持四种常见格式：
@@ -482,7 +483,10 @@ async function resolveCurseFiles(
     } catch (e) {
       throw new Error(`无法连接 MCIM 镜像获取 CurseForge 模组信息：${e instanceof Error ? e.message : String(e)}`)
     }
-    if (!response.ok) throw new Error(`获取 CurseForge 模组信息失败：HTTP ${response.status}`)
+    if (!response.ok) {
+      await discardBody(response)
+      throw new Error(`获取 CurseForge 模组信息失败：HTTP ${response.status}`)
+    }
     result.push(...((await response.json()) as { data: CurseFile[] }).data)
   }
   const found = new Set(result.map((f) => f.id))
@@ -787,6 +791,8 @@ function modpackStep(path: string, versionName: string, source?: ModpackSource):
   step.before = (context) => preseedAssets(context, path)
   step.after = async () => {
     await finish?.()
+    // 安装成功后不再需要整合包的文件清单（安装任务会为「重试」保留下来，这里先放掉，不占内存）
+    finish = null
   }
   return step
 }
@@ -961,6 +967,8 @@ function modpackUpdateStep(
   step.before = (context) => preseedAssets(context, path)
   step.after = async () => {
     await finish?.()
+    // 安装成功后不再需要整合包的文件清单（安装任务会为「重试」保留下来，这里先放掉，不占内存）
+    finish = null
   }
   return step
 }

@@ -9,13 +9,14 @@
  * - 支持暂停、继续、取消；下载完成后校验大小与 SHA1，通过后才改名为正式文件
  * - 每 250 毫秒把所有任务的状态推送给界面（download:progress）
  */
-import { app, BrowserWindow } from 'electron'
+import { BrowserWindow } from 'electron'
 import { createHash, randomUUID } from 'crypto'
 import { createReadStream } from 'fs'
-import { appendFile, mkdir, open, readdir, rename, rm, stat, type FileHandle } from 'fs/promises'
+import { mkdir, open, readdir, rename, rm, stat, type FileHandle } from 'fs/promises'
 import { basename, dirname, extname, join } from 'path'
 import { request, type Dispatcher } from 'undici'
 import { fastDownloadDispatcher } from '../network'
+import { appendDownloadLog } from '../downloadLog'
 import type { FastDownloadSource, FastDownloadStatus, FastDownloadTask } from '../../shared/types'
 
 /** 大于这个大小才分块下载 */
@@ -61,12 +62,8 @@ function isFatalStatus(status: number): boolean {
 
 // ---------- 日志（与原下载方式共用 download.log） ----------
 
-const LOG = join(app.getPath('userData'), 'logs', 'download.log')
-
 export function downloadLog(line: string): void {
-  void mkdir(dirname(LOG), { recursive: true })
-    .then(() => appendFile(LOG, `[${new Date().toLocaleString('zh-CN')}] [高速下载] ${line}\n`))
-    .catch(() => undefined)
+  appendDownloadLog(`[高速下载] ${line}`)
 }
 
 export interface FastDownloadOptions {
@@ -663,7 +660,8 @@ function tick(): void {
     task.lastTime = now
   }
   push()
-  if (![...tasks.values()].some(isActive)) {
+  // 只有正在下载的任务才需要每 250 毫秒推送；暂停的任务在暂停、继续时各推送一次就够了
+  if (![...tasks.values()].some((task) => task.status === 'downloading' || task.status === 'fallback_retrying')) {
     clearInterval(ticker)
     ticker = undefined
   }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertTriangle,
@@ -72,7 +72,10 @@ function cleanError(e: unknown): string {
   return message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 }
 
-/** 分段选择按钮 */
+/**
+ * 分段选择按钮。选中项的底色自己量按钮位置再滑过去：
+ * 不用 framer-motion 的 layoutId——它在页面里卸载后会让 App 的页面退场动画卡住，切换页面后内容一直空白
+ */
 function Segmented<T extends string>({
   value,
   options,
@@ -82,23 +85,44 @@ function Segmented<T extends string>({
   options: [T, string][]
   onChange: (value: T) => void
 }): JSX.Element {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const buttonRefs = useRef(new Map<string, HTMLButtonElement>())
+  const [indicator, setIndicator] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
+  useLayoutEffect(() => {
+    const measure = (): void => {
+      const el = buttonRefs.current.get(value)
+      setIndicator(
+        el ? { left: el.offsetLeft, top: el.offsetTop, width: el.offsetWidth, height: el.offsetHeight } : null
+      )
+    }
+    measure()
+    // 卡片宽度变化（窗口缩放、按钮换行）时重新量
+    const observer = new ResizeObserver(measure)
+    if (containerRef.current) observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [value, options.length])
+
   return (
-    <div className="flex flex-wrap gap-1 rounded-xl bg-black/20 p-1">
+    <div ref={containerRef} className="relative flex flex-wrap gap-1 rounded-xl bg-black/20 p-1">
+      {indicator && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute rounded-lg bg-emerald-500/25 transition-all duration-300 ease-out"
+          style={indicator}
+        />
+      )}
       {options.map(([key, label]) => (
         <button
           key={key}
+          ref={(el) => {
+            if (el) buttonRefs.current.set(key, el)
+            else buttonRefs.current.delete(key)
+          }}
           onClick={() => onChange(key)}
           className={`relative flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors ${
             value === key ? 'font-medium text-emerald-200' : 'text-white/60 hover:bg-white/10 hover:text-white'
           }`}
         >
-          {value === key && (
-            <motion.span
-              layoutId={`seg-${options.map((o) => o[0]).join('-')}`}
-              className="absolute inset-0 rounded-lg bg-emerald-500/25"
-              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-            />
-          )}
           <span className="relative">{label}</span>
         </button>
       ))}
@@ -157,8 +181,8 @@ function Card({
   children: ReactNode
 }): JSX.Element {
   return (
+    // 不加 layout：带布局动画的元素在页面里卸载后会让 App 的页面退场动画卡住
     <motion.section
-      layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}

@@ -187,8 +187,8 @@ function TaskCard({
   const button = 'rounded-lg p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white'
 
   return (
+    // 不加 layout：任务卡片切换筛选、清除时会卸载，带布局动画的元素卸载后会让 App 的页面退场动画卡住
     <motion.div
-      layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, height: 0, marginTop: 0 }}

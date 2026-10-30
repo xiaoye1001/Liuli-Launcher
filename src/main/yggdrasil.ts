@@ -6,6 +6,7 @@ import { dirname, join } from 'path'
 import { getSettings, updateSettings } from './config'
 import { seal, unseal } from './secure'
 import type { ExternalAccount, ExternalLoginResult, SkinModel } from '../shared/types'
+import { discardBody } from './network'
 
 /**
  * 外置登录（Yggdrasil 协议，配合 authlib-injector 使用），例如 LittleSkin 皮肤站。
@@ -146,7 +147,10 @@ export async function resolveServer(input: string): Promise<{ apiRoot: string; s
       response = await request(url.href)
     }
   }
-  if (!response.ok) throw new Error(`验证服务器返回错误（${response.status}），请确认地址是否正确`)
+  if (!response.ok) {
+    await discardBody(response)
+    throw new Error(`验证服务器返回错误（${response.status}），请确认地址是否正确`)
+  }
   let meta: { meta?: { serverName?: unknown }; skinDomains?: unknown; signaturePublickey?: unknown }
   const text = await response.text()
   try {
@@ -195,7 +199,10 @@ async function fetchSkin(apiRoot: string, uuid: string): Promise<{ skin: string;
   const fallback = { skin: '', skinModel: 'default' as SkinModel }
   try {
     const response = await request(`${apiRoot}/sessionserver/session/minecraft/profile/${uuid}`)
-    if (!response.ok) return fallback
+    if (!response.ok) {
+      await discardBody(response)
+      return fallback
+    }
     const profile = (await response.json()) as { properties?: { name: string; value: string }[] }
     const textures = profile.properties?.find((p) => p.name === 'textures')
     if (!textures) return fallback

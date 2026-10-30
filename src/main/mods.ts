@@ -3,8 +3,10 @@ import { Version } from '@xmcl/core'
 import { readFabricMod, readForgeModJson, readForgeModManifest, readForgeModToml, readQuiltMod } from '@xmcl/mod-parser'
 import { type FileSystem } from '@xmcl/system'
 import { createHash } from 'crypto'
+import { createReadStream } from 'fs'
 import { copyFile, mkdir, readdir, readFile, rename, stat } from 'fs/promises'
-import { basename, join } from 'path'
+import { basename, join, sep } from 'path'
+import { pipeline } from 'stream/promises'
 import { getSettings } from './config'
 import { getVersionConfig, isolatedWith } from './versionConfig'
 import { versionGameDir } from './isolation'
@@ -21,6 +23,8 @@ const MAX_ICON_BYTES = 256 * 1024
 /** 解析结果缓存：文件路径 → 修改时间 + 大小 + 解析结果，刷新列表时不用重新解压 */
 type ParsedMod = Omit<ModInfo, 'fileName' | 'enabled'> & { relations: ModRelations }
 const cache = new Map<string, { key: string; meta: ParsedMod }>()
+/** 缓存最多记住的模组数（每条带一张图标，几 KB 到几百 KB）：超过时删掉最早的 */
+const CACHE_LIMIT = 2000
 
 export interface ModsContext {
   /** mods 文件夹 */
@@ -60,6 +64,32 @@ export async function listModFiles(dir: string): Promise<string[]> {
 }
 
 const sha1Cache = new Map<string, { key: string; sha1: string }>()
+/** 缓存最多记住的文件数（每条只有路径和哈希，几百字节） */
+const SHA1_CACHE_LIMIT = 5000
+/** 正在计算的文件：同时来的几次搜索共用同一次计算 */
+const sha1Pending = new Map<string, Promise<string>>()
+/** 同时计算哈希的文件数上限（整合包有几百个模组时不同时打开几百个文件） */
+const SHA1_CONCURRENCY = 4
+let sha1Running = 0
+const sha1Queue: (() => void)[] = []
+
+async function withSha1Slot<T>(run: () => Promise<T>): Promise<T> {
+  if (sha1Running >= SHA1_CONCURRENCY) await new Promise<void>((resolve) => sha1Queue.push(resolve))
+  sha1Running++
+  try {
+    return await run()
+  } finally {
+    sha1Running--
+    sha1Queue.shift()?.()
+  }
+}
+
+/** 边读边算文件的 SHA1，不把整个文件读进内存（光影包、资源包可能有几百 MB） */
+async function streamSha1(path: string): Promise<string> {
+  const hash = createHash('sha1')
+  await pipeline(createReadStream(path), hash)
+  return hash.digest('hex')
+}
 
 /** 计算文件的 SHA1（按修改时间与大小缓存），用于在 Modrinth 上识别模组 */
 export async function fileSha1(path: string): Promise<string> {
@@ -67,11 +97,20 @@ export async function fileSha1(path: string): Promise<string> {
   const key = `${info.mtimeMs}:${info.size}`
   const cached = sha1Cache.get(path)
   if (cached?.key === key) return cached.sha1
-  const sha1 = createHash('sha1')
-    .update(await readFile(path))
-    .digest('hex')
-  sha1Cache.set(path, { key, sha1 })
-  return sha1
+  const pendingKey = `${path}\u0000${key}`
+  const pending = sha1Pending.get(pendingKey)
+  if (pending) return pending
+  const job = withSha1Slot(() => streamSha1(path))
+    .then((sha1) => {
+      // Map 按加入顺序排列：超过上限时删掉最早的
+      sha1Cache.delete(path)
+      sha1Cache.set(path, { key, sha1 })
+      if (sha1Cache.size > SHA1_CACHE_LIMIT) sha1Cache.delete(sha1Cache.keys().next().value as string)
+      return sha1
+    })
+    .finally(() => sha1Pending.delete(pendingKey))
+  sha1Pending.set(pendingKey, job)
+  return job
 }
 
 function isModFile(name: string): boolean {
@@ -223,6 +262,19 @@ export async function listMods(versionId: string): Promise<ModList> {
     )
     mods.push(...(batch.filter(Boolean) as (ModInfo & { relations: ModRelations })[]))
   }
+  // 清理缓存：这个文件夹里已经不在的模组（更新、删除、换版本后留下的旧条目），以及超过上限的最早条目
+  const present = new Set(names.map((name) => join(dir, name).replace(/\.disabled$/, '')))
+  const prefix = dir.endsWith(sep) ? dir : dir + sep
+  for (const id of cache.keys()) {
+    if (
+      id.startsWith(prefix) &&
+      !id.slice(prefix.length).includes('/') &&
+      !id.slice(prefix.length).includes('\\') &&
+      !present.has(id)
+    )
+      cache.delete(id)
+  }
+  while (cache.size > CACHE_LIMIT) cache.delete(cache.keys().next().value as string)
   mods.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
   const issues = findModIssues(mods, loader)
   // 依赖关系只在主进程里用，不发给界面

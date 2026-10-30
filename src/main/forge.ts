@@ -1,5 +1,6 @@
 import { getSettings } from './config'
 import type { ForgeVersionInfo } from '../shared/types'
+import { discardBody } from './network'
 
 const BMCLAPI = 'https://bmclapi2.bangbang93.com'
 const FORGE_MAVEN = 'https://maven.minecraftforge.net'
@@ -7,7 +8,10 @@ const FORGE_PROMOTIONS = 'https://files.minecraftforge.net/net/minecraftforge/fo
 
 async function fetchChecked(url: string): Promise<Response> {
   const response = await fetch(url, { signal: AbortSignal.timeout(15000) })
-  if (!response.ok) throw new Error(`HTTP ${response.status}：${url}`)
+  if (!response.ok) {
+    await discardBody(response)
+    throw new Error(`HTTP ${response.status}：${url}`)
+  }
   return response
 }
 
