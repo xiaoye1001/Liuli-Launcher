@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { memo, useEffect, useState, type CSSProperties } from 'react'
 import { useAppearance } from '../utils/appearance'
 
 /**
@@ -21,7 +21,8 @@ const MAX_BURSTS = 8
 /** 动画时长（与 index.css 一致），播完后移除元素 */
 const LIFETIME = 650
 
-function ClickBurst({ x, y }: { x: number; y: number }): JSX.Element {
+/** 每次点击的光点方向只在出现时随机一次（memo：之后有新点击时不重新随机，飞出去的光点不会跳动） */
+const ClickBurst = memo(function ClickBurst({ x, y }: { x: number; y: number }): JSX.Element {
   return (
     <span className="absolute" style={{ left: x, top: y }}>
       <span className="click-ring" />
@@ -38,7 +39,7 @@ function ClickBurst({ x, y }: { x: number; y: number }): JSX.Element {
       })}
     </span>
   )
-}
+})
 
 function ClickEffects(): JSX.Element | null {
   const { animations, clickEffect } = useAppearance()

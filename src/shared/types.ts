@@ -1128,6 +1128,8 @@ export interface ModpackUpdateCheck {
 /** 准备更新整合包：新版本的信息（确认后开始更新） */
 export interface ModpackUpdatePlan {
   versionId: string
+  /** 这次准备的标识：开始更新时要带上，保证更新的是确认页上显示的版本 */
+  token: string
   current: InstalledModpack | null
   next: ModpackInfo
 }

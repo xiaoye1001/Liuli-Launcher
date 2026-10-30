@@ -23,6 +23,11 @@ const MODRINTH_ID = /^[A-Za-z0-9]{1,32}$/
 const CURSEFORGE_PROJECT = /^cf:\d{1,10}$/
 const CURSEFORGE_VERSION = /^cf:\d{1,10}:\d{1,12}$/
 
+/** 整合包版本 ID 的格式是否正确（会拼进下载地址） */
+export function isModpackVersionId(platform: ModpackSource['platform'], id: string): boolean {
+  return platform === 'curseforge' ? CURSEFORGE_VERSION.test(id) : MODRINTH_ID.test(id)
+}
+
 function recordPath(gameDir: string, versionId: string): string {
   return join(gameDir, 'versions', versionId, RECORD_FILE)
 }

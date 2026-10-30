@@ -234,30 +234,38 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
   /** 「结束游戏」按钮：第一次点击后进入确认状态，3 秒内再点一次才真正结束（防止误点丢失进度） */
   const [killConfirm, setKillConfirm] = useState(false)
   const [killing, setKilling] = useState(false)
+  const [killError, setKillError] = useState('')
+  /** 进入确认状态的时间：双击时第二下来得太快，不当作确认（防止习惯性双击直接结束游戏） */
+  const killArmedAt = useRef(0)
   useEffect(() => {
     if (!killConfirm) return
     const timer = setTimeout(() => setKillConfirm(false), 3000)
     return () => clearTimeout(timer)
   }, [killConfirm])
-  // 游戏结束后恢复按钮
+  /** 鼠标在启动按钮上（游戏运行中时显示为「结束游戏」） */
+  const [launchHover, setLaunchHover] = useState(false)
+  // 游戏状态变化时恢复按钮（游戏窗口挡住启动器时收不到鼠标移开的事件，悬停状态也一起清掉）
   useEffect(() => {
+    setLaunchHover(false)
     if (game.state !== 'running') {
       setKillConfirm(false)
       setKilling(false)
     }
+    if (game.state === 'launching') setKillError('')
   }, [game.state])
-
-  /** 鼠标在启动按钮上（游戏运行中时显示为「结束游戏」） */
-  const [launchHover, setLaunchHover] = useState(false)
   const running = game.state === 'running'
   const stopStyle = killConfirm || killing || launchHover
 
   const onKill = async (): Promise<void> => {
     if (killing) return
     if (!killConfirm) {
+      killArmedAt.current = Date.now()
+      setKillError('')
       setKillConfirm(true)
       return
     }
+    // 双击的第二下：不算确认
+    if (Date.now() - killArmedAt.current < 400) return
     setKillConfirm(false)
     setKilling(true)
     try {
@@ -265,7 +273,7 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
       if (!(await window.api.killGame())) setKilling(false)
     } catch (e) {
       setKilling(false)
-      setLaunchError(`结束游戏失败：${cleanError(e)}`)
+      setKillError(cleanError(e))
     }
   }
 
@@ -447,6 +455,7 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
         )}
         {!nameValid && <p className="mt-2 text-xs text-red-300">玩家名只能包含字母、数字和下划线，长度 3~16</p>}
         {launchError && <p className="mt-2 text-xs text-red-300">启动失败：{launchError}</p>}
+        {killError && <p className="mt-2 text-xs text-red-300">结束游戏失败：{killError}</p>}
       </div>
     </div>
   )

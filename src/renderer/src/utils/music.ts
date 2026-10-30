@@ -84,6 +84,9 @@ function playlist(): string[] {
 }
 
 /** 根据设置和音乐列表算出主题音乐是否生效 */
+/** 已经为哪首主题音乐重新读取过音乐列表 */
+let refreshedFor = ''
+
 function updateThemeTrack(): boolean {
   const themeTrack = themeMusic && state.tracks.includes(themeMusic) ? themeMusic : ''
   if (themeTrack === state.themeTrack) return false
@@ -152,7 +155,8 @@ audio.addEventListener('ended', () => {
 audio.addEventListener('error', () => {
   if (!state.current) return
   failures++
-  if (failures >= state.tracks.length) {
+  // 只循环主题音乐时列表里只有一首：失败一次就停下，不反复重试
+  if (failures >= playlist().length) {
     set({ playing: false, error: `无法播放「${trackTitle(state.current)}」，文件可能已损坏或格式不受支持` })
     return
   }
@@ -166,12 +170,17 @@ function applySettings(settings: AppSettings): void {
   order = settings.musicOrder ?? 'sequential'
   pauseInGame = settings.musicPauseInGame !== false
   themeMusic = typeof settings.themeMusic === 'string' ? settings.themeMusic : ''
-  // 主题音乐是刚复制进音乐文件夹的：重新读取列表后再切换
-  if (themeMusic && !state.tracks.includes(themeMusic)) void refreshMusic()
+  // 主题音乐是刚复制进音乐文件夹的：重新读取列表后再切换（每首只读一次，文件被删掉时不会每次改设置都去读）
+  if (themeMusic && !state.tracks.includes(themeMusic) && refreshedFor !== themeMusic) {
+    refreshedFor = themeMusic
+    void refreshMusic()
+  }
   // 切换到带音乐的主题（或取消）：淡出当前曲目，换成主题音乐（或全部音乐的第一首）
+  let swapping = false
   if (updateThemeTrack() && state.current && !playlist().includes(state.current)) {
     const next = playlist()[0]
     if (!audio.paused) {
+      swapping = true
       fadeTo(0, 500, () => {
         load(next)
         sync()
@@ -186,6 +195,8 @@ function applySettings(settings: AppSettings): void {
     userPaused: enabled && !state.enabled ? false : state.userPaused,
     gamePaused: pauseInGame && gameRunning
   })
+  // 正在淡出换曲：淡出结束后会自己换曲并继续播放，这里不能打断淡出
+  if (swapping) return
   if (!audio.paused) fadeTo(targetVolume(), 200)
   sync()
 }

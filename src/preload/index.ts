@@ -179,7 +179,7 @@ const api = {
   prepareModpackUpdate: (versionId: string, packVersionId: string) =>
     ipcRenderer.invoke('modpack:prepareUpdate', versionId, packVersionId),
   pickModpackUpdateFile: (versionId: string) => ipcRenderer.invoke('modpack:pickUpdateFile', versionId),
-  applyModpackUpdate: (versionId: string) => ipcRenderer.invoke('modpack:applyUpdate', versionId),
+  applyModpackUpdate: (versionId: string, token: string) => ipcRenderer.invoke('modpack:applyUpdate', versionId, token),
   /** 拖入窗口的文件在本机的路径 */
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   searchModrinth: (versionId: string, query: string, offset: number) =>

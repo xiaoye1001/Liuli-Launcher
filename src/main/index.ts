@@ -515,7 +515,9 @@ function registerIpc(): void {
   ipcMain.handle('modpack:pickUpdateFile', (event, versionId: string) =>
     pickModpackUpdateFile(String(versionId), BrowserWindow.fromWebContents(event.sender))
   )
-  ipcMain.handle('modpack:applyUpdate', (_, versionId: string) => applyModpackUpdate(String(versionId)))
+  ipcMain.handle('modpack:applyUpdate', (_, versionId: string, token: string) =>
+    applyModpackUpdate(String(versionId), String(token))
+  )
   ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>
     searchModrinth(versionId, query, offset)
   )

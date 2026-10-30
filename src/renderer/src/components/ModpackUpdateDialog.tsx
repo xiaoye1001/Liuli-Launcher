@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AlertTriangle, ArrowRight, CheckCircle2, FileArchive, Loader2, PackageOpen } from 'lucide-react'
 import type {
@@ -46,6 +46,25 @@ function ModpackUpdateDialog({
   const [plan, setPlan] = useState<ModpackUpdatePlan | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  /** 在线检查失败（网络问题），和「不能在线检查」区分开 */
+  const [checkFailed, setCheckFailed] = useState(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  /** 下载、准备或开始更新期间不能关闭对话框（否则后台准备好的版本可能和界面上的对不上） */
+  const close = (): void => {
+    if (!busy) onClose()
+  }
+  const closeRef = useRef(close)
+  closeRef.current = close
+
+  // 打开时把焦点移进对话框；按 Esc 关闭
+  useEffect(() => {
+    dialogRef.current?.focus()
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') closeRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   useEffect(() => {
     let alive = true
@@ -59,6 +78,7 @@ function ModpackUpdateDialog({
       .catch((e) => {
         if (!alive) return
         setError(`检查更新失败：${cleanError(e)}`)
+        setCheckFailed(true)
         // 检查失败时仍然可以用整合包文件更新
         setCheck({ current: version.modpack ?? null, updates: [], online: false })
       })
@@ -66,6 +86,11 @@ function ModpackUpdateDialog({
       alive = false
     }
   }, [version.id, version.modpack])
+
+  // 进入确认页（或返回）时点过的按钮会消失：把焦点放回对话框，键盘操作不会跑到后面的页面
+  useEffect(() => {
+    dialogRef.current?.focus()
+  }, [plan])
 
   const step = async (action: () => Promise<ModpackUpdatePlan | null>): Promise<void> => {
     if (busy) return
@@ -86,7 +111,7 @@ function ModpackUpdateDialog({
     setBusy(true)
     setError('')
     try {
-      await window.api.applyModpackUpdate(version.id)
+      await window.api.applyModpackUpdate(version.id, plan.token)
       onStarted(`正在把 ${version.id} 更新到 ${plan.next.name} ${plan.next.version}，进度显示在上方`)
     } catch (e) {
       setError(cleanError(e))
@@ -97,11 +122,14 @@ function ModpackUpdateDialog({
   const current: InstalledModpack | null = plan ? plan.current : (check?.current ?? null)
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={close}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
+        aria-modal="true"
         role="dialog"
         aria-label={`更新整合包 ${version.id}`}
-        className="flex max-h-[85vh] w-[32rem] flex-col rounded-2xl border border-white/15 popover-background p-5 shadow-2xl"
+        className="flex max-h-[85vh] w-[32rem] flex-col rounded-2xl border border-white/15 popover-background p-5 shadow-2xl outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 font-semibold">
@@ -170,7 +198,9 @@ function ModpackUpdateDialog({
             )}
             {!check.online && (
               <p className="mt-4 rounded-xl bg-white/5 px-3 py-3 text-sm leading-6 text-white/70">
-                这个整合包不是从下载页安装的，无法在线检查新版本。可以先下载新版本的整合包文件，再选择它来更新。
+                {checkFailed
+                  ? '暂时无法在线检查新版本。可以稍后再试，或者先下载新版本的整合包文件，再选择它来更新。'
+                  : '这个整合包不是从下载页安装的，无法在线检查新版本。可以先下载新版本的整合包文件，再选择它来更新。'}
               </p>
             )}
             {error && <div className="mt-3 rounded-lg bg-red-500/20 px-3 py-2 text-xs text-red-200">{error}</div>}
@@ -185,7 +215,8 @@ function ModpackUpdateDialog({
               </button>
               <div className="flex gap-2">
                 <button
-                  onClick={onClose}
+                  onClick={close}
+                  disabled={busy}
                   className="rounded-lg border border-white/10 bg-white/10 px-4 py-1.5 text-sm hover:bg-white/20"
                 >
                   取消

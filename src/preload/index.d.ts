@@ -264,7 +264,7 @@ declare global {
       /** 选择新版本的整合包文件来更新，取消时为 null */
       pickModpackUpdateFile: (versionId: string) => Promise<ModpackUpdatePlan | null>
       /** 开始更新整合包（进度通过 onInstallStatus 推送） */
-      applyModpackUpdate: (versionId: string) => Promise<void>
+      applyModpackUpdate: (versionId: string, token: string) => Promise<void>
       /** 拖入窗口的文件在本机的路径 */
       getPathForFile: (file: File) => string
       installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>

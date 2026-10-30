@@ -9,7 +9,7 @@ import { versionGameDir } from './isolation'
 import { getVersionConfig, isCustomized, isolatedWith, parseEnvVars, splitArgs } from './versionConfig'
 import { getMicrosoftLaunchAuth } from './microsoft'
 import { pickJava, requirementOf } from './javaRuntime'
-import { cancelInstall, completeMissingFiles, startJavaInstall } from './install'
+import { cancelInstall, completeMissingFiles, getInstallStatus, startJavaInstall } from './install'
 import { countMissing, findMissingFiles, type MissingFiles } from './fileCheck'
 import { autoMemory } from './memory'
 import { gcTuningArgs } from './gcTuning'
@@ -373,6 +373,11 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
   assertSafeId(versionId)
   if (status.state === 'launching' || status.state === 'running') {
     throw new Error('游戏已经在运行中')
+  }
+  // 这个版本正在安装、修复或更新整合包：文件还没装完，启动会出错（Windows 上还会占用正在替换的文件）
+  const install = getInstallStatus()
+  if (install?.state === 'running' && install.versionId === versionId) {
+    throw new Error('这个版本正在安装或更新，请等完成后再启动')
   }
 
   // 在第一次等待之前就标记为启动中，同时到达的两次启动请求只有一个能继续
