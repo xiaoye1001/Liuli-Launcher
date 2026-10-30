@@ -20,7 +20,8 @@ node run.cjs plains cherry aurora_night nether the_end   # 输出 out-<名字>.p
 
 ```bash
 python3 music.py <输出目录>   # 输出 <名字>.wav，再用 ffmpeg 转成 Opus：
-ffmpeg -i plains.wav -c:a libopus -b:a 96k plains.ogg
+# 80 kbps 限制可变码率：钢琴的码率不会超出太多，5 首合计约 5.4 MB
+ffmpeg -i plains.wav -c:a libopus -b:a 80k -vbr constrained -compression_level 10 -map_metadata -1 plains.ogg
 ```
 
 ## 放进启动器

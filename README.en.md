@@ -10,7 +10,7 @@ Glass-style UI · Dark & light themes · Fast downloads via mirrors · One-click
 
 </div>
 
-![Home](docs/screenshots/home.webp)
+![Home](website/images/home.webp)
 
 > The screenshots show the Chinese UI. The launcher interface is currently available in Simplified Chinese only.
 
@@ -85,13 +85,13 @@ The **Download** page has a side menu with **Vanilla** and **Community resources
 
 | Launch animation | Per-version settings |
 |---|---|
-| ![Launch animation](docs/screenshots/launch.webp) | ![Per-version settings](docs/screenshots/vsettings.webp) |
+| ![Launch animation](website/images/launch.webp) | ![Per-version settings](website/images/vsettings.webp) |
 
 | Community resources | Mod management |
 |---|---|
-| ![Community resources](docs/screenshots/download.webp) | ![Mod management](docs/screenshots/mods.webp) |
+| ![Community resources](website/images/download.webp) | ![Mod management](website/images/mods.webp) |
 
-![Personalization](docs/screenshots/theme.webp)
+![Personalization](website/images/theme.webp)
 
 ## Getting started
 

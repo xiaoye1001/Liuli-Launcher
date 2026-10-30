@@ -10,7 +10,7 @@
 
 </div>
 
-![主页](docs/screenshots/home.webp)
+![主页](website/images/home.webp)
 
 ## 功能
 
@@ -97,13 +97,13 @@
 
 | 启动动画 | 版本设置 |
 |---|---|
-| ![启动动画](docs/screenshots/launch.webp) | ![版本设置](docs/screenshots/vsettings.webp) |
+| ![启动动画](website/images/launch.webp) | ![版本设置](website/images/vsettings.webp) |
 
 | 下载资源 | 模组管理 |
 |---|---|
-| ![下载资源](docs/screenshots/download.webp) | ![模组管理](docs/screenshots/mods.webp) |
+| ![下载资源](website/images/download.webp) | ![模组管理](website/images/mods.webp) |
 
-![个性化](docs/screenshots/theme.webp)
+![个性化](website/images/theme.webp)
 
 ## 快速开始
 
