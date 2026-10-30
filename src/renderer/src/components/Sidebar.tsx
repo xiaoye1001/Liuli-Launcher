@@ -1,19 +1,9 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import MiniPlayer from './MiniPlayer'
+import logo from '../assets/logo.svg'
 import { DEFAULT_SUBTITLE, DEFAULT_TITLE, useAppearance } from '../utils/appearance'
-import {
-  Boxes,
-  Download,
-  House,
-  Layers,
-  LayoutGrid,
-  Server,
-  Settings,
-  UserRound,
-  Users,
-  type LucideIcon
-} from 'lucide-react'
+import { Download, House, Layers, LayoutGrid, Server, Settings, UserRound, Users, type LucideIcon } from 'lucide-react'
 
 export type PageKey = 'home' | 'account' | 'versions' | 'servers' | 'download' | 'multiplayer' | 'more' | 'settings'
 
@@ -55,9 +45,8 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
   return (
     <aside className="flex w-44 shrink-0 flex-col border-r border-white/10 bg-white/5 px-3 pb-8 pt-8 backdrop-blur-xl">
       <div className="flex h-[60px] shrink-0 items-center gap-3 px-2">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 shadow-lg shadow-emerald-500/30">
-          <Boxes className="h-6 w-6 text-white" />
-        </div>
+        {/* 启动器图标（看板娘头像），与安装包、任务栏的图标相同 */}
+        <img src={logo} alt="" draggable={false} className="h-10 w-10 shrink-0 select-none drop-shadow-md" />
         <div className="min-w-0">
           <div className="truncate text-base font-bold leading-tight" title={title}>
             {title}
