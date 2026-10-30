@@ -54,7 +54,7 @@
     "@types/react-dom": "18.3.7",
     "@vitejs/plugin-react": "4.7.0",
     "autoprefixer": "10.4.21",
-    "electron": "43.8.0",
+    "electron": "43.8.4",
     "electron-builder": "26.15.3",
     "electron-vite": "4.0.1",
     "framer-motion": "11.18.2",
