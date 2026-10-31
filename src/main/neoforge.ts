@@ -1,12 +1,16 @@
 import { getSettings } from './config'
 import type { NeoForgeVersionInfo } from '../shared/types'
+import { discardBody } from './network'
 
 const BMCLAPI = 'https://bmclapi2.bangbang93.com'
 const NEOFORGE_API = 'https://maven.neoforged.net/api/maven/versions/releases/net/neoforged'
 
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { signal: AbortSignal.timeout(15000) })
-  if (!response.ok) throw new Error(`HTTP ${response.status}：${url}`)
+  if (!response.ok) {
+    await discardBody(response)
+    throw new Error(`HTTP ${response.status}：${url}`)
+  }
   return (await response.json()) as T
 }
 

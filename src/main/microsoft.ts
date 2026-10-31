@@ -329,13 +329,22 @@ export function getLoginStatus(): MsLoginStatus {
   return loginStatus
 }
 
+/** 等待一段时间，可以被取消。时间到了就移除取消监听（登录时每 5 秒轮询一次，不移除会越积越多） */
 const sleep = (ms: number, signal: AbortSignal): Promise<void> =>
   new Promise((resolve, reject) => {
-    const timer = setTimeout(resolve, ms)
-    signal.addEventListener('abort', () => {
+    if (signal.aborted) {
+      reject(new Error('cancelled'))
+      return
+    }
+    const onAbort = (): void => {
       clearTimeout(timer)
       reject(new Error('cancelled'))
-    })
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    signal.addEventListener('abort', onAbort, { once: true })
   })
 
 /**

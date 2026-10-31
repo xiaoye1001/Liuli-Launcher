@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { createHash } from 'crypto'
 import { mkdir, readdir, readFile, rename, stat, writeFile } from 'fs/promises'
 import { join } from 'path'
+import { discardBody } from './network'
 
 /** authlib-injector：让游戏使用外置登录服务器。BMCLAPI 镜像优先，失败时使用官方地址 */
 const SOURCES = [
@@ -18,7 +19,10 @@ interface Artifact {
 
 async function fetchJson(url: string): Promise<Artifact> {
   const response = await fetch(url, { signal: AbortSignal.timeout(10000) })
-  if (!response.ok) throw new Error(`${response.status}`)
+  if (!response.ok) {
+    await discardBody(response)
+    throw new Error(`${response.status}`)
+  }
   return (await response.json()) as Artifact
 }
 
@@ -44,7 +48,10 @@ export async function ensureAuthlibInjector(log: (message: string) => void): Pro
       if (new URL(artifact.download_url).protocol !== 'https:') throw new Error('下载地址不安全')
       log(`正在下载 authlib-injector ${artifact.version}`)
       const response = await fetch(artifact.download_url, { signal: AbortSignal.timeout(60000) })
-      if (!response.ok) throw new Error(`下载失败（${response.status}）`)
+      if (!response.ok) {
+        await discardBody(response)
+        throw new Error(`下载失败（${response.status}）`)
+      }
       const data = Buffer.from(await response.arrayBuffer())
       if (createHash('sha256').update(data).digest('hex') !== expected.toLowerCase()) {
         throw new Error('文件校验失败')

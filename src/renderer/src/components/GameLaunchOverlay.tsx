@@ -315,12 +315,11 @@ function StageRow({
             transition={{ duration: 0.9, ease: 'linear', repeat: Infinity }}
           />
         )}
+        {/* 呼吸光点：一直循环，用 CSS 动画 .launch-stage-pulse（见 index.css） */}
         {state === 'active' && (
-          <motion.span
-            className="absolute inset-1 rounded-full"
+          <span
+            className="launch-stage-pulse absolute inset-1 rounded-full"
             style={{ background: accent(400, 0.25) }}
-            animate={{ scale: [0.85, 1.1, 0.85], opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 1.4, repeat: Infinity }}
           />
         )}
         {state === 'done' ? (
@@ -483,9 +482,9 @@ function GameLaunchOverlay(): JSX.Element {
     () =>
       window.api.onGameLog((event) => {
         if (event.reset) setLogs([])
-        if (event.lines.length === 0) return
+        // 动画关着时不保存日志（整局游戏每秒都会推送很多次）：再打开时会从主进程补上完整日志
+        if (event.lines.length === 0 || !openRef.current) return
         setLogs((prev) => [...prev, ...event.lines].slice(-300))
-        if (!openRef.current) return
         for (const line of event.lines) {
           const milestone = parseLaunchLog(line)
           if (!milestone) continue
@@ -503,9 +502,12 @@ function GameLaunchOverlay(): JSX.Element {
     [advanceReal, setDetail]
   )
 
-  // 打开时：补上已经写出的日志，并查一次当前状态
+  // 打开时：补上已经写出的日志，并查一次当前状态；关闭时清空，下次打开重新补
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      setLogs([])
+      return
+    }
     void window.api
       .getGameLogs()
       .then((lines) => setLogs((prev) => (prev.length > 0 ? prev : lines.slice(-300))))
@@ -689,14 +691,12 @@ function GameLaunchOverlay(): JSX.Element {
             animate={{ scale: 1 }}
             transition={{ duration: 0.8, ease: 'easeOut' }}
           />
-          {/* 主题色呼吸暗角 */}
-          <motion.div
-            className="pointer-events-none absolute inset-0"
+          {/* 主题色呼吸暗角：一直循环，用 CSS 动画 .launch-vignette（见 index.css） */}
+          <div
+            className="launch-vignette pointer-events-none absolute inset-0"
             style={{
               background: `radial-gradient(ellipse at center, transparent 35%, ${accent(500, 0.28)} 75%, ${accent(600, 0.45)} 100%)`
             }}
-            animate={{ opacity: [0.55, 1, 0.55] }}
-            transition={{ duration: 2.6, ease: 'easeInOut', repeat: Infinity }}
           />
           {/* 汇聚的星尘（关闭界面动画时不画） */}
           {animations && phase === 'launching' && <WarpField />}

@@ -131,7 +131,8 @@ import {
   installMultiplayerMod,
   joinRoom,
   listLocalAddresses,
-  setLanSniffer,
+  setPageLanSniffer,
+  cleanupOrphanCore,
   shutdownMultiplayer,
   stopMultiplayer
 } from './services/multiplayerService'
@@ -573,7 +574,7 @@ function registerIpc(): void {
   // 多人联机：三种联机方式（直连 / P2P / 内网穿透）、局域网嗅探、P2P 内核、联机模组
   ipcMain.handle('multiplayer:status', () => getMultiplayerStatus())
   ipcMain.handle('multiplayer:addresses', () => listLocalAddresses())
-  ipcMain.handle('multiplayer:sniff', (_, enabled: unknown) => setLanSniffer(enabled === true))
+  ipcMain.handle('multiplayer:sniff', (_, enabled: unknown) => setPageLanSniffer(enabled === true))
   ipcMain.handle('multiplayer:hostDirect', (_, port?: unknown) => hostDirect(port))
   ipcMain.handle('multiplayer:hostP2P', (_, port?: unknown, relay?: unknown) => hostP2P(port, relay))
   ipcMain.handle('multiplayer:hostTunnel', (_, address: unknown, motd?: unknown) => hostTunnel(address, motd))
@@ -648,6 +649,8 @@ app.whenReady().then(async () => {
   })
 
   registerIpc()
+  // 上次启动器被强制结束时留在后台的联机内核
+  void cleanupOrphanCore().catch(() => undefined)
   registerBackgroundProtocol()
   // 先应用保存的主题，再创建窗口，避免启动时闪烁
   nativeTheme.themeSource = (await getSettings()).theme

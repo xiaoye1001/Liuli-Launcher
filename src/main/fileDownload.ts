@@ -1,10 +1,9 @@
-import { app } from 'electron'
 import { download } from '@xmcl/file-transfer'
 import { AbortableTask } from '@xmcl/task'
-import { appendFile, mkdir } from 'fs/promises'
-import { basename, dirname, join } from 'path'
+import { basename } from 'path'
 import { setInstallDetail } from './install'
 import { installDispatcher } from './network'
+import { appendDownloadLog, DOWNLOAD_LOG } from './downloadLog'
 
 /** 要下载的文件 */
 export interface DownloadItem {
@@ -26,7 +25,7 @@ const ROUNDS = 2
 /** 剩下几个文件时在界面上显示文件名 */
 const SHOW_NAMES_BELOW = 5
 
-export const DOWNLOAD_LOG = join(app.getPath('userData'), 'logs', 'download.log')
+export { DOWNLOAD_LOG }
 
 class StallError extends Error {}
 
@@ -79,9 +78,7 @@ export class WatchedDownloadTask extends AbortableTask<void> {
   }
 
   private log(line: string): void {
-    void mkdir(dirname(DOWNLOAD_LOG), { recursive: true })
-      .then(() => appendFile(DOWNLOAD_LOG, `[${new Date().toLocaleString('zh-CN')}] ${line}\n`))
-      .catch(() => undefined)
+    appendDownloadLog(line)
   }
 
   /** 进度卡片上的说明：剩下少量文件时列出文件名 */

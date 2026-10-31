@@ -1,4 +1,5 @@
 import type { OptiFineVersionInfo } from '../shared/types'
+import { discardBody } from './network'
 
 const BMCLAPI = 'https://bmclapi2.bangbang93.com'
 const SAFE_PART = /^[A-Za-z0-9_.-]{1,64}$/
@@ -36,7 +37,10 @@ function compareDesc(a: OptiFineVersionInfo, b: OptiFineVersionInfo): number {
 export async function getOptiFineVersions(mc: string): Promise<OptiFineVersionInfo[]> {
   const url = `${BMCLAPI}/optifine/${encodeURIComponent(mc)}`
   const response = await fetch(url, { signal: AbortSignal.timeout(15000) })
-  if (!response.ok) throw new Error(`HTTP ${response.status}：${url}`)
+  if (!response.ok) {
+    await discardBody(response)
+    throw new Error(`HTTP ${response.status}：${url}`)
+  }
   const list = (await response.json()) as BmclapiOptiFine[]
   if (!Array.isArray(list)) throw new Error('BMCLAPI 返回的 OptiFine 列表格式不正确')
   return (

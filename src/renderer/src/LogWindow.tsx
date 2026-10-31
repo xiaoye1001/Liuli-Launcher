@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowDownToLine, Check, Copy, Search, Terminal, Trash2 } from 'lucide-react'
 import type { GameState, GameStatus } from '../../shared/types'
@@ -24,8 +24,18 @@ function lineClass(line: string): string {
   return 'text-white/80'
 }
 
+/** 一行日志：内容不变就不重新渲染（日志满了以后每次推送只删掉最旧的几行、加上新的几行） */
+const LogLine = memo(function LogLine({ line }: { line: string }): JSX.Element {
+  return <div className={`whitespace-pre-wrap break-all ${lineClass(line)}`}>{line}</div>
+})
+
 function LogWindow(): JSX.Element {
   const [lines, setLines] = useState<string[]>([])
+  /**
+   * 第一行的序号（从窗口打开起一共丢掉了多少行）：每一行用「序号」作为 key。
+   * 如果用下标作为 key，日志满了以后每次删掉最旧的行，所有行的下标都会变，5000 行都要重新渲染
+   */
+  const [first, setFirst] = useState(0)
   const [status, setStatus] = useState<GameStatus>({ state: 'idle', versionId: '' })
   const [keyword, setKeyword] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
@@ -40,7 +50,10 @@ function LogWindow(): JSX.Element {
     const offLog = window.api.onGameLog((event) => {
       setLines((prev) => {
         const next = event.reset ? event.lines : [...prev, ...event.lines]
-        return next.length > MAX_LINES ? next.slice(-MAX_LINES) : next
+        const dropped = Math.max(0, next.length - MAX_LINES)
+        // 重新开始时序号也往后跳，旧的行不会被当成新的行复用
+        if (event.reset || dropped > 0) setFirst((n) => n + (event.reset ? prev.length : 0) + dropped)
+        return dropped > 0 ? next.slice(dropped) : next
       })
       if (event.reset) setAutoScroll(true)
     })
@@ -53,8 +66,9 @@ function LogWindow(): JSX.Element {
 
   const visible = useMemo(() => {
     const kw = keyword.trim().toLowerCase()
-    return kw ? lines.filter((line) => line.toLowerCase().includes(kw)) : lines
-  }, [lines, keyword])
+    const numbered = lines.map((line, index): [number, string] => [first + index, line])
+    return kw ? numbered.filter(([, line]) => line.toLowerCase().includes(kw)) : numbered
+  }, [lines, first, keyword])
 
   // 新日志到达时自动滚动到底部
   useEffect(() => {
@@ -78,7 +92,7 @@ function LogWindow(): JSX.Element {
 
   const copyAll = async (): Promise<void> => {
     // 复制出去的日志常被发到群里：先去掉登录令牌和用户文件夹路径
-    await navigator.clipboard.writeText(await window.api.sanitizeLog(visible.join('\n')))
+    await navigator.clipboard.writeText(await window.api.sanitizeLog(visible.map(([, line]) => line).join('\n')))
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
@@ -120,7 +134,10 @@ function LogWindow(): JSX.Element {
           className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
         />
         <button
-          onClick={() => setLines([])}
+          onClick={() => {
+            setFirst((n) => n + lines.length)
+            setLines([])
+          }}
           title="清空窗口中的日志"
           className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-red-500/30"
         >
@@ -142,11 +159,7 @@ function LogWindow(): JSX.Element {
               {lines.length === 0 ? '暂无日志，启动游戏后这里会实时显示输出' : '没有匹配的日志'}
             </div>
           ) : (
-            visible.map((line, index) => (
-              <div key={index} className={`whitespace-pre-wrap break-all ${lineClass(line)}`}>
-                {line}
-              </div>
-            ))
+            visible.map(([id, line]) => <LogLine key={id} line={line} />)
           )}
         </div>
 

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
-  ArrowLeft,
   ArrowUpCircle,
   FolderOpen,
   Loader2,
@@ -12,6 +11,9 @@ import {
   Trash2
 } from 'lucide-react'
 import ModrinthBrowser from '../components/ModrinthBrowser'
+import PageHeader from '../components/PageHeader'
+import { EmptyState, LoadingState } from '../components/EmptyState'
+import { HEADER_ICON_BUTTON, HEADER_PRIMARY } from '../components/headerButtons'
 import ModIssuesCard from '../components/ModIssuesCard'
 import type { InstalledVersion, ModInfo, ModKind, ModList, ModUpdate } from '../../../shared/types'
 
@@ -207,52 +209,37 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
 
   return (
     <div className="flex h-full flex-col gap-4">
-      {/* 顶部：返回、标题、操作 */}
-      <div className="rounded-2xl border border-white/10 bg-white/10 p-5 shadow-lg backdrop-blur-xl">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            title="返回版本列表"
-            className="rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-violet-500/20">
-            <Puzzle className="h-6 w-6 text-violet-300" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-bold" title={version.id}>
-              {version.id}
-            </h1>
-            <p className="truncate text-xs text-white/50" title={list?.dir}>
-              {list ? `模组 · ${list.isolated ? '版本隔离' : '共用游戏目录'} · ${list.dir}` : '模组 · 正在读取…'}
-            </p>
-          </div>
-          <button
-            onClick={add}
-            disabled={pending !== null}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500 disabled:opacity-50"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            添加模组
-          </button>
-          <button
-            onClick={() => run(null, () => window.api.openModsDir(version.id))}
-            title="打开 mods 文件夹"
-            className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
-          >
-            <FolderOpen className="h-4 w-4" />
-          </button>
-          <button
-            onClick={load}
-            disabled={loading}
-            title="刷新"
-            className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
+      {/* 顶部：返回、标题、操作（与其他页面的标题栏对齐） */}
+      <PageHeader
+        onBack={onBack}
+        backTitle="返回版本列表"
+        icon={<Puzzle className="h-6 w-6 text-violet-300" />}
+        title={version.id}
+        titleHint={version.id}
+        subtitle={
+          <span className="truncate" title={list?.dir}>
+            {list ? `模组 · ${list.isolated ? '版本隔离' : '共用游戏目录'} · ${list.dir}` : '模组 · 正在读取…'}
+          </span>
+        }
+        actions={
+          <>
+            <button onClick={add} disabled={pending !== null} className={HEADER_PRIMARY}>
+              <Plus className="h-4 w-4" />
+              添加模组
+            </button>
+            <button
+              onClick={() => run(null, () => window.api.openModsDir(version.id))}
+              title="打开 mods 文件夹"
+              className={HEADER_ICON_BUTTON}
+            >
+              <FolderOpen className="h-4 w-4" />
+            </button>
+            <button onClick={load} disabled={loading} title="刷新" className={HEADER_ICON_BUTTON}>
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </>
+        }
+      />
 
       {error && (
         <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
@@ -343,20 +330,11 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
           )}
 
           <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-            {loading && !list && (
-              <div className="flex h-full items-center justify-center text-white/50">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
-            )}
+            {loading && !list && <LoadingState />}
             {list && list.mods.length === 0 && (
-              <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-white/40">
-                <Puzzle className="h-8 w-8" />
-                还没有模组，点「添加模组」选择 .jar 文件，或打开文件夹直接放进去
-              </div>
+              <EmptyState icon={Puzzle}>还没有模组，点「添加模组」选择 .jar 文件，或打开文件夹直接放进去</EmptyState>
             )}
-            {list && list.mods.length > 0 && visible.length === 0 && (
-              <div className="py-10 text-center text-sm text-white/40">没有匹配的模组</div>
-            )}
+            {list && list.mods.length > 0 && visible.length === 0 && <EmptyState>没有匹配的模组</EmptyState>}
             {visible.map((mod) => {
               const kindInfo = mod.kind !== 'unknown' ? KIND_LABELS[mod.kind] : null
               const mismatch = versionFamily && family(mod.kind) && family(mod.kind) !== versionFamily

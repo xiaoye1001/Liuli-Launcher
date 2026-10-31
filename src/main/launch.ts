@@ -162,10 +162,27 @@ function flushLogs(): void {
   send('game:log', event)
 }
 
+/** 单行日志的长度上限：模组刷屏时一行可能是几十 KB 的 NBT / JSON，5000 行全是这种会占用上 GB 内存 */
+const MAX_LINE_LENGTH = 8 * 1024
+
+/**
+ * 复制出一个独立的字符串。split / slice 得到的子串会引用原来的整个数据块，
+ * 只留一小段也会让整块数据一直留在内存里
+ */
+function detach(text: string): string {
+  return Buffer.from(text, 'utf8').toString('utf8')
+}
+
+function limitLine(line: string): string {
+  return line.length > MAX_LINE_LENGTH ? detach(line.slice(0, MAX_LINE_LENGTH)) + ' …（这一行太长，已截断）' : line
+}
+
 function pushLines(lines: string[]): void {
   if (lines.length === 0) return
+  lines = lines.map(limitLine)
   logs.push(...lines)
-  if (logs.length > MAX_LOG_LINES) logs = logs.slice(-MAX_LOG_LINES)
+  // 超出上限后攒够 1000 行再一起删，不用每次输出都复制整个数组
+  if (logs.length > MAX_LOG_LINES + 1000) logs = logs.slice(-MAX_LOG_LINES)
   pendingLines.push(...lines)
   if (!flushTimer) flushTimer = setTimeout(flushLogs, 100)
 }
@@ -191,14 +208,19 @@ function pipeLines(stream: NodeJS.ReadableStream | null, prefix = ''): void {
   let rest = ''
   stream.setEncoding('utf8')
   stream.on('data', (chunk: string) => {
-    const parts = (rest + chunk).split(/\r?\n/)
+    const text = rest + chunk
+    const parts = text.split(/\r?\n/)
     rest = parts.pop() ?? ''
-    // 一直不换行的输出（例如进度条）不能无限累积，超过 64 KB 先当作一行输出
-    if (rest.length > 64 * 1024) {
+    // 一直不换行的输出（例如进度条）不能无限累积，超过 16 KB 先当作一行输出
+    if (rest.length > 16 * 1024) {
       parts.push(rest)
       rest = ''
     }
-    pushLines(parts.filter((line) => line.length > 0).map((line) => prefix + line))
+    // 数据块很大时，每行复制成独立的字符串，不让一小行把整个数据块留在内存里
+    const lines = parts.filter((line) => line.length > 0).map((line) => prefix + line)
+    pushLines(
+      text.length > 16 * 1024 ? lines.map((line) => (line.length > MAX_LINE_LENGTH ? line : detach(line))) : lines
+    )
   })
   stream.on('end', () => {
     if (rest) pushLines([prefix + rest])
@@ -265,7 +287,7 @@ export function getGameStatus(): GameStatus {
 }
 
 export function getGameLogs(): string[] {
-  return logs
+  return logs.length > MAX_LOG_LINES ? logs.slice(-MAX_LOG_LINES) : logs
 }
 
 /** 把 @xmcl/core 抛出的各种错误转换成中文提示 */

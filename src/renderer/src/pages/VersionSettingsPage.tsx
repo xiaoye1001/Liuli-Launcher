@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertTriangle,
-  ArrowLeft,
   CheckCircle2,
   ChevronDown,
   Coffee,
@@ -16,6 +15,8 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import VersionIcon from '../components/VersionIcon'
+import PageHeader from '../components/PageHeader'
+import { HEADER_BUTTON } from '../components/headerButtons'
 import JavaSelect, { type JavaChoice } from '../components/JavaSelect'
 import MemoryPlanSummary from '../components/MemoryPlanSummary'
 import type { AppSettings, InstalledVersion, JavaInfo, MemoryPlan, VersionConfig } from '../../../shared/types'
@@ -72,7 +73,10 @@ function cleanError(e: unknown): string {
   return message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 }
 
-/** 分段选择按钮 */
+/**
+ * 分段选择按钮。选中项的底色自己量按钮位置再滑过去：
+ * 不用 framer-motion 的 layoutId——它在页面里卸载后会让 App 的页面退场动画卡住，切换页面后内容一直空白
+ */
 function Segmented<T extends string>({
   value,
   options,
@@ -82,23 +86,44 @@ function Segmented<T extends string>({
   options: [T, string][]
   onChange: (value: T) => void
 }): JSX.Element {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const buttonRefs = useRef(new Map<string, HTMLButtonElement>())
+  const [indicator, setIndicator] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
+  useLayoutEffect(() => {
+    const measure = (): void => {
+      const el = buttonRefs.current.get(value)
+      setIndicator(
+        el ? { left: el.offsetLeft, top: el.offsetTop, width: el.offsetWidth, height: el.offsetHeight } : null
+      )
+    }
+    measure()
+    // 卡片宽度变化（窗口缩放、按钮换行）时重新量
+    const observer = new ResizeObserver(measure)
+    if (containerRef.current) observer.observe(containerRef.current)
+    return () => observer.disconnect()
+  }, [value, options.length])
+
   return (
-    <div className="flex flex-wrap gap-1 rounded-xl bg-black/20 p-1">
+    <div ref={containerRef} className="relative flex flex-wrap gap-1 rounded-xl bg-black/20 p-1">
+      {indicator && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute rounded-lg bg-emerald-500/25 transition-all duration-300 ease-out"
+          style={indicator}
+        />
+      )}
       {options.map(([key, label]) => (
         <button
           key={key}
+          ref={(el) => {
+            if (el) buttonRefs.current.set(key, el)
+            else buttonRefs.current.delete(key)
+          }}
           onClick={() => onChange(key)}
           className={`relative flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors ${
             value === key ? 'font-medium text-emerald-200' : 'text-white/60 hover:bg-white/10 hover:text-white'
           }`}
         >
-          {value === key && (
-            <motion.span
-              layoutId={`seg-${options.map((o) => o[0]).join('-')}`}
-              className="absolute inset-0 rounded-lg bg-emerald-500/25"
-              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-            />
-          )}
           <span className="relative">{label}</span>
         </button>
       ))}
@@ -157,8 +182,8 @@ function Card({
   children: ReactNode
 }): JSX.Element {
   return (
+    // 不加 layout：带布局动画的元素在页面里卸载后会让 App 的页面退场动画卡住
     <motion.section
-      layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
@@ -446,71 +471,66 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
 
   return (
     <div className="flex h-full flex-col gap-4">
-      {/* 顶部：版本信息 */}
-      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/10 p-5 shadow-lg backdrop-blur-xl">
-        <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-emerald-500/15 blur-3xl" />
-        <div className="relative flex items-center gap-4">
-          <button
-            onClick={onBack}
-            title="返回版本列表"
-            className="rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-black/20">
-            <VersionIcon icon={version.icon} iconUrl={version.iconUrl} className="h-9 w-9" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-bold" title={version.id}>
-              {version.id}
-            </h1>
-            <div className="mt-0.5 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs leading-[18px]">
-              <span className="rounded-md bg-white/10 shrink-0 px-2">Minecraft {version.minecraftVersion}</span>
-              {version.loader && (
-                <span className="rounded-md bg-sky-500/15 shrink-0 px-2 text-sky-300">
-                  {LOADER_NAMES[version.loader]}
-                </span>
-              )}
-              {required && (
-                <span className="rounded-md bg-amber-500/15 shrink-0 px-2 text-amber-200">需要 Java {required}+</span>
-              )}
-              <span className="rounded-md bg-white/10 shrink-0 px-2 text-white/60">
-                {isolatedNow ? '版本隔离' : '共用游戏目录'}
+      {/* 顶部：返回、版本信息、操作（与其他页面的标题栏对齐） */}
+      <PageHeader
+        onBack={onBack}
+        backTitle="返回版本列表"
+        icon={<VersionIcon icon={version.icon} iconUrl={version.iconUrl} className="h-9 w-9" />}
+        title={version.id}
+        titleHint={version.id}
+        subtitle={
+          <span className="flex min-w-0 items-center gap-1.5 leading-[18px]">
+            <span className="shrink-0 rounded-md bg-white/10 px-2 text-white/80">
+              Minecraft {version.minecraftVersion}
+            </span>
+            {version.loader && (
+              <span className="shrink-0 rounded-md bg-sky-500/15 px-2 text-sky-300">
+                {LOADER_NAMES[version.loader]}
               </span>
-              <span className="truncate text-white/40">
-                {overriddenCount > 0 ? `已单独设置 ${overriddenCount} 项，其余跟随全局设置` : '全部跟随全局设置'}
-              </span>
-            </div>
-          </div>
-          <AnimatePresence>
-            {saved && (
-              <motion.span
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="flex items-center gap-1 text-xs text-emerald-300"
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                已保存
-              </motion.span>
             )}
-          </AnimatePresence>
-          <button
-            onClick={() => {
-              clearTimeout(memoryTimer.current)
-              pendingMemory.current = null
-              setMemoryDraft(0)
-              void save(DEFAULT_CONFIG)
-            }}
-            disabled={!customized}
-            title="清除该版本的所有单独设置，全部跟随全局设置"
-            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            全部恢复默认
-          </button>
-        </div>
-      </div>
+            {required && (
+              <span className="shrink-0 rounded-md bg-amber-500/15 px-2 text-amber-200">需要 Java {required}+</span>
+            )}
+            <span className="shrink-0 rounded-md bg-white/10 px-2 text-white/60">
+              {isolatedNow ? '版本隔离' : '共用游戏目录'}
+            </span>
+            <span className="truncate text-white/40">
+              {overriddenCount > 0 ? `已单独设置 ${overriddenCount} 项，其余跟随全局设置` : '全部跟随全局设置'}
+            </span>
+          </span>
+        }
+        actions={
+          <>
+            <AnimatePresence>
+              {saved && (
+                <motion.span
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="flex items-center gap-1 text-xs text-emerald-300"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  已保存
+                </motion.span>
+              )}
+            </AnimatePresence>
+            <button
+              onClick={() => {
+                clearTimeout(memoryTimer.current)
+                pendingMemory.current = null
+                setMemoryDraft(0)
+                void save(DEFAULT_CONFIG)
+              }}
+              disabled={!customized}
+              title="清除该版本的所有单独设置，全部跟随全局设置"
+              className={`${HEADER_BUTTON} disabled:cursor-not-allowed disabled:opacity-40`}
+            >
+              <RotateCcw className="h-4 w-4" />
+              全部恢复默认
+            </button>
+          </>
+        }
+      />
 
       {error && (
         <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">

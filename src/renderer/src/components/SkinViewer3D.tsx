@@ -9,6 +9,7 @@ import {
   type PlayerAnimation
 } from 'skinview3d'
 import { createDefaultSkin } from '../utils/defaultSkin'
+import { useTheme } from '../context/ThemeContext'
 import type { SkinModel } from '../../../shared/types'
 
 export type SkinAnimation = 'idle' | 'walk' | 'run' | 'wave' | 'fly'
@@ -45,6 +46,8 @@ function SkinViewer3D({ skin, model, animation, autoRotate, nameTag, cape = '' }
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const viewerRef = useRef<SkinViewer | null>(null)
   const [failed, setFailed] = useState(false)
+  // 游戏运行中、窗口隐藏或关闭了动画时暂停 3D 渲染（和动态背景一样），不占用显卡
+  const { paused } = useTheme()
 
   // 创建与销毁查看器，并跟随容器大小自适应
   useEffect(() => {
@@ -83,6 +86,10 @@ function SkinViewer3D({ skin, model, animation, autoRotate, nameTag, cape = '' }
       viewerRef.current = null
     }
   }, [])
+
+  useEffect(() => {
+    if (viewerRef.current) viewerRef.current.renderPaused = paused
+  }, [paused])
 
   useEffect(() => {
     const viewer = viewerRef.current

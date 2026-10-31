@@ -6,7 +6,7 @@ import { createHash } from 'crypto'
 import { dirname, isAbsolute, join, relative, resolve } from 'path'
 import { getSettings } from './config'
 import { resolveJava, scanJava } from './java'
-import { installDispatcher } from './network'
+import { installDispatcher, discardBody } from './network'
 import type { JavaInfo, JavaRuntimeInfo } from '../shared/types'
 
 /**
@@ -97,7 +97,10 @@ async function fetchJson<T>(url: string, sha1?: string): Promise<T> {
   for (const candidate of urls) {
     try {
       const response = await fetch(candidate, { signal: AbortSignal.timeout(15000) })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      if (!response.ok) {
+        await discardBody(response)
+        throw new Error(`HTTP ${response.status}`)
+      }
       const text = await response.text()
       if (sha1 && createHash('sha1').update(text).digest('hex') !== sha1.toLowerCase()) {
         throw new Error('文件校验失败（SHA1 不一致）')

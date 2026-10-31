@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { GlowCube } from './components/AppSplashScreen'
+import { MascotAvatar } from './components/AppSplashScreen'
 import { parseLaunchLog } from './components/GameLaunchOverlay'
 import { DEFAULT_TITLE, useAppearance } from './utils/appearance'
 
 /**
  * 桌面启动悬浮窗的页面（地址带 #launch-splash，预览时为 #launch-splash-preview）。
- * 启动器不在前台时显示在屏幕中央：发光方块 + 当前进度，游戏窗口出现后淡出。
+ * 启动器不在前台时显示在屏幕中央：看板娘头像 + 当前进度，游戏窗口出现后淡出。
  * 窗口本身是透明的，只有中间的卡片可见；颜色跟随主题色。
  */
 
@@ -105,7 +105,7 @@ function LaunchSplashWindow(): JSX.Element {
           style={{ background: `radial-gradient(circle at 50% 30%, ${accent(500, 0.22)}, transparent 60%)` }}
         />
 
-        {/* 发光方块 + 呼吸光晕 + 旋转光环 */}
+        {/* 看板娘头像 + 呼吸光晕 + 旋转光环 */}
         <div className="relative flex h-36 w-36 shrink-0 items-center justify-center">
           <motion.div
             className="absolute h-28 w-28 rounded-full"
@@ -127,7 +127,7 @@ function LaunchSplashWindow(): JSX.Element {
               style={{ background: accent(200), boxShadow: `0 0 10px ${accent(300)}` }}
             />
           </motion.div>
-          <GlowCube size={60} />
+          <MascotAvatar size={88} />
         </div>
 
         <div className="relative mt-3 text-center">

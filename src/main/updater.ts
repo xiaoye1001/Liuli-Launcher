@@ -10,7 +10,7 @@ import { parseUpdateLog } from './updateScript'
 import { getSettings } from './config'
 import { getGameStatus } from './launch'
 import { getInstallStatus } from './install'
-import { downloadDispatcher } from './network'
+import { downloadDispatcher, discardBody } from './network'
 import { parsePublicKey, verifySignedRelease } from './updateSignature'
 import type { UpdateDownload, UpdateInfo, UpdateResult } from '../shared/types'
 
@@ -118,7 +118,10 @@ async function checkOfficial(): Promise<UpdateInfo> {
       headers: { 'User-Agent': `LiuliLauncher/${__APP_VERSION__}`, 'Cache-Control': 'no-cache' },
       signal: AbortSignal.timeout(TIMEOUT)
     })
-    if (!response.ok) throw new Error(`官网返回错误（${response.status}）`)
+    if (!response.ok) {
+      await discardBody(response)
+      throw new Error(`官网返回错误（${response.status}）`)
+    }
     data = (await response.json()) as OfficialLatest
   } catch (e) {
     if ((e as Error).name === 'TimeoutError') throw new Error('连接官网超时，请检查网络')
@@ -210,7 +213,10 @@ async function checkGithub(): Promise<UpdateInfo> {
     })
     if (response.status === 404) throw new Error('还没有发布过正式版本')
     if (response.status === 403 || response.status === 429) throw new Error('检查太频繁，请稍后再试')
-    if (!response.ok) throw new Error(`GitHub 返回错误（${response.status}）`)
+    if (!response.ok) {
+      await discardBody(response)
+      throw new Error(`GitHub 返回错误（${response.status}）`)
+    }
     release = (await response.json()) as GithubRelease
   } catch (e) {
     if ((e as Error).name === 'AbortError') throw new Error('连接 GitHub 超时，请检查网络')
@@ -273,7 +279,10 @@ async function fetchSignature(url: string): Promise<unknown> {
     headers: { 'User-Agent': `LiuliLauncher/${__APP_VERSION__}` },
     signal: AbortSignal.timeout(TIMEOUT)
   })
-  if (!response.ok) throw new Error(`下载签名文件失败（${response.status}）`)
+  if (!response.ok) {
+    await discardBody(response)
+    throw new Error(`下载签名文件失败（${response.status}）`)
+  }
   const length = Number(response.headers.get('content-length') ?? 0)
   if (length > 64 * 1024) throw new Error('签名文件太大')
   const text = await response.text()

@@ -251,10 +251,13 @@ export async function pingServer(address: string): Promise<ServerStatus> {
     let latency: number | undefined
     try {
       // 部分服务器不回应 ping，最多等 2 秒，之后只显示状态
+      let pongTimer: ReturnType<typeof setTimeout> | undefined
       const pong = await Promise.race([
         reader.next(),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000))
-      ])
+        new Promise<null>((resolve) => {
+          pongTimer = setTimeout(() => resolve(null), 2000)
+        })
+      ]).finally(() => clearTimeout(pongTimer))
       if (pong?.id === 0x01) latency = Date.now() - sentAt
     } catch {
       // 回应 ping 时断开连接也不影响状态

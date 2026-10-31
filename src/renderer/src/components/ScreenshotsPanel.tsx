@@ -8,11 +8,11 @@ import {
   Copy,
   FolderOpen,
   Image as ImageIcon,
-  Loader2,
   Trash2,
   X
 } from 'lucide-react'
 import type { Screenshot, ScreenshotList } from '../../../shared/types'
+import { EmptyState, LoadingState } from './EmptyState'
 
 function cleanError(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e)
@@ -122,17 +122,8 @@ function ScreenshotsPanel({ versionId }: { versionId: string }): JSX.Element {
       )}
 
       <section className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
-        {!list && (
-          <div className="flex justify-center py-10 text-white/50">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
-        )}
-        {list && items.length === 0 && (
-          <div className="flex flex-col items-center gap-2 py-12 text-sm text-white/40">
-            <ImageIcon className="h-10 w-10 text-white/20" />
-            还没有截图，在游戏中按 F2 截图
-          </div>
-        )}
+        {!list && <LoadingState />}
+        {list && items.length === 0 && <EmptyState icon={ImageIcon}>还没有截图，在游戏中按 F2 截图</EmptyState>}
         <div className="grid grid-cols-3 gap-3">
           {items.map((shot, index) => (
             <div key={shot.fileName} className="group relative overflow-hidden rounded-xl bg-black/30">

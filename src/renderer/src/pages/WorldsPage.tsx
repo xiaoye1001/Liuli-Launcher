@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   Archive,
-  ArrowLeft,
   CheckCircle2,
   ChevronDown,
   Download,
@@ -18,6 +17,9 @@ import {
   Trash2
 } from 'lucide-react'
 import GrassBlockIcon from '../components/GrassBlockIcon'
+import PageHeader from '../components/PageHeader'
+import { EmptyState, LoadingState } from '../components/EmptyState'
+import { HEADER_BUTTON, HEADER_ICON_BUTTON } from '../components/headerButtons'
 import WorldDetailsPanel from '../components/WorldDetailsPanel'
 import type {
   InstalledVersion,
@@ -278,68 +280,55 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
 
   return (
     <div className="flex h-full flex-col gap-4">
-      <div className="rounded-2xl border border-white/10 bg-white/10 p-5 shadow-lg backdrop-blur-xl">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            title="返回版本列表"
-            className="rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20">
-            <Globe className="h-6 w-6 text-emerald-300" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-bold" title={version.id}>
-              {version.id}
-            </h1>
-            <p className="truncate text-xs text-white/50" title={list?.dir}>
-              存档 · {list?.dir ?? '…'}
-            </p>
-          </div>
-          <button
-            onClick={() =>
-              act('import', async () => {
-                const folder = await window.api.importWorld(version.id)
-                return folder ? `已导入存档「${folder}」` : undefined
-              })
-            }
-            disabled={pending !== null}
-            title="从 zip 压缩包导入存档"
-            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
-          >
-            {pending === 'import' ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <FileUp className="h-3.5 w-3.5" />
-            )}
-            导入存档
-          </button>
-          <button
-            onClick={() => window.api.openBackupsDir(version.id).catch((e) => setError(cleanError(e)))}
-            title="打开备份文件夹"
-            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
-          >
-            <Archive className="h-3.5 w-3.5" />
-            备份文件夹
-          </button>
-          <button
-            onClick={() => window.api.openWorldDir(version.id).catch((e) => setError(cleanError(e)))}
-            title="打开 saves 文件夹"
-            className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
-          >
-            <FolderOpen className="h-4 w-4" />
-          </button>
-          <button
-            onClick={load}
-            title="刷新"
-            className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-white/10 hover:text-white"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
+      {/* 顶部：返回、标题、操作（与其他页面的标题栏对齐） */}
+      <PageHeader
+        onBack={onBack}
+        backTitle="返回版本列表"
+        icon={<Globe className="h-6 w-6 text-emerald-300" />}
+        title={version.id}
+        titleHint={version.id}
+        subtitle={
+          <span className="truncate" title={list?.dir}>
+            存档 · {list?.dir ?? '…'}
+          </span>
+        }
+        actions={
+          <>
+            <button
+              onClick={() =>
+                act('import', async () => {
+                  const folder = await window.api.importWorld(version.id)
+                  return folder ? `已导入存档「${folder}」` : undefined
+                })
+              }
+              disabled={pending !== null}
+              title="从 zip 压缩包导入存档"
+              className={HEADER_BUTTON}
+            >
+              {pending === 'import' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
+              导入存档
+            </button>
+            <button
+              onClick={() => window.api.openBackupsDir(version.id).catch((e) => setError(cleanError(e)))}
+              title="打开备份文件夹"
+              className={HEADER_BUTTON}
+            >
+              <Archive className="h-4 w-4" />
+              备份文件夹
+            </button>
+            <button
+              onClick={() => window.api.openWorldDir(version.id).catch((e) => setError(cleanError(e)))}
+              title="打开 saves 文件夹"
+              className={HEADER_ICON_BUTTON}
+            >
+              <FolderOpen className="h-4 w-4" />
+            </button>
+            <button onClick={load} title="刷新" className={HEADER_ICON_BUTTON}>
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </>
+        }
+      />
 
       {error && (
         <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
@@ -386,21 +375,13 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
         </div>
 
         <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-          {!list && loading && (
-            <div className="flex justify-center py-10 text-white/50">
-              <Loader2 className="h-6 w-6 animate-spin" />
-            </div>
-          )}
+          {!list && loading && <LoadingState />}
           {tab === 'backups' && (
             <>
               {backups.length === 0 && (
-                <div className="py-10 text-center text-sm text-white/40">
-                  还没有备份。在「存档」里点存档右侧的「备份」按钮即可备份
-                </div>
+                <EmptyState icon={Archive}>还没有备份。在「存档」里点存档右侧的「备份」按钮即可备份</EmptyState>
               )}
-              {backups.length > 0 && shownBackups.length === 0 && (
-                <div className="py-10 text-center text-sm text-white/40">没有匹配的备份</div>
-              )}
+              {backups.length > 0 && shownBackups.length === 0 && <EmptyState>没有匹配的备份</EmptyState>}
               {shownBackups.map((backup) => {
                 const busy = pending === `restore:${backup.file}` || pending === `delbak:${backup.file}`
                 return (
@@ -484,12 +465,10 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
             </>
           )}
           {tab === 'worlds' && list && list.worlds.length === 0 && (
-            <div className="py-10 text-center text-sm text-white/40">
-              这个版本还没有存档，进入游戏创建一个世界，或点「导入存档」
-            </div>
+            <EmptyState icon={Globe}>这个版本还没有存档，进入游戏创建一个世界，或点「导入存档」</EmptyState>
           )}
           {tab === 'worlds' && list && list.worlds.length > 0 && worlds.length === 0 && (
-            <div className="py-10 text-center text-sm text-white/40">没有匹配的存档</div>
+            <EmptyState>没有匹配的存档</EmptyState>
           )}
           {tab === 'worlds' &&
             worlds.map((world) => {

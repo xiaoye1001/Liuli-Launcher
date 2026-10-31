@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
+import mascot from '../assets/mascot.png'
 
 /**
  * 启动器开屏动画：打开启动器时全屏显示约 2 秒，然后放大、模糊、淡出，露出主界面。
- * - 中央是一个缓慢旋转的立体方块，带呼吸光晕和环绕上升的微光粒子
+ * - 中央是看板娘头像（轻轻浮动），带呼吸光晕、旋转光环和环绕上升的微光粒子
  * - 下方是流光进度条和滚动的自检文字
  * - 颜色全部来自主题色 CSS 变量（--accent-*），切换主题色后自动跟随
  * - 每次打开软件只播放一次（记录在 sessionStorage，切换页面、刷新界面都不会重复）
@@ -57,50 +58,22 @@ function accent(level: 200 | 300 | 400 | 500 | 600, alpha = 1): string {
   return `rgb(var(--accent-${level}) / ${alpha})`
 }
 
-/** 方块的 6 个面：位置、朝向和明暗（模拟光照，让立体感更强） */
-const FACES: { transform: string; shade: number }[] = [
-  { transform: 'rotateY(0deg) translateZ(var(--half))', shade: 1 },
-  { transform: 'rotateY(180deg) translateZ(var(--half))', shade: 0.55 },
-  { transform: 'rotateY(90deg) translateZ(var(--half))', shade: 0.8 },
-  { transform: 'rotateY(-90deg) translateZ(var(--half))', shade: 0.7 },
-  { transform: 'rotateX(90deg) translateZ(var(--half))', shade: 1.15 },
-  { transform: 'rotateX(-90deg) translateZ(var(--half))', shade: 0.45 }
-]
-
-/** 立体发光方块：CSS 3D 绘制，每个面带像素格纹理，整体缓慢旋转 */
-export function GlowCube({ size = 84 }: { size?: number }): JSX.Element {
+/**
+ * 看板娘头像：圆形相框 + 主题色描边和光晕，轻轻上下浮动（CSS 动画 .mascot-float，见 index.css）。
+ * 开屏动画和游戏启动悬浮窗共用
+ */
+export function MascotAvatar({ size = 120 }: { size?: number }): JSX.Element {
   return (
-    <div className="relative" style={{ width: size, height: size, perspective: size * 8 }}>
-      <motion.div
-        className="absolute inset-0"
-        style={{ transformStyle: 'preserve-3d', ['--half' as string]: `${size / 2}px` }}
-        initial={{ rotateX: -24, rotateY: 35 }}
-        animate={{ rotateX: [-24, -30, -24], rotateY: [35, 395] }}
-        transition={{
-          rotateY: { duration: 6, ease: 'linear', repeat: Infinity },
-          rotateX: { duration: 3, ease: 'easeInOut', repeat: Infinity }
+    <div className="mascot-float relative" style={{ width: size, height: size }}>
+      <div
+        className="absolute inset-0 overflow-hidden rounded-full"
+        style={{
+          background: 'radial-gradient(circle at 50% 38%, #ffffff, #fff4e8 55%, #ffdcbc)',
+          boxShadow: `0 0 0 3px ${accent(300, 0.9)}, 0 0 ${Math.round(size / 3)}px ${accent(400, 0.55)}`
         }}
       >
-        {FACES.map((face, i) => (
-          <div
-            key={i}
-            className="absolute inset-0 rounded-[6px]"
-            style={{
-              transform: face.transform,
-              // 底色 + 4×4 像素格纹理 + 内发光描边
-              background: `
-                linear-gradient(135deg, ${accent(300, 0.55 * face.shade)}, ${accent(600, 0.6 * face.shade)}),
-                repeating-linear-gradient(0deg, transparent 0 ${size / 4 - 1}px, rgb(255 255 255 / 0.08) ${size / 4 - 1}px ${size / 4}px),
-                repeating-linear-gradient(90deg, transparent 0 ${size / 4 - 1}px, rgb(255 255 255 / 0.08) ${size / 4 - 1}px ${size / 4}px)
-              `,
-              backgroundBlendMode: 'screen',
-              border: `1px solid ${accent(200, 0.7)}`,
-              boxShadow: `inset 0 0 ${size / 4}px ${accent(200, 0.35)}, 0 0 ${size / 3}px ${accent(400, 0.35)}`,
-              backfaceVisibility: 'hidden'
-            }}
-          />
-        ))}
-      </motion.div>
+        <img src={mascot} alt="" draggable={false} className="h-full w-full select-none object-cover" />
+      </div>
     </div>
   )
 }
@@ -115,12 +88,12 @@ interface Mote {
   drift: number
 }
 
-/** 环绕上升的微光粒子 */
+/** 环绕上升的微光粒子（一直循环，用 CSS 动画 .splash-mote，见 index.css） */
 function RisingMotes(): JSX.Element {
   const motes = useMemo<Mote[]>(
     () =>
       Array.from({ length: 22 }, (_, i) => {
-        // 均匀分布在方块四周，再加一点随机
+        // 均匀分布在头像四周，再加一点随机
         const angle = (i / 22) * Math.PI * 2
         return {
           x: Math.cos(angle) * (70 + Math.random() * 50),
@@ -135,20 +108,20 @@ function RisingMotes(): JSX.Element {
   return (
     <div className="pointer-events-none absolute left-1/2 top-1/2">
       {motes.map((m, i) => (
-        <motion.span
+        <span
           key={i}
-          className="absolute rounded-full"
+          className="splash-mote absolute rounded-full"
           style={{
             left: m.x,
             top: 60,
             width: m.size,
             height: m.size,
             background: accent(200),
-            boxShadow: `0 0 ${m.size * 3}px ${accent(300, 0.9)}`
+            boxShadow: `0 0 ${m.size * 3}px ${accent(300, 0.9)}`,
+            ['--mote-drift' as string]: `${m.drift}px`,
+            ['--mote-duration' as string]: `${m.duration}s`,
+            ['--mote-delay' as string]: `${m.delay}s`
           }}
-          initial={{ y: 0, x: 0, opacity: 0 }}
-          animate={{ y: -170, x: m.drift, opacity: [0, 1, 0] }}
-          transition={{ duration: m.duration, delay: m.delay, repeat: Infinity, ease: 'easeOut' }}
         />
       ))}
     </div>
@@ -215,13 +188,12 @@ function AppSplashScreen({ title, onDone }: AppSplashScreenProps): JSX.Element {
         }}
       />
 
-      {/* 中央：呼吸光晕 + 旋转方块 + 上升粒子 */}
+      {/* 中央：呼吸光晕 + 旋转光环 + 上升粒子 + 看板娘头像 */}
       <div className="relative flex h-56 w-56 items-center justify-center">
-        <motion.div
-          className="absolute h-40 w-40 rounded-full"
+        {/* 呼吸光晕：一直循环，用 CSS 动画 .splash-glow（见 index.css） */}
+        <div
+          className="splash-glow absolute h-40 w-40 rounded-full"
           style={{ background: `radial-gradient(circle, ${accent(400, 0.55)}, transparent 70%)`, filter: 'blur(18px)' }}
-          animate={{ scale: [0.85, 1.15, 0.85], opacity: [0.55, 1, 0.55] }}
-          transition={{ duration: 2.2, ease: 'easeInOut', repeat: Infinity }}
         />
         <motion.div
           className="absolute h-44 w-44 rounded-full border"
@@ -240,7 +212,7 @@ function AppSplashScreen({ title, onDone }: AppSplashScreenProps): JSX.Element {
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 160, damping: 14 }}
         >
-          <GlowCube />
+          <MascotAvatar />
         </motion.div>
       </div>
 

@@ -124,10 +124,16 @@ function App(): JSX.Element {
             }}
           />
           <main className="relative flex-1 overflow-hidden p-8">
+            {/*
+              页面切换：等上一页的退场动画播完再显示下一页。
+              注意：页面里不要用 framer-motion 的 layout / layoutId（布局动画），这类元素在页面里卸载后
+              会让这里的退场动画永远播不完，之后切换页面内容一直是空白（版本设置页、下载页都踩过）
+            */}
+            {/* 页面内容限制最大宽度，在右侧区域里居中：窗口再宽也不会拉得很散 */}
             <AnimatePresence mode="wait">
               <motion.div
                 key={page}
-                className="h-full"
+                className="mx-auto h-full w-full max-w-[1120px]"
                 initial={{ opacity: 0, y: 16, filter: 'blur(6px)' }}
                 animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                 exit={{ opacity: 0, y: -16, filter: 'blur(6px)' }}

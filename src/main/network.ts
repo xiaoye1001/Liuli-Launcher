@@ -1,5 +1,13 @@
 import { session } from 'electron'
-import { Agent, errors, interceptors, ProxyAgent, setGlobalDispatcher, type Dispatcher } from 'undici'
+import {
+  Agent,
+  errors,
+  getGlobalDispatcher,
+  interceptors,
+  ProxyAgent,
+  setGlobalDispatcher,
+  type Dispatcher
+} from 'undici'
 import { getSettings } from './config'
 import type { NetworkCheck } from '../shared/types'
 
@@ -64,9 +72,12 @@ function withRetry(base: Dispatcher): Dispatcher {
   return base.compose(interceptors.retry({ maxRetries: 3 }), interceptors.redirect({ maxRedirections: 5 }))
 }
 
-let downloads: Dispatcher = withRetry(
-  new Agent({ connections: DEFAULT_THREADS, headersTimeout: 15_000, bodyTimeout: 20_000 })
-)
+let downloadsBase: Agent | ProxyAgent = new Agent({
+  connections: DEFAULT_THREADS,
+  headersTimeout: 15_000,
+  bodyTimeout: 20_000
+})
+let downloads: Dispatcher = withRetry(downloadsBase)
 /** 新建连接池用的设置（应用网络设置时更新） */
 let downloadConfig: { uri: string | null; connections: number } = { uri: null, connections: DEFAULT_THREADS }
 /** 当前安装任务专用的连接池；取消安装时整体关闭，正在进行的下载会立即停止 */
@@ -91,17 +102,26 @@ function newPool(): { base: Agent | ProxyAgent; dispatcher: Dispatcher } {
  * 引擎自己控制重试次数；自动重试会按服务器要求等待（例如 429 时等 30 秒）再重试三次，
  * 遇到限流的镜像时会让下载看起来卡住很久才改用原下载方式
  */
-function newFastPool(): Dispatcher {
+function newFastPool(): { base: Agent | ProxyAgent; dispatcher: Dispatcher } {
   const { uri, connections } = downloadConfig
   const base = uri
     ? new ProxyAgent({ uri, connections, ...DOWNLOAD_TIMEOUTS })
     : new Agent({ connections, ...DOWNLOAD_TIMEOUTS })
-  return base.compose(interceptors.redirect({ maxRedirections: 5 }))
+  return { base, dispatcher: base.compose(interceptors.redirect({ maxRedirections: 5 })) }
 }
-let fastPool: Dispatcher = newFastPool()
+let fastBase: Agent | ProxyAgent
+let fastPool: Dispatcher
+;({ base: fastBase, dispatcher: fastPool } = newFastPool())
 
 export function fastDownloadDispatcher(): Dispatcher {
   return fastPool
+}
+
+/**
+ * 放弃不读的响应内容（出错时只看状态码就够了）。不读也不取消的话，连接要等垃圾回收才释放
+ */
+export async function discardBody(response: Response): Promise<void> {
+  await response.body?.cancel().catch(() => undefined)
 }
 
 /** 安装任务（安装版本、整合包、修复、下载 Java）使用的连接池 */
@@ -157,11 +177,13 @@ export async function applyNetworkSettings(): Promise<void> {
     .catch((e) => console.error('设置界面代理失败：', e))
   const uri = settings.proxyMode === 'system' ? await systemProxy() : custom
   const connections = clampThreads(settings.downloadThreads)
-  // 已经在进行的下载继续使用旧的连接池，不主动关闭
   downloadConfig = { uri, connections }
-  downloads = newPool().dispatcher
-  fastPool = newFastPool()
+  // 换成新的连接池；旧的等正在进行的下载完成后再关闭（close 不打断进行中的请求），释放空闲连接
+  const old = [downloadsBase, fastBase, getGlobalDispatcher()]
+  ;({ base: downloadsBase, dispatcher: downloads } = newPool())
+  ;({ base: fastBase, dispatcher: fastPool } = newFastPool())
   setGlobalDispatcher(uri ? new ProxyAgent({ uri }) : new Agent())
+  for (const pool of old) void pool.close().catch(() => undefined)
   activeProxy = uri
 }
 

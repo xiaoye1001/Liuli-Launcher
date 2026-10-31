@@ -5,7 +5,7 @@ import { mkdir, readdir, rename, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import { getSettings } from './config'
 import { assertGameStopped, fileSha1, listModFiles, modsContextOf, type ModsContext } from './mods'
-import { downloadDispatcher } from './network'
+import { downloadDispatcher, discardBody } from './network'
 import { hasChinese, matchChineseName, zhNameBySlug } from '../shared/modNames'
 import type {
   ModrinthInstallResult,
@@ -57,7 +57,10 @@ async function modrinthFetch<T>(path: string, init?: RequestInit): Promise<T> {
         headers: { 'User-Agent': USER_AGENT, ...(init?.body ? { 'Content-Type': 'application/json' } : {}) },
         signal: AbortSignal.timeout(10000)
       })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      if (!response.ok) {
+        await discardBody(response)
+        throw new Error(`HTTP ${response.status}`)
+      }
       return (await response.json()) as T
     } catch (e) {
       lastError = e

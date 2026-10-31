@@ -25,6 +25,7 @@ import type {
   ServerStatus
 } from '../../../shared/types'
 import PageHeader from '../components/PageHeader'
+import { EmptyState, LoadingState } from '../components/EmptyState'
 
 function cleanError(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e)
@@ -303,16 +304,9 @@ function ServersPage(): JSX.Element {
       )}
 
       <section className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
-        {servers === null && (
-          <div className="flex justify-center py-10 text-white/50">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
-        )}
+        {servers === null && <LoadingState />}
         {servers?.length === 0 && (
-          <div className="flex flex-col items-center gap-2 py-12 text-sm text-white/50">
-            <Server className="h-10 w-10 text-white/20" />
-            还没有收藏服务器，点「添加服务器」或「从游戏导入」
-          </div>
+          <EmptyState icon={Server}>还没有收藏服务器，点「添加服务器」或「从游戏导入」</EmptyState>
         )}
         {servers?.map((server, index) => {
           const status = statuses[server.address]

@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { mkdir, readFile, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import type { NewsItem, NewsList } from '../shared/types'
+import { discardBody } from './network'
 
 /** 官方启动器使用的新闻数据 */
 const NEWS_URL = 'https://launchercontent.mojang.com/v2/news.json'
@@ -83,7 +84,10 @@ export async function getNews(force = false): Promise<NewsList> {
   }
   try {
     const response = await fetch(NEWS_URL, { signal: AbortSignal.timeout(15000) })
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    if (!response.ok) {
+      await discardBody(response)
+      throw new Error(`HTTP ${response.status}`)
+    }
     const items = parseNews(await response.json())
     const fetchedAt = Date.now()
     await mkdir(dirname(CACHE_FILE), { recursive: true })

@@ -34,14 +34,14 @@
  * - 房间码只是编码，不是加密：拿到房间码的人就能加入（这正是房间码的用途）
  */
 import { app, BrowserWindow } from 'electron'
-import { spawn, type ChildProcess } from 'child_process'
+import { execFile, spawn, type ChildProcess } from 'child_process'
 import { createHash, randomBytes, scrypt } from 'crypto'
 import { createReadStream, createWriteStream, existsSync } from 'fs'
-import { chmod, mkdir, readdir, rename, rm } from 'fs/promises'
+import { chmod, mkdir, readdir, readFile, readlink, rename, rm, writeFile } from 'fs/promises'
 import { createSocket, type Socket as UdpSocket } from 'dgram'
 import { connect, createServer, isIP, type Server, type Socket } from 'net'
 import { networkInterfaces } from 'os'
-import { join } from 'path'
+import { basename, join } from 'path'
 import { pipeline } from 'stream/promises'
 import { open as openZip, openEntryReadStream, readAllEntries } from '@xmcl/unzip'
 import { downloadWithFallback } from './downloadWithFallback'
@@ -122,6 +122,8 @@ const CORE_EXE = process.platform === 'win32' ? 'easytier-core.exe' : 'easytier-
 const CORE_ROOT = join(app.getPath('userData'), 'multiplayer', 'easytier')
 const CORE_DIR = join(CORE_ROOT, CORE_VERSION)
 const CORE_PATH = join(CORE_DIR, CORE_EXE)
+/** 正在运行的内核的进程号（正常退出时删除） */
+const CORE_PID_FILE = join(CORE_ROOT, 'core.pid')
 
 /** 可以一键安装的联机模组在 Modrinth 上的项目名 */
 const MOD_PROJECTS: Record<MultiplayerMod, string> = {
@@ -167,6 +169,8 @@ interface Session {
   timers: NodeJS.Timeout[]
   /** 结束后不再更新状态 */
   stopped: boolean
+  /** 已经因为出错结束（之后的错误不再覆盖第一次出错的原因） */
+  failed?: boolean
 }
 let session: Session | null = null
 
@@ -778,6 +782,25 @@ export function parseLanAnnouncement(text: string): { motd: string; port: number
   return { motd: cleanMotd(motd), port }
 }
 
+/** 联机页面是否打开着（打开时一直检测；离开页面后只有进行中的房间需要检测） */
+let pageWantsSniffer = false
+
+/** 有正常进行中的房间（不包括出错结束的）：离开联机页面后也继续检测 */
+function roomNeedsSniffer(): boolean {
+  return !!session && !session.stopped && !session.failed && status.role !== 'idle' && status.state !== 'error'
+}
+
+/** 根据联机页面和房间状态决定是否继续监听 4445 端口 */
+function syncSniffer(): void {
+  setLanSniffer(pageWantsSniffer || roomNeedsSniffer())
+}
+
+/** 联机页面打开 / 关闭时调用（是否继续监听由这里统一决定，页面不用自己判断） */
+export function setPageLanSniffer(wanted: boolean): void {
+  pageWantsSniffer = wanted
+  syncSniffer()
+}
+
 /** 开始 / 停止监听本机「对局域网开放」的世界 */
 export function setLanSniffer(enabled: boolean): void {
   if (!enabled) {
@@ -793,7 +816,12 @@ export function setLanSniffer(enabled: boolean): void {
   const socket = createSocket({ type: 'udp4', reuseAddr: true })
   socket.on('error', (e) => {
     console.warn('监听局域网广播失败：', e)
-    if (sniffer === socket) sniffer = null
+    if (sniffer === socket) {
+      sniffer = null
+      // 监听已经失败：过期检查的定时器也一起停掉
+      if (snifferExpire) clearInterval(snifferExpire)
+      snifferExpire = null
+    }
     socket.close()
   })
   socket.on('message', (msg, rinfo) => {
@@ -831,8 +859,11 @@ function newSession(): Session {
   return { forwarders: [], broadcaster: null, core: null, timers: [], stopped: false }
 }
 
-/** 结束当前房间（房主或房客），释放端口、停止广播和内核进程 */
-export function stopMultiplayer(): MultiplayerStatus {
+/**
+ * 结束当前房间（房主或房客），释放端口、停止广播和内核进程。
+ * releaseSniffer：离开联机页面后不再需要时停止监听 4445 端口（开始新房间前结束旧房间时不停）
+ */
+export function stopMultiplayer(releaseSniffer = true): MultiplayerStatus {
   const current = session
   session = null
   if (current) {
@@ -844,18 +875,26 @@ export function stopMultiplayer(): MultiplayerStatus {
   }
   status = idleStatus(status.lanGame)
   emit()
+  if (releaseSniffer) syncSniffer()
   return getMultiplayerStatus()
 }
 
 function killCore(current: Session): void {
   const core = current.core
   current.core = null
-  if (core && core.exitCode === null && core.signalCode === null) core.kill()
+  if (core && core.exitCode === null && core.signalCode === null) {
+    core.kill()
+    // 内核卡住不响应结束信号时，2 秒后强制结束（Windows 上 kill 本来就是强制结束）
+    const force = setTimeout(() => {
+      if (core.exitCode === null && core.signalCode === null) core.kill('SIGKILL')
+    }, 2000)
+    force.unref()
+  }
 }
 
 /** 开始新房间前结束旧的 */
 function begin(role: MultiplayerStatus['role'], mode: MultiplayerMode, message: string): Session {
-  stopMultiplayer()
+  stopMultiplayer(false)
   const next = newSession()
   session = next
   status = { ...idleStatus(status.lanGame), role, mode, state: 'starting', message }
@@ -871,6 +910,7 @@ function begin(role: MultiplayerStatus['role'], mode: MultiplayerMode, message: 
 
 /** 出错时释放转发、广播、内核和定时器，只保留错误状态（让玩家看到原因、可以重新加入） */
 function teardown(current: Session): void {
+  current.failed = true
   for (const timer of current.timers) clearInterval(timer)
   current.timers = []
   for (const forwarder of current.forwarders) forwarder.stop()
@@ -882,9 +922,11 @@ function teardown(current: Session): void {
 
 function fail(current: Session, error: unknown, extra: Partial<MultiplayerStatus> = {}): never {
   const message = error instanceof Error ? error.message : String(error)
-  if (!current.stopped) {
+  // 已经因为别的错误结束（例如内核启动失败后转发也跟着报错）：保留第一次出错的原因
+  if (!current.stopped && !current.failed) {
     teardown(current)
     update({ state: 'error', message, error: message, ...extra })
+    syncSniffer()
   }
   throw error instanceof Error ? error : new Error(message)
 }
@@ -1110,6 +1152,45 @@ export async function downloadP2PCore(): Promise<P2PCoreStatus> {
   return getP2PCoreStatus()
 }
 
+/** 进程号对应的程序是不是联机内核（进程号可能已经被别的程序重用，不能直接结束） */
+function isCoreProcess(pid: number): Promise<boolean> {
+  if (process.platform === 'linux') {
+    return readlink(`/proc/${pid}/exe`).then(
+      (exe) => exe === CORE_PATH || (exe.startsWith(CORE_ROOT) && basename(exe) === CORE_EXE),
+      () => false
+    )
+  }
+  return new Promise((resolve) => {
+    const windows = process.platform === 'win32'
+    const command = windows ? 'tasklist' : 'ps'
+    const args = windows ? ['/FI', `PID eq ${pid}`, '/FO', 'CSV', '/NH'] : ['-p', String(pid), '-o', 'comm=']
+    execFile(command, args, { windowsHide: true, timeout: 5000 }, (error, stdout) => {
+      if (error) return resolve(false)
+      const out = String(stdout).trim()
+      resolve(windows ? out.toLowerCase().startsWith(`"${CORE_EXE}"`) : out === CORE_PATH || basename(out) === CORE_EXE)
+    })
+  })
+}
+
+/**
+ * 启动时清理上次留下的联机内核：启动器被强制结束（任务管理器结束任务、崩溃）时来不及关闭内核，
+ * 它会一直在后台连着中继服务器、占着端口
+ */
+export async function cleanupOrphanCore(): Promise<void> {
+  const text = await readFile(CORE_PID_FILE, 'utf-8').catch(() => null)
+  if (text === null) return
+  await rm(CORE_PID_FILE, { force: true }).catch(() => undefined)
+  const pid = Number(text.trim())
+  if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid) return
+  if (!(await isCoreProcess(pid))) return
+  try {
+    process.kill(pid)
+    console.info(`已结束上次留下的联机内核（进程 ${pid}）`)
+  } catch {
+    // 已经退出
+  }
+}
+
 /** 启动 easytier-core，进程意外退出时把最后的输出显示给玩家 */
 function startCore(current: Session, args: string[], params: P2PParams): ChildProcess {
   // 不继承玩家电脑上已有的 EasyTier 环境变量（ET_*），避免被意外改变行为；网络名和密钥通过环境变量传入，不出现在命令行里
@@ -1140,6 +1221,7 @@ function startCore(current: Session, args: string[], params: P2PParams): ChildPr
     if (current.stopped || current.core !== child) return
     teardown(current)
     update({ state: 'error', message: `无法启动 P2P 联机内核：${e.message}`, error: e.message })
+    syncSniffer()
   })
   child.on('exit', (code) => {
     if (current.stopped || current.core !== child) return
@@ -1148,7 +1230,18 @@ function startCore(current: Session, args: string[], params: P2PParams): ChildPr
     const last = lines.filter((l) => /error|failed|错误|失败/i.test(l)).pop() ?? lines[lines.length - 1] ?? ''
     const message = `P2P 联机内核已退出（退出码 ${code ?? '未知'}）${last ? `：${last.slice(0, 200)}` : ''}`
     update({ state: 'error', message, error: message })
+    syncSniffer()
   })
+  // 记下内核的进程号：启动器被强制结束（任务管理器、崩溃）时内核会留在后台，下次启动时据此清理
+  if (child.pid) {
+    const pid = child.pid
+    void writeFile(CORE_PID_FILE, String(pid)).catch(() => undefined)
+    child.once('exit', () => {
+      void readFile(CORE_PID_FILE, 'utf-8')
+        .then((text) => (text.trim() === String(pid) ? rm(CORE_PID_FILE, { force: true }) : undefined))
+        .catch(() => undefined)
+    })
+  }
   return child
 }
 
@@ -1374,6 +1467,7 @@ export async function joinRoom(input: unknown): Promise<MultiplayerStatus> {
 
 /** 启动器退出时结束联机（不留下后台的内核进程） */
 export function shutdownMultiplayer(): void {
+  pageWantsSniffer = false
   stopMultiplayer()
   setLanSniffer(false)
 }
