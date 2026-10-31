@@ -64,6 +64,7 @@
 - 启动前检查游戏文件，缺失或损坏时自动补全
 - 分阶段的启动动画、实时日志窗口；游戏运行中可以一键结束游戏
 - **崩溃分析**：用中文说明崩溃原因和解决办法，可一键分享日志到 [mclo.gs](https://mclo.gs/)
+- **AI 助手**：填写自己的 API Key（支持 Claude，以及 DeepSeek、通义千问、Kimi、本机 Ollama 等 OpenAI 兼容接口），游戏崩溃或启动失败时自动分析原因并给出解决方法；Key 加密保存在本机，发送前去掉登录令牌等隐私信息
 - 每个版本可以单独设置内存、Java、窗口大小、JVM 参数、启动前 / 退出后命令等
 - 支持多个游戏目录、版本隔离、版本收藏与自定义图标、游玩时长统计
 
@@ -147,6 +148,7 @@ src/
 - [React 18](https://react.dev/) + TypeScript + [Tailwind CSS](https://tailwindcss.com/) + [Framer Motion](https://www.framer.com/motion/) + [Lucide](https://lucide.dev/)
 - [@xmcl](https://github.com/Voxelum/minecraft-launcher-core-node)：游戏安装、启动、模组解析与登录
 - [skinview3d](https://github.com/bs-community/skinview3d)：3D 皮肤预览
+- [Anthropic TypeScript SDK](https://github.com/anthropics/anthropic-sdk-typescript)：AI 助手调用 Claude
 
 ## 参与贡献
 
