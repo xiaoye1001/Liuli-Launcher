@@ -276,8 +276,32 @@ interface Answer {
   truncated: boolean
 }
 
+/** Claude 请求只带 SDK 自己的这些请求头（环境变量 ANTHROPIC_CUSTOM_HEADERS 等加进来的其他请求头不发送） */
+const CLAUDE_HEADERS = /^(?:x-api-key|anthropic-[a-z0-9-]+|x-stainless-[a-z0-9-]+|content-type|accept|user-agent)$/
+
+/** Claude 请求不跟随跳转（跳转到别的网站时会带上 Key），并且只发送允许的请求头 */
+function claudeFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
+  const headers = new Headers()
+  new Headers(init?.headers).forEach((value, name) => {
+    if (CLAUDE_HEADERS.test(name)) headers.set(name, value)
+  })
+  return fetch(input, { ...init, headers, redirect: 'error' })
+}
+
 function claudeClient(cfg: ResolvedConfig, timeout: number): Anthropic {
-  return new Anthropic({ apiKey: cfg.apiKey, baseURL: cfg.baseUrl, maxRetries: 1, timeout })
+  return new Anthropic({
+    // 只使用为这个接口地址保存的 Key：不读取环境变量 ANTHROPIC_AUTH_TOKEN、本机的 Claude 凭据配置
+    apiKey: cfg.apiKey,
+    authToken: null,
+    // 本机运行的服务没有填 Key 时不发送 X-Api-Key（否则 SDK 会报找不到认证方式）
+    ...(cfg.apiKey ? {} : { defaultHeaders: { 'X-Api-Key': null } }),
+    baseURL: cfg.baseUrl,
+    maxRetries: 1,
+    timeout,
+    // 不按环境变量 ANTHROPIC_LOG 输出请求日志
+    logLevel: 'off',
+    fetch: claudeFetch
+  })
 }
 
 async function runClaude(
@@ -298,7 +322,20 @@ async function runClaude(
     if (stopReason === 'refusal') {
       throw new Error('模型拒绝回答这次的内容，可以在「AI 助手」页换一个模型再试')
     }
-    return { text: parts.join('').slice(0, MAX_ANSWER), model, truncated: stopReason === 'max_tokens' }
+    const text = parts.join('')
+    return {
+      text: text.slice(0, MAX_ANSWER),
+      model,
+      truncated: stopReason === 'max_tokens' || text.length > MAX_ANSWER
+    }
+  }
+  // 逐字推送给界面的文字也限制长度
+  let streamed = 0
+  const onDelta = (delta: string): void => {
+    if (streamed >= MAX_ANSWER) return
+    const piece = delta.slice(0, MAX_ANSWER - streamed)
+    streamed += piece.length
+    if (piece) onText(piece)
   }
   try {
     if (new URL(cfg.baseUrl).hostname === 'api.anthropic.com') {
@@ -315,7 +352,7 @@ async function runClaude(
         },
         { signal }
       )
-      stream.on('text', (delta) => onText(delta))
+      stream.on('text', onDelta)
       const message = await stream.finalMessage()
       return finish(
         message.stop_reason,
@@ -327,7 +364,7 @@ async function runClaude(
       { model: cfg.model, max_tokens: 16000, system, messages, ...thinking },
       { signal }
     )
-    stream.on('text', (delta) => onText(delta))
+    stream.on('text', onDelta)
     const message = await stream.finalMessage()
     return finish(
       message.stop_reason,
@@ -349,18 +386,23 @@ function openaiHeaders(cfg: ResolvedConfig): Record<string, string> {
   }
 }
 
+/** 请求被中止时的说明：超时（AbortSignal.timeout）、等待回答超时（idle）或者玩家取消 */
+function abortError(signal: AbortSignal): Error {
+  const reason = signal.reason as unknown
+  if (reason instanceof Error && reason.name === 'TimeoutError') {
+    return new Error('连接超时，请检查网络或代理设置')
+  }
+  if (reason instanceof Error && reason.message === 'idle') return new Error('等待回答超时，请稍后再试')
+  return new Error('已取消')
+}
+
 async function openaiFetch(cfg: ResolvedConfig, path: string, init: RequestInit): Promise<Response> {
   let response: Response
   try {
     // 不跟随跳转：跳转到别的网站时会带上 Key
     response = await fetch(`${cfg.baseUrl}${path}`, { ...init, redirect: 'error' })
-  } catch (e) {
-    if (init.signal?.aborted) {
-      const reason = init.signal.reason
-      throw reason instanceof Error && reason.message === 'idle'
-        ? new Error('等待回答超时，请稍后再试')
-        : new Error('已取消')
-    }
+  } catch {
+    if (init.signal?.aborted) throw abortError(init.signal)
     throw new Error(`无法连接到 ${new URL(cfg.baseUrl).host}，请检查接口地址、网络或代理设置`)
   }
   if (!response.ok) {
@@ -402,6 +444,7 @@ async function runOpenAI(
     clearTimeout(idle)
     idle = setTimeout(() => controller.abort(new Error('idle')), IDLE_TIMEOUT)
   }
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
   try {
     const response = await openaiFetch(cfg, '/chat/completions', {
       method: 'POST',
@@ -419,6 +462,8 @@ async function runOpenAI(
     let text = ''
     let model = cfg.model
     let finish = ''
+    /** 回答已经达到最大长度：不再继续读取 */
+    let full = false
     const take = (chunk: ChatChunk): void => {
       if (chunk.error) {
         const detail = typeof chunk.error === 'string' ? chunk.error : (chunk.error.message ?? '')
@@ -427,59 +472,68 @@ async function runOpenAI(
       if (chunk.model) model = chunk.model
       const choice = chunk.choices?.[0]
       const piece = choice?.delta?.content ?? choice?.message?.content
-      if (typeof piece === 'string' && piece && text.length < MAX_ANSWER) {
-        text += piece
-        onText(piece)
+      if (typeof piece === 'string' && piece && !full) {
+        const kept = piece.slice(0, MAX_ANSWER - text.length)
+        text += kept
+        if (kept) onText(kept)
+        if (text.length >= MAX_ANSWER) full = true
       }
       if (choice?.finish_reason) finish = choice.finish_reason
     }
+    const result = (): Answer => ({ text, model, truncated: full || finish === 'length' })
     // 不支持流式的服务会直接返回完整的 JSON
     if (!(response.headers.get('content-type') ?? '').includes('text/event-stream')) {
       take((await response.json()) as ChatChunk)
-      return { text, model, truncated: finish === 'length' }
+      return result()
     }
     if (!response.body) throw new Error('服务没有返回内容')
-    const reader = response.body.getReader()
+    reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+    /** 处理一行；读到结束标记 [DONE] 时返回 true */
+    const handleLine = (raw: string): boolean => {
+      const line = raw.trim()
+      if (!line.startsWith('data:')) return false
+      const payload = line.slice(5).trim()
+      if (payload === '[DONE]') return true
+      let chunk: ChatChunk
+      try {
+        chunk = JSON.parse(payload) as ChatChunk
+      } catch {
+        return false
+      }
+      take(chunk)
+      return false
+    }
     let done = false
-    while (!done) {
+    while (!done && !full) {
       const { value, done: ended } = await reader.read()
-      if (ended) break
+      if (ended) {
+        // 最后一行后面可能没有换行
+        buffer += decoder.decode()
+        if (buffer.trim()) handleLine(buffer)
+        break
+      }
       resetIdle()
       buffer += decoder.decode(value, { stream: true })
       const lines = buffer.split('\n')
       buffer = lines.pop() ?? ''
       for (const raw of lines) {
-        const line = raw.trim()
-        if (!line.startsWith('data:')) continue
-        const payload = line.slice(5).trim()
-        if (payload === '[DONE]') {
+        if (handleLine(raw) || full) {
           done = true
           break
         }
-        let chunk: ChatChunk
-        try {
-          chunk = JSON.parse(payload) as ChatChunk
-        } catch {
-          continue
-        }
-        take(chunk)
       }
     }
-    await reader.cancel().catch(() => undefined)
-    return { text, model, truncated: finish === 'length' }
+    return result()
   } catch (e) {
-    if (controller.signal.aborted) {
-      const reason = controller.signal.reason
-      throw reason instanceof Error && reason.message === 'idle'
-        ? new Error('等待回答超时，请稍后再试')
-        : new Error('已取消')
-    }
+    if (controller.signal.aborted) throw abortError(controller.signal)
     throw e
   } finally {
     clearTimeout(idle)
     signal.removeEventListener('abort', onAbort)
+    // 提前结束（出错、读到结束标记、回答太长）时关闭连接
+    void reader?.cancel().catch(() => undefined)
   }
 }
 
@@ -647,8 +701,17 @@ interface Flight {
   listeners: Map<string, WebContents>
 }
 const flights = new Map<string, Flight>()
-/** 页面的分析编号 → 内容的摘要 */
-const flightOf = new Map<string, string>()
+
+/** 页面发起的一次分析 */
+interface Call {
+  /** 内容的摘要（还在整理材料时为空） */
+  hash: string
+  cancelled: boolean
+  /** 让这个页面的等待马上以「已取消」结束（其他页面还在等时，分析继续进行） */
+  cancel: () => void
+}
+/** 页面的分析编号 → 这次分析 */
+const calls = new Map<string, Call>()
 /** 上一次的分析结果：同一份错误信息、同样的模型再次分析时直接使用 */
 let lastResult: { hash: string; result: AiAnalysisResult } | null = null
 
@@ -659,67 +722,85 @@ function send(sender: WebContents, id: string, text: string): void {
 /** 分析当前的启动失败或崩溃，分析过程中把新文字推送给发起的页面（ai:delta） */
 export async function analyzeFailure(id: unknown, sender: WebContents, force: boolean): Promise<AiAnalysisResult> {
   if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(id)) throw new Error('参数不对')
-  if (flightOf.has(id)) throw new Error('正在分析中')
-  const cfg = await resolveConfig()
-  const { prompt, trimmed } = await buildMaterial()
-  const hash = createHash('sha256').update(`${cfg.kind}\n${cfg.baseUrl}\n${cfg.model}\n${prompt}`).digest('hex')
-  if (!force && lastResult?.hash === hash) return { ...lastResult.result, cached: true }
-
-  let flight = flights.get(hash)
-  if (flight && force) {
-    // 重新分析：停掉正在进行的同一份分析
-    flight.controller.abort()
-    flight = undefined
-  }
-  if (!flight) {
-    const controller = new AbortController()
-    const created: Flight = { promise: Promise.resolve(null as never), controller, text: '', listeners: new Map() }
-    const onText = (text: string): void => {
-      created.text += text
-      for (const [listenerId, target] of created.listeners) send(target, listenerId, text)
-    }
-    created.promise = (async () => {
-      const answer =
-        cfg.kind === 'anthropic'
-          ? await runClaude(cfg, SYSTEM_PROMPT, prompt, onText, controller.signal)
-          : await runOpenAI(cfg, SYSTEM_PROMPT, prompt, onText, controller.signal)
-      if (!answer.text.trim()) throw new Error('模型没有给出回答，请稍后再试或换一个模型')
-      const result: AiAnalysisResult = {
-        text: answer.text,
-        model: answer.model,
-        cached: false,
-        truncated: answer.truncated,
-        trimmedInput: trimmed
-      }
-      lastResult = { hash, result }
-      return result
-    })().finally(() => {
-      if (flights.get(hash) === created) flights.delete(hash)
-    })
-    flights.set(hash, created)
-    flight = created
-  } else if (flight.text) {
-    // 中途加入：先补发已经收到的部分
-    send(sender, id, flight.text)
-  }
-  flight.listeners.set(id, sender)
-  flightOf.set(id, hash)
+  if (calls.has(id)) throw new Error('正在分析中')
+  // 先登记：整理材料期间点「停止」或关闭崩溃提示也能取消
+  let cancel = (): void => undefined
+  const cancelled = new Promise<never>((_, reject) => {
+    cancel = () => reject(new Error('已取消'))
+  })
+  cancelled.catch(() => undefined)
+  const call: Call = { hash: '', cancelled: false, cancel }
+  calls.set(id, call)
+  let flight: Flight | undefined
   try {
-    return await flight.promise
+    const cfg = await resolveConfig()
+    const { prompt, trimmed } = await buildMaterial()
+    if (call.cancelled) throw new Error('已取消')
+    const hash = createHash('sha256').update(`${cfg.kind}\n${cfg.baseUrl}\n${cfg.model}\n${prompt}`).digest('hex')
+    if (!force && lastResult?.hash === hash) return { ...lastResult.result, cached: true }
+
+    flight = flights.get(hash)
+    if (flight && force) {
+      // 重新分析：停掉正在进行的同一份分析
+      flight.controller.abort()
+      flights.delete(hash)
+      flight = undefined
+    }
+    if (!flight) {
+      const controller = new AbortController()
+      const created: Flight = { promise: Promise.resolve(null as never), controller, text: '', listeners: new Map() }
+      const onText = (text: string): void => {
+        created.text += text
+        for (const [listenerId, target] of created.listeners) send(target, listenerId, text)
+      }
+      created.promise = (async () => {
+        const answer =
+          cfg.kind === 'anthropic'
+            ? await runClaude(cfg, SYSTEM_PROMPT, prompt, onText, controller.signal)
+            : await runOpenAI(cfg, SYSTEM_PROMPT, prompt, onText, controller.signal)
+        if (!answer.text.trim()) throw new Error('模型没有给出回答，请稍后再试或换一个模型')
+        const result: AiAnalysisResult = {
+          text: answer.text,
+          model: answer.model,
+          cached: false,
+          truncated: answer.truncated,
+          trimmedInput: trimmed
+        }
+        lastResult = { hash, result }
+        return result
+      })().finally(() => {
+        if (flights.get(hash) === created) flights.delete(hash)
+      })
+      flights.set(hash, created)
+      flight = created
+    } else if (flight.text) {
+      // 中途加入：先补发已经收到的部分
+      send(sender, id, flight.text)
+    }
+    call.hash = hash
+    flight.listeners.set(id, sender)
+    return await Promise.race([flight.promise, cancelled])
   } finally {
-    flight.listeners.delete(id)
-    flightOf.delete(id)
+    calls.delete(id)
+    flight?.listeners.delete(id)
   }
 }
 
 /** 取消某个页面发起的分析；没有其他页面在等这个分析时停止请求 */
 export function cancelAnalysis(id: unknown): void {
   if (typeof id !== 'string') return
-  const hash = flightOf.get(id)
-  const flight = hash ? flights.get(hash) : undefined
+  const call = calls.get(id)
+  if (!call) return
+  call.cancelled = true
+  call.cancel()
+  const flight = call.hash ? flights.get(call.hash) : undefined
   if (!flight) return
   flight.listeners.delete(id)
-  if (flight.listeners.size === 0) flight.controller.abort()
+  if (flight.listeners.size === 0) {
+    flight.controller.abort()
+    // 停止后马上重新分析时，不能接着等这个已经停止的请求
+    flights.delete(call.hash)
+  }
 }
 
 /** 退出启动器时取消所有分析 */
