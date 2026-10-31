@@ -64,7 +64,11 @@ import type {
   PlayStats,
   ModpackExportInfo,
   ModpackExportOptions,
-  ModpackExportResult
+  ModpackExportResult,
+  AiAnalysisResult,
+  AiConfig,
+  AiConfigPatch,
+  AiDelta
 } from '../shared/types'
 
 declare global {
@@ -392,6 +396,18 @@ declare global {
       sanitizeLog: (text: string) => Promise<string>
       /** 上传到 mclo.gs：最近一次崩溃的游戏输出和崩溃报告 */
       shareCrashLogs: () => Promise<SharedLog[]>
+      /** AI 助手：读取设置（不含 API Key 本身） */
+      aiGetConfig: () => Promise<AiConfig>
+      /** AI 助手：修改设置；apiKey 为空字符串或 null 时删除已保存的 Key */
+      aiSetConfig: (patch: AiConfigPatch) => Promise<AiConfig>
+      /** 测试连接，返回说明文字 */
+      aiTest: () => Promise<string>
+      aiListModels: () => Promise<string[]>
+      /** 分析当前的启动失败或崩溃；force 为 true 时不使用上次的结果 */
+      aiAnalyze: (id: string, force?: boolean) => Promise<AiAnalysisResult>
+      aiCancel: (id: string) => Promise<void>
+      /** 订阅 AI 分析过程中的新文字，返回取消订阅函数 */
+      onAiDelta: (callback: (delta: AiDelta) => void) => () => void
       /** 上传到 mclo.gs：某个版本的 logs/latest.log */
       shareLatestLog: (versionId: string) => Promise<SharedLog[]>
       onGameLog: (callback: (event: GameLogEvent) => void) => () => void

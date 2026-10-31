@@ -3,9 +3,29 @@ import { motion } from 'framer-motion'
 import MiniPlayer from './MiniPlayer'
 import logo from '../assets/logo.png'
 import { DEFAULT_SUBTITLE, DEFAULT_TITLE, useAppearance } from '../utils/appearance'
-import { Download, House, Layers, LayoutGrid, Server, Settings, UserRound, Users, type LucideIcon } from 'lucide-react'
+import {
+  Download,
+  House,
+  Layers,
+  LayoutGrid,
+  Server,
+  Settings,
+  Sparkles,
+  UserRound,
+  Users,
+  type LucideIcon
+} from 'lucide-react'
 
-export type PageKey = 'home' | 'account' | 'versions' | 'servers' | 'download' | 'multiplayer' | 'more' | 'settings'
+export type PageKey =
+  | 'home'
+  | 'account'
+  | 'versions'
+  | 'servers'
+  | 'download'
+  | 'multiplayer'
+  | 'ai'
+  | 'more'
+  | 'settings'
 
 interface NavItem {
   key: PageKey
@@ -20,6 +40,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'servers', label: '服务器', icon: Server },
   { key: 'download', label: '下载', icon: Download },
   { key: 'multiplayer', label: '联机', icon: Users },
+  { key: 'ai', label: 'AI 助手', icon: Sparkles },
   { key: 'more', label: '更多', icon: LayoutGrid },
   { key: 'settings', label: '设置', icon: Settings }
 ]
@@ -58,7 +79,7 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
       </div>
 
       {/* 窗口很矮时导航项变紧凑，仍放不下时可以滚动，不会和底部的音乐播放器重叠 */}
-      <nav className="no-scrollbar mt-4 flex min-h-0 flex-col gap-1 overflow-y-auto">
+      <nav className="no-scrollbar mt-4 flex min-h-0 flex-col gap-1 overflow-y-auto [@media(max-height:680px)]:gap-0.5">
         {NAV_ITEMS.filter((item) => !hiddenPages.includes(item.key)).map((item) => {
           const active = item.key === current
           const Icon = item.icon
@@ -67,7 +88,7 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
               key={item.key}
               onClick={() => onChange(item.key)}
               aria-current={active ? 'page' : undefined}
-              className={`relative flex shrink-0 items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-colors [@media(max-height:640px)]:py-2 ${
+              className={`relative flex shrink-0 items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-colors [@media(max-height:680px)]:py-2 ${
                 active ? 'text-white' : 'text-white/60 hover:bg-white/5 hover:text-white'
               }`}
             >
@@ -90,7 +111,11 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
 
       <div className="mt-auto pt-4" />
       <MiniPlayer />
-      <div className="px-2 text-xs text-white/30" title={portableDir ? `数据保存在 ${portableDir}` : undefined}>
+      {/* 版本号：窗口很矮时不显示，给导航留出位置 */}
+      <div
+        className="px-2 text-xs text-white/30 [@media(max-height:680px)]:hidden"
+        title={portableDir ? `数据保存在 ${portableDir}` : undefined}
+      >
         v{__APP_VERSION__}
         {portableDir && ' · 免安装版'}
       </div>

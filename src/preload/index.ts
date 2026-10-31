@@ -18,7 +18,9 @@ import type {
   VersionConfig,
   LocalResourceKind,
   SavedServer,
-  ModpackExportOptions
+  ModpackExportOptions,
+  AiConfigPatch,
+  AiDelta
 } from '../shared/types'
 
 const api = {
@@ -310,6 +312,23 @@ const api = {
   shareGameLog: () => ipcRenderer.invoke('logs:shareGame'),
   sanitizeLog: (text: string) => ipcRenderer.invoke('logs:sanitize', text),
   shareCrashLogs: () => ipcRenderer.invoke('logs:shareCrash'),
+  /** AI 助手：读取设置（不含 API Key 本身） */
+  aiGetConfig: () => ipcRenderer.invoke('ai:getConfig'),
+  /** AI 助手：修改设置；apiKey 为空字符串或 null 时删除已保存的 Key */
+  aiSetConfig: (patch: AiConfigPatch) => ipcRenderer.invoke('ai:setConfig', patch),
+  aiTest: () => ipcRenderer.invoke('ai:test'),
+  aiListModels: () => ipcRenderer.invoke('ai:listModels'),
+  /** 分析当前的启动失败或崩溃；force 为 true 时不使用上次的结果 */
+  aiAnalyze: (id: string, force = false) => ipcRenderer.invoke('ai:analyze', id, force),
+  aiCancel: (id: string) => ipcRenderer.invoke('ai:cancel', id),
+  /** 订阅 AI 分析过程中的新文字，返回取消订阅函数 */
+  onAiDelta: (callback: (delta: AiDelta) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, delta: AiDelta): void => callback(delta)
+    ipcRenderer.on('ai:delta', listener)
+    return () => {
+      ipcRenderer.removeListener('ai:delta', listener)
+    }
+  },
   shareLatestLog: (versionId: string) => ipcRenderer.invoke('logs:shareLatest', versionId),
   /** 订阅游戏日志，返回取消订阅函数 */
   onGameLog: (callback: (event: GameLogEvent) => void) => {

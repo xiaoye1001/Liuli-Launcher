@@ -193,6 +193,58 @@ export interface AppSettings {
   updateSource: UpdateSource
   /** 用户选择忽略的新版本（不再自动提示） */
   skippedVersion: string
+  /** AI 助手：服务商（取值见 shared/aiProviders.ts，由 AI 设置接口修改） */
+  aiProvider: string
+  /** AI 助手：接口地址 */
+  aiBaseUrl: string
+  /** AI 助手：模型 */
+  aiModel: string
+  /** 游戏崩溃或启动失败后自动用 AI 分析原因 */
+  aiAutoAnalyze: boolean
+}
+
+/** AI 助手的设置（给界面显示，不含 API Key 本身） */
+export interface AiConfig {
+  provider: string
+  baseUrl: string
+  model: string
+  autoAnalyze: boolean
+  /** 已经保存了 API Key */
+  hasKey: boolean
+  /** API Key 的末尾 4 位，用来确认保存的是哪个 Key */
+  keyHint: string
+  /** API Key 是否用系统安全存储加密保存（Linux 没有密钥环时为 false） */
+  keyEncrypted: boolean
+  /** 可以使用：接口地址、模型都已填写，需要 Key 的服务商已经保存了 Key */
+  ready: boolean
+}
+
+/** 修改 AI 助手的设置；apiKey 为 undefined 时不修改，为空字符串或 null 时删除已保存的 Key */
+export interface AiConfigPatch {
+  provider?: string
+  baseUrl?: string
+  model?: string
+  autoAnalyze?: boolean
+  apiKey?: string | null
+}
+
+/** AI 分析的结果 */
+export interface AiAnalysisResult {
+  text: string
+  /** 实际回答的模型 */
+  model: string
+  /** 同一份错误信息之前分析过，直接用了上次的结果 */
+  cached: boolean
+  /** 回答太长被截断 */
+  truncated: boolean
+  /** 日志太长，只发送了一部分 */
+  trimmedInput: boolean
+}
+
+/** AI 分析过程中推送的一段新文字 */
+export interface AiDelta {
+  id: string
+  text: string
 }
 
 /** 检查更新的结果 */
@@ -322,7 +374,7 @@ export type ParticleEffect = 'auto' | 'none' | 'sakura' | 'ender' | 'fireflies' 
 export const PARTICLE_EFFECTS: ParticleEffect[] = ['auto', 'none', 'sakura', 'ender', 'fireflies', 'rain', 'embers']
 
 /** 可以在侧边栏隐藏的页面（主页和设置始终显示） */
-export const HIDEABLE_PAGES = ['account', 'versions', 'servers', 'download', 'multiplayer', 'more']
+export const HIDEABLE_PAGES = ['account', 'versions', 'servers', 'download', 'multiplayer', 'ai', 'more']
 
 /** 可选的界面缩放比例（%） */
 export const UI_SCALES = [80, 90, 100, 110, 125, 150]

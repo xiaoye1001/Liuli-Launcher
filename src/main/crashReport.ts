@@ -108,6 +108,97 @@ export function getCrashFiles(): { logs: string[]; crashReport?: string } | null
   return lastCrash ? { logs: lastCrash.logs, crashReport: lastCrash.crashReport } : null
 }
 
+/** 读取文件开头 */
+async function readHead(path: string, max: number): Promise<string> {
+  const handle = await open(path, 'r')
+  try {
+    const { size } = await handle.stat()
+    const length = Math.min(size, max)
+    const buf = Buffer.alloc(length)
+    await handle.read(buf, 0, length, 0)
+    return buf.toString('utf-8')
+  } finally {
+    await handle.close()
+  }
+}
+
+/** 交给 AI 分析的单项材料的长度上限（字符） */
+const AI_LIMITS = { output: 24_000, outputLines: 400, reportHead: 22_000, reportTail: 6_000, nativeHead: 12_000 }
+
+/** 交给 AI 分析的崩溃材料：已去掉登录令牌和用户文件夹路径，较长的内容只保留关键部分 */
+export interface CrashMaterial {
+  versionId: string
+  environment: string
+  /** 启动器自带规则分析的结果 */
+  analysis: string
+  crashReport?: string
+  nativeLog?: string
+  /** 游戏输出的最后一部分 */
+  output: string
+  /** 有内容因为太长被省略 */
+  trimmed: boolean
+}
+
+/**
+ * 最近一次崩溃的材料，没有崩溃记录时返回 null。
+ * 崩溃报告的原因和调用栈在开头、加载的模组列表在后面，所以保留开头和结尾；
+ * Java 崩溃日志的关键信息（出错的位置）在开头；游戏输出保留最后的部分
+ */
+export async function getCrashMaterial(): Promise<CrashMaterial | null> {
+  const crash = lastCrash
+  if (!crash) return null
+  let trimmed = false
+  const environment = [
+    `启动器版本：${__APP_VERSION__}`,
+    `系统：${platform()} ${release()} ${arch()}`,
+    `物理内存：${Math.round(totalmem() / 1024 / 1024)} MB`,
+    `游戏版本：${crash.versionId}`,
+    `Java 主版本：${crash.context.javaMajor ?? '未知'}`,
+    `分配的最大内存：${crash.context.maxMemory ?? '未知'} MB`,
+    `填写了附加的 JVM 参数：${crash.context.customJvmArgs ? '是' : '否'}`,
+    `退出码：${crash.analysis.exitCode ?? '未知'}`
+  ].join('\n')
+
+  let lines = crash.logs.filter((l) => !l.startsWith('[启动器]'))
+  if (lines.length > AI_LIMITS.outputLines) {
+    lines = lines.slice(-AI_LIMITS.outputLines)
+    trimmed = true
+  }
+  let output = lines.join('\n')
+  if (output.length > AI_LIMITS.output) {
+    output = output.slice(-AI_LIMITS.output)
+    trimmed = true
+  }
+
+  let crashReport: string | undefined
+  if (crash.crashReport) {
+    const size = (await stat(crash.crashReport).catch(() => null))?.size ?? 0
+    if (size <= AI_LIMITS.reportHead + AI_LIMITS.reportTail) {
+      crashReport = await readHead(crash.crashReport, AI_LIMITS.reportHead + AI_LIMITS.reportTail).catch(() => '')
+    } else {
+      const head = await readHead(crash.crashReport, AI_LIMITS.reportHead).catch(() => '')
+      const tail = await readTail(crash.crashReport, AI_LIMITS.reportTail).catch(() => '')
+      crashReport = `${head}\n……（中间省略）……\n${tail}`
+      trimmed = true
+    }
+  }
+  let nativeLog: string | undefined
+  if (crash.nativeLog) {
+    nativeLog = await readHead(crash.nativeLog, AI_LIMITS.nativeHead).catch(() => undefined)
+    if (((await stat(crash.nativeLog).catch(() => null))?.size ?? 0) > AI_LIMITS.nativeHead) trimmed = true
+  }
+
+  return {
+    versionId: crash.versionId,
+    environment: sanitizeLog(environment),
+    analysis: sanitizeLog(analysisText(crash)),
+    crashReport: crashReport ? sanitizeLog(crashReport) : undefined,
+    nativeLog: nativeLog ? sanitizeLog(nativeLog) : undefined,
+    output: sanitizeLog(output),
+    trimmed
+  }
+}
+
 /** 打开最近一次崩溃的崩溃报告或 Java 崩溃日志（只能打开启动器自己找到的文件） */
 export async function openCrashFile(kind: 'report' | 'native'): Promise<void> {
   const path = kind === 'report' ? lastCrash?.crashReport : lastCrash?.nativeLog

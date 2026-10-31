@@ -11,6 +11,7 @@ import ServersPage from './pages/ServersPage'
 import SettingsPage from './pages/SettingsPage'
 import MorePage from './pages/MorePage'
 import MultiplayerPage from './pages/MultiplayerPage'
+import AiPage from './pages/AiPage'
 import DropOverlay from './components/DropOverlay'
 import PageErrorBoundary from './components/PageErrorBoundary'
 import UpdateNotice from './components/UpdateNotice'
@@ -39,7 +40,11 @@ interface PageContext {
 function renderPage(key: PageKey, ctx: PageContext): JSX.Element {
   if (key === 'home') {
     return (
-      <HomePage onOpenVersionSettings={ctx.openVersionSettings} onManageVersions={() => ctx.navigate('versions')} />
+      <HomePage
+        onOpenVersionSettings={ctx.openVersionSettings}
+        onManageVersions={() => ctx.navigate('versions')}
+        onOpenAiSettings={() => ctx.navigate('ai')}
+      />
     )
   }
   if (key === 'versions') {
@@ -66,6 +71,7 @@ function renderPage(key: PageKey, ctx: PageContext): JSX.Element {
   if (key === 'servers') return <ServersPage />
   if (key === 'settings') return <SettingsPage />
   if (key === 'multiplayer') return <MultiplayerPage />
+  if (key === 'ai') return <AiPage />
   if (key === 'more') return <MorePage />
   const item = NAV_ITEMS.find((nav) => nav.key === key)!
   return <PlaceholderPage title={item.label} icon={item.icon} />
