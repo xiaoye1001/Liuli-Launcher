@@ -809,6 +809,9 @@ function GameLaunchOverlay(): JSX.Element {
                     启动失败
                   </div>
                   <div className="mt-1 line-clamp-4 whitespace-pre-wrap break-all text-xs opacity-90">{error}</div>
+                  <div className="mt-2 text-xs text-white/50">
+                    关闭后可以在主页查看原因分析和解决方法（包括 AI 分析）
+                  </div>
                 </motion.div>
               )}
               {phase === 'cancelled' && (

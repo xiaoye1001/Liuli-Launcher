@@ -20,6 +20,7 @@ import GameLaunchOverlay from './components/GameLaunchOverlay'
 import type { ModpackInfo, ResourceType } from '../../shared/types'
 import { DEFAULT_TITLE, useAppearance, useAppearanceLoaded } from './utils/appearance'
 import DynamicBackground from './components/DynamicBackground'
+import { rememberSettingsTab } from './utils/settingsTab'
 import { ThemeProvider } from './context/ThemeContext'
 
 interface PageContext {
@@ -39,7 +40,14 @@ interface PageContext {
 function renderPage(key: PageKey, ctx: PageContext): JSX.Element {
   if (key === 'home') {
     return (
-      <HomePage onOpenVersionSettings={ctx.openVersionSettings} onManageVersions={() => ctx.navigate('versions')} />
+      <HomePage
+        onOpenVersionSettings={ctx.openVersionSettings}
+        onManageVersions={() => ctx.navigate('versions')}
+        onOpenAiSettings={() => {
+          rememberSettingsTab('ai')
+          ctx.navigate('settings')
+        }}
+      />
     )
   }
   if (key === 'versions') {

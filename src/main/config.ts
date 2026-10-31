@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto'
 import { homedir, totalmem } from 'os'
 import { basename, dirname, join, resolve } from 'path'
 import type { AppSettings, GameDirEntry, OfflineAccount } from '../shared/types'
+import { AI_PROVIDERS, AI_PROVIDER_IDS } from '../shared/aiProviders'
 
 const SETTINGS_FILE = join(app.getPath('userData'), 'settings.json')
 
@@ -119,7 +120,11 @@ function defaultSettings(): AppSettings {
     afterLaunch: 'keep',
     autoCheckUpdate: true,
     updateSource: 'auto',
-    skippedVersion: ''
+    skippedVersion: '',
+    aiProvider: 'anthropic',
+    aiBaseUrl: AI_PROVIDERS[0].baseUrl,
+    aiModel: AI_PROVIDERS[0].model,
+    aiAutoAnalyze: true
   }
 }
 
@@ -130,7 +135,11 @@ const MANAGED_KEYS = new Set<string>([
   'backgroundImages',
   'offlineAccounts',
   'activeOffline',
-  'activeAccount'
+  'activeAccount',
+  // AI 助手的服务商、接口地址、模型由 AI 设置接口检查后修改
+  'aiProvider',
+  'aiBaseUrl',
+  'aiModel'
 ])
 
 /** 取值固定的设置项 */
@@ -146,6 +155,7 @@ const ENUM_VALUES: Partial<Record<keyof AppSettings, readonly string[]>> = {
   musicOrder: ['sequential', 'shuffle', 'single'],
   afterLaunch: ['keep', 'minimize', 'hide'],
   updateSource: ['auto', 'official', 'github'],
+  aiProvider: AI_PROVIDER_IDS,
   particleDensity: ['low', 'normal', 'high']
 }
 

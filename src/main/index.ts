@@ -99,6 +99,15 @@ import {
   openWorldDir
 } from './worlds'
 import { exportCrashInfo, openCrashFile } from './crashReport'
+import {
+  analyzeFailure,
+  cancelAllAnalyses,
+  cancelAnalysis,
+  getAiConfig,
+  listAiModels,
+  setAiConfig,
+  testAiConnection
+} from './ai'
 import { deleteServer, importGameServers, listServers, moveServer, saveServer } from './servers'
 import { pingServer } from './serverPing'
 import {
@@ -561,6 +570,17 @@ function registerIpc(): void {
   ipcMain.handle('logs:shareLatest', (_, versionId: string) => shareLatestLog(versionId))
   ipcMain.handle('crash:open', (_, kind: 'report' | 'native') => openCrashFile(kind))
   ipcMain.handle('crash:export', (event) => exportCrashInfo(BrowserWindow.fromWebContents(event.sender)))
+  // AI 助手：设置（不返回 API Key 本身）、测试连接、模型列表、分析启动失败与崩溃
+  ipcMain.handle('ai:getConfig', () => getAiConfig())
+  ipcMain.handle('ai:setConfig', async (_, patch: unknown) => {
+    const { config, settings } = await setAiConfig(patch)
+    broadcastSettings(settings)
+    return config
+  })
+  ipcMain.handle('ai:test', () => testAiConnection())
+  ipcMain.handle('ai:listModels', () => listAiModels())
+  ipcMain.handle('ai:analyze', (event, id: unknown, force: unknown) => analyzeFailure(id, event.sender, force === true))
+  ipcMain.handle('ai:cancel', (_, id: unknown) => cancelAnalysis(id))
   ipcMain.handle('gamedir:info', () => getGameDirInfo())
   ipcMain.handle('gamedir:set', (_, dir: string) => setGameDir(dir).then(afterGameDirChange))
   ipcMain.handle('gamedir:rename', (_, dir: string, name: string) => renameGameDir(dir, name))
@@ -671,7 +691,10 @@ app.whenReady().then(async () => {
 })
 
 // 退出时结束联机：关闭转发端口，不留下后台的 P2P 内核进程
-app.on('before-quit', () => shutdownMultiplayer())
+app.on('before-quit', () => {
+  shutdownMultiplayer()
+  cancelAllAnalyses()
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

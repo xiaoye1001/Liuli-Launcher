@@ -60,6 +60,8 @@ import type {
   VersionIsolation
 } from '../../../shared/types'
 import PageHeader from '../components/PageHeader'
+import AiSettings from '../components/AiSettings'
+import { SETTINGS_TAB_KEY } from '../utils/settingsTab'
 
 const SOURCES: { key: DownloadSource; label: string; desc: string }[] = [
   { key: 'bmclapi', label: 'BMCLAPI 镜像', desc: '国内高速镜像，推荐' },
@@ -165,19 +167,19 @@ function cleanError(e: unknown): string {
   return e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e)
 }
 
-type SettingsTab = 'personal' | 'launch' | 'other'
+type SettingsTab = 'personal' | 'launch' | 'other' | 'ai'
 const SETTINGS_TABS: { key: SettingsTab; label: string; icon: LucideIcon }[] = [
   { key: 'personal', label: '个性化', icon: Palette },
   { key: 'launch', label: '启动', icon: Rocket },
-  { key: 'other', label: '其它', icon: SlidersHorizontal }
+  { key: 'other', label: '其它', icon: SlidersHorizontal },
+  { key: 'ai', label: 'AI 助手', icon: Sparkles }
 ]
-const TAB_KEY = 'settingsTab'
 
 function SettingsPage(): JSX.Element {
   /** 当前分类（记住上次打开的） */
   const [tab, setTab] = useState<SettingsTab>(() => {
     try {
-      const saved = localStorage.getItem(TAB_KEY)
+      const saved = localStorage.getItem(SETTINGS_TAB_KEY)
       return SETTINGS_TABS.some((t) => t.key === saved) ? (saved as SettingsTab) : 'personal'
     } catch {
       return 'personal'
@@ -188,7 +190,7 @@ function SettingsPage(): JSX.Element {
     setTab(next)
     scrollRef.current?.scrollTo({ top: 0 })
     try {
-      localStorage.setItem(TAB_KEY, next)
+      localStorage.setItem(SETTINGS_TAB_KEY, next)
     } catch {
       // 记不住也没关系
     }
@@ -1265,6 +1267,10 @@ function SettingsPage(): JSX.Element {
             updateSource={settings.updateSource}
             onUpdateSourceChange={(value) => update({ updateSource: value })}
           />
+        </div>
+
+        <div className={tab === 'ai' ? 'flex flex-col gap-6' : 'hidden'}>
+          <AiSettings />
         </div>
       </div>
     </div>

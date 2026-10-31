@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   AlertTriangle,
@@ -12,6 +12,7 @@ import {
   X
 } from 'lucide-react'
 import { ShareButton, ShareStatus, useLogShare } from './LogShare'
+import AiAnalysisPanel from './AiAnalysisPanel'
 import type { CrashAction, GameStatus } from '../../../shared/types'
 
 const ACTION_LABELS: Record<CrashAction, string> = {
@@ -28,14 +29,22 @@ interface CrashCardProps {
   game: GameStatus
   onAction: (action: CrashAction) => void
   onDismiss: () => void
+  /** 打开「设置 → AI 助手」 */
+  onOpenAiSettings: () => void
 }
 
 /** 启动失败或游戏崩溃时显示：识别出的原因、解决办法与相关文件 */
-function CrashCard({ game, onAction, onDismiss }: CrashCardProps): JSX.Element {
+function CrashCard({ game, onAction, onDismiss, onOpenAiSettings }: CrashCardProps): JSX.Element {
   const analysis = game.analysis
   const [exporting, setExporting] = useState(false)
   const [message, setMessage] = useState('')
   const share = useLogShare(() => window.api.shareCrashLogs())
+  /** 正在进行的 AI 分析：关闭卡片时一起取消 */
+  const aiAnalysisId = useRef<string | null>(null)
+  const dismiss = (): void => {
+    if (aiAnalysisId.current) void window.api.aiCancel(aiAnalysisId.current)
+    onDismiss()
+  }
 
   const run = async (action: () => Promise<unknown>): Promise<void> => {
     setMessage('')
@@ -74,7 +83,7 @@ function CrashCard({ game, onAction, onDismiss }: CrashCardProps): JSX.Element {
           )}
         </div>
         <button
-          onClick={onDismiss}
+          onClick={dismiss}
           title="关闭"
           className="rounded-lg p-1 text-red-200/70 hover:bg-white/10 hover:text-white"
         >
@@ -134,6 +143,13 @@ function CrashCard({ game, onAction, onDismiss }: CrashCardProps): JSX.Element {
             </ul>
           </div>
         ))}
+        {/* AI 分析：开启自动分析时卡片出现就开始 */}
+        <AiAnalysisPanel
+          onOpenSettings={onOpenAiSettings}
+          onAnalysisId={(id) => {
+            aiAnalysisId.current = id
+          }}
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-white/10 px-5 py-3">

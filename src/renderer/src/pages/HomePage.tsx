@@ -104,9 +104,11 @@ interface HomePageProps {
   /** 打开某个版本的版本设置（跳转到「版本」页） */
   onOpenVersionSettings: (versionId: string) => void
   onManageVersions: () => void
+  /** 打开「设置 → AI 助手」 */
+  onOpenAiSettings: () => void
 }
 
-function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): JSX.Element {
+function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }: HomePageProps): JSX.Element {
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [versions, setVersions] = useState<InstalledVersion[]>([])
   const [name, setName] = useState('')
@@ -285,6 +287,9 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
     return () => clearInterval(timer)
   }, [game.state])
 
+  /** 显示着崩溃提示：先不显示「最近游玩」，给原因分析（包括 AI 的回答）留出空间 */
+  const crashShown = game.state === 'crashed' && !!game.error && !crashDismissed
+
   return (
     <div className="flex h-full flex-col justify-end gap-4">
       {settings?.showNews && (
@@ -292,7 +297,7 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
           <NewsPanel onHide={async () => setSettings(await window.api.updateSettings({ showNews: false }))} />
         </div>
       )}
-      {nameValid && settings?.showRecentPlays && (
+      {nameValid && settings?.showRecentPlays && !crashShown && (
         <RecentPlays
           versions={versions}
           game={game}
@@ -306,10 +311,11 @@ function HomePage({ onOpenVersionSettings, onManageVersions }: HomePageProps): J
       )}
 
       <AnimatePresence>
-        {game.state === 'crashed' && game.error && !crashDismissed && (
+        {crashShown && (
           <CrashCard
             game={game}
             onDismiss={() => setCrashDismissed(true)}
+            onOpenAiSettings={onOpenAiSettings}
             onAction={(action) =>
               action === 'versionSettings' ? onOpenVersionSettings(game.versionId) : onManageVersions()
             }
