@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import MiniPlayer from './MiniPlayer'
-import logo from '../assets/logo.svg'
+import logo from '../assets/logo.png'
 import { DEFAULT_SUBTITLE, DEFAULT_TITLE, useAppearance } from '../utils/appearance'
 import { Download, House, Layers, LayoutGrid, Server, Settings, UserRound, Users, type LucideIcon } from 'lucide-react'
 
