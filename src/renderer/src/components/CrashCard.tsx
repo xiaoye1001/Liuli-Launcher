@@ -29,7 +29,7 @@ interface CrashCardProps {
   game: GameStatus
   onAction: (action: CrashAction) => void
   onDismiss: () => void
-  /** 打开「设置 → AI 助手」 */
+  /** 打开「AI 助手」页 */
   onOpenAiSettings: () => void
 }
 

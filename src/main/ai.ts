@@ -212,14 +212,14 @@ async function resolveConfig(): Promise<ResolvedConfig> {
   const settings = await getSettings()
   const preset = aiProvider(settings.aiProvider)
   if (!settings.aiBaseUrl) {
-    throw new Error('还没有设置 AI 助手：请在「设置 → AI 助手」里选择服务商并填写接口地址')
+    throw new Error('还没有设置 AI 助手：请在「AI 助手」页选择服务商并填写接口地址')
   }
   const baseUrl = checkBaseUrl(settings.aiBaseUrl)
   const model = settings.aiModel.trim()
-  if (!model) throw new Error('还没有选择模型：请在「设置 → AI 助手」里填写模型，或点「获取模型列表」选择')
+  if (!model) throw new Error('还没有选择模型：请在「AI 助手」页填写模型，或点「获取模型列表」选择')
   const apiKey = await readKey(preset.id, baseUrl)
   if (preset.needsKey && !isLoopback(baseUrl) && !apiKey) {
-    throw new Error('还没有填写 API Key：请在「设置 → AI 助手」里填写（换了接口地址后需要重新填写）')
+    throw new Error('还没有填写 API Key：请在「AI 助手」页填写（换了接口地址后需要重新填写）')
   }
   return { kind: preset.kind, baseUrl, model, apiKey }
 }
@@ -238,7 +238,7 @@ function statusError(status: number, detail: string, cfg: ResolvedConfig): Error
   const suffix = detail ? `（${detail}）` : ''
   // 流式回答中途出错（例如服务繁忙）时没有 HTTP 状态码
   if (!status) return new Error(`服务返回错误，请稍后再试${suffix}`)
-  if (status === 401) return new Error(`API Key 无效或已过期，请在「设置 → AI 助手」里重新填写${suffix}`)
+  if (status === 401) return new Error(`API Key 无效或已过期，请在「AI 助手」页重新填写${suffix}`)
   if (status === 402) return new Error(`账户余额不足，请到服务商的网站充值${suffix}`)
   if (status === 403) return new Error(`这个 API Key 没有权限使用模型「${cfg.model}」${suffix}`)
   if (status === 404) return new Error(`找不到接口或模型「${cfg.model}」，请检查接口地址和模型名${suffix}`)
@@ -296,7 +296,7 @@ async function runClaude(
   /** 读完整个回答后的处理（拒答、截断） */
   const finish = (stopReason: string | null, model: string, parts: string[]): Answer => {
     if (stopReason === 'refusal') {
-      throw new Error('模型拒绝回答这次的内容，可以在「设置 → AI 助手」里换一个模型再试')
+      throw new Error('模型拒绝回答这次的内容，可以在「AI 助手」页换一个模型再试')
     }
     return { text: parts.join('').slice(0, MAX_ANSWER), model, truncated: stopReason === 'max_tokens' }
   }

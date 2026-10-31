@@ -24,7 +24,7 @@ const buttonClass =
   'flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-sm hover:bg-white/20 disabled:opacity-50'
 
 /**
- * 设置 → AI 助手：选择服务商、填写接口地址、API Key 和模型。
+ * AI 助手页的连接设置：选择服务商、填写接口地址、API Key 和模型。
  * API Key 只发给主进程加密保存，界面只显示末尾 4 位
  */
 function AiSettings(): JSX.Element {
@@ -111,10 +111,8 @@ function AiSettings(): JSX.Element {
       <div className="flex items-center gap-3">
         <Sparkles className="h-5 w-5 text-emerald-300" />
         <div>
-          <h2 className="text-lg font-semibold">AI 助手</h2>
-          <p className="text-xs text-white/50">
-            游戏崩溃或启动失败时，用 AI 分析原因并给出解决方法。需要填写你自己在服务商那里申请的 API Key
-          </p>
+          <h2 className="text-lg font-semibold">连接设置</h2>
+          <p className="text-xs text-white/50">选择服务商，填写你自己在服务商那里申请的 API Key 和要使用的模型</p>
         </div>
         {config.ready && (
           <span className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-emerald-500/20 px-2.5 py-1 text-xs text-emerald-200">

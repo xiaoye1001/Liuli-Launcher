@@ -374,7 +374,7 @@ export type ParticleEffect = 'auto' | 'none' | 'sakura' | 'ender' | 'fireflies' 
 export const PARTICLE_EFFECTS: ParticleEffect[] = ['auto', 'none', 'sakura', 'ender', 'fireflies', 'rain', 'embers']
 
 /** 可以在侧边栏隐藏的页面（主页和设置始终显示） */
-export const HIDEABLE_PAGES = ['account', 'versions', 'servers', 'download', 'multiplayer', 'more']
+export const HIDEABLE_PAGES = ['account', 'versions', 'servers', 'download', 'multiplayer', 'ai', 'more']
 
 /** 可选的界面缩放比例（%） */
 export const UI_SCALES = [80, 90, 100, 110, 125, 150]

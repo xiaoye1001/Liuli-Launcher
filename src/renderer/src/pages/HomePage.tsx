@@ -104,7 +104,7 @@ interface HomePageProps {
   /** 打开某个版本的版本设置（跳转到「版本」页） */
   onOpenVersionSettings: (versionId: string) => void
   onManageVersions: () => void
-  /** 打开「设置 → AI 助手」 */
+  /** 打开「AI 助手」页 */
   onOpenAiSettings: () => void
 }
 

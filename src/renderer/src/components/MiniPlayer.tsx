@@ -30,7 +30,10 @@ function MiniPlayer(): JSX.Element | null {
   const paused = music.userPaused || music.gamePaused || !music.playing
   const button = 'rounded-lg p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white'
   return (
-    <div className="mb-3 rounded-xl border border-white/10 bg-black/20 p-3" aria-label="背景音乐">
+    <div
+      className="mb-3 rounded-xl border border-white/10 bg-black/20 p-3 [@media(max-height:680px)]:mb-0"
+      aria-label="背景音乐"
+    >
       <div className="flex items-center gap-2">
         {music.playing ? <Equalizer active /> : <Music className="h-4 w-4 shrink-0 text-emerald-300" />}
         <div className="min-w-0 flex-1">

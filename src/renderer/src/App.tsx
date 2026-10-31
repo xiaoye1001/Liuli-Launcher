@@ -11,6 +11,7 @@ import ServersPage from './pages/ServersPage'
 import SettingsPage from './pages/SettingsPage'
 import MorePage from './pages/MorePage'
 import MultiplayerPage from './pages/MultiplayerPage'
+import AiPage from './pages/AiPage'
 import DropOverlay from './components/DropOverlay'
 import PageErrorBoundary from './components/PageErrorBoundary'
 import UpdateNotice from './components/UpdateNotice'
@@ -20,7 +21,6 @@ import GameLaunchOverlay from './components/GameLaunchOverlay'
 import type { ModpackInfo, ResourceType } from '../../shared/types'
 import { DEFAULT_TITLE, useAppearance, useAppearanceLoaded } from './utils/appearance'
 import DynamicBackground from './components/DynamicBackground'
-import { rememberSettingsTab } from './utils/settingsTab'
 import { ThemeProvider } from './context/ThemeContext'
 
 interface PageContext {
@@ -43,10 +43,7 @@ function renderPage(key: PageKey, ctx: PageContext): JSX.Element {
       <HomePage
         onOpenVersionSettings={ctx.openVersionSettings}
         onManageVersions={() => ctx.navigate('versions')}
-        onOpenAiSettings={() => {
-          rememberSettingsTab('ai')
-          ctx.navigate('settings')
-        }}
+        onOpenAiSettings={() => ctx.navigate('ai')}
       />
     )
   }
@@ -74,6 +71,7 @@ function renderPage(key: PageKey, ctx: PageContext): JSX.Element {
   if (key === 'servers') return <ServersPage />
   if (key === 'settings') return <SettingsPage />
   if (key === 'multiplayer') return <MultiplayerPage />
+  if (key === 'ai') return <AiPage />
   if (key === 'more') return <MorePage />
   const item = NAV_ITEMS.find((nav) => nav.key === key)!
   return <PlaceholderPage title={item.label} icon={item.icon} />

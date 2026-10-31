@@ -60,7 +60,6 @@ import type {
   VersionIsolation
 } from '../../../shared/types'
 import PageHeader from '../components/PageHeader'
-import AiSettings from '../components/AiSettings'
 import { SETTINGS_TAB_KEY } from '../utils/settingsTab'
 
 const SOURCES: { key: DownloadSource; label: string; desc: string }[] = [
@@ -167,12 +166,11 @@ function cleanError(e: unknown): string {
   return e instanceof Error ? e.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(e)
 }
 
-type SettingsTab = 'personal' | 'launch' | 'other' | 'ai'
+type SettingsTab = 'personal' | 'launch' | 'other'
 const SETTINGS_TABS: { key: SettingsTab; label: string; icon: LucideIcon }[] = [
   { key: 'personal', label: '个性化', icon: Palette },
   { key: 'launch', label: '启动', icon: Rocket },
-  { key: 'other', label: '其它', icon: SlidersHorizontal },
-  { key: 'ai', label: 'AI 助手', icon: Sparkles }
+  { key: 'other', label: '其它', icon: SlidersHorizontal }
 ]
 
 function SettingsPage(): JSX.Element {
@@ -1267,10 +1265,6 @@ function SettingsPage(): JSX.Element {
             updateSource={settings.updateSource}
             onUpdateSourceChange={(value) => update({ updateSource: value })}
           />
-        </div>
-
-        <div className={tab === 'ai' ? 'flex flex-col gap-6' : 'hidden'}>
-          <AiSettings />
         </div>
       </div>
     </div>

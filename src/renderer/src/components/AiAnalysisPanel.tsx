@@ -15,7 +15,7 @@ function newId(): string {
 type Phase = 'idle' | 'running' | 'done' | 'error'
 
 interface AiAnalysisPanelProps {
-  /** 打开「设置 → AI 助手」 */
+  /** 打开「AI 助手」页 */
   onOpenSettings: () => void
   /** 当前分析的编号变化时通知（关闭崩溃卡片时用来取消） */
   onAnalysisId?: (id: string | null) => void
@@ -126,7 +126,7 @@ function AiAnalysisPanel({ onOpenSettings, onAnalysisId }: AiAnalysisPanelProps)
       <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-3">
         <Sparkles className="h-4 w-4 shrink-0 text-emerald-300" />
         <div className="min-w-0 flex-1 text-xs text-white/70">
-          在「设置 → AI 助手」里填写自己的 API Key 后，可以让 AI 分析崩溃原因并给出解决方法
+          在「AI 助手」页填写自己的 API Key 后，可以让 AI 分析崩溃原因并给出解决方法
         </div>
         <button onClick={onOpenSettings} className={smallButton}>
           <Settings2 className="h-3.5 w-3.5" />
