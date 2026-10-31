@@ -299,6 +299,20 @@ html.no-anim *::after {
   animation: splash-mote var(--mote-duration) ease-out var(--mote-delay) infinite backwards;
 }
 
+/* 开屏动画、游戏启动悬浮窗里的看板娘头像：轻轻上下浮动 */
+@keyframes mascot-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.mascot-float {
+  animation: mascot-float 3.2s ease-in-out infinite;
+}
+
 /* 游戏启动动画：进行中阶段图标后面的呼吸光点 */
 @keyframes launch-stage-pulse {
   0%,
