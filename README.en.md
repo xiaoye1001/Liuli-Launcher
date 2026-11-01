@@ -68,10 +68,14 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - **Crash analysis** explains causes and fixes, with one-click log sharing to [mclo.gs](https://mclo.gs/)
 - Per-version memory, Java, window size, JVM arguments, pre-launch / post-exit commands and more
 - Multiple game directories, version isolation, favorites and custom icons, playtime statistics
+- **Continue**: jump straight into your last world, skipping the title screen (1.20+); new versions start in Simplified Chinese
+- System tray icon; play-time reminders that suggest taking a break
 
 ### Version and world management
 - Mods: enable / disable, dependency checks, update checks
-- Worlds: backup and restore, import, seed and game rules, data packs
+- One-click **performance mods** (Sodium, Lithium, FerriteCore and more) and **mod translations** (CFPA's I18nUpdateMod, updated automatically in game)
+- Worlds: backup and restore, import, seed and game rules, data packs; worlds you played are **backed up automatically** after the game exits (latest 3 per world)
+- Per-world statistics (play time, deaths, diamonds mined and more) and a one-click seed map
 - Resource packs, shader packs and screenshots
 
 ### Servers and multiplayer
@@ -85,6 +89,9 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 ### Appearance
 - Dark / light / system themes, theme presets and animated particle backgrounds
 - Original built-in themes (HD wallpapers and background music); custom wallpapers (images or video), accent colors, fonts and UI scale
+- Home-screen splash text; set a screenshot as the launcher wallpaper
+- **Ctrl+K quick search** for pages, settings, tools and versions
+- **Play report** (weekly play time, most-played versions) and 14 **launcher achievements** with an in-game style toast
 - Background music player, click effects and official Minecraft news
 - Automatic updates with signature verification and one-click restart
 
