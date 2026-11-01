@@ -831,6 +831,23 @@ export interface WorldDetails {
   size: number
   /** 启用的数据包数量 */
   datapacks: number
+  /** 存档里的游戏统计（所有玩家加起来）；没有统计文件时没有 */
+  stats?: WorldStats
+}
+
+/** 存档的游戏统计（来自 stats/<UUID>.json） */
+export interface WorldStats {
+  /** 游玩时间（游戏刻，20 刻 = 1 秒） */
+  playTicks: number
+  deaths: number
+  mobKills: number
+  /** 挖掘的方块总数 */
+  mined: number
+  /** 挖掉的钻石矿（含深层钻石矿） */
+  diamonds: number
+  /** 走路、疾跑、潜行的距离（厘米） */
+  walkCm: number
+  jumps: number
 }
 
 /** 存档备份（游戏目录 backups 文件夹里的 zip） */

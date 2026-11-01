@@ -17,7 +17,8 @@ import type {
   WorldDifficulty,
   WorldGameMode,
   WorldInfo,
-  WorldList
+  WorldList,
+  WorldStats
 } from '../shared/types'
 
 const GAME_MODES: WorldGameMode[] = ['survival', 'creative', 'adventure', 'spectator']
@@ -238,7 +239,9 @@ export async function getWorldDetails(versionId: string, folder: string): Promis
   }
 
   const enabledPacks = compound(data.DataPacks)?.Enabled
+  const stats = await worldStatsOf(dir)
   return {
+    ...(stats ? { stats } : {}),
     folder,
     seed:
       typeof seed === 'bigint' || (typeof seed === 'number' && Number.isInteger(seed))
@@ -259,6 +262,71 @@ export async function getWorldDetails(versionId: string, folder: string): Promis
       ? enabledPacks.filter((p) => typeof p === 'string' && p.startsWith('file/')).length
       : 0
   }
+}
+
+/** 统计里的一个数（不是正常的数时当作 0） */
+function count(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+}
+
+function sumValues(map: unknown): number {
+  if (!map || typeof map !== 'object') return 0
+  return Object.values(map as Record<string, unknown>).reduce<number>((sum, v) => sum + count(v), 0)
+}
+
+/** 把一个玩家的统计加进合计：1.13 起是分类的格式，更早的版本是 stat.xxx 平铺的格式 */
+function addStats(total: WorldStats, raw: unknown): void {
+  if (!raw || typeof raw !== 'object') return
+  const json = raw as Record<string, unknown>
+  const groups = json.stats
+  if (groups && typeof groups === 'object') {
+    const g = groups as Record<string, unknown>
+    const custom = (g['minecraft:custom'] ?? {}) as Record<string, unknown>
+    const mined = (g['minecraft:mined'] ?? {}) as Record<string, unknown>
+    // 1.17 把 play_one_minute 改名为 play_time（单位都是游戏刻）
+    total.playTicks += count(custom['minecraft:play_time'] ?? custom['minecraft:play_one_minute'])
+    total.deaths += count(custom['minecraft:deaths'])
+    total.mobKills += count(custom['minecraft:mob_kills'])
+    total.jumps += count(custom['minecraft:jump'])
+    total.walkCm +=
+      count(custom['minecraft:walk_one_cm']) +
+      count(custom['minecraft:sprint_one_cm']) +
+      count(custom['minecraft:crouch_one_cm'])
+    total.mined += sumValues(mined)
+    total.diamonds += count(mined['minecraft:diamond_ore']) + count(mined['minecraft:deepslate_diamond_ore'])
+    return
+  }
+  total.playTicks += count(json['stat.playOneMinute'])
+  total.deaths += count(json['stat.deaths'])
+  total.mobKills += count(json['stat.mobKills'])
+  total.jumps += count(json['stat.jump'])
+  total.walkCm += count(json['stat.walkOneCm']) + count(json['stat.sprintOneCm']) + count(json['stat.crouchOneCm'])
+  for (const [key, value] of Object.entries(json)) {
+    if (key.startsWith('stat.mineBlock.')) total.mined += count(value)
+  }
+  total.diamonds += count(json['stat.mineBlock.minecraft.diamond_ore'])
+}
+
+/** 存档里所有玩家的游戏统计加起来（stats/<UUID>.json）；没有统计文件时返回 undefined */
+async function worldStatsOf(dir: string): Promise<WorldStats | undefined> {
+  const statsDir = join(dir, 'stats')
+  const files = (await readdir(statsDir).catch(() => [] as string[]))
+    .filter((name) => /^[0-9a-f-]{32,36}\.json$/i.test(name))
+    .slice(0, 100)
+  const total: WorldStats = { playTicks: 0, deaths: 0, mobKills: 0, mined: 0, diamonds: 0, walkCm: 0, jumps: 0 }
+  let found = false
+  for (const name of files) {
+    const path = join(statsDir, name)
+    try {
+      // 正常的统计文件只有几十 KB
+      if ((await stat(path)).size > 8 * 1024 * 1024) continue
+      addStats(total, JSON.parse(await readFile(path, 'utf-8')))
+      found = true
+    } catch {
+      // 文件损坏：跳过
+    }
+  }
+  return found ? total : undefined
 }
 
 /** 删除存档：移到系统回收站 */

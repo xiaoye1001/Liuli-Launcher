@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Copy, Loader2, Map as MapIcon, Search } from 'lucide-react'
-import type { WorldDetails, WorldDifficulty } from '../../../shared/types'
+import type { WorldDetails, WorldDifficulty, WorldStats } from '../../../shared/types'
 
 /**
  * Chunkbase 的种子地图（第三方网站，在系统浏览器里打开）：
@@ -154,6 +154,42 @@ function Field({
 }
 
 /** 存档详情：种子、难度、世界类型、时间天气、出生点、玩家位置、游戏规则 */
+function formatPlayTime(ticks: number): string {
+  const minutes = Math.floor(ticks / 20 / 60)
+  if (minutes < 60) return `${minutes} 分钟`
+  return `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分钟`
+}
+
+function formatCount(n: number): string {
+  return n >= 10000 ? `${(n / 10000).toFixed(1)} 万` : String(Math.round(n))
+}
+
+/** 存档的游戏统计（来自存档里的 stats 文件） */
+function WorldStatsGrid({ stats }: { stats: WorldStats }): JSX.Element {
+  const km = stats.walkCm / 100000
+  const items: [string, string][] = [
+    ['游玩时间', formatPlayTime(stats.playTicks)],
+    ['死亡', `${formatCount(stats.deaths)} 次`],
+    ['挖掘方块', `${formatCount(stats.mined)} 个`],
+    ['挖到钻石矿', `${formatCount(stats.diamonds)} 个`],
+    ['击杀生物', `${formatCount(stats.mobKills)} 只`],
+    ['步行距离', km >= 1 ? `${km.toFixed(1)} 千米` : `${Math.round(stats.walkCm / 100)} 米`],
+    ['跳跃', `${formatCount(stats.jumps)} 次`]
+  ]
+  return (
+    <div>
+      <div className="text-xs font-medium text-white/70">游戏统计</div>
+      <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+        {items.map(([label, value]) => (
+          <Field key={label} label={label}>
+            {value}
+          </Field>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function WorldDetailsPanel({ versionId, folder }: { versionId: string; folder: string }): JSX.Element {
   const [details, setDetails] = useState<WorldDetails | null>(null)
   const [error, setError] = useState('')
@@ -263,6 +299,8 @@ function WorldDetailsPanel({ versionId, folder }: { versionId: string; folder: s
           </Field>
         )}
       </div>
+
+      {details.stats && <WorldStatsGrid stats={details.stats} />}
 
       {details.gameRules.length > 0 && (
         <div>
