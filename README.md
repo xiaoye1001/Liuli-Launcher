@@ -37,7 +37,7 @@
 | 系统 | 文件 | 说明 |
 |---|---|---|
 | Windows | `LiuliLauncher-Setup-<版本号>.exe` | 安装版，可选择安装位置并创建快捷方式 |
-| Windows | `LiuliLauncher-Portable-<版本号>.exe` | 免安装版，数据保存在 exe 旁边的 `LiuliLauncher-Data` 文件夹 |
+| Windows | `LiuliLauncher-Portable-<版本号>.exe` | 免安装版，游戏文件在 exe 旁边的 `.minecraft`，启动器文件在旁边的 `LiuliLauncher-Data` |
 | macOS（Apple 芯片） | `LiuliLauncher-<版本号>-arm64.dmg` | 打开后拖入「应用程序」 |
 | macOS（Intel） | `LiuliLauncher-<版本号>-x64.dmg` | 同上 |
 | Linux | `LiuliLauncher-<版本号>.AppImage` | 添加执行权限后直接运行，需要 FUSE 2 |
@@ -97,15 +97,20 @@
 
 ## 数据存放位置
 
-免安装版的数据在 exe 旁边的 `LiuliLauncher-Data` 文件夹；安装版保存在：
+游戏文件（版本、模组、存档、资源包）和启动器文件（设置、账号、缓存、Java、主题）分开存放：
 
-| 系统 | 路径 |
-|---|---|
-| Windows | `%APPDATA%\mc_launcher` |
-| macOS | `~/Library/Application Support/mc_launcher` |
-| Linux | `~/.config/mc_launcher` |
+| | 游戏文件 | 启动器文件 |
+|---|---|---|
+| 免安装版 | exe 旁边的 `.minecraft` | exe 旁边的 `LiuliLauncher-Data` |
+| Windows 安装版 | `%APPDATA%\.minecraft` | `%APPDATA%\mc_launcher` |
+| macOS | `~/Library/Application Support/minecraft` | `~/Library/Application Support/mc_launcher` |
+| Linux | `~/.minecraft` | `~/.config/mc_launcher` |
 
-卸载时不会删除这些数据。
+安装版的游戏文件就在系统的 `.minecraft` 里，和官方启动器共用。在「设置 → 游戏目录」里可以添加其他游戏目录并随时切换。
+
+0.5.1 及以前的版本把游戏文件放在启动器文件夹里的 `.minecraft`，升级后第一次打开时会自动搬到上面的位置（只是改名，不复制、不删除）；新位置已经有 `.minecraft` 时保持原位置，在游戏目录列表里显示为「旧的默认目录」。
+
+卸载时不会删除这些文件。
 
 ## 开发
 

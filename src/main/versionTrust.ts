@@ -126,6 +126,26 @@ export function trustVersionConfig(gameDir: string, versionId: string, config: V
   return run
 }
 
+/** 整个游戏目录搬到新位置后（见 gameDirMove.ts），其中各版本认可过的设置在新位置继续有效 */
+export function moveGameDirTrust(fromDir: string, toDir: string, versionIds: string[]): Promise<void> {
+  const run = queue
+    .catch(() => undefined)
+    .then(async () => {
+      const data = await load()
+      let changed = false
+      for (const id of versionIds) {
+        const from = entryKey(fromDir, id)
+        if (!(from in data)) continue
+        data[entryKey(toDir, id)] = data[from]
+        delete data[from]
+        changed = true
+      }
+      if (changed) await save(data)
+    })
+  queue = run
+  return run
+}
+
 /** 重命名 / 复制版本时，原版本认可过的设置在新名字下继续有效 */
 export async function copyVersionTrust(
   gameDir: string,

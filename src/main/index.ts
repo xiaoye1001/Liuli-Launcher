@@ -1,5 +1,6 @@
 import { portableDir } from './paths'
 import { pruneDownloadCache } from './storage'
+import { moveLegacyGameDir } from './gameDirMove'
 import {
   addBackgroundFromUrl,
   addBackgrounds,
@@ -663,6 +664,8 @@ app.on('second-instance', (_, argv) => {
 
 app.whenReady().then(async () => {
   if (!gotLock) return
+  // 游戏文件和启动器文件分开放：旧版本放在数据文件夹里的游戏目录搬到新位置（必须在读取设置之前）
+  await moveLegacyGameDir().catch((e) => console.error('搬移游戏目录失败：', e))
   electronApp.setAppUserModelId('io.github.xiaoye1001.liuli-launcher')
 
   app.on('browser-window-created', (_, window) => {

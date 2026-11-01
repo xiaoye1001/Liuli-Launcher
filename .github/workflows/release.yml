@@ -334,7 +334,7 @@ jobs:
           | 系统 | 文件 | 说明 |
           |---|---|---|
           | Windows | `LiuliLauncher-Setup-*.exe` | 安装版：可以选择安装位置，创建桌面与开始菜单快捷方式 |
-          | Windows | `LiuliLauncher-Portable-*.exe` | 免安装版：双击直接运行，数据保存在 exe 旁边的 `LiuliLauncher-Data` 文件夹 |
+          | Windows | `LiuliLauncher-Portable-*.exe` | 免安装版：双击直接运行，游戏文件在 exe 旁边的 `.minecraft`，启动器文件在 `LiuliLauncher-Data` |
           | macOS（Apple 芯片 M1 及以上） | `LiuliLauncher-*-arm64.dmg` | 打开后把「琉璃启动器」拖进「应用程序」 |
           | macOS（Intel 芯片） | `LiuliLauncher-*-x64.dmg` | 同上 |
           | Linux | `LiuliLauncher-*.AppImage` | 免安装版：添加执行权限后直接运行 |
@@ -347,7 +347,7 @@ jobs:
               echo '- 安装包没有代码签名，首次运行如果提示「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」'
             fi
             cat <<'EOF'
-          - 安装版的数据保存在 `%APPDATA%\mc_launcher`，卸载时不会删除
+          - 安装版的游戏文件在 `%APPDATA%\.minecraft`（和官方启动器共用），启动器文件在 `%APPDATA%\mc_launcher`，卸载时都不会删除
 
           ### macOS
           EOF
@@ -363,7 +363,7 @@ jobs:
           EOF
             fi
             cat <<'EOF'
-          - 数据保存在 `~/Library/Application Support/mc_launcher`
+          - 游戏文件在 `~/Library/Application Support/minecraft`，启动器文件在 `~/Library/Application Support/mc_launcher`
 
           ### Linux
           ```bash
@@ -372,7 +372,7 @@ jobs:
           ```
           - 需要 FUSE 2。Ubuntu 22.04 及以上如果无法启动，请先安装：`sudo apt install libfuse2`（Ubuntu 24.04 为 `libfuse2t64`）
           - Ubuntu 24.04 等系统如果提示沙盒（sandbox）相关错误，可以加参数运行：`./LiuliLauncher-*.AppImage --no-sandbox`
-          - 数据保存在 `~/.config/mc_launcher`
+          - 游戏文件在 `~/.minecraft`，启动器文件在 `~/.config/mc_launcher`
 
           EOF
             echo "运行游戏需要安装 Java（1.20.5 及以上需要 Java 21）。功能介绍与使用说明见 [README](https://github.com/$REPO#readme)。"

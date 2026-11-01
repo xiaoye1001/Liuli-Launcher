@@ -39,7 +39,7 @@ Download the package for your system from [Releases](https://github.com/xiaoye10
 | System | File | Notes |
 |---|---|---|
 | Windows | `LiuliLauncher-Setup-<version>.exe` | Installer with a choice of install location and shortcuts |
-| Windows | `LiuliLauncher-Portable-<version>.exe` | Portable; data is stored in `LiuliLauncher-Data` next to the exe |
+| Windows | `LiuliLauncher-Portable-<version>.exe` | Portable; game files go to `.minecraft` next to the exe, launcher files to `LiuliLauncher-Data` |
 | macOS (Apple silicon) | `LiuliLauncher-<version>-arm64.dmg` | Drag into Applications |
 | macOS (Intel) | `LiuliLauncher-<version>-x64.dmg` | Same as above |
 | Linux | `LiuliLauncher-<version>.AppImage` | Make executable and run; requires FUSE 2 |
@@ -98,15 +98,20 @@ The launcher uses Microsoft's official device code sign-in: enter the code shown
 
 ## Data Location
 
-The portable version stores data in `LiuliLauncher-Data` next to the exe. The installed version uses:
+Game files (versions, mods, worlds, resource packs) are kept apart from launcher files (settings, accounts, caches, Java, themes):
 
-| System | Path |
-|---|---|
-| Windows | `%APPDATA%\mc_launcher` |
-| macOS | `~/Library/Application Support/mc_launcher` |
-| Linux | `~/.config/mc_launcher` |
+| | Game files | Launcher files |
+|---|---|---|
+| Portable | `.minecraft` next to the exe | `LiuliLauncher-Data` next to the exe |
+| Windows (installed) | `%APPDATA%\.minecraft` | `%APPDATA%\mc_launcher` |
+| macOS | `~/Library/Application Support/minecraft` | `~/Library/Application Support/mc_launcher` |
+| Linux | `~/.minecraft` | `~/.config/mc_launcher` |
 
-This data is kept when you uninstall.
+The installed version uses the system `.minecraft`, shared with the official launcher. You can add more game directories and switch between them in Settings → Game Directory.
+
+Versions 0.5.1 and earlier kept game files in `.minecraft` inside the launcher folder. They are moved to the location above the first time the new version starts (a rename only — nothing is copied or deleted). If a `.minecraft` already exists there, the old folder stays where it is and appears as "旧的默认目录" (old default directory) in the list.
+
+These files are kept when you uninstall.
 
 ## Development
 
