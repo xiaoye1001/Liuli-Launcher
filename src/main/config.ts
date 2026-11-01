@@ -6,11 +6,21 @@ import { homedir, totalmem } from 'os'
 import { basename, dirname, join, resolve } from 'path'
 import type { AppSettings, GameDirEntry, OfflineAccount } from '../shared/types'
 import { AI_PROVIDERS, AI_PROVIDER_IDS } from '../shared/aiProviders'
+import { portableDir } from './paths'
 
 const SETTINGS_FILE = join(app.getPath('userData'), 'settings.json')
 
-/** 启动器默认的游戏目录：<用户数据目录>/.minecraft */
+/**
+ * 启动器默认的游戏目录，和启动器自己的文件（设置、账号、缓存、Java）分开放：
+ * - 免安装版：exe 旁边的 .minecraft（启动器的文件在旁边的 LiuliLauncher-Data 里）
+ * - 安装版：系统的 .minecraft（和官方启动器共用）
+ */
 export function defaultGameDir(): string {
+  return portableDir ? join(dirname(portableDir), '.minecraft') : officialGameDir()
+}
+
+/** 旧版本（0.5.1 及以前）的默认游戏目录：放在启动器的数据文件夹里，启动时搬到 defaultGameDir（见 gameDirMove.ts） */
+export function legacyGameDir(): string {
   return join(app.getPath('userData'), '.minecraft')
 }
 
@@ -30,6 +40,7 @@ export function samePath(a: string, b: string): boolean {
 export function gameDirDisplayName(path: string): string {
   if (samePath(path, defaultGameDir())) return '默认目录'
   if (samePath(path, officialGameDir())) return '官方启动器目录'
+  if (samePath(path, legacyGameDir())) return '旧的默认目录'
   const base = basename(path)
   const name = /^\.?minecraft$/i.test(base) ? basename(dirname(path)) || base : base
   return name.slice(0, 32) || path
@@ -199,11 +210,31 @@ let cache: AppSettings | null = null
 let loading: Promise<AppSettings> | null = null
 let writeQueue: Promise<void> = Promise.resolve()
 
+/**
+ * 旧的默认游戏目录（启动器数据文件夹里的 .minecraft）：
+ * - 已经搬走（或从来没有创建过）：设置里指向它的地方改为新的默认目录
+ * - 没能搬走（例如新位置已经有 .minecraft）：继续使用，名字从「默认目录」改为「旧的默认目录」
+ */
+function withMovedGameDir(saved: Partial<AppSettings>): void {
+  const legacy = legacyGameDir()
+  const moved = !existsSync(legacy)
+  const fix = (path: string): string => (moved && samePath(path, legacy) ? defaultGameDir() : path)
+  if (typeof saved.gameDir === 'string') saved.gameDir = fix(saved.gameDir)
+  if (Array.isArray(saved.gameDirs)) {
+    saved.gameDirs = saved.gameDirs.map((entry) => {
+      if (!entry || typeof entry.path !== 'string') return entry
+      if (moved) return { ...entry, path: fix(entry.path) }
+      return samePath(entry.path, legacy) && entry.name === '默认目录' ? { ...entry, name: '旧的默认目录' } : entry
+    })
+  }
+}
+
 async function load(): Promise<AppSettings> {
   const defaults = defaultSettings()
   try {
     // 手动改坏的设置项丢弃，用默认值
     const saved = checkedSettings(JSON.parse(await readFile(SETTINGS_FILE, 'utf-8')), defaults, true)
+    withMovedGameDir(saved)
     // 保存的游戏目录已不存在、而默认目录存在时，改用默认目录。
     // 常见于免安装版：U 盘换了电脑后盘符变化（E: → F:），旧的绝对路径失效
     if (saved.gameDir && !existsSync(saved.gameDir) && existsSync(defaults.gameDir)) {

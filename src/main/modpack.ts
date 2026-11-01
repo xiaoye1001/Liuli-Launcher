@@ -36,6 +36,7 @@ import type {
   ModrinthProjectVersion
 } from '../shared/types'
 import { discardBody } from './network'
+import { discardDownloadedFile } from './storage'
 
 /**
  * 整合包导入，支持四种常见格式：
@@ -793,6 +794,9 @@ function modpackStep(path: string, versionName: string, source?: ModpackSource):
     await finish?.()
     // 安装成功后不再需要整合包的文件清单（安装任务会为「重试」保留下来，这里先放掉，不占内存）
     finish = null
+    // 启动器下载到缓存文件夹的整合包已经装好，删掉不占空间（玩家自己选择的整合包文件不删）
+    if (pending?.path === path) pending = null
+    await discardDownloadedFile(path)
   }
   return step
 }
@@ -969,6 +973,9 @@ function modpackUpdateStep(
     await finish?.()
     // 安装成功后不再需要整合包的文件清单（安装任务会为「重试」保留下来，这里先放掉，不占内存）
     finish = null
+    // 启动器下载到缓存文件夹的整合包已经装好，删掉不占空间（玩家自己选择的整合包文件不删）
+    if (pending?.path === path) pending = null
+    await discardDownloadedFile(path)
   }
   return step
 }

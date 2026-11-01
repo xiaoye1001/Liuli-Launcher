@@ -29,6 +29,7 @@ import { assertSafeId } from './versionManage'
 import { isReservedName } from './services/fastDownloader'
 import { setVersionConfig } from './versionConfig'
 import { closeInstallDispatcher, installDispatcher, discardBody } from './network'
+import { discardDownloadedFile } from './storage'
 import type { MissingFiles } from './fileCheck'
 import type {
   DownloadSource,
@@ -638,6 +639,8 @@ async function customInstall(request: InstallRequest, allowExisting: boolean, ex
           const modsDir = join(gameDirFor('forge'), 'mods')
           await mkdir(modsDir, { recursive: true })
           await copyFile(download.path, join(modsDir, basename(download.path)))
+          // 已经复制进 mods 文件夹，缓存里的安装器不再需要
+          await discardDownloadedFile(download.path)
         }
       } else if (optifine) {
         // 用 OptiFine 安装器的补丁程序把原版本体打成 OptiFine 库
@@ -651,6 +654,8 @@ async function customInstall(request: InstallRequest, allowExisting: boolean, ex
             java: javaPath
           })
         )
+        // OptiFine 已经装进依赖库，安装器不再需要
+        await discardDownloadedFile(download.path)
       } else if (fabricArtifact) {
         await installFabricByLoaderArtifact(fabricArtifact, settings.gameDir, { versionId: name })
       } else if (quiltProfile) {

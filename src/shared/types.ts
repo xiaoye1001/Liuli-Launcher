@@ -1313,7 +1313,7 @@ export interface DirectDownloadOptions {
 // ---------- 百宝箱：清理游戏垃圾缓存 ----------
 
 /** 可以清理的内容 */
-export type CleanCategory = 'logs' | 'crash' | 'partial' | 'cache' | 'assets'
+export type CleanCategory = 'logs' | 'crash' | 'partial' | 'cache' | 'assets' | 'java'
 
 export interface CleanItem {
   category: CleanCategory
@@ -1321,6 +1321,8 @@ export interface CleanItem {
   count: number
   /** 合计大小（字节） */
   bytes: number
+  /** 补充说明，例如要删除的是哪几个 Java */
+  detail?: string
 }
 
 export interface CleanScan {
@@ -1329,6 +1331,8 @@ export interface CleanScan {
   items: CleanItem[]
   /** 无法判断哪些资源文件没用到时（例如有版本的 json 损坏）为 false，不提供「未使用的资源文件」 */
   assetsReliable: boolean
+  /** 无法判断哪些 Java 没用到时（例如有版本的 json 损坏）为 false，不提供「不再需要的 Java」 */
+  javaReliable: boolean
 }
 
 export interface CleanResult {
