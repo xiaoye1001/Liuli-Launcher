@@ -79,6 +79,7 @@ function defaultSettings(): AppSettings {
     darkLoadingScreen: true,
     defaultChinese: true,
     showTray: true,
+    playReminderMinutes: 0,
     downloadSource: 'bmclapi',
     showNews: true,
     showRecentPlays: true,

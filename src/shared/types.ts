@@ -87,6 +87,8 @@ export interface AppSettings {
   defaultChinese: boolean
   /** 显示系统托盘图标 */
   showTray: boolean
+  /** 健康游戏提醒：连续游玩多少分钟提醒休息，0 为不提醒 */
+  playReminderMinutes: number
   /** 主页显示 Minecraft 新闻 */
   showNews: boolean
   /** 主页显示「最近游玩」 */

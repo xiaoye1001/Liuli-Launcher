@@ -2,6 +2,7 @@ import { portableDir } from './paths'
 import { pruneDownloadCache } from './storage'
 import { moveLegacyGameDir } from './gameDirMove'
 import { syncTray } from './tray'
+import { setupPlayReminder } from './playReminder'
 import {
   addBackgroundFromScreenshot,
   addBackgroundFromUrl,
@@ -688,8 +689,9 @@ app.whenReady().then(async () => {
   nativeTheme.themeSource = (await getSettings()).theme
   await applyNetworkSettings().catch((e) => console.error('应用网络设置失败：', e))
   createWindow()
-  // 托盘图标
+  // 托盘图标、健康游戏提醒
   syncTray((await getSettings()).showTray)
+  setupPlayReminder()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)
   // 免安装版更新后，删除旧版本的文件

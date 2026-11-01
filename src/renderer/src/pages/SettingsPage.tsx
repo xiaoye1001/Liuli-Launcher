@@ -1118,6 +1118,33 @@ function SettingsPage(): JSX.Element {
                 />
               </button>
             </div>
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Coffee className="h-4 w-4 text-amber-300" />
+                <div>
+                  <div className="text-sm font-medium">健康游戏提醒</div>
+                  <div className="text-xs text-white/50">连续玩到设定的时间时弹出系统通知提醒休息，不会打断游戏</div>
+                </div>
+              </div>
+              <select
+                value={settings.playReminderMinutes}
+                onChange={(e) => update({ playReminderMinutes: Number(e.target.value) })}
+                aria-label="健康游戏提醒"
+                className="shrink-0 cursor-pointer rounded-lg border border-white/15 bg-black/20 px-3 py-1.5 text-sm outline-none"
+              >
+                {[
+                  [0, '不提醒'],
+                  [30, '每 30 分钟'],
+                  [60, '每 1 小时'],
+                  [90, '每 1.5 小时'],
+                  [120, '每 2 小时']
+                ].map(([value, label]) => (
+                  <option key={value} value={value} className="bg-slate-800 text-white">
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
               <div className="flex items-center gap-3">
                 <ShieldCheck className="h-4 w-4 text-emerald-300" />
