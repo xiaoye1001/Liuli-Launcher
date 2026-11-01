@@ -3,7 +3,7 @@ import { copyFile, mkdir, rm, stat, writeFile } from 'fs/promises'
 import { basename, extname, join } from 'path'
 import { pathToFileURL } from 'url'
 import { getSettings, updateSettings } from './config'
-import { screenshotResponse } from './screenshots'
+import { screenshotPath, screenshotResponse } from './screenshots'
 import { musicResponse } from './music'
 import type { AppSettings } from '../shared/types'
 
@@ -105,6 +105,28 @@ export async function removeBackground(name: string): Promise<AppSettings> {
   const path = join(BACKGROUND_DIR, file)
   await shell.trashItem(path).catch(() => rm(path, { force: true }))
   return next
+}
+
+/** 把一张游戏截图放进背景库并设为当前背景（复制一份，删除截图不影响背景） */
+export async function addBackgroundFromScreenshot(versionId: unknown, fileName: unknown): Promise<AppSettings> {
+  if (typeof versionId !== 'string' || typeof fileName !== 'string') throw new Error('参数不对')
+  const source = await screenshotPath(versionId, fileName)
+  const size = (await stat(source).catch(() => null))?.size ?? 0
+  if (size === 0) throw new Error('找不到这张截图')
+  if (size > MAX_IMAGE_BYTES) throw new Error('截图超过 30 MB，不能设为背景')
+  const settings = await getSettings()
+  if (settings.backgroundImages.length >= MAX_BACKGROUNDS) {
+    throw new Error(`背景库最多 ${MAX_BACKGROUNDS} 张，请先在「设置 → 个性化」里删除一些`)
+  }
+  const ext = extname(source).toLowerCase() === '.png' ? 'png' : 'jpg'
+  const name = `background-${Date.now()}-shot.${ext}`
+  await mkdir(BACKGROUND_DIR, { recursive: true })
+  await copyFile(source, join(BACKGROUND_DIR, name))
+  return updateSettings({
+    backgroundImages: [...settings.backgroundImages, name],
+    backgroundImage: name,
+    backgroundMode: 'fixed'
+  })
 }
 
 /** 选择一张图片作为背景（兼容旧接口：添加后固定使用这一张） */

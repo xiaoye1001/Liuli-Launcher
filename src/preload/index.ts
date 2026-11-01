@@ -249,6 +249,8 @@ const api = {
   addBackgrounds: () => ipcRenderer.invoke('appearance:addBackgrounds'),
   removeBackground: (name: string) => ipcRenderer.invoke('appearance:removeBackground', name),
   addBackgroundUrl: (url: string) => ipcRenderer.invoke('appearance:addBackgroundUrl', url),
+  backgroundFromScreenshot: (versionId: string, fileName: string) =>
+    ipcRenderer.invoke('appearance:backgroundFromScreenshot', versionId, fileName),
   exportTheme: (themeId?: string) => ipcRenderer.invoke('theme:export', themeId),
   importTheme: () => ipcRenderer.invoke('theme:import'),
   /** 应用精选主题（复制壁纸和音乐后应用整套外观），返回新的设置 */

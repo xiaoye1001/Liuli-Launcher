@@ -2,6 +2,7 @@ import { portableDir } from './paths'
 import { pruneDownloadCache } from './storage'
 import { moveLegacyGameDir } from './gameDirMove'
 import {
+  addBackgroundFromScreenshot,
   addBackgroundFromUrl,
   addBackgrounds,
   clearBackground,
@@ -349,6 +350,9 @@ function registerIpc(): void {
     return result
   })
   ipcMain.handle('appearance:addBackgroundUrl', (_, url: string) => addBackgroundFromUrl(url).then(broadcastSettings))
+  ipcMain.handle('appearance:backgroundFromScreenshot', (_, versionId: unknown, fileName: unknown) =>
+    addBackgroundFromScreenshot(versionId, fileName).then(broadcastSettings)
+  )
   ipcMain.handle('music:list', () => listMusic())
   // 高速多线程下载（百宝箱）：进度通过 download:progress 每 250 毫秒推送
   ipcMain.handle('download:create', (_, url: string, options?: DirectDownloadOptions) =>
