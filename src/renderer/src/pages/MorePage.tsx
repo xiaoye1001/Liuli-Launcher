@@ -1,12 +1,13 @@
 import { useState } from 'react'
-import { Coffee, Gauge, Trash2, Zap, type LucideIcon } from 'lucide-react'
+import { BarChart3, Coffee, Gauge, Trash2, Zap, type LucideIcon } from 'lucide-react'
 import FastDownloadPanel from '../components/FastDownloadPanel'
 import CleanerPanel from '../components/CleanerPanel'
 import JavaCheckPanel from '../components/JavaCheckPanel'
 import SpeedTestPanel from '../components/SpeedTestPanel'
+import PlayReportPanel from '../components/PlayReportPanel'
 import PageHeader from '../components/PageHeader'
 
-type ToolKey = 'download' | 'clean' | 'java' | 'speed'
+type ToolKey = 'download' | 'clean' | 'java' | 'speed' | 'report'
 
 interface Tool {
   key: ToolKey
@@ -40,7 +41,8 @@ const TOOLS: Tool[] = [
     icon: Coffee,
     tint: 'text-orange-300'
   },
-  { key: 'speed', title: '下载源测速', desc: '官方源与镜像对比', icon: Gauge, tint: 'text-sky-300' }
+  { key: 'speed', title: '下载源测速', desc: '官方源与镜像对比', icon: Gauge, tint: 'text-sky-300' },
+  { key: 'report', title: '我的游玩报告', desc: '游玩时长、最常玩的版本', icon: BarChart3, tint: 'text-emerald-300' }
 ]
 
 const LAST_TOOL_KEY = 'liuli-toolbox-tool'
@@ -70,10 +72,10 @@ function MorePage(): JSX.Element {
 
   return (
     <div className="page-scroll flex h-full flex-col gap-4">
-      <PageHeader title="更多" subtitle="百宝箱：高速下载、清理缓存、Java 检测和下载源测速" />
+      <PageHeader title="更多" subtitle="百宝箱：高速下载、清理缓存、Java 检测、下载源测速和游玩报告" />
 
       {/* 小工具入口 */}
-      <div className="grid shrink-0 grid-cols-4 gap-3" role="tablist" aria-label="百宝箱工具">
+      <div className="grid shrink-0 grid-cols-3 gap-3" role="tablist" aria-label="百宝箱工具">
         {TOOLS.map((tool) => {
           const Icon = tool.icon
           const active = tool.key === current
@@ -106,6 +108,7 @@ function MorePage(): JSX.Element {
       {current === 'clean' && <CleanerPanel />}
       {current === 'java' && <JavaCheckPanel />}
       {current === 'speed' && <SpeedTestPanel />}
+      {current === 'report' && <PlayReportPanel />}
     </div>
   )
 }
