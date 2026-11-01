@@ -1034,6 +1034,16 @@ export interface ModrinthSearchResult {
 }
 
 /** 从 Modrinth 安装模组的结果 */
+/** 模组汉化（安装 I18nUpdateMod）的结果 */
+export interface ModTranslationResult {
+  installed: boolean
+  /** 已经装过了 */
+  already: boolean
+  /** 游戏语言是不是简体中文；还没有 options.txt（没启动过）时为 null */
+  chinese: boolean | null
+  title?: string
+}
+
 /** 一键性能优化里每个模组的结果 */
 export interface PerformanceModResult {
   name: string

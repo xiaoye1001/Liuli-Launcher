@@ -38,6 +38,7 @@ import type {
   MsLoginStatus,
   ModrinthInstallResult,
   PerformanceModResult,
+  ModTranslationResult,
   ModpackInfo,
   ModpackUpdateCheck,
   ModpackUpdatePlan,
@@ -279,6 +280,8 @@ declare global {
       getPathForFile: (file: File) => string
       /** 一键性能优化：安装常用的优化模组，返回每个模组的结果 */
       installPerformanceMods: (versionId: string) => Promise<PerformanceModResult[]>
+      /** 模组汉化：安装 I18nUpdateMod（进入游戏时自动下载最新的模组汉化） */
+      installModTranslation: (versionId: string) => Promise<ModTranslationResult>
       installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>
       /** 启动游戏；server 不为空时进入游戏后直接连接该服务器，world 不为空时直接进入这个存档（1.20 起） */
       launchGame: (versionId: string, server?: string, world?: string) => Promise<void>

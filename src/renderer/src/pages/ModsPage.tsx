@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   FolderOpen,
   Gauge,
+  Languages,
   Loader2,
   Plus,
   Puzzle,
@@ -115,6 +116,22 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
     run('__performance__', async () => {
       setPerf(null)
       setPerf(await window.api.installPerformanceMods(version.id))
+      await load()
+    })
+
+  /** 模组汉化：安装 I18nUpdateMod，进入游戏时自动下载最新的模组汉化 */
+  const translate = (): Promise<void> =>
+    run('__translation__', async () => {
+      const result = await window.api.installModTranslation(version.id)
+      const langTip =
+        result.chinese === false
+          ? '。注意：现在的游戏语言不是简体中文，需要在游戏的「选项 → 语言」里改成简体中文才会显示汉化'
+          : ''
+      setNotice(
+        result.already
+          ? `已经装了模组汉化（I18nUpdateMod），进入游戏时会自动更新汉化${langTip}`
+          : `已安装模组汉化（${result.title ?? 'I18nUpdateMod'}）：进入游戏时会自动下载最新的模组汉化${langTip}`
+      )
       await load()
     })
 
@@ -243,6 +260,21 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
         }
         actions={
           <>
+            {version.loader && (
+              <button
+                onClick={() => void translate()}
+                disabled={pending !== null}
+                title="安装 CFPA 的 I18nUpdateMod：进入游戏时自动下载、更新社区翻译的模组汉化（游戏语言需要是简体中文）"
+                className={HEADER_BUTTON}
+              >
+                {pending === '__translation__' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Languages className="h-4 w-4 text-sky-300" />
+                )}
+                模组汉化
+              </button>
+            )}
             {version.loader && (
               <button
                 onClick={() => void optimize()}
