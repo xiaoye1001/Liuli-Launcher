@@ -89,6 +89,8 @@ export interface AppSettings {
   showTray: boolean
   /** 健康游戏提醒：连续游玩多少分钟提醒休息，0 为不提醒 */
   playReminderMinutes: number
+  /** 退出游戏后自动备份这次玩过的存档（每个存档保留最近 3 份） */
+  autoBackupWorlds: boolean
   /** 主页显示 Minecraft 新闻 */
   showNews: boolean
   /** 主页显示「最近游玩」 */
@@ -863,6 +865,8 @@ export interface WorldBackup {
   world: string
   /** 备份时间（毫秒时间戳） */
   createdAt: number
+  /** 退出游戏后自动备份的（文件名带「(自动)」） */
+  auto: boolean
   size: number
   /** 原存档是否还在 */
   worldExists: boolean

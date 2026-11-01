@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  Archive,
   CheckCircle2,
   Clock,
   Coffee,
@@ -1144,6 +1145,33 @@ function SettingsPage(): JSX.Element {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Archive className="h-4 w-4 text-sky-300" />
+                <div>
+                  <div className="text-sm font-medium">退出游戏后自动备份存档</div>
+                  <div className="text-xs text-white/50">
+                    游戏退出后在后台备份这次玩过的存档，每个存档保留最近 3 份（超过 4 GB
+                    的存档不自动备份），在存档页的「备份」里查看和还原
+                  </div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.autoBackupWorlds}
+                aria-label="退出游戏后自动备份存档"
+                onClick={() => update({ autoBackupWorlds: !settings.autoBackupWorlds })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.autoBackupWorlds ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.autoBackupWorlds ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
             </div>
             <div className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
               <div className="flex items-center gap-3">

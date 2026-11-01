@@ -3,6 +3,7 @@ import { pruneDownloadCache } from './storage'
 import { moveLegacyGameDir } from './gameDirMove'
 import { syncTray } from './tray'
 import { setupPlayReminder } from './playReminder'
+import { setupAutoBackup } from './autoBackup'
 import { checkSettingsAchievements, getAchievements, setupAchievements, unlockAchievement } from './achievements'
 import {
   addBackgroundFromScreenshot,
@@ -708,6 +709,7 @@ app.whenReady().then(async () => {
   // 托盘图标、健康游戏提醒
   syncTray((await getSettings()).showTray)
   setupPlayReminder()
+  setupAutoBackup()
   setupAchievements()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)

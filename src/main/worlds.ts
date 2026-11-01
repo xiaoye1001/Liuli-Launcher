@@ -355,6 +355,49 @@ export async function backupWorld(versionId: string, folder: string): Promise<{ 
   return { path, size }
 }
 
+/** 每个存档最多保留几份自动备份（手动备份不受影响） */
+const AUTO_KEEP = 3
+/** 太大的存档不自动备份（打包很慢、占空间），需要时手动备份 */
+const AUTO_MAX_BYTES = 4 * 1024 * 1024 * 1024
+
+/** 删掉这个存档较早的自动备份，只留最近 AUTO_KEEP 份 */
+async function pruneAutoBackups(backups: string, world: string): Promise<void> {
+  const autos = (await readdir(backups).catch(() => [] as string[]))
+    .map((file) => ({ file, parsed: parseBackupName(file) }))
+    .filter((b) => b.parsed?.auto && b.parsed.world === world)
+    .sort((a, b) => b.parsed!.createdAt - a.parsed!.createdAt)
+  for (const old of autos.slice(AUTO_KEEP)) await rm(join(backups, old.file), { force: true }).catch(() => undefined)
+}
+
+/**
+ * 退出游戏后自动备份这次玩过的存档（level.dat 在游戏启动之后保存过）：文件名带「(自动)」，
+ * 每个存档只保留最近 3 份自动备份；prune 为 false 时不删旧的（例如游戏崩溃后，保留之前的备份）。
+ * 又开始游戏时停止。返回备份了的存档文件夹名
+ */
+export async function autoBackupWorlds(versionId: string, since: number, prune: boolean): Promise<string[]> {
+  const root = await gameDirOf(versionId)
+  const backups = join(root, 'backups')
+  const done: string[] = []
+  for (const entry of await readdir(join(root, 'saves'), { withFileTypes: true }).catch(() => [])) {
+    if (!entry.isDirectory()) continue
+    const game = getGameStatus()
+    if (game.state === 'launching' || game.state === 'running') break
+    const dir = join(root, 'saves', entry.name)
+    const level = await stat(join(dir, 'level.dat')).catch(() => null)
+    if (!level || level.mtimeMs < since) continue
+    if ((await folderSize(dir)) > AUTO_MAX_BYTES) continue
+    await mkdir(backups, { recursive: true })
+    const stamp = timestamp()
+    let path = join(backups, `${entry.name}_${stamp} (自动).zip`)
+    for (let i = 2; await stat(path).catch(() => null); i++)
+      path = join(backups, `${entry.name}_${stamp} (${i}) (自动).zip`)
+    await zipDirectory(dir, path, entry.name, (rel) => rel === 'session.lock')
+    done.push(entry.name)
+    if (prune) await pruneAutoBackups(backups, entry.name)
+  }
+  return done
+}
+
 /** 打开存档文件夹（folder 为空时打开 saves） */
 export async function openWorldDir(versionId: string, folder?: string): Promise<void> {
   const dir = folder ? await worldDir(versionId, folder) : join(await gameDirOf(versionId), 'saves')
@@ -473,13 +516,14 @@ export async function importWorldFile(versionId: string, file: string): Promise<
 // ---------- 备份还原 ----------
 
 /** 备份文件名：<存档文件夹>_<年-月-日_时-分-秒>[ (序号)].zip */
-const BACKUP_NAME = /^(.+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})(?: \(\d+\))?\.zip$/i
+/** 备份文件名：存档名_时间（同一秒内的第二份带序号），自动备份后面多了「(自动)」 */
+const BACKUP_NAME = /^(.+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})(?: \(\d+\))?( \(自动\))?\.zip$/i
 
-function parseBackupName(file: string): { world: string; createdAt: number } | null {
+function parseBackupName(file: string): { world: string; createdAt: number; auto: boolean } | null {
   const m = BACKUP_NAME.exec(file)
   if (!m) return null
-  const [, world, y, mo, d, h, mi, sec] = m
-  return { world, createdAt: new Date(+y, +mo - 1, +d, +h, +mi, +sec).getTime() }
+  const [, world, y, mo, d, h, mi, sec, auto] = m
+  return { world, createdAt: new Date(+y, +mo - 1, +d, +h, +mi, +sec).getTime(), auto: !!auto }
 }
 
 async function backupFile(versionId: string, file: string): Promise<string> {
@@ -505,6 +549,7 @@ export async function listWorldBackups(versionId: string): Promise<WorldBackup[]
       file: entry.name,
       world,
       createdAt: parsed?.createdAt ?? info.mtimeMs,
+      auto: parsed?.auto ?? false,
       size: info.size,
       worldExists: !!(await stat(join(root, 'saves', world, 'level.dat')).catch(() => null))
     })

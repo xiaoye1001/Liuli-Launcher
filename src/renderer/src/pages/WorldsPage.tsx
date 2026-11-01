@@ -398,6 +398,14 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
                         <span className="truncate font-semibold" title={backup.world}>
                           {worldNames.get(backup.world) ?? backup.world}
                         </span>
+                        {backup.auto && (
+                          <span
+                            className="shrink-0 rounded-md bg-sky-500/20 px-2 py-0.5 text-xs text-sky-300"
+                            title="退出游戏后自动备份的，每个存档保留最近 3 份"
+                          >
+                            自动
+                          </span>
+                        )}
                         {!backup.worldExists && (
                           <span className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 text-xs text-white/50">
                             存档已不在

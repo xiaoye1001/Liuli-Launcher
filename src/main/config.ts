@@ -80,6 +80,7 @@ function defaultSettings(): AppSettings {
     defaultChinese: true,
     showTray: true,
     playReminderMinutes: 0,
+    autoBackupWorlds: true,
     downloadSource: 'bmclapi',
     showNews: true,
     showRecentPlays: true,
