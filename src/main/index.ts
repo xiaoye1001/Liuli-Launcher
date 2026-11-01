@@ -3,6 +3,7 @@ import { pruneDownloadCache } from './storage'
 import { moveLegacyGameDir } from './gameDirMove'
 import { syncTray } from './tray'
 import { setupPlayReminder } from './playReminder'
+import { checkSettingsAchievements, getAchievements, setupAchievements, unlockAchievement } from './achievements'
 import {
   addBackgroundFromScreenshot,
   addBackgroundFromUrl,
@@ -212,6 +213,7 @@ function limitText(value: unknown, max: number): string {
 function broadcastSettings(settings: AppSettings): AppSettings {
   applyUiScaleToAll(settings)
   syncTray(settings.showTray)
+  checkSettingsAchievements(settings)
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('settings:changed', settings)
   return settings
 }
@@ -448,7 +450,12 @@ function registerIpc(): void {
   ipcMain.handle('worlds:list', (_, versionId: string) => listWorldInfos(versionId))
   ipcMain.handle('worlds:details', (_, versionId: string, folder: string) => getWorldDetails(versionId, folder))
   ipcMain.handle('worlds:delete', (_, versionId: string, folder: string) => deleteWorld(versionId, folder))
-  ipcMain.handle('worlds:backup', (_, versionId: string, folder: string) => backupWorld(versionId, folder))
+  ipcMain.handle('worlds:backup', (_, versionId: string, folder: string) =>
+    backupWorld(versionId, folder).then((result) => {
+      void unlockAchievement('backup').catch(() => undefined)
+      return result
+    })
+  )
   ipcMain.handle('worlds:open', (_, versionId: string, folder?: string) => openWorldDir(versionId, folder))
   ipcMain.handle('worlds:openBackups', (_, versionId: string) => openBackupsDir(versionId))
   ipcMain.handle('worlds:backups', (_, versionId: string) => listWorldBackups(versionId))
@@ -544,7 +551,10 @@ function registerIpc(): void {
     installFromModrinth(versionId, projectId)
   )
   ipcMain.handle('game:launch', (_, versionId: string, server?: string, world?: string) =>
-    launchGame(versionId, server, world)
+    launchGame(versionId, server, world).then(() => {
+      if (typeof server === 'string' && server) void unlockAchievement('join_server').catch(() => undefined)
+      else if (typeof world === 'string' && world) void unlockAchievement('continue_world').catch(() => undefined)
+    })
   )
   ipcMain.handle('update:check', () => checkUpdate())
   ipcMain.handle('update:open', (_, kind: 'asset' | 'page') => openUpdateLink(kind))
@@ -564,6 +574,7 @@ function registerIpc(): void {
   ipcMain.handle('game:cancel', () => cancelLaunch())
   ipcMain.handle('game:kill', () => killGame())
   ipcMain.handle('stats:get', () => getPlayStats())
+  ipcMain.handle('achievements:list', () => getAchievements())
   ipcMain.handle('export:show', () => showExportedModpack())
   ipcMain.handle('export:info', (_, versionId: string) => getModpackExportInfo(versionId))
   ipcMain.handle('export:run', (event, options: ModpackExportOptions) =>
@@ -590,7 +601,12 @@ function registerIpc(): void {
   })
   ipcMain.handle('ai:test', () => testAiConnection())
   ipcMain.handle('ai:listModels', () => listAiModels())
-  ipcMain.handle('ai:analyze', (event, id: unknown, force: unknown) => analyzeFailure(id, event.sender, force === true))
+  ipcMain.handle('ai:analyze', (event, id: unknown, force: unknown) =>
+    analyzeFailure(id, event.sender, force === true).then((result) => {
+      void unlockAchievement('ai_doctor').catch(() => undefined)
+      return result
+    })
+  )
   ipcMain.handle('ai:cancel', (_, id: unknown) => cancelAnalysis(id))
   ipcMain.handle('gamedir:info', () => getGameDirInfo())
   ipcMain.handle('gamedir:set', (_, dir: string) => setGameDir(dir).then(afterGameDirChange))
@@ -692,6 +708,7 @@ app.whenReady().then(async () => {
   // 托盘图标、健康游戏提醒
   syncTray((await getSettings()).showTray)
   setupPlayReminder()
+  setupAchievements()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)
   // 免安装版更新后，删除旧版本的文件

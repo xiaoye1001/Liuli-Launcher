@@ -1,3 +1,4 @@
+import type { AchievementStatus } from '../shared/achievements'
 import type {
   CleanCategory,
   LocalAddresses,
@@ -214,6 +215,10 @@ declare global {
       openScreenshotsDir: (versionId: string) => Promise<void>
       /** 游玩时长统计与最近游玩记录 */
       getPlayStats: () => Promise<PlayStats>
+      /** 启动器成就（含进度） */
+      getAchievements: () => Promise<AchievementStatus[]>
+      /** 解锁了新成就时回调（参数是成就 ID），返回取消监听的函数 */
+      onAchievementUnlocked: (callback: (id: string) => void) => () => void
       /** 导出整合包：版本信息与可以导出的内容 */
       getModpackExportInfo: (versionId: string) => Promise<ModpackExportInfo>
       /** 导出整合包（弹出保存对话框），取消时返回 null */

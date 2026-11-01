@@ -143,6 +143,15 @@ const api = {
   showScreenshot: (versionId: string, fileName: string) => ipcRenderer.invoke('screenshots:show', versionId, fileName),
   openScreenshotsDir: (versionId: string) => ipcRenderer.invoke('screenshots:open', versionId),
   getPlayStats: () => ipcRenderer.invoke('stats:get'),
+  getAchievements: () => ipcRenderer.invoke('achievements:list'),
+  /** 解锁了新成就（参数是成就 ID） */
+  onAchievementUnlocked: (callback: (id: string) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, id: string): void => callback(id)
+    ipcRenderer.on('achievement:unlocked', listener)
+    return () => {
+      ipcRenderer.removeListener('achievement:unlocked', listener)
+    }
+  },
   getModpackExportInfo: (versionId: string) => ipcRenderer.invoke('export:info', versionId),
   exportModpack: (options: ModpackExportOptions) => ipcRenderer.invoke('export:run', options),
   showExportedModpack: () => ipcRenderer.invoke('export:show'),
