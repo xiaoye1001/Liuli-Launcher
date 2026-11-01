@@ -4,6 +4,7 @@ import { moveLegacyGameDir } from './gameDirMove'
 import { syncTray } from './tray'
 import { setupPlayReminder } from './playReminder'
 import { setupAutoBackup } from './autoBackup'
+import { installPerformanceMods } from './performanceMods'
 import { checkSettingsAchievements, getAchievements, setupAchievements, unlockAchievement } from './achievements'
 import {
   addBackgroundFromScreenshot,
@@ -548,6 +549,7 @@ function registerIpc(): void {
   ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>
     searchModrinth(versionId, query, offset)
   )
+  ipcMain.handle('mods:performance', (_, versionId: string) => installPerformanceMods(versionId))
   ipcMain.handle('modrinth:install', (_, versionId: string, projectId: string) =>
     installFromModrinth(versionId, projectId)
   )

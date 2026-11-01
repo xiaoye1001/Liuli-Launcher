@@ -195,6 +195,7 @@ const api = {
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   searchModrinth: (versionId: string, query: string, offset: number) =>
     ipcRenderer.invoke('modrinth:search', versionId, query, offset),
+  installPerformanceMods: (versionId: string) => ipcRenderer.invoke('mods:performance', versionId),
   installFromModrinth: (versionId: string, projectId: string) =>
     ipcRenderer.invoke('modrinth:install', versionId, projectId),
   launchGame: (versionId: string, server?: string, world?: string) =>

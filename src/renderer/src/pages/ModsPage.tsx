@@ -2,20 +2,30 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   ArrowUpCircle,
+  CheckCircle2,
   FolderOpen,
+  Gauge,
   Loader2,
   Plus,
   Puzzle,
   RefreshCw,
   Search,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-react'
 import ModrinthBrowser from '../components/ModrinthBrowser'
 import PageHeader from '../components/PageHeader'
 import { EmptyState, LoadingState } from '../components/EmptyState'
-import { HEADER_ICON_BUTTON, HEADER_PRIMARY } from '../components/headerButtons'
+import { HEADER_BUTTON, HEADER_ICON_BUTTON, HEADER_PRIMARY } from '../components/headerButtons'
 import ModIssuesCard from '../components/ModIssuesCard'
-import type { InstalledVersion, ModInfo, ModKind, ModList, ModUpdate } from '../../../shared/types'
+import type {
+  InstalledVersion,
+  ModInfo,
+  ModKind,
+  ModList,
+  ModUpdate,
+  PerformanceModResult
+} from '../../../shared/types'
 
 const TABS: { key: 'installed' | 'modrinth'; label: string }[] = [
   { key: 'installed', label: '已安装' },
@@ -63,6 +73,8 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
   const [browserOpened, setBrowserOpened] = useState(false)
   /** 正在修改的模组文件名，避免重复点击 */
   const [pending, setPending] = useState<string | null>(null)
+  /** 一键性能优化的结果 */
+  const [perf, setPerf] = useState<PerformanceModResult[] | null>(null)
   /** 检查更新的结果：文件名 → 新版本；null 表示还没有检查 */
   const [updates, setUpdates] = useState<Record<string, ModUpdate> | null>(null)
   const [checking, setChecking] = useState(false)
@@ -97,6 +109,14 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
       setPending(null)
     }
   }
+
+  /** 一键性能优化：安装常用的优化模组，装完刷新列表并显示每个模组的结果 */
+  const optimize = (): Promise<void> =>
+    run('__performance__', async () => {
+      setPerf(null)
+      setPerf(await window.api.installPerformanceMods(version.id))
+      await load()
+    })
 
   /** 启用、禁用、删除模组后重新检查前置和重复模组 */
   const refreshIssues = (): void => {
@@ -223,6 +243,21 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
         }
         actions={
           <>
+            {version.loader && (
+              <button
+                onClick={() => void optimize()}
+                disabled={pending !== null}
+                title="安装常用的性能优化模组（Sodium、Lithium、FerriteCore 等），已经装了的和冲突的会跳过"
+                className={HEADER_BUTTON}
+              >
+                {pending === '__performance__' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Gauge className="h-4 w-4 text-emerald-300" />
+                )}
+                一键优化
+              </button>
+            )}
             <button onClick={add} disabled={pending !== null} className={HEADER_PRIMARY}>
               <Plus className="h-4 w-4" />
               添加模组
@@ -248,6 +283,49 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
         </div>
       )}
       {notice && <div className="rounded-xl bg-emerald-500/15 px-4 py-2.5 text-sm text-emerald-200">{notice}</div>}
+      {perf && (
+        <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm">
+          <div className="flex items-center gap-2">
+            <Gauge className="h-4 w-4 text-emerald-300" />
+            <span className="font-medium">
+              一键优化：新装了 {perf.filter((r) => r.status === 'installed').length} 个优化模组
+            </span>
+            <button
+              onClick={() => setPerf(null)}
+              title="关闭"
+              className="ml-auto rounded p-1 text-white/50 hover:bg-white/10"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="mt-2 grid gap-1">
+            {perf.map((r) => (
+              <div key={r.name} className="flex items-center gap-2 text-xs">
+                {r.status === 'installed' || r.status === 'already' ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-300" />
+                ) : (
+                  <AlertTriangle
+                    className={`h-3.5 w-3.5 shrink-0 ${r.status === 'failed' ? 'text-red-300' : 'text-white/40'}`}
+                  />
+                )}
+                <span className="shrink-0">{r.name}</span>
+                <span className="min-w-0 truncate text-white/50" title={r.detail}>
+                  {
+                    {
+                      installed: '已安装',
+                      already: '已经装了',
+                      skipped: '跳过',
+                      unavailable: '没有适用的版本',
+                      failed: '失败'
+                    }[r.status]
+                  }
+                  {r.detail ? ` · ${r.detail}` : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 模组列表 */}
       <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">

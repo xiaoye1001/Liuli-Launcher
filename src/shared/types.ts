@@ -1034,6 +1034,14 @@ export interface ModrinthSearchResult {
 }
 
 /** 从 Modrinth 安装模组的结果 */
+/** 一键性能优化里每个模组的结果 */
+export interface PerformanceModResult {
+  name: string
+  /** 装好了 / 已经装了 / 跳过（和已有模组冲突）/ 没有适用的版本 / 失败 */
+  status: 'installed' | 'already' | 'skipped' | 'unavailable' | 'failed'
+  detail?: string
+}
+
 export interface ModrinthInstallResult {
   /** 实际下载的模组（含自动安装的前置模组） */
   installed: { projectId: string; title: string; fileName: string; dependency: boolean }[]
