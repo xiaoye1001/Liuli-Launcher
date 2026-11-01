@@ -87,6 +87,8 @@ export interface AppSettings {
   showNews: boolean
   /** 主页显示「最近游玩」 */
   showRecentPlays: boolean
+  /** 主页标题旁显示闪烁标语（像 Minecraft 主菜单的黄字） */
+  showSplash: boolean
   /** 主页的「最近游玩」收起（只显示标题） */
   recentPlaysCollapsed: boolean
   /** 下载源 */

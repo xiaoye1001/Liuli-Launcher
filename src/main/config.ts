@@ -80,6 +80,7 @@ function defaultSettings(): AppSettings {
     downloadSource: 'bmclapi',
     showNews: true,
     showRecentPlays: true,
+    showSplash: true,
     recentPlaysCollapsed: false,
     downloadThreads: 16,
     proxyMode: 'none',

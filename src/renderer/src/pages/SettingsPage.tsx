@@ -847,6 +847,33 @@ function SettingsPage(): JSX.Element {
                 />
               </button>
             </div>
+            {/* 主页闪烁标语 */}
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Sparkles className="h-4 w-4 text-amber-300" />
+                <div>
+                  <div className="text-sm font-medium">主页闪烁标语</div>
+                  <div className="text-xs text-white/50">
+                    像 Minecraft 主菜单一样，在主页标题旁显示一句随机的黄字，节日有彩蛋；点一下换一句
+                  </div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.showSplash}
+                aria-label="主页闪烁标语"
+                onClick={() => update({ showSplash: !settings.showSplash })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.showSplash ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.showSplash ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
           </section>
         </div>
 

@@ -256,6 +256,19 @@ html.no-anim *::after {
   animation: slide-in 0.2s ease-out;
 }
 
+/* 主页闪烁标语：出现或换一句时跳动几下就停（偶数次往返，停在原来的大小） */
+@keyframes splash-pulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+.splash-pulse {
+  animation: splash-pulse 0.4s ease-in-out 8 alternate;
+}
+
 /*
  * 一直循环的装饰动画（开屏动画、游戏启动动画）用 CSS 实现，元素移除时动画随之结束。
  * 不要改回 framer-motion 的 repeat: Infinity：framer-motion 11 停止这类透明度动画时，

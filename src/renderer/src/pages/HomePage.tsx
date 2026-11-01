@@ -17,6 +17,7 @@ import CrashCard from '../components/CrashCard'
 import RecentPlays from '../components/RecentPlays'
 import VersionIcon from '../components/VersionIcon'
 import NewsPanel from '../components/NewsPanel'
+import SplashText from '../components/SplashText'
 import { formatClock } from '../utils/format'
 import { useAppearance } from '../utils/appearance'
 import { renderWelcome } from '../utils/welcome'
@@ -323,7 +324,8 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
         )}
       </AnimatePresence>
 
-      <div className="rounded-2xl border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
+      <div className="relative rounded-2xl border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
+        {settings?.showSplash && <SplashText />}
         <h1 className="text-3xl font-bold tracking-tight">
           {welcomeTitle ? renderWelcome(welcomeTitle, welcomeValues) : `欢迎回来${nameValid ? `，${displayName}` : ''}`}
         </h1>
