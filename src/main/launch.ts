@@ -14,7 +14,7 @@ import { countMissing, findMissingFiles, type MissingFiles } from './fileCheck'
 import { autoMemory } from './memory'
 import { gcTuningArgs } from './gcTuning'
 import { onGameEnded, onGameWindowReady } from './windows'
-import { applyDarkLoadingScreen } from './gameOptions'
+import { applyDarkLoadingScreen, applyDefaultLanguage } from './gameOptions'
 import { onLaunchStatusForSplash } from './launchSplash'
 import { resolveJava } from './java'
 import { openLogWindow } from './logWindow'
@@ -500,6 +500,12 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
     if (settings.darkLoadingScreen) {
       await applyDarkLoadingScreen(gamePath, minecraftVersion)
         .then((changed) => changed && launcherLog('已把游戏加载画面设为黑色背景'))
+        .catch(() => undefined)
+    }
+    // 新版本默认简体中文：只在第一次启动（还没有 options.txt）时设置；整合包不动，保留它自带的设置
+    if (settings.defaultChinese && !(await readModpackRecord(settings.gameDir, versionId).catch(() => null))) {
+      await applyDefaultLanguage(gamePath, minecraftVersion)
+        .then((created) => created && launcherLog('第一次启动：已把游戏语言设为简体中文'))
         .catch(() => undefined)
     }
 

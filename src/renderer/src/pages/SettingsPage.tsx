@@ -1205,6 +1205,32 @@ function SettingsPage(): JSX.Element {
                 />
               </button>
             </div>
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Globe className="h-4 w-4 text-emerald-300" />
+                <div>
+                  <div className="text-sm font-medium">新版本默认简体中文</div>
+                  <div className="text-xs text-white/50">
+                    新装的版本第一次启动就是简体中文，不用进游戏设置改语言。已经玩过的版本和整合包不受影响
+                  </div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.defaultChinese}
+                aria-label="新版本默认简体中文"
+                onClick={() => update({ defaultChinese: !settings.defaultChinese })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.defaultChinese ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.defaultChinese ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
           </section>
 
           {/* 版本隔离 */}

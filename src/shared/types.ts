@@ -83,6 +83,8 @@ export interface AppSettings {
   launchSplash: boolean
   /** 启动前把游戏加载画面（Mojang Studios）的红色背景改成黑色（1.17 及以上，游戏的「单色标志」选项） */
   darkLoadingScreen: boolean
+  /** 新版本第一次启动时把游戏语言设为简体中文（整合包不动） */
+  defaultChinese: boolean
   /** 主页显示 Minecraft 新闻 */
   showNews: boolean
   /** 主页显示「最近游玩」 */
