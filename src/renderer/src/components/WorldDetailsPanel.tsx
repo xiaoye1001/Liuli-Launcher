@@ -1,6 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Copy, Loader2, Search } from 'lucide-react'
+import { Check, Copy, Loader2, Map as MapIcon, Search } from 'lucide-react'
 import type { WorldDetails, WorldDifficulty } from '../../../shared/types'
+
+/**
+ * Chunkbase 的种子地图（第三方网站，在系统浏览器里打开）：
+ * 以玩家位置（没有时用出生点）为中心；游戏版本在网页上选择，地图会记住上次选的版本
+ */
+function seedMapUrl(details: WorldDetails): string | null {
+  if (!details.seed || !/^-?\d{1,20}$/.test(details.seed)) return null
+  const center = details.player && details.player.dimension.endsWith('overworld') ? details.player : details.spawn
+  const params = new URLSearchParams({ seed: details.seed, dimension: 'overworld' })
+  if (center) {
+    params.set('x', String(Math.round(center.x)))
+    params.set('z', String(Math.round(center.z)))
+  }
+  return `https://www.chunkbase.com/apps/seed-map#${params.toString()}`
+}
 
 function cleanError(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e)
@@ -188,6 +203,7 @@ function WorldDetailsPanel({ versionId, folder }: { versionId: string; folder: s
 
   const weather = { clear: '晴天', rain: '下雨', thunder: '雷雨' }[details.weather]
   const p = details.player
+  const mapUrl = seedMapUrl(details)
 
   return (
     <div className="space-y-3 border-t border-white/10 px-4 py-3">
@@ -203,6 +219,16 @@ function WorldDetailsPanel({ versionId, folder }: { versionId: string; folder: s
                 className="shrink-0 rounded p-1 text-white/50 hover:bg-white/10 hover:text-white"
               >
                 {copied ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+            )}
+            {mapUrl && (
+              <button
+                onClick={() => window.open(mapUrl, '_blank')}
+                title="在 Chunkbase 网站上查看这个种子的地图（村庄、要塞、地形等），游戏版本请在网页上选择和存档一致的"
+                className="flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-xs text-white/60 hover:bg-white/10 hover:text-white"
+              >
+                <MapIcon className="h-3.5 w-3.5" />
+                种子地图
               </button>
             )}
           </div>
