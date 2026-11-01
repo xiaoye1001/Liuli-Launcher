@@ -11,8 +11,10 @@ export const TOOLBOX_KEY = 'liuli-toolbox-tool'
 /** 侧边栏等地方打开快速搜索时发出的事件 */
 export const OPEN_PALETTE_EVENT = 'liuli-open-palette'
 
+export const IS_MAC = navigator.platform.toLowerCase().includes('mac')
+
 /** 打开快速搜索的快捷键说明（macOS 用 ⌘） */
-export const PALETTE_SHORTCUT = navigator.platform.toLowerCase().includes('mac') ? '⌘K' : 'Ctrl+K'
+export const PALETTE_SHORTCUT = IS_MAC ? '⌘K' : 'Ctrl+K'
 
 export interface JumpDetail {
   target: 'settings' | 'more'

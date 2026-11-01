@@ -107,8 +107,17 @@ export async function removeBackground(name: string): Promise<AppSettings> {
   return next
 }
 
+/** 同时来的几次「设为背景」排队处理：各自读到同一份背景库会互相覆盖，复制的文件就没人管了 */
+let screenshotQueue: Promise<unknown> = Promise.resolve()
+
 /** 把一张游戏截图放进背景库并设为当前背景（复制一份，删除截图不影响背景） */
-export async function addBackgroundFromScreenshot(versionId: unknown, fileName: unknown): Promise<AppSettings> {
+export function addBackgroundFromScreenshot(versionId: unknown, fileName: unknown): Promise<AppSettings> {
+  const run = screenshotQueue.catch(() => undefined).then(() => screenshotToBackground(versionId, fileName))
+  screenshotQueue = run
+  return run
+}
+
+async function screenshotToBackground(versionId: unknown, fileName: unknown): Promise<AppSettings> {
   if (typeof versionId !== 'string' || typeof fileName !== 'string') throw new Error('参数不对')
   const source = await screenshotPath(versionId, fileName)
   const size = (await stat(source).catch(() => null))?.size ?? 0

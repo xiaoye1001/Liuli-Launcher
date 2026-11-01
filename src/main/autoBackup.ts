@@ -27,8 +27,9 @@ export function setupAutoBackup(): void {
     running = running
       .then(async () => {
         if (!(await getSettings()).autoBackupWorlds) return
-        const done = await autoBackupWorlds(versionId, since, prune)
+        const { done, failed } = await autoBackupWorlds(versionId, since, prune)
         if (done.length > 0) console.log(`已自动备份存档：${done.join('、')}`)
+        if (failed.length > 0) console.warn(`这些存档自动备份失败：${failed.join('、')}`)
       })
       .catch((e) => console.warn('自动备份存档失败：', e))
   })

@@ -15,22 +15,32 @@ import type { AppSettings } from '../shared/types'
 const FILE = join(app.getPath('userData'), 'achievements.json')
 const HOUR = 3_600_000
 
-let unlocked: Record<string, number> | null = null
+/** 只读一次文件：同时解锁几个成就时共用同一份记录（各自读一份会互相覆盖，只保存下最后一个） */
+let loading: Promise<Record<string, number>> | null = null
 let queue: Promise<void> = Promise.resolve()
+/** 这次启动是从服务器列表加入服务器，还是「继续上次的存档」（游戏窗口出现后才算解锁） */
+let launchKind: 'join_server' | 'continue_world' | null = null
 
-async function load(): Promise<Record<string, number>> {
-  if (unlocked) return unlocked
-  const data = Object.create(null) as Record<string, number>
-  try {
-    const raw = JSON.parse(await readFile(FILE, 'utf-8')) as Record<string, unknown>
-    for (const [id, time] of Object.entries(raw ?? {})) {
-      if (isAchievementId(id) && typeof time === 'number' && Number.isFinite(time)) data[id] = time
+function load(): Promise<Record<string, number>> {
+  loading ??= (async () => {
+    const data = Object.create(null) as Record<string, number>
+    try {
+      const raw = JSON.parse(await readFile(FILE, 'utf-8')) as Record<string, unknown>
+      for (const [id, time] of Object.entries(raw ?? {})) {
+        if (isAchievementId(id) && typeof time === 'number' && Number.isFinite(time)) data[id] = time
+      }
+    } catch {
+      // 还没有解锁过成就
     }
-  } catch {
-    // 还没有解锁过成就
-  }
-  unlocked = data
-  return data
+    return data
+  })()
+  return loading
+}
+
+/** 启动游戏的请求：记下是加入服务器还是继续存档，游戏真正运行起来时再解锁对应的成就 */
+export function noteLaunchRequest(server: unknown, world: unknown): void {
+  launchKind =
+    typeof server === 'string' && server ? 'join_server' : typeof world === 'string' && world ? 'continue_world' : null
 }
 
 function save(data: Record<string, number>): Promise<void> {
@@ -67,7 +77,7 @@ async function checkPlayStats(): Promise<void> {
   if (totalMs >= 10 * HOUR) unlock('hours_10')
   if (totalMs >= 100 * HOUR) unlock('hours_100')
   if (versions.filter((v) => v.totalMs > 0).length >= 5) unlock('explorer')
-  if (stats.sessions[0] && stats.sessions[0].durationMs >= 3 * HOUR) unlock('marathon')
+  if (stats.sessions.some((s) => s.durationMs >= 3 * HOUR)) unlock('marathon')
 }
 
 /** 设置变化时检查（换了自己的背景） */
@@ -78,6 +88,8 @@ export function checkSettingsAchievements(settings: AppSettings): void {
 
 async function onGameRunning(versionId: string): Promise<void> {
   unlock('first_launch')
+  if (launchKind) unlock(launchKind)
+  launchKind = null
   const hour = new Date().getHours()
   if (hour < 5) unlock('night_owl')
   else if (hour < 7) unlock('early_bird')
@@ -89,7 +101,9 @@ async function onGameRunning(versionId: string): Promise<void> {
 export function setupAchievements(): void {
   onGameStatusChange((next, previous) => {
     if (next.state === 'running' && previous !== 'running') void onGameRunning(next.versionId).catch(() => undefined)
-    if (next.state === 'crashed') unlock('crash')
+    // 只算游戏运行起来以后的崩溃（启动失败、取消启动也会是 crashed，不算）
+    if (next.state === 'crashed' && previous === 'running') unlock('crash')
+    if (next.state === 'exited' || next.state === 'crashed') launchKind = null
     // 游玩记录在游戏结束时保存，稍等再检查
     if (next.state === 'exited' || next.state === 'crashed') {
       setTimeout(() => void checkPlayStats().catch(() => undefined), 1500)

@@ -17,7 +17,7 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import { NAV_ITEMS, type PageKey } from './Sidebar'
-import { OPEN_PALETTE_EVENT, requestJump } from '../utils/jump'
+import { IS_MAC, OPEN_PALETTE_EVENT, requestJump } from '../utils/jump'
 import type { InstalledVersion } from '../../../shared/types'
 
 interface Command {
@@ -50,7 +50,9 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
+      // macOS 上用 ⌘K（Ctrl+K 是系统的「删除到行尾」），其他系统用 Ctrl+K
+      const modifier = IS_MAC ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey
+      if (modifier && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setOpen((v) => !v)
       }
@@ -217,6 +219,12 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
+              // 输入法正在输入（拼音还没确认）时的回车、方向键交给输入法
+              if (e.nativeEvent.isComposing) return
+              // 快速搜索处理的按键不再传给后面的页面（例如截图预览的 Esc、左右键）
+              if (['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.stopPropagation()
+              }
               if (e.key === 'ArrowDown') {
                 e.preventDefault()
                 setIndex((i) => Math.min(i + 1, results.length - 1))

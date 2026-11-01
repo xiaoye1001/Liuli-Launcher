@@ -374,28 +374,64 @@ async function pruneAutoBackups(backups: string, world: string): Promise<void> {
  * 每个存档只保留最近 3 份自动备份；prune 为 false 时不删旧的（例如游戏崩溃后，保留之前的备份）。
  * 又开始游戏时停止。返回备份了的存档文件夹名
  */
-export async function autoBackupWorlds(versionId: string, since: number, prune: boolean): Promise<string[]> {
+export async function autoBackupWorlds(
+  versionId: string,
+  since: number,
+  prune: boolean
+): Promise<{ done: string[]; failed: string[] }> {
   const root = await gameDirOf(versionId)
   const backups = join(root, 'backups')
   const done: string[] = []
+  const failed: string[] = []
+  await removeStaleTemp(backups)
   for (const entry of await readdir(join(root, 'saves'), { withFileTypes: true }).catch(() => [])) {
-    if (!entry.isDirectory()) continue
+    // 以 . 开头的是还原、删除存档时的临时文件夹
+    if (!entry.isDirectory() || entry.name.startsWith('.')) continue
     const game = getGameStatus()
     if (game.state === 'launching' || game.state === 'running') break
     const dir = join(root, 'saves', entry.name)
     const level = await stat(join(dir, 'level.dat')).catch(() => null)
     if (!level || level.mtimeMs < since) continue
-    if ((await folderSize(dir)) > AUTO_MAX_BYTES) continue
-    await mkdir(backups, { recursive: true })
-    const stamp = timestamp()
-    let path = join(backups, `${entry.name}_${stamp} (自动).zip`)
-    for (let i = 2; await stat(path).catch(() => null); i++)
-      path = join(backups, `${entry.name}_${stamp} (${i}) (自动).zip`)
-    await zipDirectory(dir, path, entry.name, (rel) => rel === 'session.lock')
-    done.push(entry.name)
-    if (prune) await pruneAutoBackups(backups, entry.name)
+    // 一个存档备份失败（文件被占用、文件太多等）不影响其他存档
+    try {
+      if ((await folderSize(dir)) > AUTO_MAX_BYTES) continue
+      await mkdir(backups, { recursive: true })
+      const stamp = timestamp()
+      let path = join(backups, `${entry.name}_${stamp} (自动).zip`)
+      for (let i = 2; await stat(path).catch(() => null); i++)
+        path = join(backups, `${entry.name}_${stamp} (${i}) (自动).zip`)
+      await zipDirectory(dir, path, entry.name, (rel) => rel === 'session.lock')
+      // 打包的时候又启动了同一个游戏目录的游戏：存档可能正在被写入，这份备份不可靠，删掉并停止
+      if (await gameStartedIn(root)) {
+        await rm(path, { force: true }).catch(() => undefined)
+        break
+      }
+      done.push(entry.name)
+      if (prune) await pruneAutoBackups(backups, entry.name)
+    } catch {
+      failed.push(entry.name)
+    }
   }
-  return done
+  return { done, failed }
+}
+
+/** 有没有游戏正在启动或运行，并且用的是这个游戏目录 */
+async function gameStartedIn(root: string): Promise<boolean> {
+  const game = getGameStatus()
+  if (!(game.state === 'launching' || game.state === 'running') || !game.versionId) return false
+  const running = await gameDirOf(game.versionId).catch(() => '')
+  return !!running && resolve(running).toLowerCase() === resolve(root).toLowerCase()
+}
+
+/** 打包到一半被中断（例如备份时关闭了启动器）留下的 .zip.tmp：一小时前的删掉 */
+async function removeStaleTemp(backups: string): Promise<void> {
+  for (const name of await readdir(backups).catch(() => [] as string[])) {
+    if (!name.endsWith('.zip.tmp')) continue
+    const path = join(backups, name)
+    const info = await stat(path).catch(() => null)
+    if (info?.isFile() && Date.now() - info.mtimeMs > 60 * 60 * 1000)
+      await rm(path, { force: true }).catch(() => undefined)
+  }
 }
 
 /** 打开存档文件夹（folder 为空时打开 saves） */

@@ -71,8 +71,17 @@ function ScreenshotsPanel({ versionId }: { versionId: string }): JSX.Element {
     }
   }
 
-  const setAsWallpaper = (shot: Screenshot): Promise<void> =>
-    run(() => window.api.backgroundFromScreenshot(versionId, shot.fileName), '已设为启动器背景')
+  /** 正在设为背景：连点两下只处理一次 */
+  const settingWallpaper = useRef(false)
+  const setAsWallpaper = async (shot: Screenshot): Promise<void> => {
+    if (settingWallpaper.current) return
+    settingWallpaper.current = true
+    try {
+      await run(() => window.api.backgroundFromScreenshot(versionId, shot.fileName), '已设为启动器背景')
+    } finally {
+      settingWallpaper.current = false
+    }
+  }
 
   const remove = (shot: Screenshot): Promise<void> =>
     run(async () => {

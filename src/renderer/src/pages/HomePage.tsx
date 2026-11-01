@@ -175,10 +175,19 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
       setGame(status)
       setCrashDismissed(false)
     })
+    // 在别处换了选中的版本（例如快速搜索 Ctrl+K 里「选择版本」）：跟着更新
+    const offSettings = window.api.onSettingsChanged((next) =>
+      setSettings((prev) =>
+        prev && prev.selectedVersion !== next.selectedVersion
+          ? { ...prev, selectedVersion: next.selectedVersion }
+          : prev
+      )
+    )
     return () => {
       alive = false
       offInstall()
       offGame()
+      offSettings()
     }
   }, [])
 

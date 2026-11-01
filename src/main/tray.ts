@@ -10,10 +10,19 @@ import { getMainWindow } from './windows'
  */
 let tray: Tray | null = null
 let listening = false
+/** 没有窗口时重新创建（macOS 上关闭窗口后程序仍在运行） */
+let createWindow: (() => void) | null = null
+
+export function setTrayWindowFactory(factory: () => void): void {
+  createWindow = factory
+}
 
 function showWindow(): void {
   const win = getMainWindow()
-  if (!win) return
+  if (!win) {
+    createWindow?.()
+    return
+  }
   if (win.isMinimized()) win.restore()
   win.show()
   win.focus()

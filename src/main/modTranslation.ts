@@ -1,14 +1,14 @@
 import { existsSync } from 'fs'
 import { readFile } from 'fs/promises'
 import { dirname, join } from 'path'
-import { installFromModrinth, searchModrinth } from './modrinth'
+import { installFromModrinth } from './modrinth'
 import { assertGameStopped, listMods, modsContextOf } from './mods'
 import type { ModTranslationResult } from '../shared/types'
 
 /**
  * 模组汉化：安装 CFPA（简体中文模组汉化组）的 I18nUpdateMod。这个模组在每次进入游戏时自动下载、
  * 更新社区翻译的模组汉化资源包，玩家不用自己找汉化包，模组更新后汉化也会跟着更新。
- * 汉化只在游戏语言是简体中文时生效
+ * 汉化只在游戏语言是简体中文时生效。只安装这个固定的 Modrinth 项目，不按名字搜索
  */
 const SLUG = 'i18nupdatemod'
 const MOD_IDS = ['i18nupdatemod', 'i18nupdate']
@@ -39,12 +39,10 @@ export async function installModTranslation(versionId: string): Promise<ModTrans
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     if (/没有适用于/.test(message)) throw new Error(`模组汉化暂时不支持 ${ctx.minecraftVersion} 的这个加载器`)
-    if (!/HTTP 404/.test(message)) throw e
-    // 项目标识变了：按名字搜索
-    const hit = (await searchModrinth(versionId, 'I18nUpdateMod')).hits.find((h) => /i18n\s*update/i.test(h.title))
-    if (!hit) throw new Error('在 Modrinth 上找不到 I18nUpdateMod，请稍后再试')
-    title =
-      (await installFromModrinth(versionId, hit.projectId)).installed.find((m) => !m.dependency)?.title ?? hit.title
+    // 只装固定的这个项目：不按名字搜索，免得装上名字相似的其他模组
+    if (/HTTP 404/.test(message))
+      throw new Error('在 Modrinth 上找不到 I18nUpdateMod，请稍后再试或在「下载模组」里搜索')
+    throw e
   }
   return { installed: true, already: false, chinese, title }
 }

@@ -1,12 +1,18 @@
 import { portableDir } from './paths'
 import { pruneDownloadCache } from './storage'
 import { moveLegacyGameDir } from './gameDirMove'
-import { syncTray } from './tray'
+import { setTrayWindowFactory, syncTray } from './tray'
 import { setupPlayReminder } from './playReminder'
 import { setupAutoBackup } from './autoBackup'
 import { installPerformanceMods } from './performanceMods'
 import { installModTranslation } from './modTranslation'
-import { checkSettingsAchievements, getAchievements, setupAchievements, unlockAchievement } from './achievements'
+import {
+  checkSettingsAchievements,
+  getAchievements,
+  noteLaunchRequest,
+  setupAchievements,
+  unlockAchievement
+} from './achievements'
 import {
   addBackgroundFromScreenshot,
   addBackgroundFromUrl,
@@ -289,6 +295,14 @@ function registerIpc(): void {
       patch = { ...patch, downloadThreads: Number.isInteger(threads) ? Math.min(64, Math.max(1, threads)) : 16 }
     }
     if ('uiScale' in patch) patch = { ...patch, uiScale: normalizeScale(patch.uiScale) }
+    if ('playReminderMinutes' in patch) {
+      // 健康游戏提醒：0（不提醒）或 15 分钟到 10 小时
+      const minutes = Number(patch.playReminderMinutes)
+      patch = {
+        ...patch,
+        playReminderMinutes: Number.isInteger(minutes) && minutes >= 15 && minutes <= 600 ? minutes : 0
+      }
+    }
     if ('musicVolume' in patch) {
       const volume = Number(patch.musicVolume)
       patch = { ...patch, musicVolume: Number.isFinite(volume) ? Math.round(Math.min(100, Math.max(0, volume))) : 40 }
@@ -555,12 +569,11 @@ function registerIpc(): void {
   ipcMain.handle('modrinth:install', (_, versionId: string, projectId: string) =>
     installFromModrinth(versionId, projectId)
   )
-  ipcMain.handle('game:launch', (_, versionId: string, server?: string, world?: string) =>
-    launchGame(versionId, server, world).then(() => {
-      if (typeof server === 'string' && server) void unlockAchievement('join_server').catch(() => undefined)
-      else if (typeof world === 'string' && world) void unlockAchievement('continue_world').catch(() => undefined)
-    })
-  )
+  ipcMain.handle('game:launch', (_, versionId: string, server?: string, world?: string) => {
+    // 「多人游戏」「无缝衔接」成就在游戏窗口出现后才解锁（启动失败不算）
+    noteLaunchRequest(server, world)
+    return launchGame(versionId, server, world)
+  })
   ipcMain.handle('update:check', () => checkUpdate())
   ipcMain.handle('update:open', (_, kind: 'asset' | 'page') => openUpdateLink(kind))
   ipcMain.handle('update:download', () => downloadUpdate())
@@ -711,6 +724,7 @@ app.whenReady().then(async () => {
   await applyNetworkSettings().catch((e) => console.error('应用网络设置失败：', e))
   createWindow()
   // 托盘图标、健康游戏提醒
+  setTrayWindowFactory(createWindow)
   syncTray((await getSettings()).showTray)
   setupPlayReminder()
   setupAutoBackup()

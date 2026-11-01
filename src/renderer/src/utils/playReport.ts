@@ -12,7 +12,7 @@ export interface PlayReport {
   longest: { versionId: string; durationMs: number; start: number } | null
   /** 最近几周每周的游玩时长（最早的在前） */
   weeks: { start: number; ms: number }[]
-  /** 游玩记录里最常开始玩的时段 */
+  /** 游玩记录里最常开始游戏的时段（按次数） */
   favoritePeriod: Period | null
   /** 周末游玩时长占比（0~1） */
   weekendShare: number
@@ -74,7 +74,8 @@ export function buildPlayReport(stats: PlayStats, now = Date.now(), weekCount = 
     const week = weeks.find((w, i) => s.start >= w.start && (i === weeks.length - 1 || s.start < weeks[i + 1].start))
     if (week) week.ms += s.durationMs
     const date = new Date(s.start)
-    periods[periodOf(date.getHours())] += s.durationMs
+    // 按开始游戏的次数算（界面上写的是「最常在……开始游戏」）
+    periods[periodOf(date.getHours())] += 1
     if (date.getDay() === 0 || date.getDay() === 6) weekendMs += s.durationMs
     sessionMs += s.durationMs
   }

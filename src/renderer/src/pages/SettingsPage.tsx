@@ -1145,7 +1145,11 @@ function SettingsPage(): JSX.Element {
                   [30, '每 30 分钟'],
                   [60, '每 1 小时'],
                   [90, '每 1.5 小时'],
-                  [120, '每 2 小时']
+                  [120, '每 2 小时'],
+                  // 设置文件里是别的时长时也显示出来
+                  ...([0, 30, 60, 90, 120].includes(settings.playReminderMinutes)
+                    ? []
+                    : [[settings.playReminderMinutes, `每 ${settings.playReminderMinutes} 分钟`]])
                 ].map(([value, label]) => (
                   <option key={value} value={value} className="bg-slate-800 text-white">
                     {label}

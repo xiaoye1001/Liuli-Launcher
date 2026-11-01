@@ -176,7 +176,8 @@ function PlayReportPanel(): JSX.Element {
       </div>
 
       <p className="text-[11px] text-white/40">
-        每周时长和时段根据最近 {report.sessionCount} 次游玩记录计算；累计时长包含所有记录
+        每周时长、时段、最长的一次和周末占比根据最近 {report.sessionCount}{' '}
+        次游玩记录计算；累计时长和启动次数包含所有记录
       </p>
     </section>
   )
