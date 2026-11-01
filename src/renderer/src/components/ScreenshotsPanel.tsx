@@ -9,6 +9,7 @@ import {
   FolderOpen,
   Image as ImageIcon,
   Trash2,
+  Wallpaper,
   X
 } from 'lucide-react'
 import type { Screenshot, ScreenshotList } from '../../../shared/types'
@@ -67,6 +68,18 @@ function ScreenshotsPanel({ versionId }: { versionId: string }): JSX.Element {
       if (message) setNotice(message)
     } catch (e) {
       setError(cleanError(e))
+    }
+  }
+
+  /** 正在设为背景：连点两下只处理一次 */
+  const settingWallpaper = useRef(false)
+  const setAsWallpaper = async (shot: Screenshot): Promise<void> => {
+    if (settingWallpaper.current) return
+    settingWallpaper.current = true
+    try {
+      await run(() => window.api.backgroundFromScreenshot(versionId, shot.fileName), '已设为启动器背景')
+    } finally {
+      settingWallpaper.current = false
     }
   }
 
@@ -153,6 +166,9 @@ function ScreenshotsPanel({ versionId }: { versionId: string }): JSX.Element {
                 >
                   <FolderOpen className="h-3.5 w-3.5" />
                 </button>
+                <button onClick={() => setAsWallpaper(shot)} title="设为启动器背景" className={iconButton}>
+                  <Wallpaper className="h-3.5 w-3.5" />
+                </button>
                 <button onClick={() => remove(shot)} title="删除（移到回收站）" className={iconButton}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -187,6 +203,13 @@ function ScreenshotsPanel({ versionId }: { versionId: string }): JSX.Element {
               >
                 <FolderOpen className="h-3.5 w-3.5" />
                 在文件夹中显示
+              </button>
+              <button
+                onClick={() => setAsWallpaper(current)}
+                className="flex items-center gap-1.5 rounded-lg bg-[#fff]/10 px-3 py-1.5 text-xs hover:bg-[#fff]/20"
+              >
+                <Wallpaper className="h-3.5 w-3.5" />
+                设为启动器背景
               </button>
               <button
                 onClick={() => remove(current)}

@@ -1,7 +1,20 @@
 import { portableDir } from './paths'
 import { pruneDownloadCache } from './storage'
 import { moveLegacyGameDir } from './gameDirMove'
+import { setTrayWindowFactory, syncTray } from './tray'
+import { setupPlayReminder } from './playReminder'
+import { setupAutoBackup } from './autoBackup'
+import { installPerformanceMods } from './performanceMods'
+import { installModTranslation } from './modTranslation'
 import {
+  checkSettingsAchievements,
+  getAchievements,
+  noteLaunchRequest,
+  setupAchievements,
+  unlockAchievement
+} from './achievements'
+import {
+  addBackgroundFromScreenshot,
   addBackgroundFromUrl,
   addBackgrounds,
   clearBackground,
@@ -208,6 +221,8 @@ function limitText(value: unknown, max: number): string {
 
 function broadcastSettings(settings: AppSettings): AppSettings {
   applyUiScaleToAll(settings)
+  syncTray(settings.showTray)
+  checkSettingsAchievements(settings)
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('settings:changed', settings)
   return settings
 }
@@ -280,6 +295,14 @@ function registerIpc(): void {
       patch = { ...patch, downloadThreads: Number.isInteger(threads) ? Math.min(64, Math.max(1, threads)) : 16 }
     }
     if ('uiScale' in patch) patch = { ...patch, uiScale: normalizeScale(patch.uiScale) }
+    if ('playReminderMinutes' in patch) {
+      // 健康游戏提醒：0（不提醒）或 15 分钟到 10 小时
+      const minutes = Number(patch.playReminderMinutes)
+      patch = {
+        ...patch,
+        playReminderMinutes: Number.isInteger(minutes) && minutes >= 15 && minutes <= 600 ? minutes : 0
+      }
+    }
     if ('musicVolume' in patch) {
       const volume = Number(patch.musicVolume)
       patch = { ...patch, musicVolume: Number.isFinite(volume) ? Math.round(Math.min(100, Math.max(0, volume))) : 40 }
@@ -349,6 +372,9 @@ function registerIpc(): void {
     return result
   })
   ipcMain.handle('appearance:addBackgroundUrl', (_, url: string) => addBackgroundFromUrl(url).then(broadcastSettings))
+  ipcMain.handle('appearance:backgroundFromScreenshot', (_, versionId: unknown, fileName: unknown) =>
+    addBackgroundFromScreenshot(versionId, fileName).then(broadcastSettings)
+  )
   ipcMain.handle('music:list', () => listMusic())
   // 高速多线程下载（百宝箱）：进度通过 download:progress 每 250 毫秒推送
   ipcMain.handle('download:create', (_, url: string, options?: DirectDownloadOptions) =>
@@ -441,7 +467,12 @@ function registerIpc(): void {
   ipcMain.handle('worlds:list', (_, versionId: string) => listWorldInfos(versionId))
   ipcMain.handle('worlds:details', (_, versionId: string, folder: string) => getWorldDetails(versionId, folder))
   ipcMain.handle('worlds:delete', (_, versionId: string, folder: string) => deleteWorld(versionId, folder))
-  ipcMain.handle('worlds:backup', (_, versionId: string, folder: string) => backupWorld(versionId, folder))
+  ipcMain.handle('worlds:backup', (_, versionId: string, folder: string) =>
+    backupWorld(versionId, folder).then((result) => {
+      void unlockAchievement('backup').catch(() => undefined)
+      return result
+    })
+  )
   ipcMain.handle('worlds:open', (_, versionId: string, folder?: string) => openWorldDir(versionId, folder))
   ipcMain.handle('worlds:openBackups', (_, versionId: string) => openBackupsDir(versionId))
   ipcMain.handle('worlds:backups', (_, versionId: string) => listWorldBackups(versionId))
@@ -533,10 +564,16 @@ function registerIpc(): void {
   ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>
     searchModrinth(versionId, query, offset)
   )
+  ipcMain.handle('mods:performance', (_, versionId: string) => installPerformanceMods(versionId))
+  ipcMain.handle('mods:translation', (_, versionId: string) => installModTranslation(versionId))
   ipcMain.handle('modrinth:install', (_, versionId: string, projectId: string) =>
     installFromModrinth(versionId, projectId)
   )
-  ipcMain.handle('game:launch', (_, versionId: string, server?: string) => launchGame(versionId, server))
+  ipcMain.handle('game:launch', (_, versionId: string, server?: string, world?: string) => {
+    // 「多人游戏」「无缝衔接」成就在游戏窗口出现后才解锁（启动失败不算）
+    noteLaunchRequest(server, world)
+    return launchGame(versionId, server, world)
+  })
   ipcMain.handle('update:check', () => checkUpdate())
   ipcMain.handle('update:open', (_, kind: 'asset' | 'page') => openUpdateLink(kind))
   ipcMain.handle('update:download', () => downloadUpdate())
@@ -555,6 +592,7 @@ function registerIpc(): void {
   ipcMain.handle('game:cancel', () => cancelLaunch())
   ipcMain.handle('game:kill', () => killGame())
   ipcMain.handle('stats:get', () => getPlayStats())
+  ipcMain.handle('achievements:list', () => getAchievements())
   ipcMain.handle('export:show', () => showExportedModpack())
   ipcMain.handle('export:info', (_, versionId: string) => getModpackExportInfo(versionId))
   ipcMain.handle('export:run', (event, options: ModpackExportOptions) =>
@@ -581,7 +619,12 @@ function registerIpc(): void {
   })
   ipcMain.handle('ai:test', () => testAiConnection())
   ipcMain.handle('ai:listModels', () => listAiModels())
-  ipcMain.handle('ai:analyze', (event, id: unknown, force: unknown) => analyzeFailure(id, event.sender, force === true))
+  ipcMain.handle('ai:analyze', (event, id: unknown, force: unknown) =>
+    analyzeFailure(id, event.sender, force === true).then((result) => {
+      void unlockAchievement('ai_doctor').catch(() => undefined)
+      return result
+    })
+  )
   ipcMain.handle('ai:cancel', (_, id: unknown) => cancelAnalysis(id))
   ipcMain.handle('gamedir:info', () => getGameDirInfo())
   ipcMain.handle('gamedir:set', (_, dir: string) => setGameDir(dir).then(afterGameDirChange))
@@ -680,6 +723,12 @@ app.whenReady().then(async () => {
   nativeTheme.themeSource = (await getSettings()).theme
   await applyNetworkSettings().catch((e) => console.error('应用网络设置失败：', e))
   createWindow()
+  // 托盘图标、健康游戏提醒
+  setTrayWindowFactory(createWindow)
+  syncTray((await getSettings()).showTray)
+  setupPlayReminder()
+  setupAutoBackup()
+  setupAchievements()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)
   // 免安装版更新后，删除旧版本的文件

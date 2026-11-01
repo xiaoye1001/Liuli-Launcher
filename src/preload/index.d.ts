@@ -1,3 +1,4 @@
+import type { AchievementStatus } from '../shared/achievements'
 import type {
   CleanCategory,
   LocalAddresses,
@@ -36,6 +37,8 @@ import type {
   AccountsInfo,
   MsLoginStatus,
   ModrinthInstallResult,
+  PerformanceModResult,
+  ModTranslationResult,
   ModpackInfo,
   ModpackUpdateCheck,
   ModpackUpdatePlan,
@@ -214,6 +217,10 @@ declare global {
       openScreenshotsDir: (versionId: string) => Promise<void>
       /** 游玩时长统计与最近游玩记录 */
       getPlayStats: () => Promise<PlayStats>
+      /** 启动器成就（含进度） */
+      getAchievements: () => Promise<AchievementStatus[]>
+      /** 解锁了新成就时回调（参数是成就 ID），返回取消监听的函数 */
+      onAchievementUnlocked: (callback: (id: string) => void) => () => void
       /** 导出整合包：版本信息与可以导出的内容 */
       getModpackExportInfo: (versionId: string) => Promise<ModpackExportInfo>
       /** 导出整合包（弹出保存对话框），取消时返回 null */
@@ -271,9 +278,13 @@ declare global {
       applyModpackUpdate: (versionId: string, token: string) => Promise<void>
       /** 拖入窗口的文件在本机的路径 */
       getPathForFile: (file: File) => string
+      /** 一键性能优化：安装常用的优化模组，返回每个模组的结果 */
+      installPerformanceMods: (versionId: string) => Promise<PerformanceModResult[]>
+      /** 模组汉化：安装 I18nUpdateMod（进入游戏时自动下载最新的模组汉化） */
+      installModTranslation: (versionId: string) => Promise<ModTranslationResult>
       installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>
-      /** 启动游戏；server 不为空时进入游戏后直接连接该服务器 */
-      launchGame: (versionId: string, server?: string) => Promise<void>
+      /** 启动游戏；server 不为空时进入游戏后直接连接该服务器，world 不为空时直接进入这个存档（1.20 起） */
+      launchGame: (versionId: string, server?: string, world?: string) => Promise<void>
       /** 查询 GitHub 上的最新版本 */
       checkUpdate: () => Promise<UpdateInfo>
       /** 在浏览器中打开新版本的安装包或发布页面 */
@@ -314,6 +325,8 @@ declare global {
       removeBackground: (name: string) => Promise<AppSettings>
       /** 下载网络图片或视频到背景库，并设为当前背景 */
       addBackgroundUrl: (url: string) => Promise<AppSettings>
+      /** 把游戏截图放进背景库并设为当前背景 */
+      backgroundFromScreenshot: (versionId: string, fileName: string) => Promise<AppSettings>
       /** 导出主题为 .liulitheme 文件；不传 ID 时导出当前外观；取消时返回 null */
       exportTheme: (themeId?: string) => Promise<{ path: string; wallpaperSkipped: boolean } | null>
       /** 导入主题：保存到「我的主题」并立即应用；取消时返回 null */

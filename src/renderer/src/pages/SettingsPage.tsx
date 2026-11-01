@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  Archive,
   CheckCircle2,
   Clock,
   Coffee,
@@ -61,6 +62,7 @@ import type {
 } from '../../../shared/types'
 import PageHeader from '../components/PageHeader'
 import { SETTINGS_TAB_KEY } from '../utils/settingsTab'
+import { onJump } from '../utils/jump'
 
 const SOURCES: { key: DownloadSource; label: string; desc: string }[] = [
   { key: 'bmclapi', label: 'BMCLAPI 镜像', desc: '国内高速镜像，推荐' },
@@ -193,6 +195,12 @@ function SettingsPage(): JSX.Element {
       // 记不住也没关系
     }
   }
+  // 快速搜索（Ctrl+K）跳到某个分类
+  useEffect(
+    () => onJump('settings', (key) => SETTINGS_TABS.some((t) => t.key === key) && changeTab(key as SettingsTab)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- changeTab 只用到不会变的 setTab 和 ref
+    []
+  )
   const [settings, setSettings] = useState<AppSettings | null>(null)
   /** 官网地址（构建时配置），没有时不显示更新来源选项 */
   const [officialSite, setOfficialSite] = useState('')
@@ -847,6 +855,33 @@ function SettingsPage(): JSX.Element {
                 />
               </button>
             </div>
+            {/* 主页闪烁标语 */}
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Sparkles className="h-4 w-4 text-amber-300" />
+                <div>
+                  <div className="text-sm font-medium">主页闪烁标语</div>
+                  <div className="text-xs text-white/50">
+                    像 Minecraft 主菜单一样，在主页标题旁显示一句随机的黄字，节日有彩蛋；点一下换一句
+                  </div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.showSplash}
+                aria-label="主页闪烁标语"
+                onClick={() => update({ showSplash: !settings.showSplash })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.showSplash ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.showSplash ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
           </section>
         </div>
 
@@ -1067,6 +1102,90 @@ function SettingsPage(): JSX.Element {
             </div>
             <div className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
               <div className="flex items-center gap-3">
+                <Monitor className="h-4 w-4 text-sky-300" />
+                <div>
+                  <div className="text-sm font-medium">系统托盘图标</div>
+                  <div className="text-xs text-white/50">
+                    在任务栏通知区域（macOS 为菜单栏）显示图标：启动器隐藏后可以从这里打开窗口、查看日志或结束游戏
+                  </div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.showTray}
+                aria-label="系统托盘图标"
+                onClick={() => update({ showTray: !settings.showTray })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.showTray ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.showTray ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Coffee className="h-4 w-4 text-amber-300" />
+                <div>
+                  <div className="text-sm font-medium">健康游戏提醒</div>
+                  <div className="text-xs text-white/50">连续玩到设定的时间时弹出系统通知提醒休息，不会打断游戏</div>
+                </div>
+              </div>
+              <select
+                value={settings.playReminderMinutes}
+                onChange={(e) => update({ playReminderMinutes: Number(e.target.value) })}
+                aria-label="健康游戏提醒"
+                className="shrink-0 cursor-pointer rounded-lg border border-white/15 bg-black/20 px-3 py-1.5 text-sm outline-none"
+              >
+                {[
+                  [0, '不提醒'],
+                  [30, '每 30 分钟'],
+                  [60, '每 1 小时'],
+                  [90, '每 1.5 小时'],
+                  [120, '每 2 小时'],
+                  // 设置文件里是别的时长时也显示出来
+                  ...([0, 30, 60, 90, 120].includes(settings.playReminderMinutes)
+                    ? []
+                    : [[settings.playReminderMinutes, `每 ${settings.playReminderMinutes} 分钟`]])
+                ].map(([value, label]) => (
+                  <option key={value} value={value} className="bg-slate-800 text-white">
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Archive className="h-4 w-4 text-sky-300" />
+                <div>
+                  <div className="text-sm font-medium">退出游戏后自动备份存档</div>
+                  <div className="text-xs text-white/50">
+                    游戏退出后在后台备份这次玩过的存档，每个存档保留最近 3 份（超过 4 GB
+                    的存档不自动备份），在存档页的「备份」里查看和还原
+                  </div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.autoBackupWorlds}
+                aria-label="退出游戏后自动备份存档"
+                onClick={() => update({ autoBackupWorlds: !settings.autoBackupWorlds })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.autoBackupWorlds ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.autoBackupWorlds ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+            <div className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
                 <ShieldCheck className="h-4 w-4 text-emerald-300" />
                 <div>
                   <div className="text-sm font-medium">启动前检查游戏文件</div>
@@ -1174,6 +1293,32 @@ function SettingsPage(): JSX.Element {
                 <span
                   className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
                     settings.darkLoadingScreen ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Globe className="h-4 w-4 text-emerald-300" />
+                <div>
+                  <div className="text-sm font-medium">新版本默认简体中文</div>
+                  <div className="text-xs text-white/50">
+                    新装的版本第一次启动就是简体中文，不用进游戏设置改语言。已经玩过的版本和整合包不受影响
+                  </div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.defaultChinese}
+                aria-label="新版本默认简体中文"
+                onClick={() => update({ defaultChinese: !settings.defaultChinese })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.defaultChinese ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.defaultChinese ? 'left-6' : 'left-1'
                   }`}
                 />
               </button>

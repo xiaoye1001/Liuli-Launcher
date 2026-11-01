@@ -22,6 +22,11 @@ function assertImageName(fileName: string): void {
     throw new Error(`无效的截图文件：${fileName}`)
 }
 
+/** 截图文件的完整路径（检查版本名和文件名，只能是这个版本截图文件夹里的图片） */
+export async function screenshotPath(versionId: string, fileName: string): Promise<string> {
+  return pathOf(versionId, fileName)
+}
+
 async function pathOf(versionId: string, fileName: string): Promise<string> {
   assertSafeId(versionId)
   assertImageName(fileName)

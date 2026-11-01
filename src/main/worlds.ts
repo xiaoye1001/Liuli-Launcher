@@ -17,7 +17,8 @@ import type {
   WorldDifficulty,
   WorldGameMode,
   WorldInfo,
-  WorldList
+  WorldList,
+  WorldStats
 } from '../shared/types'
 
 const GAME_MODES: WorldGameMode[] = ['survival', 'creative', 'adventure', 'spectator']
@@ -238,7 +239,9 @@ export async function getWorldDetails(versionId: string, folder: string): Promis
   }
 
   const enabledPacks = compound(data.DataPacks)?.Enabled
+  const stats = await worldStatsOf(dir)
   return {
+    ...(stats ? { stats } : {}),
     folder,
     seed:
       typeof seed === 'bigint' || (typeof seed === 'number' && Number.isInteger(seed))
@@ -259,6 +262,71 @@ export async function getWorldDetails(versionId: string, folder: string): Promis
       ? enabledPacks.filter((p) => typeof p === 'string' && p.startsWith('file/')).length
       : 0
   }
+}
+
+/** 统计里的一个数（不是正常的数时当作 0） */
+function count(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+}
+
+function sumValues(map: unknown): number {
+  if (!map || typeof map !== 'object') return 0
+  return Object.values(map as Record<string, unknown>).reduce<number>((sum, v) => sum + count(v), 0)
+}
+
+/** 把一个玩家的统计加进合计：1.13 起是分类的格式，更早的版本是 stat.xxx 平铺的格式 */
+function addStats(total: WorldStats, raw: unknown): void {
+  if (!raw || typeof raw !== 'object') return
+  const json = raw as Record<string, unknown>
+  const groups = json.stats
+  if (groups && typeof groups === 'object') {
+    const g = groups as Record<string, unknown>
+    const custom = (g['minecraft:custom'] ?? {}) as Record<string, unknown>
+    const mined = (g['minecraft:mined'] ?? {}) as Record<string, unknown>
+    // 1.17 把 play_one_minute 改名为 play_time（单位都是游戏刻）
+    total.playTicks += count(custom['minecraft:play_time'] ?? custom['minecraft:play_one_minute'])
+    total.deaths += count(custom['minecraft:deaths'])
+    total.mobKills += count(custom['minecraft:mob_kills'])
+    total.jumps += count(custom['minecraft:jump'])
+    total.walkCm +=
+      count(custom['minecraft:walk_one_cm']) +
+      count(custom['minecraft:sprint_one_cm']) +
+      count(custom['minecraft:crouch_one_cm'])
+    total.mined += sumValues(mined)
+    total.diamonds += count(mined['minecraft:diamond_ore']) + count(mined['minecraft:deepslate_diamond_ore'])
+    return
+  }
+  total.playTicks += count(json['stat.playOneMinute'])
+  total.deaths += count(json['stat.deaths'])
+  total.mobKills += count(json['stat.mobKills'])
+  total.jumps += count(json['stat.jump'])
+  total.walkCm += count(json['stat.walkOneCm']) + count(json['stat.sprintOneCm']) + count(json['stat.crouchOneCm'])
+  for (const [key, value] of Object.entries(json)) {
+    if (key.startsWith('stat.mineBlock.')) total.mined += count(value)
+  }
+  total.diamonds += count(json['stat.mineBlock.minecraft.diamond_ore'])
+}
+
+/** 存档里所有玩家的游戏统计加起来（stats/<UUID>.json）；没有统计文件时返回 undefined */
+async function worldStatsOf(dir: string): Promise<WorldStats | undefined> {
+  const statsDir = join(dir, 'stats')
+  const files = (await readdir(statsDir).catch(() => [] as string[]))
+    .filter((name) => /^[0-9a-f-]{32,36}\.json$/i.test(name))
+    .slice(0, 100)
+  const total: WorldStats = { playTicks: 0, deaths: 0, mobKills: 0, mined: 0, diamonds: 0, walkCm: 0, jumps: 0 }
+  let found = false
+  for (const name of files) {
+    const path = join(statsDir, name)
+    try {
+      // 正常的统计文件只有几十 KB
+      if ((await stat(path)).size > 8 * 1024 * 1024) continue
+      addStats(total, JSON.parse(await readFile(path, 'utf-8')))
+      found = true
+    } catch {
+      // 文件损坏：跳过
+    }
+  }
+  return found ? total : undefined
 }
 
 /** 删除存档：移到系统回收站 */
@@ -285,6 +353,85 @@ export async function backupWorld(versionId: string, folder: string): Promise<{ 
   // session.lock 是游戏运行时的锁文件，不需要备份
   const { size } = await zipDirectory(dir, path, folder, (rel) => rel === 'session.lock')
   return { path, size }
+}
+
+/** 每个存档最多保留几份自动备份（手动备份不受影响） */
+const AUTO_KEEP = 3
+/** 太大的存档不自动备份（打包很慢、占空间），需要时手动备份 */
+const AUTO_MAX_BYTES = 4 * 1024 * 1024 * 1024
+
+/** 删掉这个存档较早的自动备份，只留最近 AUTO_KEEP 份 */
+async function pruneAutoBackups(backups: string, world: string): Promise<void> {
+  const autos = (await readdir(backups).catch(() => [] as string[]))
+    .map((file) => ({ file, parsed: parseBackupName(file) }))
+    .filter((b) => b.parsed?.auto && b.parsed.world === world)
+    .sort((a, b) => b.parsed!.createdAt - a.parsed!.createdAt)
+  for (const old of autos.slice(AUTO_KEEP)) await rm(join(backups, old.file), { force: true }).catch(() => undefined)
+}
+
+/**
+ * 退出游戏后自动备份这次玩过的存档（level.dat 在游戏启动之后保存过）：文件名带「(自动)」，
+ * 每个存档只保留最近 3 份自动备份；prune 为 false 时不删旧的（例如游戏崩溃后，保留之前的备份）。
+ * 又开始游戏时停止。返回备份了的存档文件夹名
+ */
+export async function autoBackupWorlds(
+  versionId: string,
+  since: number,
+  prune: boolean
+): Promise<{ done: string[]; failed: string[] }> {
+  const root = await gameDirOf(versionId)
+  const backups = join(root, 'backups')
+  const done: string[] = []
+  const failed: string[] = []
+  await removeStaleTemp(backups)
+  for (const entry of await readdir(join(root, 'saves'), { withFileTypes: true }).catch(() => [])) {
+    // 以 . 开头的是还原、删除存档时的临时文件夹
+    if (!entry.isDirectory() || entry.name.startsWith('.')) continue
+    const game = getGameStatus()
+    if (game.state === 'launching' || game.state === 'running') break
+    const dir = join(root, 'saves', entry.name)
+    const level = await stat(join(dir, 'level.dat')).catch(() => null)
+    if (!level || level.mtimeMs < since) continue
+    // 一个存档备份失败（文件被占用、文件太多等）不影响其他存档
+    try {
+      if ((await folderSize(dir)) > AUTO_MAX_BYTES) continue
+      await mkdir(backups, { recursive: true })
+      const stamp = timestamp()
+      let path = join(backups, `${entry.name}_${stamp} (自动).zip`)
+      for (let i = 2; await stat(path).catch(() => null); i++)
+        path = join(backups, `${entry.name}_${stamp} (${i}) (自动).zip`)
+      await zipDirectory(dir, path, entry.name, (rel) => rel === 'session.lock')
+      // 打包的时候又启动了同一个游戏目录的游戏：存档可能正在被写入，这份备份不可靠，删掉并停止
+      if (await gameStartedIn(root)) {
+        await rm(path, { force: true }).catch(() => undefined)
+        break
+      }
+      done.push(entry.name)
+      if (prune) await pruneAutoBackups(backups, entry.name)
+    } catch {
+      failed.push(entry.name)
+    }
+  }
+  return { done, failed }
+}
+
+/** 有没有游戏正在启动或运行，并且用的是这个游戏目录 */
+async function gameStartedIn(root: string): Promise<boolean> {
+  const game = getGameStatus()
+  if (!(game.state === 'launching' || game.state === 'running') || !game.versionId) return false
+  const running = await gameDirOf(game.versionId).catch(() => '')
+  return !!running && resolve(running).toLowerCase() === resolve(root).toLowerCase()
+}
+
+/** 打包到一半被中断（例如备份时关闭了启动器）留下的 .zip.tmp：一小时前的删掉 */
+async function removeStaleTemp(backups: string): Promise<void> {
+  for (const name of await readdir(backups).catch(() => [] as string[])) {
+    if (!name.endsWith('.zip.tmp')) continue
+    const path = join(backups, name)
+    const info = await stat(path).catch(() => null)
+    if (info?.isFile() && Date.now() - info.mtimeMs > 60 * 60 * 1000)
+      await rm(path, { force: true }).catch(() => undefined)
+  }
 }
 
 /** 打开存档文件夹（folder 为空时打开 saves） */
@@ -405,13 +552,14 @@ export async function importWorldFile(versionId: string, file: string): Promise<
 // ---------- 备份还原 ----------
 
 /** 备份文件名：<存档文件夹>_<年-月-日_时-分-秒>[ (序号)].zip */
-const BACKUP_NAME = /^(.+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})(?: \(\d+\))?\.zip$/i
+/** 备份文件名：存档名_时间（同一秒内的第二份带序号），自动备份后面多了「(自动)」 */
+const BACKUP_NAME = /^(.+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})(?: \(\d+\))?( \(自动\))?\.zip$/i
 
-function parseBackupName(file: string): { world: string; createdAt: number } | null {
+function parseBackupName(file: string): { world: string; createdAt: number; auto: boolean } | null {
   const m = BACKUP_NAME.exec(file)
   if (!m) return null
-  const [, world, y, mo, d, h, mi, sec] = m
-  return { world, createdAt: new Date(+y, +mo - 1, +d, +h, +mi, +sec).getTime() }
+  const [, world, y, mo, d, h, mi, sec, auto] = m
+  return { world, createdAt: new Date(+y, +mo - 1, +d, +h, +mi, +sec).getTime(), auto: !!auto }
 }
 
 async function backupFile(versionId: string, file: string): Promise<string> {
@@ -437,6 +585,7 @@ export async function listWorldBackups(versionId: string): Promise<WorldBackup[]
       file: entry.name,
       world,
       createdAt: parsed?.createdAt ?? info.mtimeMs,
+      auto: parsed?.auto ?? false,
       size: info.size,
       worldExists: !!(await stat(join(root, 'saves', world, 'level.dat')).catch(() => null))
     })

@@ -143,6 +143,15 @@ const api = {
   showScreenshot: (versionId: string, fileName: string) => ipcRenderer.invoke('screenshots:show', versionId, fileName),
   openScreenshotsDir: (versionId: string) => ipcRenderer.invoke('screenshots:open', versionId),
   getPlayStats: () => ipcRenderer.invoke('stats:get'),
+  getAchievements: () => ipcRenderer.invoke('achievements:list'),
+  /** 解锁了新成就（参数是成就 ID） */
+  onAchievementUnlocked: (callback: (id: string) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, id: string): void => callback(id)
+    ipcRenderer.on('achievement:unlocked', listener)
+    return () => {
+      ipcRenderer.removeListener('achievement:unlocked', listener)
+    }
+  },
   getModpackExportInfo: (versionId: string) => ipcRenderer.invoke('export:info', versionId),
   exportModpack: (options: ModpackExportOptions) => ipcRenderer.invoke('export:run', options),
   showExportedModpack: () => ipcRenderer.invoke('export:show'),
@@ -186,9 +195,12 @@ const api = {
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   searchModrinth: (versionId: string, query: string, offset: number) =>
     ipcRenderer.invoke('modrinth:search', versionId, query, offset),
+  installPerformanceMods: (versionId: string) => ipcRenderer.invoke('mods:performance', versionId),
+  installModTranslation: (versionId: string) => ipcRenderer.invoke('mods:translation', versionId),
   installFromModrinth: (versionId: string, projectId: string) =>
     ipcRenderer.invoke('modrinth:install', versionId, projectId),
-  launchGame: (versionId: string, server?: string) => ipcRenderer.invoke('game:launch', versionId, server),
+  launchGame: (versionId: string, server?: string, world?: string) =>
+    ipcRenderer.invoke('game:launch', versionId, server, world),
   checkUpdate: () => ipcRenderer.invoke('update:check'),
   openUpdateLink: (kind: 'asset' | 'page') => ipcRenderer.invoke('update:open', kind),
   downloadUpdate: () => ipcRenderer.invoke('update:download'),
@@ -249,6 +261,8 @@ const api = {
   addBackgrounds: () => ipcRenderer.invoke('appearance:addBackgrounds'),
   removeBackground: (name: string) => ipcRenderer.invoke('appearance:removeBackground', name),
   addBackgroundUrl: (url: string) => ipcRenderer.invoke('appearance:addBackgroundUrl', url),
+  backgroundFromScreenshot: (versionId: string, fileName: string) =>
+    ipcRenderer.invoke('appearance:backgroundFromScreenshot', versionId, fileName),
   exportTheme: (themeId?: string) => ipcRenderer.invoke('theme:export', themeId),
   importTheme: () => ipcRenderer.invoke('theme:import'),
   /** 应用精选主题（复制壁纸和音乐后应用整套外观），返回新的设置 */

@@ -83,10 +83,20 @@ export interface AppSettings {
   launchSplash: boolean
   /** 启动前把游戏加载画面（Mojang Studios）的红色背景改成黑色（1.17 及以上，游戏的「单色标志」选项） */
   darkLoadingScreen: boolean
+  /** 新版本第一次启动时把游戏语言设为简体中文（整合包不动） */
+  defaultChinese: boolean
+  /** 显示系统托盘图标 */
+  showTray: boolean
+  /** 健康游戏提醒：连续游玩多少分钟提醒休息，0 为不提醒 */
+  playReminderMinutes: number
+  /** 退出游戏后自动备份这次玩过的存档（每个存档保留最近 3 份） */
+  autoBackupWorlds: boolean
   /** 主页显示 Minecraft 新闻 */
   showNews: boolean
   /** 主页显示「最近游玩」 */
   showRecentPlays: boolean
+  /** 主页标题旁显示闪烁标语（像 Minecraft 主菜单的黄字） */
+  showSplash: boolean
   /** 主页的「最近游玩」收起（只显示标题） */
   recentPlaysCollapsed: boolean
   /** 下载源 */
@@ -829,6 +839,23 @@ export interface WorldDetails {
   size: number
   /** 启用的数据包数量 */
   datapacks: number
+  /** 存档里的游戏统计（所有玩家加起来）；没有统计文件时没有 */
+  stats?: WorldStats
+}
+
+/** 存档的游戏统计（来自 stats/<UUID>.json） */
+export interface WorldStats {
+  /** 游玩时间（游戏刻，20 刻 = 1 秒） */
+  playTicks: number
+  deaths: number
+  mobKills: number
+  /** 挖掘的方块总数 */
+  mined: number
+  /** 挖掉的钻石矿（含深层钻石矿） */
+  diamonds: number
+  /** 走路、疾跑、潜行的距离（厘米） */
+  walkCm: number
+  jumps: number
 }
 
 /** 存档备份（游戏目录 backups 文件夹里的 zip） */
@@ -838,6 +865,8 @@ export interface WorldBackup {
   world: string
   /** 备份时间（毫秒时间戳） */
   createdAt: number
+  /** 退出游戏后自动备份的（文件名带「(自动)」） */
+  auto: boolean
   size: number
   /** 原存档是否还在 */
   worldExists: boolean
@@ -1005,6 +1034,24 @@ export interface ModrinthSearchResult {
 }
 
 /** 从 Modrinth 安装模组的结果 */
+/** 模组汉化（安装 I18nUpdateMod）的结果 */
+export interface ModTranslationResult {
+  installed: boolean
+  /** 已经装过了 */
+  already: boolean
+  /** 游戏语言是不是简体中文；还没有 options.txt（没启动过）时为 null */
+  chinese: boolean | null
+  title?: string
+}
+
+/** 一键性能优化里每个模组的结果 */
+export interface PerformanceModResult {
+  name: string
+  /** 装好了 / 已经装了 / 跳过（和已有模组冲突）/ 没有适用的版本 / 失败 */
+  status: 'installed' | 'already' | 'skipped' | 'unavailable' | 'failed'
+  detail?: string
+}
+
 export interface ModrinthInstallResult {
   /** 实际下载的模组（含自动安装的前置模组） */
   installed: { projectId: string; title: string; fileName: string; dependency: boolean }[]

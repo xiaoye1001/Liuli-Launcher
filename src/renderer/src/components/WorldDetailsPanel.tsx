@@ -1,6 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Copy, Loader2, Search } from 'lucide-react'
-import type { WorldDetails, WorldDifficulty } from '../../../shared/types'
+import { Check, Copy, Loader2, Map as MapIcon, Search } from 'lucide-react'
+import type { WorldDetails, WorldDifficulty, WorldStats } from '../../../shared/types'
+
+/**
+ * Chunkbase 的种子地图（第三方网站，在系统浏览器里打开）：
+ * 以玩家位置（没有时用出生点）为中心；游戏版本在网页上选择，地图会记住上次选的版本
+ */
+function seedMapUrl(details: WorldDetails): string | null {
+  if (!details.seed || !/^-?\d{1,20}$/.test(details.seed)) return null
+  const center = details.player && details.player.dimension.endsWith('overworld') ? details.player : details.spawn
+  const params = new URLSearchParams({ seed: details.seed, dimension: 'overworld' })
+  if (center) {
+    params.set('x', String(Math.round(center.x)))
+    params.set('z', String(Math.round(center.z)))
+  }
+  return `https://www.chunkbase.com/apps/seed-map#${params.toString()}`
+}
 
 function cleanError(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e)
@@ -139,6 +154,42 @@ function Field({
 }
 
 /** 存档详情：种子、难度、世界类型、时间天气、出生点、玩家位置、游戏规则 */
+function formatPlayTime(ticks: number): string {
+  const minutes = Math.floor(ticks / 20 / 60)
+  if (minutes < 60) return `${minutes} 分钟`
+  return `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分钟`
+}
+
+function formatCount(n: number): string {
+  return n >= 10000 ? `${(n / 10000).toFixed(1)} 万` : String(Math.round(n))
+}
+
+/** 存档的游戏统计（来自存档里的 stats 文件） */
+function WorldStatsGrid({ stats }: { stats: WorldStats }): JSX.Element {
+  const km = stats.walkCm / 100000
+  const items: [string, string][] = [
+    ['游玩时间', formatPlayTime(stats.playTicks)],
+    ['死亡', `${formatCount(stats.deaths)} 次`],
+    ['挖掘方块', `${formatCount(stats.mined)} 个`],
+    ['挖到钻石矿', `${formatCount(stats.diamonds)} 个`],
+    ['击杀生物', `${formatCount(stats.mobKills)} 只`],
+    ['步行距离', km >= 1 ? `${km.toFixed(1)} 千米` : `${Math.round(stats.walkCm / 100)} 米`],
+    ['跳跃', `${formatCount(stats.jumps)} 次`]
+  ]
+  return (
+    <div>
+      <div className="text-xs font-medium text-white/70">游戏统计</div>
+      <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+        {items.map(([label, value]) => (
+          <Field key={label} label={label}>
+            {value}
+          </Field>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function WorldDetailsPanel({ versionId, folder }: { versionId: string; folder: string }): JSX.Element {
   const [details, setDetails] = useState<WorldDetails | null>(null)
   const [error, setError] = useState('')
@@ -188,6 +239,7 @@ function WorldDetailsPanel({ versionId, folder }: { versionId: string; folder: s
 
   const weather = { clear: '晴天', rain: '下雨', thunder: '雷雨' }[details.weather]
   const p = details.player
+  const mapUrl = seedMapUrl(details)
 
   return (
     <div className="space-y-3 border-t border-white/10 px-4 py-3">
@@ -203,6 +255,16 @@ function WorldDetailsPanel({ versionId, folder }: { versionId: string; folder: s
                 className="shrink-0 rounded p-1 text-white/50 hover:bg-white/10 hover:text-white"
               >
                 {copied ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+            )}
+            {mapUrl && (
+              <button
+                onClick={() => window.open(mapUrl, '_blank')}
+                title="在 Chunkbase 网站上查看这个种子的地图（村庄、要塞、地形等），游戏版本请在网页上选择和存档一致的"
+                className="flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-xs text-white/60 hover:bg-white/10 hover:text-white"
+              >
+                <MapIcon className="h-3.5 w-3.5" />
+                种子地图
               </button>
             )}
           </div>
@@ -237,6 +299,8 @@ function WorldDetailsPanel({ versionId, folder }: { versionId: string; folder: s
           </Field>
         )}
       </div>
+
+      {details.stats && <WorldStatsGrid stats={details.stats} />}
 
       {details.gameRules.length > 0 && (
         <div>
