@@ -62,6 +62,7 @@ import type {
 } from '../../../shared/types'
 import PageHeader from '../components/PageHeader'
 import { SETTINGS_TAB_KEY } from '../utils/settingsTab'
+import { onJump } from '../utils/jump'
 
 const SOURCES: { key: DownloadSource; label: string; desc: string }[] = [
   { key: 'bmclapi', label: 'BMCLAPI 镜像', desc: '国内高速镜像，推荐' },
@@ -194,6 +195,12 @@ function SettingsPage(): JSX.Element {
       // 记不住也没关系
     }
   }
+  // 快速搜索（Ctrl+K）跳到某个分类
+  useEffect(
+    () => onJump('settings', (key) => SETTINGS_TABS.some((t) => t.key === key) && changeTab(key as SettingsTab)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- changeTab 只用到不会变的 setTab 和 ref
+    []
+  )
   const [settings, setSettings] = useState<AppSettings | null>(null)
   /** 官网地址（构建时配置），没有时不显示更新来源选项 */
   const [officialSite, setOfficialSite] = useState('')

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { onJump, TOOLBOX_KEY } from '../utils/jump'
 import { BarChart3, Coffee, Gauge, Trash2, Trophy, Zap, type LucideIcon } from 'lucide-react'
 import FastDownloadPanel from '../components/FastDownloadPanel'
 import CleanerPanel from '../components/CleanerPanel'
@@ -47,7 +48,7 @@ const TOOLS: Tool[] = [
   { key: 'achievements', title: '启动器成就', desc: '玩游戏时自动解锁', icon: Trophy, tint: 'text-amber-300' }
 ]
 
-const LAST_TOOL_KEY = 'liuli-toolbox-tool'
+const LAST_TOOL_KEY = TOOLBOX_KEY
 
 /** 上次打开的工具（只是方便，读不到时用下载器） */
 function lastTool(): ToolKey {
@@ -62,6 +63,9 @@ function lastTool(): ToolKey {
 /** 更多：百宝箱 */
 function MorePage(): JSX.Element {
   const [current, setCurrent] = useState<ToolKey>(lastTool)
+
+  // 快速搜索（Ctrl+K）跳到某个工具
+  useEffect(() => onJump('more', (key) => TOOLS.some((t) => t.key === key) && setCurrent(key as ToolKey)), [])
 
   const select = (key: ToolKey): void => {
     setCurrent(key)

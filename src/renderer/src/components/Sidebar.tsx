@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import MiniPlayer from './MiniPlayer'
+import { OPEN_PALETTE_EVENT, PALETTE_SHORTCUT } from '../utils/jump'
 import logo from '../assets/logo.png'
 import { DEFAULT_SUBTITLE, DEFAULT_TITLE, useAppearance } from '../utils/appearance'
 import {
@@ -118,6 +119,14 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
       >
         v{__APP_VERSION__}
         {portableDir && ' · 免安装版'}
+        {' · '}
+        <button
+          onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}
+          title="快速搜索页面、设置、工具和版本"
+          className="hover:text-white/70"
+        >
+          {PALETTE_SHORTCUT} 搜索
+        </button>
       </div>
     </aside>
   )
