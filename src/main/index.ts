@@ -540,7 +540,9 @@ function registerIpc(): void {
   ipcMain.handle('modrinth:install', (_, versionId: string, projectId: string) =>
     installFromModrinth(versionId, projectId)
   )
-  ipcMain.handle('game:launch', (_, versionId: string, server?: string) => launchGame(versionId, server))
+  ipcMain.handle('game:launch', (_, versionId: string, server?: string, world?: string) =>
+    launchGame(versionId, server, world)
+  )
   ipcMain.handle('update:check', () => checkUpdate())
   ipcMain.handle('update:open', (_, kind: 'asset' | 'page') => openUpdateLink(kind))
   ipcMain.handle('update:download', () => downloadUpdate())

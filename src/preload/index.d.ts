@@ -272,8 +272,8 @@ declare global {
       /** 拖入窗口的文件在本机的路径 */
       getPathForFile: (file: File) => string
       installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>
-      /** 启动游戏；server 不为空时进入游戏后直接连接该服务器 */
-      launchGame: (versionId: string, server?: string) => Promise<void>
+      /** 启动游戏；server 不为空时进入游戏后直接连接该服务器，world 不为空时直接进入这个存档（1.20 起） */
+      launchGame: (versionId: string, server?: string, world?: string) => Promise<void>
       /** 查询 GitHub 上的最新版本 */
       checkUpdate: () => Promise<UpdateInfo>
       /** 在浏览器中打开新版本的安装包或发布页面 */

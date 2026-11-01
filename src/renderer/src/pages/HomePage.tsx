@@ -18,6 +18,7 @@ import RecentPlays from '../components/RecentPlays'
 import VersionIcon from '../components/VersionIcon'
 import NewsPanel from '../components/NewsPanel'
 import SplashText from '../components/SplashText'
+import { supportsQuickPlay } from '../../../shared/quickPlay'
 import { formatClock } from '../utils/format'
 import { useAppearance } from '../utils/appearance'
 import { renderWelcome } from '../utils/welcome'
@@ -205,8 +206,8 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
     }
   }
 
-  /** 启动游戏：同一时间只发起一次，失败时在下方显示原因 */
-  const startGame = async (prepare: () => Promise<string>): Promise<void> => {
+  /** 启动游戏：同一时间只发起一次，失败时在下方显示原因；world 不为空时直接进入这个存档 */
+  const startGame = async (prepare: () => Promise<string>, world?: string): Promise<void> => {
     if (launching.current) return
     launching.current = true
     setLaunchError('')
@@ -215,7 +216,7 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
       const versionId = await prepare()
       // 立即播放启动动画，不等主进程（动画会跟随真实的启动进度）
       openGameLaunchOverlay(versionId)
-      await window.api.launchGame(versionId)
+      await window.api.launchGame(versionId, undefined, world)
     } catch (e) {
       // 启动请求被拒绝（例如游戏已在运行）：收起动画，在下方显示原因
       closeGameLaunchOverlay()
@@ -226,6 +227,31 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
   }
 
   const onLaunch = (): Promise<void> => startGame(async () => selected)
+
+  /** 继续游戏：选中版本里最近玩过的存档（1.20 起可以跳过主菜单直接进入） */
+  const [lastWorld, setLastWorld] = useState<{ folder: string; name: string } | null>(null)
+  const selectedMc = versions.find((v) => v.id === selected)?.minecraftVersion ?? ''
+  useEffect(() => {
+    let alive = true
+    if (!selected || !supportsQuickPlay(selectedMc) || game.state === 'running') {
+      setLastWorld(null)
+      return
+    }
+    window.api
+      .listWorldInfos(selected)
+      .then((list) => {
+        const latest = list.worlds
+          .filter((w) => !w.damaged && w.lastPlayed > 0)
+          .sort((a, b) => b.lastPlayed - a.lastPlayed)[0]
+        if (alive) setLastWorld(latest ? { folder: latest.folder, name: latest.name } : null)
+      })
+      .catch(() => alive && setLastWorld(null))
+    return () => {
+      alive = false
+    }
+    // 游戏结束后重新读取（可能玩了别的存档）
+  }, [selected, selectedMc, game.state])
+  const onContinue = (): Promise<void> => startGame(async () => selected, lastWorld?.folder)
 
   /** 从「最近游玩」启动：先切换主页选择的版本 */
   const launchRecent = (id: string): Promise<void> =>
@@ -446,6 +472,20 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
                 : '启动游戏'}
           </motion.button>
         </div>
+        {/* 继续游戏：跳过主菜单直接进入上次玩的存档（放在启动按钮下面，不挤占这一行） */}
+        {lastWorld && !busy && (
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => void onContinue()}
+              disabled={!nameValid}
+              title={`跳过主菜单，直接进入上次玩的存档「${lastWorld.name}」`}
+              className="flex max-w-full items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs text-emerald-200 transition-colors hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Play className="h-3.5 w-3.5 shrink-0 fill-current" />
+              <span className="truncate">继续上次的存档「{lastWorld.name}」</span>
+            </button>
+          </div>
+        )}
         {javaTask?.state === 'running' && (
           <div className="mt-3 flex items-center gap-3 text-xs text-white/60">
             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />

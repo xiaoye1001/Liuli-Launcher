@@ -1,7 +1,9 @@
 import { execFile, spawn, type ChildProcess } from 'child_process'
 import { createHash, randomUUID } from 'crypto'
+import { existsSync } from 'fs'
 import { readdir, readFile } from 'fs/promises'
-import { join } from 'path'
+import { basename, join } from 'path'
+import { supportsQuickPlay } from '../shared/quickPlay'
 import { BrowserWindow } from 'electron'
 import { createMinecraftProcessWatcher, launch, Version, type ResolvedVersion } from '@xmcl/core'
 import { getSettings } from './config'
@@ -314,13 +316,23 @@ function serverOptions(
   return { server: { ip: host, port } }
 }
 
-/** 1.20（快照 23w14a）起用 --quickPlayMultiplayer 直接进入服务器，更早的版本用 --server / --port */
-export function supportsQuickPlay(minecraftVersion: string): boolean {
-  const release = /^1\.(\d+)/.exec(minecraftVersion)
-  if (release) return Number(release[1]) >= 20
-  const snapshot = /^(\d{2})w(\d{2})/.exec(minecraftVersion)
-  if (snapshot) return Number(snapshot[1]) > 23 || (Number(snapshot[1]) === 23 && Number(snapshot[2]) >= 14)
-  return false
+/**
+ * 直接进入存档的启动参数（1.20 起）。存档名只能是 saves 里存在的普通文件夹名，
+ * 不支持或找不到存档时返回空（照常进入主菜单）
+ */
+async function worldArgs(world: string | undefined, gamePath: string, minecraftVersion: string): Promise<string[]> {
+  if (!world) return []
+  if (!supportsQuickPlay(minecraftVersion)) {
+    launcherLog('这个游戏版本不支持直接进入存档，进入主菜单')
+    return []
+  }
+  const valid =
+    world.length <= 200 && world === basename(world) && world !== '.' && world !== '..' && !/[\\/]/.test(world)
+  if (!valid || !existsSync(join(gamePath, 'saves', world, 'level.dat'))) {
+    launcherLog(`找不到存档「${world}」，进入主菜单`)
+    return []
+  }
+  return ['--quickPlaySingleplayer', world]
 }
 
 function describePlan(plan: MemoryPlan): string {
@@ -390,9 +402,11 @@ export async function javaRequirementOf(versionId: string): Promise<number | nul
   }
 }
 
-/** 启动游戏。server 不为空时，进入游戏后直接连接该服务器 */
-export async function launchGame(versionId: string, server?: string): Promise<void> {
+/** 启动游戏。server 不为空时，进入游戏后直接连接该服务器；world 不为空时直接进入这个存档（1.20 起） */
+export async function launchGame(versionId: string, server?: string, world?: string): Promise<void> {
   assertSafeId(versionId)
+  if (typeof server !== 'string' || !server) server = undefined
+  if (typeof world !== 'string' || !world || server) world = undefined
   if (status.state === 'launching' || status.state === 'running') {
     throw new Error('游戏已经在运行中')
   }
@@ -408,7 +422,9 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
   cancellableProc = null
   setStatus({ state: 'launching', versionId })
   const startedAt = Date.now()
-  launcherLog(`正在启动 ${versionId}${server ? `，进入游戏后连接服务器 ${server}` : ''}`)
+  launcherLog(
+    `正在启动 ${versionId}${server ? `，进入游戏后连接服务器 ${server}` : world ? `，直接进入存档「${world}」` : ''}`
+  )
 
   try {
     const settings = await getSettings()
@@ -578,7 +594,8 @@ export async function launchGame(versionId: string, server?: string): Promise<vo
         ...gcArgs,
         ...jvmArgs
       ],
-      extraMCArgs: gameArgs,
+      // 版本设置里的附加参数放在后面
+      extraMCArgs: [...(await worldArgs(world, gamePath, minecraftVersion)), ...gameArgs],
       ...serverOptions(server, minecraftVersion),
       // 1.19 起的版本带 --xuid ${auth_xuid} --clientId ${clientid}（只用于游戏的统计），不填时游戏会收到原样的占位符。
       // 微软账号填 Xbox 用户 ID；clientId 每次启动随机生成，不包含任何身份信息

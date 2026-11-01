@@ -188,7 +188,8 @@ const api = {
     ipcRenderer.invoke('modrinth:search', versionId, query, offset),
   installFromModrinth: (versionId: string, projectId: string) =>
     ipcRenderer.invoke('modrinth:install', versionId, projectId),
-  launchGame: (versionId: string, server?: string) => ipcRenderer.invoke('game:launch', versionId, server),
+  launchGame: (versionId: string, server?: string, world?: string) =>
+    ipcRenderer.invoke('game:launch', versionId, server, world),
   checkUpdate: () => ipcRenderer.invoke('update:check'),
   openUpdateLink: (kind: 'asset' | 'page') => ipcRenderer.invoke('update:open', kind),
   downloadUpdate: () => ipcRenderer.invoke('update:download'),
