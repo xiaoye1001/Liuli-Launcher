@@ -273,6 +273,14 @@ function runHook(label: string, command: string, cwd: string, env: NodeJS.Proces
   })
 }
 
+type StatusListener = (next: GameStatus, previous: GameStatus['state']) => void
+const statusListeners: StatusListener[] = []
+
+/** 关注游戏状态变化（托盘、健康提醒、存档自动备份、成就）；监听出错不影响启动 */
+export function onGameStatusChange(listener: StatusListener): void {
+  statusListeners.push(listener)
+}
+
 function setStatus(next: GameStatus): void {
   const previous = status.state
   status = next
@@ -282,6 +290,13 @@ function setStatus(next: GameStatus): void {
   if (next.state === 'exited' || next.state === 'crashed') onGameEnded()
   // 桌面启动悬浮窗：启动中、启动器不在前台时显示，游戏窗口出现或启动结束后关闭
   onLaunchStatusForSplash(next)
+  for (const listener of statusListeners) {
+    try {
+      listener(next, previous)
+    } catch (e) {
+      console.error('游戏状态监听出错：', e)
+    }
+  }
 }
 
 export function getGameStatus(): GameStatus {

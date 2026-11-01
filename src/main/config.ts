@@ -78,6 +78,7 @@ function defaultSettings(): AppSettings {
     launchSplash: true,
     darkLoadingScreen: true,
     defaultChinese: true,
+    showTray: true,
     downloadSource: 'bmclapi',
     showNews: true,
     showRecentPlays: true,

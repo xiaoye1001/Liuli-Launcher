@@ -1094,6 +1094,32 @@ function SettingsPage(): JSX.Element {
             </div>
             <div className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
               <div className="flex items-center gap-3">
+                <Monitor className="h-4 w-4 text-sky-300" />
+                <div>
+                  <div className="text-sm font-medium">系统托盘图标</div>
+                  <div className="text-xs text-white/50">
+                    在任务栏通知区域（macOS 为菜单栏）显示图标：启动器隐藏后可以从这里打开窗口、查看日志或结束游戏
+                  </div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.showTray}
+                aria-label="系统托盘图标"
+                onClick={() => update({ showTray: !settings.showTray })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.showTray ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.showTray ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+            <div className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
                 <ShieldCheck className="h-4 w-4 text-emerald-300" />
                 <div>
                   <div className="text-sm font-medium">启动前检查游戏文件</div>
