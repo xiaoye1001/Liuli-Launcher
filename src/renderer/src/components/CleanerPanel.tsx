@@ -7,12 +7,16 @@ const CATEGORY_INFO: Record<CleanCategory, { label: string; desc: string }> = {
   logs: { label: '游戏日志', desc: '旧的游戏日志（保留最近一次，分享日志要用）' },
   crash: { label: '崩溃报告', desc: '崩溃报告和 Java 崩溃日志' },
   partial: { label: '下载残留', desc: '下载中断留下的临时文件（正在进行的下载不受影响）' },
-  cache: { label: '启动器缓存', desc: 'OptiFine 安装器、一天前下载的整合包、旧的更新安装包' },
-  assets: { label: '未使用的资源文件', desc: '已删除的版本留下的声音、语言等文件；以后需要时启动前会自动重新下载' }
+  cache: { label: '启动器缓存', desc: '没用完的整合包和 OptiFine 安装器、旧的更新安装包、下载页的图片缓存' },
+  assets: { label: '未使用的资源文件', desc: '已删除的版本留下的声音、语言等文件；以后需要时启动前会自动重新下载' },
+  java: {
+    label: '不再需要的 Java',
+    desc: '启动器下载的、已经没有版本需要的 Java（例如删除老版本后留下的 Java 8）；以后需要时启动前会自动重新下载'
+  }
 }
 
 /** 默认不勾选的类别（删除后需要时要重新下载） */
-const OPT_IN: CleanCategory[] = ['assets']
+const OPT_IN: CleanCategory[] = ['assets', 'java']
 
 /** 百宝箱：清理游戏垃圾缓存 */
 function CleanerPanel(): JSX.Element {
@@ -112,7 +116,10 @@ function CleanerPanel(): JSX.Element {
                 className="h-4 w-4 shrink-0 accent-emerald-400"
               />
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium">{info.label}</div>
+                <div className="text-sm font-medium">
+                  {info.label}
+                  {item.detail && !empty && <span className="ml-2 text-xs text-amber-200">{item.detail}</span>}
+                </div>
                 <div className="text-xs text-white/50">{info.desc}</div>
               </div>
               <div className="shrink-0 text-right text-sm">
@@ -131,6 +138,11 @@ function CleanerPanel(): JSX.Element {
         {scan && !scan.assetsReliable && (
           <div className="rounded-xl bg-black/10 px-4 py-2 text-xs text-white/50">
             有版本的文件不完整或损坏，无法判断哪些资源文件没有用到，这次不提供「未使用的资源文件」
+          </div>
+        )}
+        {scan && !scan.javaReliable && (
+          <div className="rounded-xl bg-black/10 px-4 py-2 text-xs text-white/50">
+            有版本的文件不完整或损坏，无法判断哪些 Java 不再需要，这次不提供「不再需要的 Java」
           </div>
         )}
       </div>

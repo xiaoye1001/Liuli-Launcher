@@ -1,4 +1,5 @@
 import { portableDir } from './paths'
+import { pruneDownloadCache } from './storage'
 import {
   addBackgroundFromUrl,
   addBackgrounds,
@@ -682,6 +683,8 @@ app.whenReady().then(async () => {
   void cleanupAfterUpdate().catch(() => undefined)
   // 免安装版：删除旧版本解压出来的程序文件夹
   void cleanupOldPortableVersions().catch(() => undefined)
+  // 安装失败或中途关闭启动器留下的整合包、OptiFine 安装器
+  void pruneDownloadCache().catch(() => undefined)
   const shortcutVersion = launchArgOf(process.argv)
   if (shortcutVersion) void launchFromShortcut(shortcutVersion)
 
