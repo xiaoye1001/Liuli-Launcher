@@ -40,6 +40,9 @@ import type {
   PerformanceModResult,
   LaunchTiming,
   LaunchTimingRecord,
+  GameOptionsInfo,
+  OptionsCopyMode,
+  OptionsCopyResult,
   ModTranslationResult,
   ModpackInfo,
   ModpackUpdateCheck,
@@ -221,6 +224,12 @@ declare global {
       getPlayStats: () => Promise<PlayStats>
       /** 启动用时：最近一次（和这个版本上一次比较）、最快的一次 */
       getLaunchTiming: () => Promise<{ latest: LaunchTiming | null; best?: LaunchTimingRecord }>
+      /** 一个版本的游戏设置（options.txt）：有没有设置、备份，以及可以从哪些版本复制 */
+      getGameOptionsInfo: (versionId: string) => Promise<GameOptionsInfo>
+      /** 从另一个版本复制游戏设置（修改前自动备份） */
+      copyGameOptions: (from: string, to: string, mode: OptionsCopyMode) => Promise<OptionsCopyResult>
+      /** 恢复上次修改前的游戏设置 */
+      restoreGameOptions: (versionId: string) => Promise<void>
       /** 启动器成就（含进度） */
       getAchievements: () => Promise<AchievementStatus[]>
       /** 解锁了新成就时回调（参数是成就 ID），返回取消监听的函数 */

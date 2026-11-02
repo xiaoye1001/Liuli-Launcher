@@ -145,6 +145,9 @@ const api = {
   getPlayStats: () => ipcRenderer.invoke('stats:get'),
   getAchievements: () => ipcRenderer.invoke('achievements:list'),
   getLaunchTiming: () => ipcRenderer.invoke('launch:timing'),
+  getGameOptionsInfo: (versionId: string) => ipcRenderer.invoke('gameOptions:info', versionId),
+  copyGameOptions: (from: string, to: string, mode: string) => ipcRenderer.invoke('gameOptions:copy', from, to, mode),
+  restoreGameOptions: (versionId: string) => ipcRenderer.invoke('gameOptions:restore', versionId),
   /** 解锁了新成就（参数是成就 ID） */
   onAchievementUnlocked: (callback: (id: string) => void) => {
     const listener = (_: Electron.IpcRendererEvent, id: string): void => callback(id)

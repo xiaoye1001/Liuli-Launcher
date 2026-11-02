@@ -6,6 +6,7 @@ import { setTrayWindowFactory, syncTray } from './tray'
 import { setupPlayReminder } from './playReminder'
 import { setupAutoBackup } from './autoBackup'
 import { getLaunchTiming, setupLaunchTiming } from './launchTiming'
+import { copyGameOptions, getGameOptionsInfo, restoreGameOptions } from './optionsTools'
 import { installPerformanceMods } from './performanceMods'
 import { installModTranslation } from './modTranslation'
 import {
@@ -206,7 +207,8 @@ import type {
   SavedServer,
   ModpackExportOptions,
   GameDirInfo,
-  DirectDownloadOptions
+  DirectDownloadOptions,
+  OptionsCopyMode
 } from '../shared/types'
 import { HIDEABLE_PAGES, PARTICLE_EFFECTS, THEME_PRESETS } from '../shared/types'
 import { sanitizeAutoTheme, sanitizeCustomThemes } from '../shared/theme'
@@ -600,6 +602,11 @@ function registerIpc(): void {
   ipcMain.handle('stats:get', () => getPlayStats())
   ipcMain.handle('achievements:list', () => getAchievements())
   ipcMain.handle('launch:timing', () => getLaunchTiming())
+  ipcMain.handle('gameOptions:info', (_, versionId: string) => getGameOptionsInfo(versionId))
+  ipcMain.handle('gameOptions:copy', (_, from: string, to: string, mode: OptionsCopyMode) =>
+    copyGameOptions(from, to, mode)
+  )
+  ipcMain.handle('gameOptions:restore', (_, versionId: string) => restoreGameOptions(versionId))
   ipcMain.handle('export:show', () => showExportedModpack())
   ipcMain.handle('export:info', (_, versionId: string) => getModpackExportInfo(versionId))
   ipcMain.handle('export:run', (event, options: ModpackExportOptions) =>

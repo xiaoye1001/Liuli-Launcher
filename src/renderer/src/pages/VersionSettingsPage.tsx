@@ -10,6 +10,7 @@ import {
   MemoryStick,
   Monitor,
   RotateCcw,
+  SlidersHorizontal,
   SquareTerminal,
   Terminal,
   type LucideIcon
@@ -19,6 +20,7 @@ import PageHeader from '../components/PageHeader'
 import { HEADER_BUTTON } from '../components/headerButtons'
 import JavaSelect, { type JavaChoice } from '../components/JavaSelect'
 import MemoryPlanSummary from '../components/MemoryPlanSummary'
+import GameOptionsPanel from '../components/GameOptionsPanel'
 import type { AppSettings, InstalledVersion, JavaInfo, MemoryPlan, VersionConfig } from '../../../shared/types'
 
 const LOADER_NAMES = { fabric: 'Fabric', quilt: 'Quilt', forge: 'Forge', neoforge: 'NeoForge', optifine: 'OptiFine' }
@@ -754,6 +756,19 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
                 />
               </div>
             </div>
+          </Card>
+
+          {/* 游戏内设置（options.txt） */}
+          <Card
+            icon={SlidersHorizontal}
+            tint="bg-fuchsia-500/15 text-fuchsia-300"
+            title="游戏内设置"
+            desc="修改这个版本在游戏里的设置（options.txt），修改前自动备份，可以恢复"
+            overridden={false}
+            onReset={() => undefined}
+            className="lg:col-span-2"
+          >
+            <GameOptionsPanel versionId={version.id} />
           </Card>
 
           {/* 高级选项（占满一行，可以折叠） */}

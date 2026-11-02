@@ -969,6 +969,26 @@ export interface LaunchTiming {
   best?: LaunchTimingRecord
 }
 
+/** 从其他版本复制游戏设置的方式：全部设置 / 只复制按键 */
+export type OptionsCopyMode = 'all' | 'keys'
+
+/** 复制游戏设置的结果 */
+export interface OptionsCopyResult {
+  /** 从 1.13 以后的版本复制到更早的版本：按键格式不同，保留了目标版本原来的按键 */
+  keptKeys: boolean
+}
+
+/** 一个版本的游戏设置（options.txt） */
+export interface GameOptionsInfo {
+  /** 有没有 options.txt（启动过一次游戏才有） */
+  hasOptions: boolean
+  /** 上次修改前的备份时间，没有备份时为 null */
+  backupAt: number | null
+  minecraftVersion: string
+  /** 可以从这些版本复制设置（有设置，并且不和这个版本共用游戏目录） */
+  sources: { id: string; minecraftVersion: string; isolated: boolean }[]
+}
+
 /** 一次游玩记录 */
 export interface PlaySession {
   versionId: string
