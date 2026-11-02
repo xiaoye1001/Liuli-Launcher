@@ -27,7 +27,14 @@ import { useAppearance } from '../utils/appearance'
 import { renderWelcome } from '../utils/welcome'
 import SkinHead from '../components/SkinHead'
 import { closeGameLaunchOverlay, openGameLaunchOverlay } from '../components/GameLaunchOverlay'
-import type { AccountsInfo, AppSettings, GameStatus, InstallStatus, InstalledVersion } from '../../../shared/types'
+import type {
+  AccountsInfo,
+  AppSettings,
+  GameStatus,
+  InstallStatus,
+  InstalledVersion,
+  LaunchTiming
+} from '../../../shared/types'
 
 /** 去掉 Electron 给 IPC 错误加的前缀 */
 function cleanError(e: unknown): string {
@@ -297,6 +304,24 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
     if (game.state === 'launching') setKillError('')
   }, [game.state])
   const running = game.state === 'running'
+
+  /** 这次启动用了多久（游戏窗口出现后读取） */
+  const [timing, setTiming] = useState<LaunchTiming | null>(null)
+  useEffect(() => {
+    if (game.state !== 'running') {
+      setTiming(null)
+      return
+    }
+    // 主进程在窗口出现时记录，稍等再读
+    const timer = setTimeout(() => {
+      void window.api.getLaunchTiming().then(({ latest }) => {
+        if (latest && latest.current.versionId === game.versionId && latest.current.at >= (game.startedAt ?? 0)) {
+          setTiming(latest)
+        }
+      })
+    }, 800)
+    return () => clearTimeout(timer)
+  }, [game.state, game.versionId, game.startedAt])
   const stopStyle = killConfirm || killing || launchHover
 
   const onKill = async (): Promise<void> => {
@@ -490,6 +515,18 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
                 : '启动游戏'}
           </motion.button>
         </div>
+        {/* 这次启动用了多久，和上一次比较 */}
+        {running && timing && (
+          <div className="mt-3 flex justify-end text-xs text-white/50">
+            <span>
+              游戏启动用时 {(timing.current.ms / 1000).toFixed(1)} 秒
+              {timing.previous &&
+                Math.abs(timing.current.ms - timing.previous.ms) >= 100 &&
+                ` · 比上次${timing.current.ms < timing.previous.ms ? '快' : '慢'} ${(Math.abs(timing.current.ms - timing.previous.ms) / 1000).toFixed(1)} 秒`}
+              {timing.best && timing.current.ms < timing.best.ms && ' · 最快的一次！'}
+            </span>
+          </div>
+        )}
         {/* 继续游戏：跳过主菜单直接进入上次玩的存档（放在启动按钮下面，不挤占这一行） */}
         {lastWorld && !busy && (
           <div className="mt-3 flex justify-end">

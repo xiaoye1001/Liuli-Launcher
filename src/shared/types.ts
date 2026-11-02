@@ -954,6 +954,21 @@ export interface VersionPlayStats {
   lastPlayed: number
 }
 
+/** 一次启动的用时（从游戏进程启动到窗口出现） */
+export interface LaunchTimingRecord {
+  versionId: string
+  ms: number
+  /** 记录时间（毫秒时间戳） */
+  at: number
+}
+
+/** 最近一次启动：这次、这个版本的上一次、此前最快的一次 */
+export interface LaunchTiming {
+  current: LaunchTimingRecord
+  previous?: LaunchTimingRecord
+  best?: LaunchTimingRecord
+}
+
 /** 一次游玩记录 */
 export interface PlaySession {
   versionId: string

@@ -3,7 +3,7 @@ import { BarChart3, Clock, Gamepad2, Rocket, Sun, Trophy } from 'lucide-react'
 import { EmptyState, LoadingState } from './EmptyState'
 import { formatDuration } from '../utils/format'
 import { buildPlayReport, PERIOD_INFO } from '../utils/playReport'
-import type { PlayStats } from '../../../shared/types'
+import type { LaunchTimingRecord, PlayStats } from '../../../shared/types'
 
 function hours(ms: number): string {
   const h = ms / 3_600_000
@@ -42,9 +42,11 @@ function Tile({
 function PlayReportPanel(): JSX.Element {
   const [stats, setStats] = useState<PlayStats | null>(null)
   const [hover, setHover] = useState<number | null>(null)
+  const [fastest, setFastest] = useState<LaunchTimingRecord | undefined>()
 
   useEffect(() => {
     void window.api.getPlayStats().then(setStats)
+    void window.api.getLaunchTiming().then((t) => setFastest(t.best))
   }, [])
 
   const report = useMemo(() => (stats ? buildPlayReport(stats) : null), [stats])
@@ -174,6 +176,13 @@ function PlayReportPanel(): JSX.Element {
           ))}
         </div>
       </div>
+
+      {fastest && (
+        <p className="text-xs text-white/60">
+          最快的一次启动：{(fastest.ms / 1000).toFixed(1)} 秒（{fastest.versionId}，
+          {new Date(fastest.at).toLocaleDateString('zh-CN')}），从游戏进程启动到窗口出现
+        </p>
+      )}
 
       <p className="text-[11px] text-white/40">
         每周时长、时段、最长的一次和周末占比根据最近 {report.sessionCount}{' '}

@@ -144,6 +144,7 @@ const api = {
   openScreenshotsDir: (versionId: string) => ipcRenderer.invoke('screenshots:open', versionId),
   getPlayStats: () => ipcRenderer.invoke('stats:get'),
   getAchievements: () => ipcRenderer.invoke('achievements:list'),
+  getLaunchTiming: () => ipcRenderer.invoke('launch:timing'),
   /** 解锁了新成就（参数是成就 ID） */
   onAchievementUnlocked: (callback: (id: string) => void) => {
     const listener = (_: Electron.IpcRendererEvent, id: string): void => callback(id)

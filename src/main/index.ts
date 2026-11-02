@@ -5,6 +5,7 @@ import { isBirthday } from '../shared/birthday'
 import { setTrayWindowFactory, syncTray } from './tray'
 import { setupPlayReminder } from './playReminder'
 import { setupAutoBackup } from './autoBackup'
+import { getLaunchTiming, setupLaunchTiming } from './launchTiming'
 import { installPerformanceMods } from './performanceMods'
 import { installModTranslation } from './modTranslation'
 import {
@@ -598,6 +599,7 @@ function registerIpc(): void {
   ipcMain.handle('game:kill', () => killGame())
   ipcMain.handle('stats:get', () => getPlayStats())
   ipcMain.handle('achievements:list', () => getAchievements())
+  ipcMain.handle('launch:timing', () => getLaunchTiming())
   ipcMain.handle('export:show', () => showExportedModpack())
   ipcMain.handle('export:info', (_, versionId: string) => getModpackExportInfo(versionId))
   ipcMain.handle('export:run', (event, options: ModpackExportOptions) =>
@@ -733,6 +735,7 @@ app.whenReady().then(async () => {
   syncTray((await getSettings()).showTray)
   setupPlayReminder()
   setupAutoBackup()
+  setupLaunchTiming()
   setupAchievements()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)

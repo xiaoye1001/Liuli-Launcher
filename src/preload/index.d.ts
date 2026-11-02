@@ -38,6 +38,8 @@ import type {
   MsLoginStatus,
   ModrinthInstallResult,
   PerformanceModResult,
+  LaunchTiming,
+  LaunchTimingRecord,
   ModTranslationResult,
   ModpackInfo,
   ModpackUpdateCheck,
@@ -217,6 +219,8 @@ declare global {
       openScreenshotsDir: (versionId: string) => Promise<void>
       /** 游玩时长统计与最近游玩记录 */
       getPlayStats: () => Promise<PlayStats>
+      /** 启动用时：最近一次（和这个版本上一次比较）、最快的一次 */
+      getLaunchTiming: () => Promise<{ latest: LaunchTiming | null; best?: LaunchTimingRecord }>
       /** 启动器成就（含进度） */
       getAchievements: () => Promise<AchievementStatus[]>
       /** 解锁了新成就时回调（参数是成就 ID），返回取消监听的函数 */
