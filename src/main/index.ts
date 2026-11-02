@@ -113,6 +113,7 @@ import {
   listWorldInfos,
   getWorldDetails,
   openBackupsDir,
+  pickBackupDir,
   openWorldDatapacksDir,
   openWorldDir
 } from './worlds'
@@ -484,6 +485,12 @@ function registerIpc(): void {
   )
   ipcMain.handle('worlds:open', (_, versionId: string, folder?: string) => openWorldDir(versionId, folder))
   ipcMain.handle('worlds:openBackups', (_, versionId: string) => openBackupsDir(versionId))
+  // 存档备份位置：选择文件夹（取消时不改），或恢复为游戏目录里的 backups
+  ipcMain.handle('backups:pickDir', async (event) => {
+    const dir = await pickBackupDir(BrowserWindow.fromWebContents(event.sender))
+    return broadcastSettings(dir ? await updateSettings({ backupDir: dir }) : await getSettings())
+  })
+  ipcMain.handle('backups:resetDir', async () => broadcastSettings(await updateSettings({ backupDir: '' })))
   ipcMain.handle('worlds:backups', (_, versionId: string) => listWorldBackups(versionId))
   ipcMain.handle('worlds:restore', (_, versionId: string, file: string, asNew: boolean) =>
     restoreWorldBackup(versionId, file, asNew === true)

@@ -115,6 +115,8 @@ const api = {
   backupWorld: (versionId: string, folder: string) => ipcRenderer.invoke('worlds:backup', versionId, folder),
   openWorldDir: (versionId: string, folder?: string) => ipcRenderer.invoke('worlds:open', versionId, folder),
   openBackupsDir: (versionId: string) => ipcRenderer.invoke('worlds:openBackups', versionId),
+  pickBackupDir: () => ipcRenderer.invoke('backups:pickDir'),
+  resetBackupDir: () => ipcRenderer.invoke('backups:resetDir'),
   listWorldBackups: (versionId: string) => ipcRenderer.invoke('worlds:backups', versionId),
   restoreWorldBackup: (versionId: string, file: string, asNew: boolean) =>
     ipcRenderer.invoke('worlds:restore', versionId, file, asNew),

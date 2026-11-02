@@ -184,6 +184,10 @@ declare global {
       backupWorld: (versionId: string, folder: string) => Promise<{ path: string; size: number }>
       openWorldDir: (versionId: string, folder?: string) => Promise<void>
       openBackupsDir: (versionId: string) => Promise<void>
+      /** 选择存档备份位置（取消时不改），返回最新的设置 */
+      pickBackupDir: () => Promise<AppSettings>
+      /** 存档备份位置恢复为游戏目录里的 backups 文件夹 */
+      resetBackupDir: () => Promise<AppSettings>
       /** 列出存档备份（新的在前） */
       listWorldBackups: (versionId: string) => Promise<WorldBackup[]>
       /** 还原备份：asNew 为 true 时还原为新存档，否则覆盖原存档（会先自动备份当前存档） */

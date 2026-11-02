@@ -91,6 +91,8 @@ export interface AppSettings {
   playReminderMinutes: number
   /** 退出游戏后自动备份这次玩过的存档（每个存档保留最近 3 份） */
   autoBackupWorlds: boolean
+  /** 存档备份位置，空为游戏目录里的 backups 文件夹 */
+  backupDir: string
   /** 主页显示 Minecraft 新闻 */
   showNews: boolean
   /** 主页显示「最近游玩」 */

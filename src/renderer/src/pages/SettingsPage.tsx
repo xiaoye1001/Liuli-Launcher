@@ -8,6 +8,7 @@ import {
   Clock,
   Coffee,
   ExternalLink,
+  FolderOpen,
   AlertTriangle,
   ImagePlus,
   Trash2,
@@ -221,6 +222,7 @@ function SettingsPage(): JSX.Element {
   /** 保存请求的序号：多个保存同时进行时，只用最后一次的结果更新界面 */
   const updateSeq = useRef(0)
   const [backgroundError, setBackgroundError] = useState('')
+  const [backupDirError, setBackupDirError] = useState('')
   const [backgroundUrlInput, setBackgroundUrlInput] = useState('')
   const [addingUrl, setAddingUrl] = useState(false)
   const update = async (patch: Partial<AppSettings>): Promise<void> => {
@@ -252,6 +254,16 @@ function SettingsPage(): JSX.Element {
       pendingSlider.current = {}
       void update(pending)
     }, 150)
+  }
+
+  /** 更改存档备份位置（选择文件夹或恢复默认） */
+  const changeBackupDir = async (action: () => Promise<AppSettings>): Promise<void> => {
+    setBackupDirError('')
+    try {
+      setSettings(await action())
+    } catch (e) {
+      setBackupDirError(cleanError(e))
+    }
   }
 
   const changeBackground = async (action: () => Promise<AppSettings>): Promise<void> => {
@@ -1265,6 +1277,41 @@ function SettingsPage(): JSX.Element {
                   }`}
                 />
               </button>
+            </div>
+            {/* 存档备份位置：例如放到另一块硬盘，游戏目录所在的硬盘坏了也不会一起丢 */}
+            <div className="mt-3 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <FolderOpen className="h-4 w-4 shrink-0 text-sky-300" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">存档备份位置</div>
+                    <div className="break-all text-xs text-white/50" data-testid="backup-dir">
+                      {settings.backupDir || '游戏目录里的 backups 文件夹（默认）'}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  {settings.backupDir && (
+                    <button
+                      onClick={() => void changeBackupDir(() => window.api.resetBackupDir())}
+                      className="rounded-lg px-3 py-1.5 text-xs text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                    >
+                      恢复默认
+                    </button>
+                  )}
+                  <button
+                    onClick={() => void changeBackupDir(() => window.api.pickBackupDir())}
+                    className="rounded-lg bg-white/10 px-3 py-1.5 text-xs transition-colors hover:bg-white/20"
+                  >
+                    更改
+                  </button>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-white/40">
+                可以选另一块硬盘或网盘同步文件夹；每个游戏目录、隔离的版本各放在一个子文件夹里。
+                更改后新的备份放在新位置，原来的备份仍然可以在存档页查看和还原
+              </div>
+              {backupDirError && <div className="mt-2 text-xs text-rose-300">{backupDirError}</div>}
             </div>
             <div className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
               <div className="flex items-center gap-3">

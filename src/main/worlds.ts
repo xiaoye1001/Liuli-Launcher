@@ -2,9 +2,10 @@ import { BrowserWindow, dialog, shell } from 'electron'
 import { open, openEntryReadStream, readAllEntries } from '@xmcl/unzip'
 import { createWriteStream } from 'fs'
 import { pipeline } from 'stream/promises'
-import { randomUUID } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 import { copyFile, mkdir, readdir, readFile, rename, rm, stat } from 'fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'path'
+import { getSettings } from './config'
 import { getGameStatus } from './launch'
 import { modsContextOf } from './mods'
 import { parseNbt, type NbtCompound } from './nbt'
@@ -340,11 +341,46 @@ function timestamp(date = new Date()): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`
 }
 
-/** 备份存档：打包成 zip 放在游戏目录的 backups 文件夹，返回 zip 路径与大小 */
+/** 备份位置里每个游戏目录（或隔离的版本）一个文件夹：文件夹名 + 路径哈希，名字相同的不会混在一起 */
+export function backupFolderName(root: string): string {
+  const full = resolve(root)
+  const hash = createHash('sha256')
+    .update(process.platform === 'win32' ? full.toLowerCase() : full)
+    .digest('hex')
+    .slice(0, 8)
+  // .minecraft 去掉开头的点，不变成隐藏文件夹
+  const name = basename(full).replace(/^\.+/, '') || 'minecraft'
+  return `${name}-${hash}`
+}
+
+/** 存档备份放在哪：默认是游戏目录里的 backups；设置了备份位置时放在「备份位置/游戏目录名-哈希」 */
+export async function backupsDirFor(root: string): Promise<string> {
+  const { backupDir } = await getSettings()
+  if (!backupDir || !isAbsolute(backupDir)) return join(root, 'backups')
+  return join(backupDir, backupFolderName(root))
+}
+
+/** 查看、还原备份时两个位置都看：当前的备份位置，以及默认位置（更改备份位置之前的备份） */
+async function backupDirsFor(root: string): Promise<string[]> {
+  const current = await backupsDirFor(root)
+  const fallback = join(root, 'backups')
+  return resolve(current) === resolve(fallback) ? [current] : [current, fallback]
+}
+
+/** 备份文件不能放在被打包的存档文件夹里（否则会把正在写入的备份也打包进去） */
+function assertOutsideWorld(backups: string, worldPath: string): void {
+  const rel = relative(resolve(worldPath), resolve(backups))
+  if (rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))) {
+    throw new Error('备份位置不能在存档文件夹里面，请在设置里更改备份位置')
+  }
+}
+
+/** 备份存档：打包成 zip 放在备份位置（默认是游戏目录的 backups 文件夹），返回 zip 路径与大小 */
 export async function backupWorld(versionId: string, folder: string): Promise<{ path: string; size: number }> {
   await assertGameStopped(versionId)
   const dir = await worldDir(versionId, folder)
-  const backups = join(await gameDirOf(versionId), 'backups')
+  const backups = await backupsDirFor(await gameDirOf(versionId))
+  assertOutsideWorld(backups, dir)
   await mkdir(backups, { recursive: true })
   const stamp = timestamp()
   let path = join(backups, `${folder}_${stamp}.zip`)
@@ -380,7 +416,7 @@ export async function autoBackupWorlds(
   prune: boolean
 ): Promise<{ done: string[]; failed: string[] }> {
   const root = await gameDirOf(versionId)
-  const backups = join(root, 'backups')
+  const backups = await backupsDirFor(root)
   const done: string[] = []
   const failed: string[] = []
   await removeStaleTemp(backups)
@@ -394,6 +430,7 @@ export async function autoBackupWorlds(
     if (!level || level.mtimeMs < since) continue
     // 一个存档备份失败（文件被占用、文件太多等）不影响其他存档
     try {
+      assertOutsideWorld(backups, dir)
       if ((await folderSize(dir)) > AUTO_MAX_BYTES) continue
       await mkdir(backups, { recursive: true })
       const stamp = timestamp()
@@ -443,7 +480,7 @@ export async function openWorldDir(versionId: string, folder?: string): Promise<
 }
 
 export async function openBackupsDir(versionId: string): Promise<void> {
-  const dir = join(await gameDirOf(versionId), 'backups')
+  const dir = await backupsDirFor(await gameDirOf(versionId))
   await mkdir(dir, { recursive: true })
   const error = await shell.openPath(dir)
   if (error) throw new Error(error)
@@ -565,30 +602,37 @@ function parseBackupName(file: string): { world: string; createdAt: number; auto
 async function backupFile(versionId: string, file: string): Promise<string> {
   assertSafeName(file, '备份文件名')
   if (!/\.zip$/i.test(file)) throw new Error(`不是备份文件：${file}`)
-  const path = join(await gameDirOf(versionId), 'backups', file)
-  if (!(await stat(path).catch(() => null))?.isFile()) throw new Error(`找不到备份：${file}`)
-  return path
+  for (const dir of await backupDirsFor(await gameDirOf(versionId))) {
+    const path = join(dir, file)
+    if ((await stat(path).catch(() => null))?.isFile()) return path
+  }
+  throw new Error(`找不到备份：${file}`)
 }
 
 /** 列出备份文件夹里的存档备份（新的在前） */
 export async function listWorldBackups(versionId: string): Promise<WorldBackup[]> {
   const root = await gameDirOf(versionId)
-  const entries = await readdir(join(root, 'backups'), { withFileTypes: true }).catch(() => [])
   const backups: WorldBackup[] = []
-  for (const entry of entries) {
-    if (!entry.isFile() || !/\.zip$/i.test(entry.name)) continue
-    const info = await stat(join(root, 'backups', entry.name)).catch(() => null)
-    if (!info) continue
-    const parsed = parseBackupName(entry.name)
-    const world = parsed?.world ?? entry.name.replace(/\.zip$/i, '')
-    backups.push({
-      file: entry.name,
-      world,
-      createdAt: parsed?.createdAt ?? info.mtimeMs,
-      auto: parsed?.auto ?? false,
-      size: info.size,
-      worldExists: !!(await stat(join(root, 'saves', world, 'level.dat')).catch(() => null))
-    })
+  // 两个位置有同名的备份时只列出当前备份位置的（还原、删除时也先找当前备份位置）
+  const seen = new Set<string>()
+  for (const dir of await backupDirsFor(root)) {
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
+    for (const entry of entries) {
+      if (!entry.isFile() || !/\.zip$/i.test(entry.name) || seen.has(entry.name)) continue
+      const info = await stat(join(dir, entry.name)).catch(() => null)
+      if (!info) continue
+      seen.add(entry.name)
+      const parsed = parseBackupName(entry.name)
+      const world = parsed?.world ?? entry.name.replace(/\.zip$/i, '')
+      backups.push({
+        file: entry.name,
+        world,
+        createdAt: parsed?.createdAt ?? info.mtimeMs,
+        auto: parsed?.auto ?? false,
+        size: info.size,
+        worldExists: !!(await stat(join(root, 'saves', world, 'level.dat')).catch(() => null))
+      })
+    }
   }
   return backups.sort((a, b) => b.createdAt - a.createdAt)
 }
@@ -710,4 +754,27 @@ export async function openWorldDatapacksDir(versionId: string, folder: string): 
   await mkdir(dir, { recursive: true })
   const error = await shell.openPath(dir)
   if (error) throw new Error(error)
+}
+
+/** 选择存档备份位置：不能选游戏目录的 saves 文件夹或某个存档里面（返回选中的路径，取消时返回空字符串） */
+export async function pickBackupDir(win: BrowserWindow | null): Promise<string> {
+  const { backupDir, gameDir, gameDirs } = await getSettings()
+  const options: Electron.OpenDialogOptions = {
+    title: '选择存档备份位置',
+    defaultPath: backupDir || join(gameDir, 'backups'),
+    properties: ['openDirectory', 'createDirectory']
+  }
+  const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+  if (result.canceled || result.filePaths.length === 0) return ''
+  const dir = resolve(result.filePaths[0])
+  // 游戏目录的 saves 或隔离版本的 versions/<版本>/saves 里面
+  for (const root of [gameDir, ...gameDirs.map((entry) => entry.path)]) {
+    const rel = relative(resolve(root), dir)
+    if (rel.startsWith('..') || isAbsolute(rel)) continue
+    const parts = rel.toLowerCase().split(/[\\/]/)
+    if (parts[0] === 'saves' || (parts[0] === 'versions' && parts[2] === 'saves')) {
+      throw new Error('备份位置不能在存档（saves）文件夹里面')
+    }
+  }
+  return dir
 }
