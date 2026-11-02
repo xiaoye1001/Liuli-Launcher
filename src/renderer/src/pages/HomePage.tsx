@@ -19,6 +19,8 @@ import VersionIcon from '../components/VersionIcon'
 import NewsPanel from '../components/NewsPanel'
 import SplashText from '../components/SplashText'
 import TriviaLine from '../components/TriviaLine'
+import BirthdayConfetti from '../components/BirthdayConfetti'
+import { isBirthdayToday } from '../../../shared/birthday'
 import { supportsQuickPlay } from '../../../shared/quickPlay'
 import { formatClock } from '../utils/format'
 import { useAppearance } from '../utils/appearance'
@@ -197,9 +199,11 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
   const msAccount = accounts?.accounts.find((a) => a.uuid === accounts.active) ?? external
   const nameValid = msAccount ? true : NAME_PATTERN.test(name)
   const displayName = msAccount ? msAccount.name : name
+  const birthdayToday = !!settings && isBirthdayToday(settings.birthday)
+  const appearance = useAppearance()
   const busy = game.state === 'launching' || game.state === 'running'
   const selected = settings?.selectedVersion ?? ''
-  const { welcomeTitle, welcomeSubtitle } = useAppearance()
+  const { welcomeTitle, welcomeSubtitle } = appearance
   const welcomeValues = { name: nameValid ? displayName : '', version: selected }
 
   const saveName = async (): Promise<void> => {
@@ -361,7 +365,10 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
       </AnimatePresence>
 
       <div className="relative rounded-2xl border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
-        {settings?.showSplash && <SplashText />}
+        {settings?.showSplash && (
+          <SplashText greeting={birthdayToday ? `生日快乐${nameValid ? `，${displayName}` : ''}！` : undefined} />
+        )}
+        {birthdayToday && appearance.animations && <BirthdayConfetti />}
         <h1 className="text-3xl font-bold tracking-tight">
           {welcomeTitle ? renderWelcome(welcomeTitle, welcomeValues) : `欢迎回来${nameValid ? `，${displayName}` : ''}`}
         </h1>

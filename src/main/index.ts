@@ -1,6 +1,7 @@
 import { portableDir } from './paths'
 import { pruneDownloadCache } from './storage'
 import { moveLegacyGameDir } from './gameDirMove'
+import { isBirthday } from '../shared/birthday'
 import { setTrayWindowFactory, syncTray } from './tray'
 import { setupPlayReminder } from './playReminder'
 import { setupAutoBackup } from './autoBackup'
@@ -295,6 +296,10 @@ function registerIpc(): void {
       patch = { ...patch, downloadThreads: Number.isInteger(threads) ? Math.min(64, Math.max(1, threads)) : 16 }
     }
     if ('uiScale' in patch) patch = { ...patch, uiScale: normalizeScale(patch.uiScale) }
+    // 生日：MM-DD 或空
+    if (typeof patch.birthday === 'string' && patch.birthday && !isBirthday(patch.birthday)) {
+      patch = { ...patch, birthday: '' }
+    }
     if ('playReminderMinutes' in patch) {
       // 健康游戏提醒：0（不提醒）或 15 分钟到 10 小时
       const minutes = Number(patch.playReminderMinutes)

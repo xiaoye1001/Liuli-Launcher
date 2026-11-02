@@ -86,6 +86,7 @@ function defaultSettings(): AppSettings {
     showRecentPlays: true,
     showSplash: true,
     showTrivia: true,
+    birthday: '',
     recentPlaysCollapsed: false,
     downloadThreads: 16,
     proxyMode: 'none',

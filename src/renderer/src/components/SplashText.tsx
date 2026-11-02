@@ -5,8 +5,9 @@ import { pickSplash } from '../utils/splash'
  * 主页标题旁的闪烁标语（像 Minecraft 主菜单的黄字）：出现时跳动几下就停，点一下换一句。
  * 不一直跳动：启动器放着不动时不占用 CPU
  */
-function SplashText(): JSX.Element {
-  const [text, setText] = useState(() => pickSplash())
+function SplashText({ greeting }: { greeting?: string }): JSX.Element {
+  // 生日当天先显示祝福，点一下换成普通的
+  const [text, setText] = useState(() => greeting ?? pickSplash())
   const [round, setRound] = useState(0)
   return (
     <button

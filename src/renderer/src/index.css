@@ -269,6 +269,23 @@ html.no-anim *::after {
   animation: splash-pulse 0.4s ease-in-out 8 alternate;
 }
 
+/* 生日彩带：从上往下飘落一次 */
+@keyframes confetti-fall {
+  from {
+    transform: translate(0, -20px) rotate(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--confetti-drift), 105vh) rotate(var(--confetti-rotate));
+    opacity: 0.8;
+  }
+}
+.confetti-piece {
+  animation-name: confetti-fall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: both;
+}
+
 /*
  * 一直循环的装饰动画（开屏动画、游戏启动动画）用 CSS 实现，元素移除时动画随之结束。
  * 不要改回 framer-motion 的 repeat: Infinity：framer-motion 11 停止这类透明度动画时，

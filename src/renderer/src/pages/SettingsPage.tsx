@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Archive,
+  Cake,
   Lightbulb,
   CheckCircle2,
   Clock,
@@ -880,6 +881,61 @@ function SettingsPage(): JSX.Element {
                   }`}
                 />
               </button>
+            </div>
+            {/* 生日彩蛋 */}
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Cake className="h-4 w-4 text-pink-300" />
+                <div>
+                  <div className="text-sm font-medium">我的生日</div>
+                  <div className="text-xs text-white/50">填上生日，当天打开启动器有惊喜。只保存在这台电脑上</div>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5 text-sm">
+                <select
+                  value={settings.birthday ? settings.birthday.slice(0, 2) : ''}
+                  onChange={(e) => {
+                    const month = e.target.value
+                    if (!month) return update({ birthday: '' })
+                    // 换到天数更少的月份时，日期取这个月的最后一天
+                    const max = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][Number(month) - 1]
+                    const day = Math.min(Number(settings.birthday ? settings.birthday.slice(3) : '1'), max)
+                    update({ birthday: `${month}-${String(day).padStart(2, '0')}` })
+                  }}
+                  aria-label="生日月份"
+                  className="cursor-pointer rounded-lg border border-white/15 bg-black/20 px-2 py-1.5 outline-none"
+                >
+                  <option value="" className="bg-slate-800 text-white">
+                    不填
+                  </option>
+                  {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map((m) => (
+                    <option key={m} value={m} className="bg-slate-800 text-white">
+                      {Number(m)} 月
+                    </option>
+                  ))}
+                </select>
+                {settings.birthday && (
+                  <select
+                    value={settings.birthday.slice(3)}
+                    onChange={(e) => update({ birthday: `${settings.birthday.slice(0, 2)}-${e.target.value}` })}
+                    aria-label="生日日期"
+                    className="cursor-pointer rounded-lg border border-white/15 bg-black/20 px-2 py-1.5 outline-none"
+                  >
+                    {Array.from(
+                      {
+                        length: [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][
+                          Number(settings.birthday.slice(0, 2)) - 1
+                        ]
+                      },
+                      (_, i) => String(i + 1).padStart(2, '0')
+                    ).map((d) => (
+                      <option key={d} value={d} className="bg-slate-800 text-white">
+                        {Number(d)} 日
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
             {/* 主页闪烁标语 */}
             <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">

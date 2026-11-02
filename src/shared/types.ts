@@ -99,6 +99,8 @@ export interface AppSettings {
   showSplash: boolean
   /** 主页显示「今日冷知识」 */
   showTrivia: boolean
+  /** 玩家的生日（MM-DD），当天主页有彩蛋；空字符串为没有填 */
+  birthday: string
   /** 主页的「最近游玩」收起（只显示标题） */
   recentPlaysCollapsed: boolean
   /** 下载源 */
