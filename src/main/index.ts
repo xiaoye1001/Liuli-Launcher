@@ -8,6 +8,7 @@ import { setupAutoBackup } from './autoBackup'
 import { getLaunchTiming, setupLaunchTiming } from './launchTiming'
 import { applyVideoPreset, copyGameOptions, getGameOptionsInfo, restoreGameOptions } from './optionsTools'
 import { listModRollbacks, rollbackModUpdate } from './modRollback'
+import { clearCustomArgs, disableRecentMods, getRepairInfo, resetVideoForRepair, useAutoJava } from './repairWizard'
 import { installPerformanceMods } from './performanceMods'
 import { installModTranslation } from './modTranslation'
 import {
@@ -456,6 +457,12 @@ function registerIpc(): void {
   )
   ipcMain.handle('mods:rollbacks', (_, versionId: string) => listModRollbacks(versionId))
   ipcMain.handle('mods:rollback', (_, versionId: string, id: string) => rollbackModUpdate(versionId, id))
+  // 修复向导
+  ipcMain.handle('repair:info', (_, versionId: string) => getRepairInfo(versionId))
+  ipcMain.handle('repair:disableMods', (_, versionId: string, files: string[]) => disableRecentMods(versionId, files))
+  ipcMain.handle('repair:autoJava', (_, versionId: string) => useAutoJava(versionId))
+  ipcMain.handle('repair:clearArgs', (_, versionId: string) => clearCustomArgs(versionId))
+  ipcMain.handle('repair:resetVideo', (_, versionId: string) => resetVideoForRepair(versionId))
   ipcMain.handle('local:list', (_, versionId: string, kind: LocalResourceKind) => listLocalResources(versionId, kind))
   ipcMain.handle('local:checkUpdates', (_, versionId: string, kind: LocalResourceKind) =>
     checkResourceUpdates(versionId, kind)

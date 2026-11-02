@@ -45,6 +45,7 @@ import type {
   OptionsCopyResult,
   VideoPreset,
   ModRollback,
+  RepairInfo,
   ModTranslationResult,
   ModpackInfo,
   ModpackUpdateCheck,
@@ -217,6 +218,16 @@ declare global {
       listModRollbacks: (versionId: string) => Promise<ModRollback[]>
       /** 退回更新前的模组文件，返回放回的文件名 */
       rollbackModUpdate: (versionId: string, id: string) => Promise<string>
+      /** 修复向导：最近添加的模组、Java 设置、自定义启动参数等 */
+      getRepairInfo: (versionId: string) => Promise<RepairInfo>
+      /** 修复向导：暂时禁用最近添加的模组 */
+      repairDisableMods: (versionId: string, files: string[]) => Promise<{ done: string[]; failed: string[] }>
+      /** 修复向导：这个版本的 Java 改为自动选择 */
+      repairAutoJava: (versionId: string) => Promise<void>
+      /** 修复向导：清除这个版本的自定义启动参数 */
+      repairClearArgs: (versionId: string) => Promise<void>
+      /** 修复向导：画质改成流畅、关闭全屏（修改前自动备份） */
+      repairResetVideo: (versionId: string) => Promise<void>
       renameVersion: (versionId: string, newId: string) => Promise<void>
       /** 复制版本（includeSaves 为 false 时不复制存档） */
       copyVersion: (versionId: string, newId: string, includeSaves: boolean) => Promise<void>

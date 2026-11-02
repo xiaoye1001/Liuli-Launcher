@@ -1006,6 +1006,23 @@ export interface ModRollback {
   at: number
 }
 
+/** 修复向导需要的信息 */
+export interface RepairInfo {
+  /** 最近 3 天添加或更新的已启用模组（新的在前） */
+  recentMods: string[]
+  /** 全部模组都是最近装的（例如刚装好的整合包），没法判断是哪个模组的问题 */
+  allModsRecent: boolean
+  javaMode: VersionConfig['javaMode']
+  /** 全局设置是否自动选择 Java */
+  javaAuto: boolean
+  /** 设置过的自定义启动设置（VersionConfig 的字段名） */
+  customArgs: string[]
+  /** 有没有游戏设置（options.txt） */
+  hasOptions: boolean
+  /** 启动器的「全屏启动」 */
+  fullscreen: boolean
+}
+
 /** 画质档位：流畅 / 均衡 / 高画质 */
 export type VideoPreset = 'smooth' | 'balanced' | 'high'
 

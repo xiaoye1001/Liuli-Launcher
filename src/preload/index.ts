@@ -136,6 +136,11 @@ const api = {
     ipcRenderer.invoke('mods:update', versionId, fileName, modrinthVersionId),
   listModRollbacks: (versionId: string) => ipcRenderer.invoke('mods:rollbacks', versionId),
   rollbackModUpdate: (versionId: string, id: string) => ipcRenderer.invoke('mods:rollback', versionId, id),
+  getRepairInfo: (versionId: string) => ipcRenderer.invoke('repair:info', versionId),
+  repairDisableMods: (versionId: string, files: string[]) => ipcRenderer.invoke('repair:disableMods', versionId, files),
+  repairAutoJava: (versionId: string) => ipcRenderer.invoke('repair:autoJava', versionId),
+  repairClearArgs: (versionId: string) => ipcRenderer.invoke('repair:clearArgs', versionId),
+  repairResetVideo: (versionId: string) => ipcRenderer.invoke('repair:resetVideo', versionId),
   renameVersion: (versionId: string, newId: string) => ipcRenderer.invoke('versions:rename', versionId, newId),
   copyVersion: (versionId: string, newId: string, includeSaves: boolean) =>
     ipcRenderer.invoke('versions:copy', versionId, newId, includeSaves),

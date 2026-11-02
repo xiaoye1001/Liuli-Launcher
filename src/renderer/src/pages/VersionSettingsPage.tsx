@@ -13,6 +13,7 @@ import {
   SlidersHorizontal,
   SquareTerminal,
   Terminal,
+  Wrench,
   type LucideIcon
 } from 'lucide-react'
 import VersionIcon from '../components/VersionIcon'
@@ -21,6 +22,7 @@ import { HEADER_BUTTON } from '../components/headerButtons'
 import JavaSelect, { type JavaChoice } from '../components/JavaSelect'
 import MemoryPlanSummary from '../components/MemoryPlanSummary'
 import GameOptionsPanel from '../components/GameOptionsPanel'
+import RepairWizard from '../components/RepairWizard'
 import type { AppSettings, InstalledVersion, JavaInfo, MemoryPlan, VersionConfig } from '../../../shared/types'
 
 const LOADER_NAMES = { fabric: 'Fabric', quilt: 'Quilt', forge: 'Forge', neoforge: 'NeoForge', optifine: 'OptiFine' }
@@ -318,6 +320,9 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState<boolean | null>(null)
+  const [wizard, setWizard] = useState(false)
+  /** 修复向导关闭后重新读取游戏内设置 */
+  const [optionsKey, setOptionsKey] = useState(0)
   const savedTimer = useRef<ReturnType<typeof setTimeout>>()
   const memoryTimer = useRef<ReturnType<typeof setTimeout>>()
   /** 还没保存的内存设置：离开页面时立即保存，不丢失 */
@@ -516,6 +521,14 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
                 </motion.span>
               )}
             </AnimatePresence>
+            <button
+              onClick={() => setWizard(true)}
+              title="游戏打不开时按步骤排查：检查游戏文件、Java、启动参数、最近添加的模组、画质"
+              className={HEADER_BUTTON}
+            >
+              <Wrench className="h-4 w-4" />
+              修复向导
+            </button>
             <button
               onClick={() => {
                 clearTimeout(memoryTimer.current)
@@ -768,7 +781,7 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
             onReset={() => undefined}
             className="lg:col-span-2"
           >
-            <GameOptionsPanel versionId={version.id} />
+            <GameOptionsPanel key={optionsKey} versionId={version.id} />
           </Card>
 
           {/* 高级选项（占满一行，可以折叠） */}
@@ -913,6 +926,18 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
           </Card>
         </div>
       </div>
+      {wizard && (
+        <RepairWizard
+          versionId={version.id}
+          onClose={() => {
+            setWizard(false)
+            // 向导可能改了 Java、启动参数、全屏和游戏内设置
+            onChanged()
+            setOptionsKey((k) => k + 1)
+            void window.api.getVersionConfig(version.id).then(setConfig)
+          }}
+        />
+      )}
     </div>
   )
 }

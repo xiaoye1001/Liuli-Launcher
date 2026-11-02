@@ -322,6 +322,15 @@ function currentPreset(lines: string[], minecraftVersion: string): VideoPreset |
 
 /** 套用画质档位：只改视距、图形质量、粒子、阴影、平滑光照等几项，其他设置不变；修改前自动备份 */
 export async function applyVideoPreset(versionId: string, preset: VideoPreset): Promise<void> {
+  await writePreset(versionId, preset, [])
+}
+
+/** 修复向导：画质改成流畅并关闭游戏内的全屏（显卡驱动、全屏切换出问题时常见），修改前自动备份 */
+export async function applySafeVideoSettings(versionId: string): Promise<void> {
+  await writePreset(versionId, 'smooth', [['fullscreen', 'false']])
+}
+
+async function writePreset(versionId: string, preset: VideoPreset, extra: [string, string][]): Promise<void> {
   if (!Object.prototype.hasOwnProperty.call(PRESETS, preset)) throw new Error('无效的画质档位')
   const target = await targetOf(versionId)
   await assertNotRunning(versionId, target.gamePath)
@@ -331,7 +340,7 @@ export async function applyVideoPreset(versionId: string, preset: VideoPreset): 
   const { lines, eol } = splitLines(text)
   if (!presetSupported(lines, target.minecraftVersion)) throw new Error('这个版本太旧，不支持画质档位')
   const next = [...lines]
-  for (const [key, value] of presetEntries(preset, lines, target.minecraftVersion)) {
+  for (const [key, value] of [...presetEntries(preset, lines, target.minecraftVersion), ...extra]) {
     const index = next.findIndex((l) => l.startsWith(`${key}:`))
     if (index >= 0) next[index] = `${key}:${value}`
     else next.push(`${key}:${value}`)

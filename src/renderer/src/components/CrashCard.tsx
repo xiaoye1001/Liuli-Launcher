@@ -10,10 +10,12 @@ import {
   Loader2,
   Terminal,
   Undo2,
+  Wrench,
   X
 } from 'lucide-react'
 import { ShareButton, ShareStatus, useLogShare } from './LogShare'
 import AiAnalysisPanel from './AiAnalysisPanel'
+import RepairWizard from './RepairWizard'
 import type { CrashAction, GameStatus, ModRollback } from '../../../shared/types'
 
 const ACTION_LABELS: Record<CrashAction, string> = {
@@ -124,6 +126,7 @@ function CrashCard({ game, onAction, onDismiss, onOpenAiSettings }: CrashCardPro
   const analysis = game.analysis
   const [exporting, setExporting] = useState(false)
   const [message, setMessage] = useState('')
+  const [wizard, setWizard] = useState(false)
   const share = useLogShare(() => window.api.shareCrashLogs())
   /** 正在进行的 AI 分析：关闭卡片时一起取消 */
   const aiAnalysisId = useRef<string | null>(null)
@@ -240,6 +243,15 @@ function CrashCard({ game, onAction, onDismiss, onOpenAiSettings }: CrashCardPro
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-white/10 px-5 py-3">
+        {game.versionId && (
+          <button
+            onClick={() => setWizard(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500"
+          >
+            <Wrench className="h-3.5 w-3.5" />
+            修复向导
+          </button>
+        )}
         <button onClick={() => run(() => window.api.openLogWindow())} className={buttonClass}>
           <Terminal className="h-3.5 w-3.5" />
           查看日志
@@ -271,6 +283,7 @@ function CrashCard({ game, onAction, onDismiss, onOpenAiSettings }: CrashCardPro
         )}
       </div>
       <ShareStatus control={share} className="mx-5 mb-3" />
+      {wizard && game.versionId && <RepairWizard versionId={game.versionId} onClose={() => setWizard(false)} />}
     </motion.div>
   )
 }
