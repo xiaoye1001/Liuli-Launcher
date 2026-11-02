@@ -7,6 +7,7 @@ import type {
   AppSettings,
   GameLogEvent,
   GameStatus,
+  GameResources,
   FastDownloadTask,
   DirectDownloadOptions,
   InstallRequest,
@@ -320,6 +321,14 @@ const api = {
     ipcRenderer.on('game:status', listener)
     return () => {
       ipcRenderer.removeListener('game:status', listener)
+    }
+  },
+  getGameResources: () => ipcRenderer.invoke('game:resources'),
+  onGameResources: (callback: (resources: GameResources | null) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, resources: GameResources | null): void => callback(resources)
+    ipcRenderer.on('game:resources', listener)
+    return () => {
+      ipcRenderer.removeListener('game:resources', listener)
     }
   },
   getGameDirInfo: () => ipcRenderer.invoke('gamedir:info'),

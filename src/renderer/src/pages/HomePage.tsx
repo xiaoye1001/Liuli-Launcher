@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  Activity,
   Box,
   Check,
   ChevronDown,
@@ -32,9 +33,15 @@ import type {
   AppSettings,
   GameStatus,
   InstallStatus,
+  GameResources,
   InstalledVersion,
   LaunchTiming
 } from '../../../shared/types'
+
+/** 内存：不到 1 GB 时显示 MB */
+function formatMemoryMb(mb: number): string {
+  return mb < 1024 ? `${mb} MB` : `${(mb / 1024).toFixed(1)} GB`
+}
 
 /** 去掉 Electron 给 IPC 错误加的前缀 */
 function cleanError(e: unknown): string {
@@ -322,6 +329,16 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
     }, 800)
     return () => clearTimeout(timer)
   }, [game.state, game.versionId, game.startedAt])
+  /** 游戏运行时的内存和 CPU 占用 */
+  const [resources, setResources] = useState<GameResources | null>(null)
+  useEffect(() => {
+    if (!running) {
+      setResources(null)
+      return
+    }
+    void window.api.getGameResources().then(setResources)
+    return window.api.onGameResources(setResources)
+  }, [running])
   const stopStyle = killConfirm || killing || launchHover
 
   const onKill = async (): Promise<void> => {
@@ -516,15 +533,27 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
           </motion.button>
         </div>
         {/* 这次启动用了多久，和上一次比较 */}
-        {running && timing && (
-          <div className="mt-3 flex justify-end text-xs text-white/50">
-            <span>
-              游戏启动用时 {(timing.current.ms / 1000).toFixed(1)} 秒
-              {timing.previous &&
-                Math.abs(timing.current.ms - timing.previous.ms) >= 100 &&
-                ` · 比上次${timing.current.ms < timing.previous.ms ? '快' : '慢'} ${(Math.abs(timing.current.ms - timing.previous.ms) / 1000).toFixed(1)} 秒`}
-              {timing.best && timing.current.ms < timing.best.ms && ' · 最快的一次！'}
+        {running && (timing || resources) && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-white/50">
+            <span className="flex items-center gap-1.5" data-testid="game-resources">
+              {resources && (
+                <>
+                  <Activity className="h-3.5 w-3.5" />
+                  内存 {formatMemoryMb(resources.memoryMb)}
+                  {resources.maxMemoryMb > 0 && ` · 分配 ${formatMemoryMb(resources.maxMemoryMb)}`}
+                  {resources.cpuPercent !== null && ` · CPU ${resources.cpuPercent}%`}
+                </>
+              )}
             </span>
+            {timing && (
+              <span>
+                游戏启动用时 {(timing.current.ms / 1000).toFixed(1)} 秒
+                {timing.previous &&
+                  Math.abs(timing.current.ms - timing.previous.ms) >= 100 &&
+                  ` · 比上次${timing.current.ms < timing.previous.ms ? '快' : '慢'} ${(Math.abs(timing.current.ms - timing.previous.ms) / 1000).toFixed(1)} 秒`}
+                {timing.best && timing.current.ms < timing.best.ms && ' · 最快的一次！'}
+              </span>
+            )}
           </div>
         )}
         {/* 继续游戏：跳过主菜单直接进入上次玩的存档（放在启动按钮下面，不挤占这一行） */}

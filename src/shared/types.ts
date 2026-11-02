@@ -1006,6 +1006,17 @@ export interface ModRollback {
   at: number
 }
 
+/** 游戏资源占用（游戏运行时每隔几秒读取一次） */
+export interface GameResources {
+  /** 游戏进程占用的内存（MB） */
+  memoryMb: number
+  /** 分配给游戏的最大内存（MB），不知道时为 0 */
+  maxMemoryMb: number
+  /** 占整台电脑 CPU 的百分比；刚开始还没算出来时为 null */
+  cpuPercent: number | null
+  at: number
+}
+
 /** 我的模组合集 */
 export interface ModCollection {
   id: string

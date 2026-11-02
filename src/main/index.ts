@@ -6,6 +6,7 @@ import { setTrayWindowFactory, syncTray } from './tray'
 import { setupPlayReminder } from './playReminder'
 import { setupAutoBackup } from './autoBackup'
 import { getLaunchTiming, setupLaunchTiming } from './launchTiming'
+import { getGameResources, setupGameMonitor } from './gameMonitor'
 import { applyVideoPreset, copyGameOptions, getGameOptionsInfo, restoreGameOptions } from './optionsTools'
 import { listModRollbacks, rollbackModUpdate } from './modRollback'
 import { setupShaders } from './oneClickShaders'
@@ -630,6 +631,7 @@ function registerIpc(): void {
   ipcMain.handle('servers:import', () => importGameServers())
   ipcMain.handle('servers:ping', (_, address: string) => pingServer(address))
   ipcMain.handle('game:status', () => getGameStatus())
+  ipcMain.handle('game:resources', () => getGameResources())
   ipcMain.handle('game:cancel', () => cancelLaunch())
   ipcMain.handle('game:kill', () => killGame())
   ipcMain.handle('stats:get', () => getPlayStats())
@@ -779,6 +781,7 @@ app.whenReady().then(async () => {
   setupPlayReminder()
   setupAutoBackup()
   setupLaunchTiming()
+  setupGameMonitor()
   setupAchievements()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)

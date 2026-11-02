@@ -96,6 +96,8 @@ let cancelRequested = false
 let cancellableProc: ChildProcess | null = null
 /** 正在运行的游戏进程（强制结束游戏时使用），游戏退出后清空 */
 let gameProc: ChildProcess | null = null
+/** 正在运行的游戏分配的最大内存（MB），资源监控显示用 */
+let gameMaxMemory = 0
 /** 玩家点了「结束游戏」：游戏退出后不当作崩溃 */
 let killRequested = false
 /** 启动过程中自动开始的下载（Java、补全游戏文件）正在进行：取消启动时一起取消 */
@@ -232,6 +234,12 @@ function pipeLines(stream: NodeJS.ReadableStream | null, prefix = ''): void {
 
 /** 启动前 / 退出后命令最多运行 10 分钟 */
 const HOOK_TIMEOUT = 10 * 60 * 1000
+
+/** 正在运行的游戏进程（资源监控用）：进程 ID 和分配的最大内存 */
+export function getGameProcessInfo(): { pid: number; maxMemory: number } | null {
+  if (!gameProc?.pid || gameProc.exitCode !== null) return null
+  return { pid: gameProc.pid, maxMemory: gameMaxMemory }
+}
 
 /** 结束命令行进程以及它启动的所有子进程（只结束命令行本身时，它启动的程序会留在后台） */
 function killTree(child: ChildProcess): void {
@@ -634,6 +642,7 @@ export async function launchGame(versionId: string, server?: string, world?: str
     launcherLog(`游戏进程已创建（PID ${proc.pid}）`)
     cancellableProc = proc
     gameProc = proc
+    gameMaxMemory = maxMemory
     killRequested = false
     // 创建进程期间点了取消：直接结束刚创建的进程
     if (cancelRequested) killTree(proc)

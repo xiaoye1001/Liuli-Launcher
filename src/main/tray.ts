@@ -10,6 +10,8 @@ import { getMainWindow } from './windows'
  */
 let tray: Tray | null = null
 let listening = false
+/** 游戏运行时提示里多显示的一行（内存和 CPU 占用） */
+let detail: string | null = null
 /** 没有窗口时重新创建（macOS 上关闭窗口后程序仍在运行） */
 let createWindow: (() => void) | null = null
 
@@ -52,7 +54,7 @@ function refresh(): void {
       : game.state === 'launching'
         ? `正在启动：${game.versionId}`
         : '游戏没有运行'
-  tray.setToolTip(running ? `琉璃启动器 · ${label}` : '琉璃启动器')
+  tray.setToolTip(running ? `琉璃启动器 · ${label}${detail ? `\n${detail}` : ''}` : '琉璃启动器')
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: '显示琉璃启动器', click: showWindow },
@@ -64,6 +66,16 @@ function refresh(): void {
       { label: '退出', click: () => app.quit() }
     ])
   )
+}
+
+/** 游戏资源监控：更新托盘提示里的内存和 CPU 占用（只改提示文字，不重建菜单） */
+export function setTrayDetail(text: string | null): void {
+  detail = text
+  if (!tray || tray.isDestroyed()) return
+  const game = getGameStatus()
+  if (game.state === 'running') {
+    tray.setToolTip(`琉璃启动器 · 游戏运行中：${game.versionId}${detail ? `\n${detail}` : ''}`)
+  }
 }
 
 /** 按设置显示或去掉托盘图标（启动时和设置变化时调用） */

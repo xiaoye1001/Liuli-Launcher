@@ -48,6 +48,7 @@ import type {
   RepairInfo,
   ShaderChoice,
   ModCollection,
+  GameResources,
   ShaderSetupResult,
   ModTranslationResult,
   ModpackInfo,
@@ -365,6 +366,9 @@ declare global {
       /** 强制结束正在运行的游戏，游戏没有在运行时返回 false */
       killGame: () => Promise<boolean>
       onGameStatus: (callback: (status: GameStatus) => void) => () => void
+      /** 游戏资源占用（内存、CPU），游戏没有运行时为 null */
+      getGameResources: () => Promise<GameResources | null>
+      onGameResources: (callback: (resources: GameResources | null) => void) => () => void
       /** 选择背景图片，取消时返回原设置 */
       pickBackground: () => Promise<AppSettings>
       clearBackground: () => Promise<AppSettings>
