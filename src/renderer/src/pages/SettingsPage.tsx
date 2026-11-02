@@ -2,10 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Archive,
+  Cake,
+  Lightbulb,
   CheckCircle2,
   Clock,
   Coffee,
   ExternalLink,
+  FolderOpen,
   AlertTriangle,
   ImagePlus,
   Trash2,
@@ -219,6 +222,7 @@ function SettingsPage(): JSX.Element {
   /** 保存请求的序号：多个保存同时进行时，只用最后一次的结果更新界面 */
   const updateSeq = useRef(0)
   const [backgroundError, setBackgroundError] = useState('')
+  const [backupDirError, setBackupDirError] = useState('')
   const [backgroundUrlInput, setBackgroundUrlInput] = useState('')
   const [addingUrl, setAddingUrl] = useState(false)
   const update = async (patch: Partial<AppSettings>): Promise<void> => {
@@ -250,6 +254,16 @@ function SettingsPage(): JSX.Element {
       pendingSlider.current = {}
       void update(pending)
     }, 150)
+  }
+
+  /** 更改存档备份位置（选择文件夹或恢复默认） */
+  const changeBackupDir = async (action: () => Promise<AppSettings>): Promise<void> => {
+    setBackupDirError('')
+    try {
+      setSettings(await action())
+    } catch (e) {
+      setBackupDirError(cleanError(e))
+    }
   }
 
   const changeBackground = async (action: () => Promise<AppSettings>): Promise<void> => {
@@ -855,6 +869,86 @@ function SettingsPage(): JSX.Element {
                 />
               </button>
             </div>
+            {/* 今日冷知识 */}
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Lightbulb className="h-4 w-4 text-amber-300" />
+                <div>
+                  <div className="text-sm font-medium">主页显示今日冷知识</div>
+                  <div className="text-xs text-white/50">每天一条 Minecraft 冷知识，可以点按钮换一条</div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.showTrivia}
+                aria-label="主页显示今日冷知识"
+                onClick={() => update({ showTrivia: !settings.showTrivia })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.showTrivia ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.showTrivia ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+            {/* 生日彩蛋 */}
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Cake className="h-4 w-4 text-pink-300" />
+                <div>
+                  <div className="text-sm font-medium">我的生日</div>
+                  <div className="text-xs text-white/50">填上生日，当天打开启动器有惊喜。只保存在这台电脑上</div>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5 text-sm">
+                <select
+                  value={settings.birthday ? settings.birthday.slice(0, 2) : ''}
+                  onChange={(e) => {
+                    const month = e.target.value
+                    if (!month) return update({ birthday: '' })
+                    // 换到天数更少的月份时，日期取这个月的最后一天
+                    const max = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][Number(month) - 1]
+                    const day = Math.min(Number(settings.birthday ? settings.birthday.slice(3) : '1'), max)
+                    update({ birthday: `${month}-${String(day).padStart(2, '0')}` })
+                  }}
+                  aria-label="生日月份"
+                  className="cursor-pointer rounded-lg border border-white/15 bg-black/20 px-2 py-1.5 outline-none"
+                >
+                  <option value="" className="bg-slate-800 text-white">
+                    不填
+                  </option>
+                  {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map((m) => (
+                    <option key={m} value={m} className="bg-slate-800 text-white">
+                      {Number(m)} 月
+                    </option>
+                  ))}
+                </select>
+                {settings.birthday && (
+                  <select
+                    value={settings.birthday.slice(3)}
+                    onChange={(e) => update({ birthday: `${settings.birthday.slice(0, 2)}-${e.target.value}` })}
+                    aria-label="生日日期"
+                    className="cursor-pointer rounded-lg border border-white/15 bg-black/20 px-2 py-1.5 outline-none"
+                  >
+                    {Array.from(
+                      {
+                        length: [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][
+                          Number(settings.birthday.slice(0, 2)) - 1
+                        ]
+                      },
+                      (_, i) => String(i + 1).padStart(2, '0')
+                    ).map((d) => (
+                      <option key={d} value={d} className="bg-slate-800 text-white">
+                        {Number(d)} 日
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
             {/* 主页闪烁标语 */}
             <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
               <div className="flex items-center gap-3">
@@ -1183,6 +1277,41 @@ function SettingsPage(): JSX.Element {
                   }`}
                 />
               </button>
+            </div>
+            {/* 存档备份位置：例如放到另一块硬盘，游戏目录所在的硬盘坏了也不会一起丢 */}
+            <div className="mt-3 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <FolderOpen className="h-4 w-4 shrink-0 text-sky-300" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">存档备份位置</div>
+                    <div className="break-all text-xs text-white/50" data-testid="backup-dir">
+                      {settings.backupDir || '游戏目录里的 backups 文件夹（默认）'}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  {settings.backupDir && (
+                    <button
+                      onClick={() => void changeBackupDir(() => window.api.resetBackupDir())}
+                      className="rounded-lg px-3 py-1.5 text-xs text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                    >
+                      恢复默认
+                    </button>
+                  )}
+                  <button
+                    onClick={() => void changeBackupDir(() => window.api.pickBackupDir())}
+                    className="rounded-lg bg-white/10 px-3 py-1.5 text-xs transition-colors hover:bg-white/20"
+                  >
+                    更改
+                  </button>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-white/40">
+                可以选另一块硬盘或网盘同步文件夹；每个游戏目录、隔离的版本各放在一个子文件夹里。
+                更改后新的备份放在新位置，原来的备份仍然可以在存档页查看和还原
+              </div>
+              {backupDirError && <div className="mt-2 text-xs text-rose-300">{backupDirError}</div>}
             </div>
             <div className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
               <div className="flex items-center gap-3">

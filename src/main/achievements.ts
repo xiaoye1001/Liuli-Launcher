@@ -3,10 +3,13 @@ import { mkdir, readFile, rename, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { getSettings } from './config'
 import { listInstalledVersions, onGameStatusChange } from './launch'
+import { bestLaunchMs } from './launchTiming'
 import { getPlayStats } from './playStats'
+import { totalDiamonds } from './worlds'
+import { isBirthdayToday } from '../shared/birthday'
 import { getMainWindow } from './windows'
 import { ACHIEVEMENTS, isAchievementId, type AchievementId, type AchievementStatus } from '../shared/achievements'
-import type { AppSettings } from '../shared/types'
+import type { AppSettings, PlayStats } from '../shared/types'
 
 /**
  * 启动器成就：解锁记录保存在 achievements.json（成就 ID → 解锁时间），
@@ -69,6 +72,23 @@ function unlock(id: AchievementId): void {
   void unlockAchievement(id).catch(() => undefined)
 }
 
+/** 最长连续玩了几天（按年统计里玩过的日子算） */
+function longestStreak(stats: PlayStats): number {
+  const days = new Set<number>()
+  for (const [year, y] of Object.entries(stats.years ?? {})) {
+    const start = Date.UTC(Number(year), 0, 1) / 86_400_000
+    for (const d of y.days) days.add(start + d)
+  }
+  let best = 0
+  for (const day of days) {
+    if (days.has(day - 1)) continue
+    let length = 1
+    while (days.has(day + length)) length++
+    best = Math.max(best, length)
+  }
+  return best
+}
+
 /** 根据游玩记录检查累计类的成就 */
 async function checkPlayStats(): Promise<void> {
   const stats = await getPlayStats()
@@ -78,6 +98,14 @@ async function checkPlayStats(): Promise<void> {
   if (totalMs >= 100 * HOUR) unlock('hours_100')
   if (versions.filter((v) => v.totalMs > 0).length >= 5) unlock('explorer')
   if (stats.sessions.some((s) => s.durationMs >= 3 * HOUR)) unlock('marathon')
+  if (longestStreak(stats) >= 7) unlock('streak_7')
+}
+
+/** 游戏结束后数一数存档里挖到的钻石矿 */
+async function checkDiamonds(versionId: string): Promise<void> {
+  const data = await load()
+  if (data.diamonds_100 || !versionId) return
+  if ((await totalDiamonds(versionId)) >= 100) unlock('diamonds_100')
 }
 
 /** 设置变化时检查（换了自己的背景） */
@@ -93,6 +121,14 @@ async function onGameRunning(versionId: string): Promise<void> {
   const hour = new Date().getHours()
   if (hour < 5) unlock('night_owl')
   else if (hour < 7) unlock('early_bird')
+  const { birthday } = await getSettings()
+  if (birthday && isBirthdayToday(birthday)) unlock('birthday')
+  // 启动用时在游戏窗口出现时记录，稍等再看
+  setTimeout(() => {
+    void bestLaunchMs()
+      .then((ms) => ms !== null && ms < 10_000 && unlock('speedrunner'))
+      .catch(() => undefined)
+  }, 1500)
   const version = (await listInstalledVersions()).find((v) => v.id === versionId)
   if (version?.loader) unlock('modded')
 }
@@ -107,6 +143,10 @@ export function setupAchievements(): void {
     // 游玩记录在游戏结束时保存，稍等再检查
     if (next.state === 'exited' || next.state === 'crashed') {
       setTimeout(() => void checkPlayStats().catch(() => undefined), 1500)
+      if (previous === 'running') {
+        const versionId = next.versionId
+        setTimeout(() => void checkDiamonds(versionId).catch(() => undefined), 3000)
+      }
     }
   })
   // 启动时检查一次：等主窗口加载完、开屏动画播完再检查，界面才能收到并显示提示
@@ -130,12 +170,25 @@ export async function getAchievements(): Promise<AchievementStatus[]> {
   const versions = Object.values(stats.versions)
   const hours = versions.reduce((sum, v) => sum + v.totalMs, 0) / HOUR
   const played = versions.filter((v) => v.totalMs > 0).length
-  const current: Partial<Record<AchievementId, number>> = { hours_10: hours, hours_100: hours, explorer: played }
-  return ACHIEVEMENTS.map((a) => ({
-    id: a.id,
-    title: a.title,
-    desc: a.desc,
-    ...(data[a.id] ? { unlockedAt: data[a.id] } : {}),
-    ...('target' in a ? { progress: { current: Math.min(current[a.id] ?? 0, a.target), target: a.target } } : {})
-  }))
+  const current: Partial<Record<AchievementId, number>> = {
+    hours_10: hours,
+    hours_100: hours,
+    explorer: played,
+    streak_7: longestStreak(stats)
+  }
+  return ACHIEVEMENTS.map((a) => {
+    const unlocked = !!data[a.id]
+    // 隐藏成就解锁前不显示名称和条件
+    if ('hidden' in a && a.hidden && !unlocked) {
+      return { id: a.id, title: '？？？', desc: '隐藏成就：达成后才会显示', hidden: true }
+    }
+    return {
+      id: a.id,
+      title: a.title,
+      desc: a.desc,
+      ...('hidden' in a && a.hidden ? { hidden: true } : {}),
+      ...(unlocked ? { unlockedAt: data[a.id] } : {}),
+      ...('target' in a ? { progress: { current: Math.min(current[a.id] ?? 0, a.target), target: a.target } } : {})
+    }
+  })
 }

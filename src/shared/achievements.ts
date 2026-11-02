@@ -13,7 +13,14 @@ export const ACHIEVEMENTS = [
   { id: 'crash', title: '这不是 bug', desc: '第一次遇到游戏崩溃（别灰心！）' },
   { id: 'backup', title: '有备无患', desc: '第一次备份存档' },
   { id: 'ai_doctor', title: 'AI 医生', desc: '让 AI 助手分析一次崩溃' },
-  { id: 'decorator', title: '装修达人', desc: '换上自己的启动器背景' }
+  { id: 'decorator', title: '装修达人', desc: '换上自己的启动器背景' },
+  { id: 'streak_7', title: '七日之约', desc: '连续 7 天都玩了游戏', target: 7 },
+  { id: 'shader_fan', title: '光影艺术家', desc: '用「一键光影」开启光影' },
+  { id: 'mod_collection', title: '我的收藏', desc: '第一次保存模组合集' },
+  { id: 'diamonds_100', title: '钻石大亨', desc: '一个游戏目录的存档里一共挖了 100 个钻石矿', hidden: true },
+  { id: 'birthday', title: '生日快乐', desc: '在自己生日那天玩游戏', hidden: true },
+  { id: 'speedrunner', title: '闪电启动', desc: '游戏 10 秒以内就启动好了', hidden: true },
+  { id: 'rollback', title: '时光倒流', desc: '把更新后有问题的模组退回旧版', hidden: true }
 ] as const
 
 export type AchievementId = (typeof ACHIEVEMENTS)[number]['id']
@@ -26,6 +33,8 @@ export interface AchievementStatus {
   unlockedAt?: number
   /** 需要累计的成就的进度 */
   progress?: { current: number; target: number }
+  /** 隐藏成就：解锁前不显示名称和条件 */
+  hidden?: boolean
 }
 
 export function isAchievementId(id: unknown): id is AchievementId {

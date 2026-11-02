@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  Activity,
   Box,
   Check,
   ChevronDown,
@@ -18,13 +19,29 @@ import RecentPlays from '../components/RecentPlays'
 import VersionIcon from '../components/VersionIcon'
 import NewsPanel from '../components/NewsPanel'
 import SplashText from '../components/SplashText'
+import TriviaLine from '../components/TriviaLine'
+import BirthdayConfetti from '../components/BirthdayConfetti'
+import { isBirthdayToday } from '../../../shared/birthday'
 import { supportsQuickPlay } from '../../../shared/quickPlay'
 import { formatClock } from '../utils/format'
 import { useAppearance } from '../utils/appearance'
 import { renderWelcome } from '../utils/welcome'
 import SkinHead from '../components/SkinHead'
 import { closeGameLaunchOverlay, openGameLaunchOverlay } from '../components/GameLaunchOverlay'
-import type { AccountsInfo, AppSettings, GameStatus, InstallStatus, InstalledVersion } from '../../../shared/types'
+import type {
+  AccountsInfo,
+  AppSettings,
+  GameStatus,
+  InstallStatus,
+  GameResources,
+  InstalledVersion,
+  LaunchTiming
+} from '../../../shared/types'
+
+/** 内存：不到 1 GB 时显示 MB */
+function formatMemoryMb(mb: number): string {
+  return mb < 1024 ? `${mb} MB` : `${(mb / 1024).toFixed(1)} GB`
+}
 
 /** 去掉 Electron 给 IPC 错误加的前缀 */
 function cleanError(e: unknown): string {
@@ -196,9 +213,11 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
   const msAccount = accounts?.accounts.find((a) => a.uuid === accounts.active) ?? external
   const nameValid = msAccount ? true : NAME_PATTERN.test(name)
   const displayName = msAccount ? msAccount.name : name
+  const birthdayToday = !!settings && isBirthdayToday(settings.birthday)
+  const appearance = useAppearance()
   const busy = game.state === 'launching' || game.state === 'running'
   const selected = settings?.selectedVersion ?? ''
-  const { welcomeTitle, welcomeSubtitle } = useAppearance()
+  const { welcomeTitle, welcomeSubtitle } = appearance
   const welcomeValues = { name: nameValid ? displayName : '', version: selected }
 
   const saveName = async (): Promise<void> => {
@@ -292,6 +311,34 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
     if (game.state === 'launching') setKillError('')
   }, [game.state])
   const running = game.state === 'running'
+
+  /** 这次启动用了多久（游戏窗口出现后读取） */
+  const [timing, setTiming] = useState<LaunchTiming | null>(null)
+  useEffect(() => {
+    if (game.state !== 'running') {
+      setTiming(null)
+      return
+    }
+    // 主进程在窗口出现时记录，稍等再读
+    const timer = setTimeout(() => {
+      void window.api.getLaunchTiming().then(({ latest }) => {
+        if (latest && latest.current.versionId === game.versionId && latest.current.at >= (game.startedAt ?? 0)) {
+          setTiming(latest)
+        }
+      })
+    }, 800)
+    return () => clearTimeout(timer)
+  }, [game.state, game.versionId, game.startedAt])
+  /** 游戏运行时的内存和 CPU 占用 */
+  const [resources, setResources] = useState<GameResources | null>(null)
+  useEffect(() => {
+    if (!running) {
+      setResources(null)
+      return
+    }
+    void window.api.getGameResources().then(setResources)
+    return window.api.onGameResources(setResources)
+  }, [running])
   const stopStyle = killConfirm || killing || launchHover
 
   const onKill = async (): Promise<void> => {
@@ -360,7 +407,10 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
       </AnimatePresence>
 
       <div className="relative rounded-2xl border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
-        {settings?.showSplash && <SplashText />}
+        {settings?.showSplash && (
+          <SplashText greeting={birthdayToday ? `生日快乐${nameValid ? `，${displayName}` : ''}！` : undefined} />
+        )}
+        {birthdayToday && appearance.animations && <BirthdayConfetti />}
         <h1 className="text-3xl font-bold tracking-tight">
           {welcomeTitle ? renderWelcome(welcomeTitle, welcomeValues) : `欢迎回来${nameValid ? `，${displayName}` : ''}`}
         </h1>
@@ -371,6 +421,7 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
               ? renderWelcome(welcomeSubtitle, welcomeValues)
               : '选择版本后点击启动，开始你的冒险。'}
         </p>
+        {settings?.showTrivia && <TriviaLine />}
 
         <div className="mt-6 flex flex-wrap items-end gap-4">
           {msAccount ? (
@@ -481,6 +532,30 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
                 : '启动游戏'}
           </motion.button>
         </div>
+        {/* 这次启动用了多久，和上一次比较 */}
+        {running && (timing || resources) && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-white/50">
+            <span className="flex items-center gap-1.5" data-testid="game-resources">
+              {resources && (
+                <>
+                  <Activity className="h-3.5 w-3.5" />
+                  内存 {formatMemoryMb(resources.memoryMb)}
+                  {resources.maxMemoryMb > 0 && ` · 分配 ${formatMemoryMb(resources.maxMemoryMb)}`}
+                  {resources.cpuPercent !== null && ` · CPU ${resources.cpuPercent}%`}
+                </>
+              )}
+            </span>
+            {timing && (
+              <span>
+                游戏启动用时 {(timing.current.ms / 1000).toFixed(1)} 秒
+                {timing.previous &&
+                  Math.abs(timing.current.ms - timing.previous.ms) >= 100 &&
+                  ` · 比上次${timing.current.ms < timing.previous.ms ? '快' : '慢'} ${(Math.abs(timing.current.ms - timing.previous.ms) / 1000).toFixed(1)} 秒`}
+                {timing.best && timing.current.ms < timing.best.ms && ' · 最快的一次！'}
+              </span>
+            )}
+          </div>
+        )}
         {/* 继续游戏：跳过主菜单直接进入上次玩的存档（放在启动按钮下面，不挤占这一行） */}
         {lastWorld && !busy && (
           <div className="mt-3 flex justify-end">

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Copy, Loader2, Map as MapIcon, Search } from 'lucide-react'
+import { Check, ChevronDown, Copy, Loader2, Map as MapIcon, Search } from 'lucide-react'
+import WorldMapView from './WorldMapView'
 import type { WorldDetails, WorldDifficulty, WorldStats } from '../../../shared/types'
 
 /**
@@ -196,6 +197,7 @@ function WorldDetailsPanel({ versionId, folder }: { versionId: string; folder: s
   const [copied, setCopied] = useState(false)
   const [keyword, setKeyword] = useState('')
   const [changedOnly, setChangedOnly] = useState(false)
+  const [showMap, setShowMap] = useState(false)
 
   useEffect(() => {
     window.api
@@ -301,6 +303,28 @@ function WorldDetailsPanel({ versionId, folder }: { versionId: string; folder: s
       </div>
 
       {details.stats && <WorldStatsGrid stats={details.stats} />}
+
+      {/* 地图预览：点开时才读取区域文件 */}
+      <div>
+        <button
+          onClick={() => setShowMap(!showMap)}
+          aria-expanded={showMap}
+          className="flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-white"
+        >
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showMap ? '' : '-rotate-90'}`} />
+          地图预览
+        </button>
+        {showMap && (
+          <div className="mt-2">
+            <WorldMapView
+              versionId={versionId}
+              folder={folder}
+              player={p && /overworld|^0$/.test(p.dimension) ? { x: p.x, z: p.z } : undefined}
+              spawn={details.spawn ? { x: details.spawn.x, z: details.spawn.z } : undefined}
+            />
+          </div>
+        )}
+      </div>
 
       {details.gameRules.length > 0 && (
         <div>

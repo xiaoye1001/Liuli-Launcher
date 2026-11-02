@@ -91,12 +91,18 @@ export interface AppSettings {
   playReminderMinutes: number
   /** 退出游戏后自动备份这次玩过的存档（每个存档保留最近 3 份） */
   autoBackupWorlds: boolean
+  /** 存档备份位置，空为游戏目录里的 backups 文件夹 */
+  backupDir: string
   /** 主页显示 Minecraft 新闻 */
   showNews: boolean
   /** 主页显示「最近游玩」 */
   showRecentPlays: boolean
   /** 主页标题旁显示闪烁标语（像 Minecraft 主菜单的黄字） */
   showSplash: boolean
+  /** 主页显示「今日冷知识」 */
+  showTrivia: boolean
+  /** 玩家的生日（MM-DD），当天主页有彩蛋；空字符串为没有填 */
+  birthday: string
   /** 主页的「最近游玩」收起（只显示标题） */
   recentPlaysCollapsed: boolean
   /** 下载源 */
@@ -950,6 +956,125 @@ export interface VersionPlayStats {
   lastPlayed: number
 }
 
+/** 一次启动的用时（从游戏进程启动到窗口出现） */
+export interface LaunchTimingRecord {
+  versionId: string
+  ms: number
+  /** 记录时间（毫秒时间戳） */
+  at: number
+}
+
+/** 最近一次启动：这次、这个版本的上一次、此前最快的一次 */
+export interface LaunchTiming {
+  current: LaunchTimingRecord
+  previous?: LaunchTimingRecord
+  best?: LaunchTimingRecord
+}
+
+/** 从其他版本复制游戏设置的方式：全部设置 / 只复制按键 */
+export type OptionsCopyMode = 'all' | 'keys'
+
+/** 复制游戏设置的结果 */
+export interface OptionsCopyResult {
+  /** 从 1.13 以后的版本复制到更早的版本：按键格式不同，保留了目标版本原来的按键 */
+  keptKeys: boolean
+}
+
+/** 一个版本的游戏设置（options.txt） */
+export interface GameOptionsInfo {
+  /** 有没有 options.txt（启动过一次游戏才有） */
+  hasOptions: boolean
+  /** 上次修改前的备份时间，没有备份时为 null */
+  backupAt: number | null
+  minecraftVersion: string
+  /** 可以从这些版本复制设置（有设置，并且不和这个版本共用游戏目录） */
+  sources: { id: string; minecraftVersion: string; isolated: boolean }[]
+  /** 能不能使用画质档位（已经有设置，并且是 1.7 及以后的版本） */
+  videoPresetSupported: boolean
+  /** 当前设置正好是哪个画质档位，都不是时为 null */
+  videoPreset: VideoPreset | null
+}
+
+/** 可以退回的模组更新 */
+export interface ModRollback {
+  id: string
+  /** 现在 mods 里的（更新后的）文件名 */
+  currentFile: string
+  /** 更新前的文件名 */
+  oldFile: string
+  /** 更新时间 */
+  at: number
+}
+
+/** 存档地图预览：以某个位置为中心的俯视图 */
+export interface WorldMap {
+  /** 边长（格，一格一个像素） */
+  size: number
+  /** 左上角的方块坐标 */
+  originX: number
+  originZ: number
+  /** RGBA 像素，没有生成的区块透明 */
+  pixels: Uint8Array
+  /** 画出来的区块数 */
+  chunks: number
+  /** 区块都是不支持的格式（1.13 以前的存档等） */
+  unsupported: boolean
+}
+
+/** 游戏资源占用（游戏运行时每隔几秒读取一次） */
+export interface GameResources {
+  /** 游戏进程占用的内存（MB） */
+  memoryMb: number
+  /** 分配给游戏的最大内存（MB），不知道时为 0 */
+  maxMemoryMb: number
+  /** 占整台电脑 CPU 的百分比；刚开始还没算出来时为 null */
+  cpuPercent: number | null
+  at: number
+}
+
+/** 我的模组合集 */
+export interface ModCollection {
+  id: string
+  name: string
+  createdAt: number
+  /** 保存时的游戏版本和加载器（只用来显示） */
+  minecraftVersion: string
+  loader: string
+  /** Modrinth 项目 */
+  mods: { projectId: string; title: string }[]
+}
+
+/** 一键光影可选的光影包：画面好 / 流畅 */
+export type ShaderChoice = 'quality' | 'fast'
+
+/** 一键光影的结果：每一步的情况、是否已经开启光影 */
+export interface ShaderSetupResult {
+  steps: PerformanceModResult[]
+  activated: boolean
+  /** 下载的光影包文件名 */
+  shader?: string
+}
+
+/** 修复向导需要的信息 */
+export interface RepairInfo {
+  /** 最近 3 天添加或更新的已启用模组（新的在前） */
+  recentMods: string[]
+  /** 全部模组都是最近装的（例如刚装好的整合包），没法判断是哪个模组的问题 */
+  allModsRecent: boolean
+  javaMode: VersionConfig['javaMode']
+  /** 全局设置是否自动选择 Java */
+  javaAuto: boolean
+  /** 设置过的自定义启动设置（VersionConfig 的字段名） */
+  customArgs: string[]
+  /** 有没有游戏设置（options.txt） */
+  hasOptions: boolean
+  /** 启动器的「全屏启动」 */
+  fullscreen: boolean
+}
+
+/** 画质档位：流畅 / 均衡 / 高画质 */
+export type VideoPreset = 'smooth' | 'balanced' | 'high'
+
 /** 一次游玩记录 */
 export interface PlaySession {
   versionId: string
@@ -963,6 +1088,26 @@ export interface PlayStats {
   versions: Record<string, VersionPlayStats>
   /** 最近的游玩记录（最新的在前） */
   sessions: PlaySession[]
+  /** 每一年的统计（年度报告用），键是年份 */
+  years: Record<string, YearPlayStats>
+}
+
+/** 一年的游玩统计：按游戏开始的时间算在哪一年 */
+export interface YearPlayStats {
+  totalMs: number
+  launches: number
+  /** 异常退出的次数 */
+  crashes: number
+  /** 最长的一次（毫秒） */
+  longestMs: number
+  /** 每个月的游玩时长（毫秒），12 项 */
+  months: number[]
+  /** 各个钟点开始游戏的次数，24 项 */
+  hours: number[]
+  /** 玩过的日子（这一年的第几天，从 0 开始，不重复） */
+  days: number[]
+  /** 各版本的游玩时长（毫秒） */
+  versions: Record<string, number>
 }
 
 /** 导出整合包的格式 */

@@ -66,17 +66,22 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - Verifies game files before launch and repairs missing or corrupted ones
 - Staged launch animation and live log window; stop the game from the launcher while it runs
 - **Crash analysis** explains causes and fixes, with one-click log sharing to [mclo.gs](https://mclo.gs/)
+- **AI assistant**: add your own API key (Claude, or OpenAI-compatible services such as DeepSeek, Qwen, Kimi and local Ollama) to analyze crashes and launch failures automatically; the key is encrypted on this computer, and sign-in tokens and other private data are removed before anything is sent
+- **Repair wizard** for games that won't start: repair game files, switch to automatic Java, clear custom launch arguments, temporarily disable recently added mods and lower the graphics settings
 - Per-version memory, Java, window size, JVM arguments, pre-launch / post-exit commands and more
+- **In-game settings**: switch graphics presets (smooth / balanced / high), copy settings or just key bindings from another version, with an automatic backup before each change
 - Multiple game directories, version isolation, favorites and custom icons, playtime statistics
 - **Continue**: jump straight into your last world, skipping the title screen (1.20+); new versions start in Simplified Chinese
+- Shows how long each launch took, and the game's memory and CPU usage while it runs
 - System tray icon; play-time reminders that suggest taking a break
 
 ### Version and world management
-- Mods: enable / disable, dependency checks, update checks
+- Mods: enable / disable, dependency checks, update checks; **roll back** an update that causes problems (the crash screen suggests rolling back recently updated mods)
 - One-click **performance mods** (Sodium, Lithium, FerriteCore and more) and **mod translations** (CFPA's I18nUpdateMod, updated automatically in game)
-- Worlds: backup and restore, import, seed and game rules, data packs; worlds you played are **backed up automatically** after the game exits (latest 3 per world)
-- Per-world statistics (play time, deaths, diamonds mined and more) and a one-click seed map
-- Resource packs, shader packs and screenshots
+- **Mod collections**: save your favorite mods as a collection and install it into another version in one click (matching versions are picked automatically)
+- Worlds: backup and restore, import, seed and game rules, data packs; worlds you played are **backed up automatically** after the game exits (latest 3 per world), to a backup folder of your choice
+- Per-world statistics (play time, deaths, diamonds mined and more), a **world map preview** (top-down view of the Overworld) and a one-click seed map
+- Resource packs, shader packs and screenshots; **one-click shaders** installs Iris / Oculus and a rendering mod, downloads a shader pack and turns it on
 
 ### Servers and multiplayer
 - Save servers with player count, ping and MOTD; join directly
@@ -89,9 +94,10 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 ### Appearance
 - Dark / light / system themes, theme presets and animated particle backgrounds
 - Original built-in themes (HD wallpapers and background music); custom wallpapers (images or video), accent colors, fonts and UI scale
-- Home-screen splash text; set a screenshot as the launcher wallpaper
+- Home-screen splash text and a daily Minecraft fact; set a screenshot as the launcher wallpaper; a small surprise on your birthday if you set it
 - **Ctrl+K quick search** for pages, settings, tools and versions
-- **Play report** (weekly play time, most-played versions) and 14 **launcher achievements** with an in-game style toast
+- **Play report** (weekly play time, most-played versions) with a shareable **yearly report image**
+- 21 **launcher achievements** (including hidden ones) with an in-game style toast
 - Background music player, click effects and official Minecraft news
 - Automatic updates with signature verification and one-click restart
 

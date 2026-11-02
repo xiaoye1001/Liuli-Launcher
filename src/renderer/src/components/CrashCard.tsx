@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   AlertTriangle,
@@ -9,11 +9,14 @@ import {
   Lightbulb,
   Loader2,
   Terminal,
+  Undo2,
+  Wrench,
   X
 } from 'lucide-react'
 import { ShareButton, ShareStatus, useLogShare } from './LogShare'
 import AiAnalysisPanel from './AiAnalysisPanel'
-import type { CrashAction, GameStatus } from '../../../shared/types'
+import RepairWizard from './RepairWizard'
+import type { CrashAction, GameStatus, ModRollback } from '../../../shared/types'
 
 const ACTION_LABELS: Record<CrashAction, string> = {
   versionSettings: '打开版本设置',
@@ -23,6 +26,91 @@ const ACTION_LABELS: Record<CrashAction, string> = {
 function cleanError(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e)
   return message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+}
+
+/** 最近几天内更新过的模组算「最近更新」 */
+const RECENT_UPDATE_MS = 3 * 24 * 60 * 60 * 1000
+
+/** 最近更新过的模组：崩溃可能和新版本有关，可以一键退回更新前的版本 */
+function RecentModUpdates({ versionId }: { versionId: string }): JSX.Element | null {
+  const [items, setItems] = useState<ModRollback[]>([])
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState('')
+
+  useEffect(() => {
+    let alive = true
+    window.api
+      .listModRollbacks(versionId)
+      .then((list) => {
+        if (alive) setItems(list.filter((r) => Date.now() - r.at < RECENT_UPDATE_MS))
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [versionId])
+
+  if (items.length === 0 && !result) return null
+
+  const rollbackAll = async (): Promise<void> => {
+    setBusy(true)
+    const failed: string[] = []
+    let done = 0
+    for (const item of items) {
+      try {
+        await window.api.rollbackModUpdate(versionId, item.id)
+        done++
+      } catch (e) {
+        failed.push(`${item.currentFile}（${cleanError(e)}）`)
+      }
+    }
+    setItems([])
+    setResult(
+      failed.length > 0
+        ? `已退回 ${done} 个模组；以下模组没能退回：${failed.join('、')}`
+        : `已把 ${done} 个模组退回到更新前的版本，可以再启动试试`
+    )
+    setBusy(false)
+  }
+
+  return (
+    <div className="rounded-xl bg-black/20 px-4 py-3">
+      {items.length > 0 ? (
+        <>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-white">最近更新了 {items.length} 个模组</span>
+            <button
+              onClick={() => void rollbackAll()}
+              disabled={busy}
+              className="ml-auto flex shrink-0 items-center gap-1 rounded-lg bg-emerald-500/80 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-60"
+            >
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Undo2 className="h-3 w-3" />}
+              全部退回旧版
+            </button>
+          </div>
+          <div className="mt-1 text-xs text-white/70">
+            如果更新之前能正常玩，问题可能出在新版本上，可以先退回更新前的版本再启动试试（更新后的文件会移到回收站）
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {items.map((item) => (
+              <span
+                key={item.id}
+                title={`更新前：${item.oldFile}`}
+                className="rounded-md bg-amber-500/20 px-2 py-0.5 font-mono text-xs text-amber-200"
+              >
+                {item.currentFile}
+              </span>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="flex items-start gap-1.5 text-xs text-white/80">
+          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-300" />
+          {result}
+        </div>
+      )}
+    </div>
+  )
 }
 
 interface CrashCardProps {
@@ -38,6 +126,7 @@ function CrashCard({ game, onAction, onDismiss, onOpenAiSettings }: CrashCardPro
   const analysis = game.analysis
   const [exporting, setExporting] = useState(false)
   const [message, setMessage] = useState('')
+  const [wizard, setWizard] = useState(false)
   const share = useLogShare(() => window.api.shareCrashLogs())
   /** 正在进行的 AI 分析：关闭卡片时一起取消 */
   const aiAnalysisId = useRef<string | null>(null)
@@ -143,6 +232,7 @@ function CrashCard({ game, onAction, onDismiss, onOpenAiSettings }: CrashCardPro
             </ul>
           </div>
         ))}
+        {game.versionId && <RecentModUpdates versionId={game.versionId} />}
         {/* AI 分析：开启自动分析时卡片出现就开始 */}
         <AiAnalysisPanel
           onOpenSettings={onOpenAiSettings}
@@ -153,6 +243,15 @@ function CrashCard({ game, onAction, onDismiss, onOpenAiSettings }: CrashCardPro
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-white/10 px-5 py-3">
+        {game.versionId && (
+          <button
+            onClick={() => setWizard(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500"
+          >
+            <Wrench className="h-3.5 w-3.5" />
+            修复向导
+          </button>
+        )}
         <button onClick={() => run(() => window.api.openLogWindow())} className={buttonClass}>
           <Terminal className="h-3.5 w-3.5" />
           查看日志
@@ -184,6 +283,7 @@ function CrashCard({ game, onAction, onDismiss, onOpenAiSettings }: CrashCardPro
         )}
       </div>
       <ShareStatus control={share} className="mx-5 mb-3" />
+      {wizard && game.versionId && <RepairWizard versionId={game.versionId} onClose={() => setWizard(false)} />}
     </motion.div>
   )
 }

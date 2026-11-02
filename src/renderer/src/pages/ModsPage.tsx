@@ -6,12 +6,14 @@ import {
   FolderOpen,
   Gauge,
   Languages,
+  Library,
   Loader2,
   Plus,
   Puzzle,
   RefreshCw,
   Search,
   Trash2,
+  Undo2,
   X
 } from 'lucide-react'
 import ModrinthBrowser from '../components/ModrinthBrowser'
@@ -19,14 +21,19 @@ import PageHeader from '../components/PageHeader'
 import { EmptyState, LoadingState } from '../components/EmptyState'
 import { HEADER_BUTTON, HEADER_ICON_BUTTON, HEADER_PRIMARY } from '../components/headerButtons'
 import ModIssuesCard from '../components/ModIssuesCard'
+import ModCollectionsDialog from '../components/ModCollectionsDialog'
 import type {
   InstalledVersion,
   ModInfo,
   ModKind,
   ModList,
+  ModRollback,
   ModUpdate,
   PerformanceModResult
 } from '../../../shared/types'
+
+/** 去掉禁用后缀的文件名 */
+const baseName = (fileName: string): string => fileName.replace(/\.disabled$/, '')
 
 const TABS: { key: 'installed' | 'modrinth'; label: string }[] = [
   { key: 'installed', label: '已安装' },
@@ -78,6 +85,9 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
   const [perf, setPerf] = useState<PerformanceModResult[] | null>(null)
   /** 检查更新的结果：文件名 → 新版本；null 表示还没有检查 */
   const [updates, setUpdates] = useState<Record<string, ModUpdate> | null>(null)
+  /** 可以退回的更新：按去掉 .disabled 的文件名查找（启用、禁用后仍然对得上） */
+  const [rollbacks, setRollbacks] = useState<Record<string, ModRollback>>({})
+  const [collections, setCollections] = useState(false)
   const [checking, setChecking] = useState(false)
   /** 从问题提示跳到「下载模组」时预先填好的搜索词 */
   const [searchPreset, setSearchPreset] = useState<{ text: string; nonce: number } | undefined>()
@@ -87,6 +97,10 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
     try {
       setList(await window.api.listMods(version.id))
       setError('')
+      void window.api
+        .listModRollbacks(version.id)
+        .then((list) => setRollbacks(Object.fromEntries(list.map((r) => [baseName(r.currentFile), r]))))
+        .catch(() => setRollbacks({}))
     } catch (e) {
       setError(cleanError(e))
     } finally {
@@ -200,8 +214,16 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
         delete next[mod.fileName]
         return next
       })
-      setNotice(`已将 ${update.title || mod.name} 更新到 ${update.newVersion}，旧版本已移到回收站`)
+      setNotice(`已将 ${update.title || mod.name} 更新到 ${update.newVersion}，有问题可以「退回旧版」`)
       await load()
+    })
+
+  const rollback = (mod: ModInfo, entry: ModRollback): Promise<void> =>
+    run(mod.fileName, async () => {
+      const restored = await window.api.rollbackModUpdate(version.id, entry.id)
+      setNotice(`已把 ${mod.name} 退回到更新前的版本（${restored}），更新后的版本已移到回收站`)
+      await load()
+      refreshIssues()
     })
 
   const updateAll = (): Promise<void> =>
@@ -223,7 +245,7 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
         }
       }
       await load()
-      setNotice(`已更新 ${done} 个模组，旧版本已移到回收站`)
+      setNotice(`已更新 ${done} 个模组，有问题可以在模组后面点「退回旧版」`)
       if (failed.length > 0) setError(`以下模组更新失败：${failed.join('、')}`)
     })
 
@@ -421,6 +443,17 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
               {checking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
               检查更新
             </button>
+            {version.loader && version.loader !== 'optifine' && (
+              <button
+                onClick={() => setCollections(true)}
+                disabled={pending !== null}
+                title="把常用的模组存成合集，或者把合集装到这个版本"
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+              >
+                <Library className="h-3.5 w-3.5" />
+                合集
+              </button>
+            )}
           </div>
 
           {list && (
@@ -503,6 +536,23 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
                       {updates[mod.fileName].prerelease && '（测试版）'}
                     </button>
                   )}
+                  {rollbacks[baseName(mod.fileName)] && (
+                    <button
+                      onClick={() => rollback(mod, rollbacks[baseName(mod.fileName)])}
+                      disabled={pending !== null}
+                      title={`退回到更新前的 ${rollbacks[baseName(mod.fileName)].oldFile}（${new Date(
+                        rollbacks[baseName(mod.fileName)].at
+                      ).toLocaleString('zh-CN')} 更新）`}
+                      className="flex shrink-0 items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1 text-xs text-white/70 hover:bg-white/20 hover:text-white disabled:opacity-50"
+                    >
+                      {pending === mod.fileName ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Undo2 className="h-3.5 w-3.5" />
+                      )}
+                      退回旧版
+                    </button>
+                  )}
                   <span className="shrink-0 text-xs text-white/30">{formatSize(mod.size)}</span>
                   {/* 启用开关 */}
                   <button
@@ -535,6 +585,13 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
           </div>
         </div>
       </section>
+      {collections && (
+        <ModCollectionsDialog
+          versionId={version.id}
+          onClose={() => setCollections(false)}
+          onInstalled={() => void load()}
+        />
+      )}
     </div>
   )
 }

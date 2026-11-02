@@ -81,10 +81,13 @@ function defaultSettings(): AppSettings {
     showTray: true,
     playReminderMinutes: 0,
     autoBackupWorlds: true,
+    backupDir: '',
     downloadSource: 'bmclapi',
     showNews: true,
     showRecentPlays: true,
     showSplash: true,
+    showTrivia: true,
+    birthday: '',
     recentPlaysCollapsed: false,
     downloadThreads: 16,
     proxyMode: 'none',
@@ -155,7 +158,9 @@ const MANAGED_KEYS = new Set<string>([
   // AI 助手的服务商、接口地址、模型由 AI 设置接口检查后修改
   'aiProvider',
   'aiBaseUrl',
-  'aiModel'
+  'aiModel',
+  // 存档备份位置由选择文件夹的接口检查后修改
+  'backupDir'
 ])
 
 /** 取值固定的设置项 */

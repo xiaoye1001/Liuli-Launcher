@@ -6,7 +6,7 @@
  */
 import { app } from 'electron'
 import { download, type DownloadOptions } from '@xmcl/file-transfer'
-import { appendFile, mkdir } from 'fs/promises'
+import { appendFile, mkdir, rm, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import {
   DownloadCancelledError,
@@ -51,6 +51,12 @@ function stringHeaders(headers: DownloadOptions['headers']): Record<string, stri
  */
 export async function downloadWithFallback(options: DownloadOptions, source: FastDownloadSource): Promise<void> {
   const urls = Array.isArray(options.url) ? options.url : [options.url]
+  // 两种方式都失败时，原下载方式可能已经建好了空文件：原来没有这个文件就删掉，
+  // 否则例如 mods 里会留下一个空的 jar，游戏加载时报错
+  const existed = await stat(options.destination).then(
+    () => true,
+    () => false
+  )
   let taskId: string | undefined
   let cancelSignal: AbortSignal | undefined
   try {
@@ -95,6 +101,7 @@ export async function downloadWithFallback(options: DownloadOptions, source: Fas
     log(
       `原下载方式也失败：${basename(options.destination)}（${e instanceof Error ? e.message.slice(0, 300) : String(e)}）`
     )
+    if (!existed) await rm(options.destination, { force: true }).catch(() => undefined)
     throw e
   }
 }

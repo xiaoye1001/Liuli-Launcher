@@ -7,6 +7,7 @@ import type {
   AppSettings,
   GameLogEvent,
   GameStatus,
+  GameResources,
   FastDownloadTask,
   DirectDownloadOptions,
   InstallRequest,
@@ -115,6 +116,10 @@ const api = {
   backupWorld: (versionId: string, folder: string) => ipcRenderer.invoke('worlds:backup', versionId, folder),
   openWorldDir: (versionId: string, folder?: string) => ipcRenderer.invoke('worlds:open', versionId, folder),
   openBackupsDir: (versionId: string) => ipcRenderer.invoke('worlds:openBackups', versionId),
+  renderWorldMap: (versionId: string, folder: string, x: number, z: number, size: number) =>
+    ipcRenderer.invoke('worlds:map', versionId, folder, x, z, size),
+  pickBackupDir: () => ipcRenderer.invoke('backups:pickDir'),
+  resetBackupDir: () => ipcRenderer.invoke('backups:resetDir'),
   listWorldBackups: (versionId: string) => ipcRenderer.invoke('worlds:backups', versionId),
   restoreWorldBackup: (versionId: string, file: string, asNew: boolean) =>
     ipcRenderer.invoke('worlds:restore', versionId, file, asNew),
@@ -132,6 +137,19 @@ const api = {
   checkModUpdates: (versionId: string) => ipcRenderer.invoke('mods:checkUpdates', versionId),
   updateMod: (versionId: string, fileName: string, modrinthVersionId: string) =>
     ipcRenderer.invoke('mods:update', versionId, fileName, modrinthVersionId),
+  listModRollbacks: (versionId: string) => ipcRenderer.invoke('mods:rollbacks', versionId),
+  rollbackModUpdate: (versionId: string, id: string) => ipcRenderer.invoke('mods:rollback', versionId, id),
+  setupShaders: (versionId: string, choice: string) => ipcRenderer.invoke('shaders:setup', versionId, choice),
+  listModCollections: () => ipcRenderer.invoke('collections:list'),
+  saveModCollection: (versionId: string, name: string) => ipcRenderer.invoke('collections:save', versionId, name),
+  deleteModCollection: (id: string) => ipcRenderer.invoke('collections:delete', id),
+  renameModCollection: (id: string, name: string) => ipcRenderer.invoke('collections:rename', id, name),
+  applyModCollection: (versionId: string, id: string) => ipcRenderer.invoke('collections:apply', versionId, id),
+  getRepairInfo: (versionId: string) => ipcRenderer.invoke('repair:info', versionId),
+  repairDisableMods: (versionId: string, files: string[]) => ipcRenderer.invoke('repair:disableMods', versionId, files),
+  repairAutoJava: (versionId: string) => ipcRenderer.invoke('repair:autoJava', versionId),
+  repairClearArgs: (versionId: string) => ipcRenderer.invoke('repair:clearArgs', versionId),
+  repairResetVideo: (versionId: string) => ipcRenderer.invoke('repair:resetVideo', versionId),
   renameVersion: (versionId: string, newId: string) => ipcRenderer.invoke('versions:rename', versionId, newId),
   copyVersion: (versionId: string, newId: string, includeSaves: boolean) =>
     ipcRenderer.invoke('versions:copy', versionId, newId, includeSaves),
@@ -143,7 +161,14 @@ const api = {
   showScreenshot: (versionId: string, fileName: string) => ipcRenderer.invoke('screenshots:show', versionId, fileName),
   openScreenshotsDir: (versionId: string) => ipcRenderer.invoke('screenshots:open', versionId),
   getPlayStats: () => ipcRenderer.invoke('stats:get'),
+  saveReportImage: (dataUrl: string, name: string) => ipcRenderer.invoke('report:saveImage', dataUrl, name),
+  copyReportImage: (dataUrl: string) => ipcRenderer.invoke('report:copyImage', dataUrl),
   getAchievements: () => ipcRenderer.invoke('achievements:list'),
+  getLaunchTiming: () => ipcRenderer.invoke('launch:timing'),
+  getGameOptionsInfo: (versionId: string) => ipcRenderer.invoke('gameOptions:info', versionId),
+  copyGameOptions: (from: string, to: string, mode: string) => ipcRenderer.invoke('gameOptions:copy', from, to, mode),
+  restoreGameOptions: (versionId: string) => ipcRenderer.invoke('gameOptions:restore', versionId),
+  applyVideoPreset: (versionId: string, preset: string) => ipcRenderer.invoke('gameOptions:preset', versionId, preset),
   /** 解锁了新成就（参数是成就 ID） */
   onAchievementUnlocked: (callback: (id: string) => void) => {
     const listener = (_: Electron.IpcRendererEvent, id: string): void => callback(id)
@@ -300,6 +325,14 @@ const api = {
     ipcRenderer.on('game:status', listener)
     return () => {
       ipcRenderer.removeListener('game:status', listener)
+    }
+  },
+  getGameResources: () => ipcRenderer.invoke('game:resources'),
+  onGameResources: (callback: (resources: GameResources | null) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, resources: GameResources | null): void => callback(resources)
+    ipcRenderer.on('game:resources', listener)
+    return () => {
+      ipcRenderer.removeListener('game:resources', listener)
     }
   },
   getGameDirInfo: () => ipcRenderer.invoke('gamedir:info'),

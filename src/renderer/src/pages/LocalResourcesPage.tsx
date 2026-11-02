@@ -11,10 +11,12 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Sparkles,
   Sun,
   Trash2
 } from 'lucide-react'
 import ScreenshotsPanel from '../components/ScreenshotsPanel'
+import ShaderSetupDialog from '../components/ShaderSetupDialog'
 import PageHeader from '../components/PageHeader'
 import { EmptyState, LoadingState } from '../components/EmptyState'
 import { HEADER_BUTTON, HEADER_ICON_BUTTON, HEADER_PRIMARY } from '../components/headerButtons'
@@ -57,6 +59,7 @@ interface LocalResourcesPageProps {
 /** 某个版本的资源包与光影包：启用资源包、切换光影、添加、删除 */
 function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesPageProps): JSX.Element {
   const [kind, setKind] = useState<LocalResourceKind>('resourcepack')
+  const [shaderSetup, setShaderSetup] = useState(false)
   /** 是否显示「截图」标签 */
   const [showShots, setShowShots] = useState(false)
   const [list, setList] = useState<LocalResourceList | null>(null)
@@ -238,6 +241,16 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
           </button>
         </div>
         <div className={`ml-auto flex gap-3 ${showShots ? 'hidden' : ''}`}>
+          {kind === 'shader' && (
+            <button
+              onClick={() => setShaderSetup(true)}
+              title="自动装好光影加载器和渲染优化模组，下载光影包并开启"
+              className={HEADER_BUTTON}
+            >
+              <Sparkles className="h-4 w-4 text-amber-300" />
+              一键光影
+            </button>
+          )}
           {updateCount > 0 ? (
             <button
               onClick={updateAll}
@@ -468,6 +481,9 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
             </div>
           </section>
         </>
+      )}
+      {shaderSetup && (
+        <ShaderSetupDialog versionId={version.id} onClose={() => setShaderSetup(false)} onDone={() => void load()} />
       )}
     </div>
   )

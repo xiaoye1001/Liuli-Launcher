@@ -378,6 +378,8 @@ function GameLaunchOverlay(): JSX.Element {
   /** 当前阶段开始的时间：进度条在一个阶段里也缓慢前进 */
   const [stageStartedAt, setStageStartedAt] = useState(Date.now())
   const [now, setNow] = useState(Date.now())
+  /** 这次从游戏进程启动到窗口出现用了多久（毫秒） */
+  const [launchMs, setLaunchMs] = useState<number | null>(null)
 
   const openRef = useRef(false)
   const phaseRef = useRef<Phase>('launching')
@@ -409,6 +411,7 @@ function GameLaunchOverlay(): JSX.Element {
     cancellingRef.current = false
     setTipIndex(Math.floor(Math.random() * TIPS.length))
     setStageStartedAt(Date.now())
+    setLaunchMs(null)
     openedAt.current = Date.now()
     lastRealProgress.current = Date.now()
     sawLaunching.current = false
@@ -476,6 +479,20 @@ function GameLaunchOverlay(): JSX.Element {
 
   // 游戏状态推送
   useEffect(() => window.api.onGameStatus(applyStatus), [applyStatus])
+
+  // 窗口出现后显示这次启动用了多久（主进程在窗口出现时记录，稍等再读）
+  useEffect(() => {
+    if (!open || phase !== 'done') return
+    const since = openedAt.current
+    const timer = setTimeout(() => {
+      void window.api.getLaunchTiming().then(({ latest }) => {
+        if (latest && latest.current.versionId === versionId && latest.current.at >= since) {
+          setLaunchMs(latest.current.ms)
+        }
+      })
+    }, 600)
+    return () => clearTimeout(timer)
+  }, [open, phase, versionId])
 
   // 启动日志：显示在日志小窗里，同时从中识别进度
   useEffect(
@@ -751,7 +768,13 @@ function GameLaunchOverlay(): JSX.Element {
                   key={i}
                   index={i}
                   state={stageState(i)}
-                  detail={i === STAGES.length - 1 && phase === 'done' ? '已进入游戏' : details[i]}
+                  detail={
+                    i === STAGES.length - 1 && phase === 'done'
+                      ? launchMs
+                        ? `已进入游戏 · 用时 ${(launchMs / 1000).toFixed(1)} 秒`
+                        : '已进入游戏'
+                      : details[i]
+                  }
                   memory={memory}
                 />
               ))}

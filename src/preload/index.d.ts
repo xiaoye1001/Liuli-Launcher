@@ -38,6 +38,19 @@ import type {
   MsLoginStatus,
   ModrinthInstallResult,
   PerformanceModResult,
+  LaunchTiming,
+  LaunchTimingRecord,
+  GameOptionsInfo,
+  OptionsCopyMode,
+  OptionsCopyResult,
+  VideoPreset,
+  ModRollback,
+  RepairInfo,
+  ShaderChoice,
+  ModCollection,
+  GameResources,
+  WorldMap,
+  ShaderSetupResult,
   ModTranslationResult,
   ModpackInfo,
   ModpackUpdateCheck,
@@ -178,6 +191,12 @@ declare global {
       backupWorld: (versionId: string, folder: string) => Promise<{ path: string; size: number }>
       openWorldDir: (versionId: string, folder?: string) => Promise<void>
       openBackupsDir: (versionId: string) => Promise<void>
+      /** 存档地图预览：以 (x, z) 为中心、边长 size 格的主世界俯视图 */
+      renderWorldMap: (versionId: string, folder: string, x: number, z: number, size: number) => Promise<WorldMap>
+      /** 选择存档备份位置（取消时不改），返回最新的设置 */
+      pickBackupDir: () => Promise<AppSettings>
+      /** 存档备份位置恢复为游戏目录里的 backups 文件夹 */
+      resetBackupDir: () => Promise<AppSettings>
       /** 列出存档备份（新的在前） */
       listWorldBackups: (versionId: string) => Promise<WorldBackup[]>
       /** 还原备份：asNew 为 true 时还原为新存档，否则覆盖原存档（会先自动备份当前存档） */
@@ -202,6 +221,30 @@ declare global {
       checkModUpdates: (versionId: string) => Promise<ModUpdate[]>
       /** 更新模组，返回新的文件名 */
       updateMod: (versionId: string, fileName: string, modrinthVersionId: string) => Promise<string>
+      /** 可以退回的模组更新（最近 30 天） */
+      listModRollbacks: (versionId: string) => Promise<ModRollback[]>
+      /** 退回更新前的模组文件，返回放回的文件名 */
+      rollbackModUpdate: (versionId: string, id: string) => Promise<string>
+      /** 我的模组合集 */
+      listModCollections: () => Promise<ModCollection[]>
+      /** 把这个版本已启用的模组存为合集（只能保存 Modrinth 上有的模组） */
+      saveModCollection: (versionId: string, name: string) => Promise<{ collection: ModCollection; unknown: string[] }>
+      deleteModCollection: (id: string) => Promise<void>
+      renameModCollection: (id: string, name: string) => Promise<void>
+      /** 把合集装到这个版本 */
+      applyModCollection: (versionId: string, id: string) => Promise<PerformanceModResult[]>
+      /** 一键光影：装光影加载器和渲染优化模组，下载光影包并开启 */
+      setupShaders: (versionId: string, choice: ShaderChoice) => Promise<ShaderSetupResult>
+      /** 修复向导：最近添加的模组、Java 设置、自定义启动参数等 */
+      getRepairInfo: (versionId: string) => Promise<RepairInfo>
+      /** 修复向导：暂时禁用最近添加的模组 */
+      repairDisableMods: (versionId: string, files: string[]) => Promise<{ done: string[]; failed: string[] }>
+      /** 修复向导：这个版本的 Java 改为自动选择 */
+      repairAutoJava: (versionId: string) => Promise<void>
+      /** 修复向导：清除这个版本的自定义启动参数 */
+      repairClearArgs: (versionId: string) => Promise<void>
+      /** 修复向导：画质改成流畅、关闭全屏（修改前自动备份） */
+      repairResetVideo: (versionId: string) => Promise<void>
       renameVersion: (versionId: string, newId: string) => Promise<void>
       /** 复制版本（includeSaves 为 false 时不复制存档） */
       copyVersion: (versionId: string, newId: string, includeSaves: boolean) => Promise<void>
@@ -217,6 +260,20 @@ declare global {
       openScreenshotsDir: (versionId: string) => Promise<void>
       /** 游玩时长统计与最近游玩记录 */
       getPlayStats: () => Promise<PlayStats>
+      /** 保存报告图片（PNG），返回保存的路径，取消时返回 null */
+      saveReportImage: (dataUrl: string, name: string) => Promise<string | null>
+      /** 复制报告图片到剪贴板 */
+      copyReportImage: (dataUrl: string) => Promise<void>
+      /** 启动用时：最近一次（和这个版本上一次比较）、最快的一次 */
+      getLaunchTiming: () => Promise<{ latest: LaunchTiming | null; best?: LaunchTimingRecord }>
+      /** 一个版本的游戏设置（options.txt）：有没有设置、备份，以及可以从哪些版本复制 */
+      getGameOptionsInfo: (versionId: string) => Promise<GameOptionsInfo>
+      /** 从另一个版本复制游戏设置（修改前自动备份） */
+      copyGameOptions: (from: string, to: string, mode: OptionsCopyMode) => Promise<OptionsCopyResult>
+      /** 恢复上次修改前的游戏设置 */
+      restoreGameOptions: (versionId: string) => Promise<void>
+      /** 套用画质档位（只改视距、图形质量等几项，修改前自动备份） */
+      applyVideoPreset: (versionId: string, preset: VideoPreset) => Promise<void>
       /** 启动器成就（含进度） */
       getAchievements: () => Promise<AchievementStatus[]>
       /** 解锁了新成就时回调（参数是成就 ID），返回取消监听的函数 */
@@ -316,6 +373,9 @@ declare global {
       /** 强制结束正在运行的游戏，游戏没有在运行时返回 false */
       killGame: () => Promise<boolean>
       onGameStatus: (callback: (status: GameStatus) => void) => () => void
+      /** 游戏资源占用（内存、CPU），游戏没有运行时为 null */
+      getGameResources: () => Promise<GameResources | null>
+      onGameResources: (callback: (resources: GameResources | null) => void) => () => void
       /** 选择背景图片，取消时返回原设置 */
       pickBackground: () => Promise<AppSettings>
       clearBackground: () => Promise<AppSettings>

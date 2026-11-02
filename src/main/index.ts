@@ -1,9 +1,25 @@
 import { portableDir } from './paths'
 import { pruneDownloadCache } from './storage'
 import { moveLegacyGameDir } from './gameDirMove'
+import { isBirthday } from '../shared/birthday'
 import { setTrayWindowFactory, syncTray } from './tray'
 import { setupPlayReminder } from './playReminder'
 import { setupAutoBackup } from './autoBackup'
+import { getLaunchTiming, setupLaunchTiming } from './launchTiming'
+import { getGameResources, setupGameMonitor } from './gameMonitor'
+import { copyReportImage, saveReportImage } from './reportImage'
+import { renderWorldMap } from './worldMap'
+import { applyVideoPreset, copyGameOptions, getGameOptionsInfo, restoreGameOptions } from './optionsTools'
+import { listModRollbacks, rollbackModUpdate } from './modRollback'
+import { setupShaders } from './oneClickShaders'
+import {
+  applyModCollection,
+  deleteModCollection,
+  listModCollections,
+  renameModCollection,
+  saveModCollection
+} from './modCollections'
+import { clearCustomArgs, disableRecentMods, getRepairInfo, resetVideoForRepair, useAutoJava } from './repairWizard'
 import { installPerformanceMods } from './performanceMods'
 import { installModTranslation } from './modTranslation'
 import {
@@ -110,6 +126,7 @@ import {
   listWorldInfos,
   getWorldDetails,
   openBackupsDir,
+  pickBackupDir,
   openWorldDatapacksDir,
   openWorldDir
 } from './worlds'
@@ -204,7 +221,10 @@ import type {
   SavedServer,
   ModpackExportOptions,
   GameDirInfo,
-  DirectDownloadOptions
+  DirectDownloadOptions,
+  OptionsCopyMode,
+  ShaderChoice,
+  VideoPreset
 } from '../shared/types'
 import { HIDEABLE_PAGES, PARTICLE_EFFECTS, THEME_PRESETS } from '../shared/types'
 import { sanitizeAutoTheme, sanitizeCustomThemes } from '../shared/theme'
@@ -295,6 +315,10 @@ function registerIpc(): void {
       patch = { ...patch, downloadThreads: Number.isInteger(threads) ? Math.min(64, Math.max(1, threads)) : 16 }
     }
     if ('uiScale' in patch) patch = { ...patch, uiScale: normalizeScale(patch.uiScale) }
+    // 生日：MM-DD 或空
+    if (typeof patch.birthday === 'string' && patch.birthday && !isBirthday(patch.birthday)) {
+      patch = { ...patch, birthday: '' }
+    }
     if ('playReminderMinutes' in patch) {
       // 健康游戏提醒：0（不提醒）或 15 分钟到 10 小时
       const minutes = Number(patch.playReminderMinutes)
@@ -443,6 +467,32 @@ function registerIpc(): void {
   ipcMain.handle('mods:update', (_, versionId: string, fileName: string, modrinthVersionId: string) =>
     updateMod(versionId, fileName, modrinthVersionId)
   )
+  ipcMain.handle('mods:rollbacks', (_, versionId: string) => listModRollbacks(versionId))
+  ipcMain.handle('mods:rollback', async (_, versionId: string, id: string) => {
+    const restored = await rollbackModUpdate(versionId, id)
+    void unlockAchievement('rollback').catch(() => undefined)
+    return restored
+  })
+  ipcMain.handle('collections:list', () => listModCollections())
+  ipcMain.handle('collections:save', async (_, versionId: string, name: string) => {
+    const result = await saveModCollection(versionId, name)
+    void unlockAchievement('mod_collection').catch(() => undefined)
+    return result
+  })
+  ipcMain.handle('collections:delete', (_, id: string) => deleteModCollection(String(id)))
+  ipcMain.handle('collections:rename', (_, id: string, name: string) => renameModCollection(String(id), name))
+  ipcMain.handle('collections:apply', (_, versionId: string, id: string) => applyModCollection(versionId, String(id)))
+  ipcMain.handle('shaders:setup', async (_, versionId: string, choice: ShaderChoice) => {
+    const result = await setupShaders(versionId, choice)
+    if (result.activated) void unlockAchievement('shader_fan').catch(() => undefined)
+    return result
+  })
+  // 修复向导
+  ipcMain.handle('repair:info', (_, versionId: string) => getRepairInfo(versionId))
+  ipcMain.handle('repair:disableMods', (_, versionId: string, files: string[]) => disableRecentMods(versionId, files))
+  ipcMain.handle('repair:autoJava', (_, versionId: string) => useAutoJava(versionId))
+  ipcMain.handle('repair:clearArgs', (_, versionId: string) => clearCustomArgs(versionId))
+  ipcMain.handle('repair:resetVideo', (_, versionId: string) => resetVideoForRepair(versionId))
   ipcMain.handle('local:list', (_, versionId: string, kind: LocalResourceKind) => listLocalResources(versionId, kind))
   ipcMain.handle('local:checkUpdates', (_, versionId: string, kind: LocalResourceKind) =>
     checkResourceUpdates(versionId, kind)
@@ -475,6 +525,15 @@ function registerIpc(): void {
   )
   ipcMain.handle('worlds:open', (_, versionId: string, folder?: string) => openWorldDir(versionId, folder))
   ipcMain.handle('worlds:openBackups', (_, versionId: string) => openBackupsDir(versionId))
+  ipcMain.handle('worlds:map', (_, versionId: string, folder: string, x: number, z: number, size: number) =>
+    renderWorldMap(versionId, folder, Number(x), Number(z), Number(size))
+  )
+  // 存档备份位置：选择文件夹（取消时不改），或恢复为游戏目录里的 backups
+  ipcMain.handle('backups:pickDir', async (event) => {
+    const dir = await pickBackupDir(BrowserWindow.fromWebContents(event.sender))
+    return broadcastSettings(dir ? await updateSettings({ backupDir: dir }) : await getSettings())
+  })
+  ipcMain.handle('backups:resetDir', async () => broadcastSettings(await updateSettings({ backupDir: '' })))
   ipcMain.handle('worlds:backups', (_, versionId: string) => listWorldBackups(versionId))
   ipcMain.handle('worlds:restore', (_, versionId: string, file: string, asNew: boolean) =>
     restoreWorldBackup(versionId, file, asNew === true)
@@ -589,10 +648,24 @@ function registerIpc(): void {
   ipcMain.handle('servers:import', () => importGameServers())
   ipcMain.handle('servers:ping', (_, address: string) => pingServer(address))
   ipcMain.handle('game:status', () => getGameStatus())
+  ipcMain.handle('game:resources', () => getGameResources())
   ipcMain.handle('game:cancel', () => cancelLaunch())
   ipcMain.handle('game:kill', () => killGame())
   ipcMain.handle('stats:get', () => getPlayStats())
+  ipcMain.handle('report:saveImage', (event, dataUrl: string, name: string) =>
+    saveReportImage(BrowserWindow.fromWebContents(event.sender), dataUrl, name)
+  )
+  ipcMain.handle('report:copyImage', (_, dataUrl: string) => copyReportImage(dataUrl))
   ipcMain.handle('achievements:list', () => getAchievements())
+  ipcMain.handle('launch:timing', () => getLaunchTiming())
+  ipcMain.handle('gameOptions:info', (_, versionId: string) => getGameOptionsInfo(versionId))
+  ipcMain.handle('gameOptions:copy', (_, from: string, to: string, mode: OptionsCopyMode) =>
+    copyGameOptions(from, to, mode)
+  )
+  ipcMain.handle('gameOptions:restore', (_, versionId: string) => restoreGameOptions(versionId))
+  ipcMain.handle('gameOptions:preset', (_, versionId: string, preset: VideoPreset) =>
+    applyVideoPreset(versionId, preset)
+  )
   ipcMain.handle('export:show', () => showExportedModpack())
   ipcMain.handle('export:info', (_, versionId: string) => getModpackExportInfo(versionId))
   ipcMain.handle('export:run', (event, options: ModpackExportOptions) =>
@@ -728,6 +801,8 @@ app.whenReady().then(async () => {
   syncTray((await getSettings()).showTray)
   setupPlayReminder()
   setupAutoBackup()
+  setupLaunchTiming()
+  setupGameMonitor()
   setupAchievements()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)
