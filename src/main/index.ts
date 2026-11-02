@@ -7,6 +7,7 @@ import { setupPlayReminder } from './playReminder'
 import { setupAutoBackup } from './autoBackup'
 import { getLaunchTiming, setupLaunchTiming } from './launchTiming'
 import { getGameResources, setupGameMonitor } from './gameMonitor'
+import { copyReportImage, saveReportImage } from './reportImage'
 import { applyVideoPreset, copyGameOptions, getGameOptionsInfo, restoreGameOptions } from './optionsTools'
 import { listModRollbacks, rollbackModUpdate } from './modRollback'
 import { setupShaders } from './oneClickShaders'
@@ -635,6 +636,10 @@ function registerIpc(): void {
   ipcMain.handle('game:cancel', () => cancelLaunch())
   ipcMain.handle('game:kill', () => killGame())
   ipcMain.handle('stats:get', () => getPlayStats())
+  ipcMain.handle('report:saveImage', (event, dataUrl: string, name: string) =>
+    saveReportImage(BrowserWindow.fromWebContents(event.sender), dataUrl, name)
+  )
+  ipcMain.handle('report:copyImage', (_, dataUrl: string) => copyReportImage(dataUrl))
   ipcMain.handle('achievements:list', () => getAchievements())
   ipcMain.handle('launch:timing', () => getLaunchTiming())
   ipcMain.handle('gameOptions:info', (_, versionId: string) => getGameOptionsInfo(versionId))

@@ -1073,6 +1073,26 @@ export interface PlayStats {
   versions: Record<string, VersionPlayStats>
   /** 最近的游玩记录（最新的在前） */
   sessions: PlaySession[]
+  /** 每一年的统计（年度报告用），键是年份 */
+  years: Record<string, YearPlayStats>
+}
+
+/** 一年的游玩统计：按游戏开始的时间算在哪一年 */
+export interface YearPlayStats {
+  totalMs: number
+  launches: number
+  /** 异常退出的次数 */
+  crashes: number
+  /** 最长的一次（毫秒） */
+  longestMs: number
+  /** 每个月的游玩时长（毫秒），12 项 */
+  months: number[]
+  /** 各个钟点开始游戏的次数，24 项 */
+  hours: number[]
+  /** 玩过的日子（这一年的第几天，从 0 开始，不重复） */
+  days: number[]
+  /** 各版本的游玩时长（毫秒） */
+  versions: Record<string, number>
 }
 
 /** 导出整合包的格式 */

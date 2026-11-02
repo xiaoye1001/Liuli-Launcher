@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart3, Clock, Gamepad2, Rocket, Sun, Trophy } from 'lucide-react'
+import { BarChart3, Clock, Gamepad2, ImageIcon, Rocket, Sun, Trophy } from 'lucide-react'
 import { EmptyState, LoadingState } from './EmptyState'
 import { formatDuration } from '../utils/format'
 import { buildPlayReport, PERIOD_INFO } from '../utils/playReport'
+import { reportYears } from '../utils/yearReport'
+import YearReportDialog from './YearReportDialog'
 import type { LaunchTimingRecord, PlayStats } from '../../../shared/types'
 
 function hours(ms: number): string {
@@ -43,6 +45,7 @@ function PlayReportPanel(): JSX.Element {
   const [stats, setStats] = useState<PlayStats | null>(null)
   const [hover, setHover] = useState<number | null>(null)
   const [fastest, setFastest] = useState<LaunchTimingRecord | undefined>()
+  const [yearDialog, setYearDialog] = useState(false)
 
   useEffect(() => {
     void window.api.getPlayStats().then(setStats)
@@ -76,7 +79,17 @@ function PlayReportPanel(): JSX.Element {
       <div>
         <h2 className="flex items-center gap-2 text-lg font-semibold">
           <BarChart3 className="h-5 w-5 text-emerald-300" />
-          我的游玩报告
+          <span className="flex-1">我的游玩报告</span>
+          {stats && reportYears(stats).length > 0 && (
+            <button
+              onClick={() => setYearDialog(true)}
+              title="生成一张年度游玩报告图片，可以保存或分享"
+              className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-normal transition-colors hover:bg-white/20"
+            >
+              <ImageIcon className="h-3.5 w-3.5" />
+              年度报告图片
+            </button>
+          )}
         </h2>
         <p className="text-xs text-white/50">
           {period ? `你是一位「${period.title}」：最常在${period.label}开始游戏` : '用琉璃启动器玩过的时间'}
@@ -188,6 +201,7 @@ function PlayReportPanel(): JSX.Element {
         每周时长、时段、最长的一次和周末占比根据最近 {report.sessionCount}{' '}
         次游玩记录计算；累计时长和启动次数包含所有记录
       </p>
+      {yearDialog && stats && <YearReportDialog stats={stats} onClose={() => setYearDialog(false)} />}
     </section>
   )
 }

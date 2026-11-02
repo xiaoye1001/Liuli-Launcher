@@ -257,6 +257,10 @@ declare global {
       openScreenshotsDir: (versionId: string) => Promise<void>
       /** 游玩时长统计与最近游玩记录 */
       getPlayStats: () => Promise<PlayStats>
+      /** 保存报告图片（PNG），返回保存的路径，取消时返回 null */
+      saveReportImage: (dataUrl: string, name: string) => Promise<string | null>
+      /** 复制报告图片到剪贴板 */
+      copyReportImage: (dataUrl: string) => Promise<void>
       /** 启动用时：最近一次（和这个版本上一次比较）、最快的一次 */
       getLaunchTiming: () => Promise<{ latest: LaunchTiming | null; best?: LaunchTimingRecord }>
       /** 一个版本的游戏设置（options.txt）：有没有设置、备份，以及可以从哪些版本复制 */
