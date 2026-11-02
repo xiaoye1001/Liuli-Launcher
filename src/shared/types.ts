@@ -1006,6 +1006,18 @@ export interface ModRollback {
   at: number
 }
 
+/** 我的模组合集 */
+export interface ModCollection {
+  id: string
+  name: string
+  createdAt: number
+  /** 保存时的游戏版本和加载器（只用来显示） */
+  minecraftVersion: string
+  loader: string
+  /** Modrinth 项目 */
+  mods: { projectId: string; title: string }[]
+}
+
 /** 一键光影可选的光影包：画面好 / 流畅 */
 export type ShaderChoice = 'quality' | 'fast'
 

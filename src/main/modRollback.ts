@@ -87,6 +87,11 @@ export async function backupBeforeUpdate(modsDir: string, fileName: string): Pro
   }
 }
 
+/** 更新失败时放回旧文件（新旧文件同名时，失败的下载可能已经把旧文件弄坏了） */
+export async function restoreBackupFile(modsDir: string, backup: string, fileName: string): Promise<void> {
+  await copyFile(join(storeOf(modsDir), backup), join(modsDir, fileName))
+}
+
 /** 更新失败：删掉这次的备份 */
 export async function discardBackup(modsDir: string, backup: string): Promise<void> {
   await rm(join(storeOf(modsDir), backup), { force: true }).catch(() => undefined)

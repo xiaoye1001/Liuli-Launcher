@@ -5,7 +5,7 @@ import { mkdir, readdir, rename, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import { getSettings } from './config'
 import { assertGameStopped, fileSha1, listModFiles, modsContextOf, type ModsContext } from './mods'
-import { backupBeforeUpdate, discardBackup, recordUpdate } from './modRollback'
+import { backupBeforeUpdate, discardBackup, recordUpdate, restoreBackupFile } from './modRollback'
 import { downloadDispatcher, discardBody } from './network'
 import { hasChinese, matchChineseName, zhNameBySlug } from '../shared/modNames'
 import type {
@@ -635,7 +635,11 @@ export async function updateMod(versionId: string, fileName: string, modrinthVer
       await shell.trashItem(join(ctx.dir, fileName))
     }
   } catch (e) {
-    if (backup) await discardBackup(ctx.dir, backup)
+    if (backup) {
+      const target = (version.files.find((f) => f.primary) ?? version.files[0])?.filename
+      if (target === fileName) await restoreBackupFile(ctx.dir, backup, fileName).catch(() => undefined)
+      await discardBackup(ctx.dir, backup)
+    }
     throw e
   }
   if (backup) await recordUpdate(ctx.dir, finalName, fileName, backup).catch(() => undefined)
@@ -658,4 +662,48 @@ export async function lookupModrinthFiles(
     }
   }
   return result
+}
+
+/** 某个版本已经装了的 Modrinth 项目 ID（按文件 SHA1 识别） */
+export async function installedProjectIds(versionId: string): Promise<Set<string>> {
+  const ctx = await modsContextOf(versionId)
+  return installedProjects(ctx.dir)
+}
+
+/**
+ * 识别 mods 文件夹里已启用的模组对应的 Modrinth 项目（存为模组合集用）：
+ * 返回识别出的项目（ID 和名称），以及 Modrinth 上没有的文件名
+ */
+export async function identifyEnabledMods(
+  versionId: string
+): Promise<{ projects: { projectId: string; title: string }[]; unknown: string[] }> {
+  const ctx = await modsContextOf(versionId)
+  const files = (await listModFiles(ctx.dir)).filter((name) => name.toLowerCase().endsWith('.jar'))
+  const hashes = await Promise.all(files.map((name) => fileSha1(join(ctx.dir, name)).catch(() => '')))
+  const byHash: Record<string, ModrinthVersion> = {}
+  const wanted = [...new Set(hashes.filter(Boolean))]
+  for (let i = 0; i < wanted.length; i += 500) {
+    Object.assign(
+      byHash,
+      await modrinthFetch<Record<string, ModrinthVersion>>('/version_files', {
+        method: 'POST',
+        body: JSON.stringify({ hashes: wanted.slice(i, i + 500), algorithm: 'sha1' })
+      })
+    )
+  }
+  const unknown: string[] = []
+  const ids: string[] = []
+  files.forEach((name, i) => {
+    const projectId = byHash[hashes[i]]?.project_id
+    if (!projectId) unknown.push(name)
+    else if (!ids.includes(projectId)) ids.push(projectId)
+  })
+  const titles = new Map<string, string>()
+  for (let i = 0; i < ids.length; i += 100) {
+    const projects = await modrinthFetch<{ id: string; title: string }[]>(
+      `/projects?ids=${encodeURIComponent(JSON.stringify(ids.slice(i, i + 100)))}`
+    ).catch(() => [])
+    for (const p of projects) titles.set(p.id, p.title)
+  }
+  return { projects: ids.map((projectId) => ({ projectId, title: titles.get(projectId) ?? projectId })), unknown }
 }

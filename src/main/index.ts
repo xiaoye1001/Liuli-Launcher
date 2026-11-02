@@ -9,6 +9,13 @@ import { getLaunchTiming, setupLaunchTiming } from './launchTiming'
 import { applyVideoPreset, copyGameOptions, getGameOptionsInfo, restoreGameOptions } from './optionsTools'
 import { listModRollbacks, rollbackModUpdate } from './modRollback'
 import { setupShaders } from './oneClickShaders'
+import {
+  applyModCollection,
+  deleteModCollection,
+  listModCollections,
+  renameModCollection,
+  saveModCollection
+} from './modCollections'
 import { clearCustomArgs, disableRecentMods, getRepairInfo, resetVideoForRepair, useAutoJava } from './repairWizard'
 import { installPerformanceMods } from './performanceMods'
 import { installModTranslation } from './modTranslation'
@@ -459,6 +466,11 @@ function registerIpc(): void {
   )
   ipcMain.handle('mods:rollbacks', (_, versionId: string) => listModRollbacks(versionId))
   ipcMain.handle('mods:rollback', (_, versionId: string, id: string) => rollbackModUpdate(versionId, id))
+  ipcMain.handle('collections:list', () => listModCollections())
+  ipcMain.handle('collections:save', (_, versionId: string, name: string) => saveModCollection(versionId, name))
+  ipcMain.handle('collections:delete', (_, id: string) => deleteModCollection(String(id)))
+  ipcMain.handle('collections:rename', (_, id: string, name: string) => renameModCollection(String(id), name))
+  ipcMain.handle('collections:apply', (_, versionId: string, id: string) => applyModCollection(versionId, String(id)))
   ipcMain.handle('shaders:setup', (_, versionId: string, choice: ShaderChoice) => setupShaders(versionId, choice))
   // 修复向导
   ipcMain.handle('repair:info', (_, versionId: string) => getRepairInfo(versionId))

@@ -47,6 +47,7 @@ import type {
   ModRollback,
   RepairInfo,
   ShaderChoice,
+  ModCollection,
   ShaderSetupResult,
   ModTranslationResult,
   ModpackInfo,
@@ -220,6 +221,14 @@ declare global {
       listModRollbacks: (versionId: string) => Promise<ModRollback[]>
       /** 退回更新前的模组文件，返回放回的文件名 */
       rollbackModUpdate: (versionId: string, id: string) => Promise<string>
+      /** 我的模组合集 */
+      listModCollections: () => Promise<ModCollection[]>
+      /** 把这个版本已启用的模组存为合集（只能保存 Modrinth 上有的模组） */
+      saveModCollection: (versionId: string, name: string) => Promise<{ collection: ModCollection; unknown: string[] }>
+      deleteModCollection: (id: string) => Promise<void>
+      renameModCollection: (id: string, name: string) => Promise<void>
+      /** 把合集装到这个版本 */
+      applyModCollection: (versionId: string, id: string) => Promise<PerformanceModResult[]>
       /** 一键光影：装光影加载器和渲染优化模组，下载光影包并开启 */
       setupShaders: (versionId: string, choice: ShaderChoice) => Promise<ShaderSetupResult>
       /** 修复向导：最近添加的模组、Java 设置、自定义启动参数等 */
