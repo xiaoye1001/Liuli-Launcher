@@ -46,6 +46,8 @@ import type {
   VideoPreset,
   ModRollback,
   RepairInfo,
+  ShaderChoice,
+  ShaderSetupResult,
   ModTranslationResult,
   ModpackInfo,
   ModpackUpdateCheck,
@@ -218,6 +220,8 @@ declare global {
       listModRollbacks: (versionId: string) => Promise<ModRollback[]>
       /** 退回更新前的模组文件，返回放回的文件名 */
       rollbackModUpdate: (versionId: string, id: string) => Promise<string>
+      /** 一键光影：装光影加载器和渲染优化模组，下载光影包并开启 */
+      setupShaders: (versionId: string, choice: ShaderChoice) => Promise<ShaderSetupResult>
       /** 修复向导：最近添加的模组、Java 设置、自定义启动参数等 */
       getRepairInfo: (versionId: string) => Promise<RepairInfo>
       /** 修复向导：暂时禁用最近添加的模组 */

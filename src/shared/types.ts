@@ -1006,6 +1006,17 @@ export interface ModRollback {
   at: number
 }
 
+/** 一键光影可选的光影包：画面好 / 流畅 */
+export type ShaderChoice = 'quality' | 'fast'
+
+/** 一键光影的结果：每一步的情况、是否已经开启光影 */
+export interface ShaderSetupResult {
+  steps: PerformanceModResult[]
+  activated: boolean
+  /** 下载的光影包文件名 */
+  shader?: string
+}
+
 /** 修复向导需要的信息 */
 export interface RepairInfo {
   /** 最近 3 天添加或更新的已启用模组（新的在前） */

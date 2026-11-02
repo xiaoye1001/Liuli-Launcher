@@ -136,6 +136,7 @@ const api = {
     ipcRenderer.invoke('mods:update', versionId, fileName, modrinthVersionId),
   listModRollbacks: (versionId: string) => ipcRenderer.invoke('mods:rollbacks', versionId),
   rollbackModUpdate: (versionId: string, id: string) => ipcRenderer.invoke('mods:rollback', versionId, id),
+  setupShaders: (versionId: string, choice: string) => ipcRenderer.invoke('shaders:setup', versionId, choice),
   getRepairInfo: (versionId: string) => ipcRenderer.invoke('repair:info', versionId),
   repairDisableMods: (versionId: string, files: string[]) => ipcRenderer.invoke('repair:disableMods', versionId, files),
   repairAutoJava: (versionId: string) => ipcRenderer.invoke('repair:autoJava', versionId),
