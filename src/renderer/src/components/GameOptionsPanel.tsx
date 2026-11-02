@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CheckCircle2, Copy, Loader2, RotateCcw } from 'lucide-react'
-import type { GameOptionsInfo, OptionsCopyMode } from '../../../shared/types'
+import { CheckCircle2, Copy, Gauge, Loader2, RotateCcw, Scale, Sparkles, type LucideIcon } from 'lucide-react'
+import type { GameOptionsInfo, OptionsCopyMode, VideoPreset } from '../../../shared/types'
 
 /** 去掉 Electron 给 IPC 错误加的前缀 */
 function cleanError(e: unknown): string {
@@ -13,7 +13,14 @@ const COPY_MODES: [OptionsCopyMode, string][] = [
   ['keys', '只复制按键']
 ]
 
-/** 版本设置页里的「游戏内设置」：从其他版本复制设置、恢复修改前的设置 */
+/** 画质档位：名称、图标、说明 */
+const PRESETS: { id: VideoPreset; label: string; icon: LucideIcon; desc: string }[] = [
+  { id: 'smooth', label: '流畅', icon: Gauge, desc: '视距 6，关闭阴影和平滑光照，适合配置较低的电脑' },
+  { id: 'balanced', label: '均衡', icon: Scale, desc: '视距 10，高品质图形，大多数电脑' },
+  { id: 'high', label: '高画质', icon: Sparkles, desc: '视距 16，更远更细致，适合配置较好的电脑' }
+]
+
+/** 版本设置页里的「游戏内设置」：画质档位、从其他版本复制设置、恢复修改前的设置 */
 function GameOptionsPanel({ versionId }: { versionId: string }): JSX.Element {
   const [info, setInfo] = useState<GameOptionsInfo | null>(null)
   const [source, setSource] = useState('')
@@ -58,6 +65,12 @@ function GameOptionsPanel({ versionId }: { versionId: string }): JSX.Element {
         : `已复制「${source}」的${mode === 'keys' ? '按键' : '设置'}，下次启动游戏生效`
     })
 
+  const applyPreset = (preset: VideoPreset): Promise<void> =>
+    run(async () => {
+      await window.api.applyVideoPreset(versionId, preset)
+      return `已切换到「${PRESETS.find((p) => p.id === preset)?.label}」画质，下次启动游戏生效`
+    })
+
   const restore = (): Promise<void> =>
     run(async () => {
       await window.api.restoreGameOptions(versionId)
@@ -74,7 +87,44 @@ function GameOptionsPanel({ versionId }: { versionId: string }): JSX.Element {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* 画质档位 */}
+      <div>
+        <div className="mb-2 text-sm font-medium">画质档位</div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {PRESETS.map(({ id, label, icon: Icon, desc }) => {
+            const active = info.videoPreset === id
+            return (
+              <button
+                key={id}
+                onClick={() => void applyPreset(id)}
+                disabled={busy || !info.videoPresetSupported}
+                aria-pressed={active}
+                className={`rounded-xl border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  active
+                    ? 'border-fuchsia-400/40 bg-fuchsia-500/15'
+                    : 'border-white/10 bg-black/20 enabled:hover:bg-black/30'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 text-sm font-medium">
+                  <Icon className={`h-4 w-4 ${active ? 'text-fuchsia-300' : 'text-white/50'}`} />
+                  {label}
+                  {active && <span className="ml-auto text-[11px] text-fuchsia-300">当前</span>}
+                </div>
+                <div className="mt-1 text-xs leading-5 text-white/50">{desc}</div>
+              </button>
+            )
+          })}
+        </div>
+        <p className="mt-2 text-xs text-white/40">
+          {info.videoPresetSupported
+            ? '只修改视距、图形质量、粒子、实体阴影、平滑光照等几项，其他设置不变'
+            : info.hasOptions
+              ? '这个版本太旧，不支持画质档位'
+              : '这个版本还没有游戏设置，先启动一次游戏再选择画质档位'}
+        </p>
+      </div>
+
       {/* 从其他版本复制设置 */}
       <div>
         <div className="mb-2 text-sm font-medium">从其他版本复制设置</div>

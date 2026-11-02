@@ -987,7 +987,14 @@ export interface GameOptionsInfo {
   minecraftVersion: string
   /** 可以从这些版本复制设置（有设置，并且不和这个版本共用游戏目录） */
   sources: { id: string; minecraftVersion: string; isolated: boolean }[]
+  /** 能不能使用画质档位（已经有设置，并且是 1.7 及以后的版本） */
+  videoPresetSupported: boolean
+  /** 当前设置正好是哪个画质档位，都不是时为 null */
+  videoPreset: VideoPreset | null
 }
+
+/** 画质档位：流畅 / 均衡 / 高画质 */
+export type VideoPreset = 'smooth' | 'balanced' | 'high'
 
 /** 一次游玩记录 */
 export interface PlaySession {

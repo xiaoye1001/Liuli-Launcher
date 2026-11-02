@@ -6,7 +6,7 @@ import { setTrayWindowFactory, syncTray } from './tray'
 import { setupPlayReminder } from './playReminder'
 import { setupAutoBackup } from './autoBackup'
 import { getLaunchTiming, setupLaunchTiming } from './launchTiming'
-import { copyGameOptions, getGameOptionsInfo, restoreGameOptions } from './optionsTools'
+import { applyVideoPreset, copyGameOptions, getGameOptionsInfo, restoreGameOptions } from './optionsTools'
 import { installPerformanceMods } from './performanceMods'
 import { installModTranslation } from './modTranslation'
 import {
@@ -208,7 +208,8 @@ import type {
   ModpackExportOptions,
   GameDirInfo,
   DirectDownloadOptions,
-  OptionsCopyMode
+  OptionsCopyMode,
+  VideoPreset
 } from '../shared/types'
 import { HIDEABLE_PAGES, PARTICLE_EFFECTS, THEME_PRESETS } from '../shared/types'
 import { sanitizeAutoTheme, sanitizeCustomThemes } from '../shared/theme'
@@ -607,6 +608,9 @@ function registerIpc(): void {
     copyGameOptions(from, to, mode)
   )
   ipcMain.handle('gameOptions:restore', (_, versionId: string) => restoreGameOptions(versionId))
+  ipcMain.handle('gameOptions:preset', (_, versionId: string, preset: VideoPreset) =>
+    applyVideoPreset(versionId, preset)
+  )
   ipcMain.handle('export:show', () => showExportedModpack())
   ipcMain.handle('export:info', (_, versionId: string) => getModpackExportInfo(versionId))
   ipcMain.handle('export:run', (event, options: ModpackExportOptions) =>

@@ -43,6 +43,7 @@ import type {
   GameOptionsInfo,
   OptionsCopyMode,
   OptionsCopyResult,
+  VideoPreset,
   ModTranslationResult,
   ModpackInfo,
   ModpackUpdateCheck,
@@ -230,6 +231,8 @@ declare global {
       copyGameOptions: (from: string, to: string, mode: OptionsCopyMode) => Promise<OptionsCopyResult>
       /** 恢复上次修改前的游戏设置 */
       restoreGameOptions: (versionId: string) => Promise<void>
+      /** 套用画质档位（只改视距、图形质量等几项，修改前自动备份） */
+      applyVideoPreset: (versionId: string, preset: VideoPreset) => Promise<void>
       /** 启动器成就（含进度） */
       getAchievements: () => Promise<AchievementStatus[]>
       /** 解锁了新成就时回调（参数是成就 ID），返回取消监听的函数 */

@@ -148,6 +148,7 @@ const api = {
   getGameOptionsInfo: (versionId: string) => ipcRenderer.invoke('gameOptions:info', versionId),
   copyGameOptions: (from: string, to: string, mode: string) => ipcRenderer.invoke('gameOptions:copy', from, to, mode),
   restoreGameOptions: (versionId: string) => ipcRenderer.invoke('gameOptions:restore', versionId),
+  applyVideoPreset: (versionId: string, preset: string) => ipcRenderer.invoke('gameOptions:preset', versionId, preset),
   /** 解锁了新成就（参数是成就 ID） */
   onAchievementUnlocked: (callback: (id: string) => void) => {
     const listener = (_: Electron.IpcRendererEvent, id: string): void => callback(id)
