@@ -85,6 +85,7 @@ function defaultSettings(): AppSettings {
     showNews: true,
     showRecentPlays: true,
     showSplash: true,
+    showTrivia: true,
     recentPlaysCollapsed: false,
     downloadThreads: 16,
     proxyMode: 'none',

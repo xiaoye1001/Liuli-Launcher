@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Archive,
+  Lightbulb,
   CheckCircle2,
   Clock,
   Coffee,
@@ -851,6 +852,31 @@ function SettingsPage(): JSX.Element {
                 <span
                   className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
                     settings.showRecentPlays ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+            {/* 今日冷知识 */}
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Lightbulb className="h-4 w-4 text-amber-300" />
+                <div>
+                  <div className="text-sm font-medium">主页显示今日冷知识</div>
+                  <div className="text-xs text-white/50">每天一条 Minecraft 冷知识，可以点按钮换一条</div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.showTrivia}
+                aria-label="主页显示今日冷知识"
+                onClick={() => update({ showTrivia: !settings.showTrivia })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.showTrivia ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.showTrivia ? 'left-6' : 'left-1'
                   }`}
                 />
               </button>

@@ -18,6 +18,7 @@ import RecentPlays from '../components/RecentPlays'
 import VersionIcon from '../components/VersionIcon'
 import NewsPanel from '../components/NewsPanel'
 import SplashText from '../components/SplashText'
+import TriviaLine from '../components/TriviaLine'
 import { supportsQuickPlay } from '../../../shared/quickPlay'
 import { formatClock } from '../utils/format'
 import { useAppearance } from '../utils/appearance'
@@ -371,6 +372,7 @@ function HomePage({ onOpenVersionSettings, onManageVersions, onOpenAiSettings }:
               ? renderWelcome(welcomeSubtitle, welcomeValues)
               : '选择版本后点击启动，开始你的冒险。'}
         </p>
+        {settings?.showTrivia && <TriviaLine />}
 
         <div className="mt-6 flex flex-wrap items-end gap-4">
           {msAccount ? (
