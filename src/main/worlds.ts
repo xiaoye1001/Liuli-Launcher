@@ -330,6 +330,17 @@ async function worldStatsOf(dir: string): Promise<WorldStats | undefined> {
   return found ? total : undefined
 }
 
+/** 这个版本的游戏目录里所有存档一共挖了多少钻石矿（成就用，最多看 50 个存档） */
+export async function totalDiamonds(versionId: string): Promise<number> {
+  const saves = join(await gameDirOf(versionId), 'saves')
+  const entries = (await readdir(saves, { withFileTypes: true }).catch(() => []))
+    .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+    .slice(0, 50)
+  let total = 0
+  for (const entry of entries) total += (await worldStatsOf(join(saves, entry.name)))?.diamonds ?? 0
+  return total
+}
+
 /** 删除存档：移到系统回收站 */
 export async function deleteWorld(versionId: string, folder: string): Promise<void> {
   await assertGameStopped(versionId)

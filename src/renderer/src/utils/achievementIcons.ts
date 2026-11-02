@@ -2,6 +2,13 @@ import {
   Archive,
   Award,
   Bug,
+  Cake,
+  CalendarCheck,
+  Gem,
+  Library,
+  Sun,
+  Undo2,
+  Zap,
   Clock,
   Layers,
   Moon,
@@ -32,5 +39,12 @@ export const ACHIEVEMENT_ICONS: Record<AchievementId, LucideIcon> = {
   crash: Bug,
   backup: Archive,
   ai_doctor: Sparkles,
-  decorator: Wallpaper
+  decorator: Wallpaper,
+  streak_7: CalendarCheck,
+  shader_fan: Sun,
+  mod_collection: Library,
+  diamonds_100: Gem,
+  birthday: Cake,
+  speedrunner: Zap,
+  rollback: Undo2
 }

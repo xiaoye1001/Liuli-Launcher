@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Lock, Trophy } from 'lucide-react'
+import { HelpCircle, Lock, Trophy } from 'lucide-react'
 import { LoadingState } from './EmptyState'
 import { ACHIEVEMENT_ICONS } from '../utils/achievementIcons'
 import type { AchievementStatus } from '../../../shared/achievements'
@@ -33,7 +33,7 @@ function AchievementsPanel(): JSX.Element {
             <Trophy className="h-5 w-5 text-amber-300" />
             启动器成就
           </h2>
-          <p className="text-xs text-white/50">在启动器里玩游戏时自动解锁</p>
+          <p className="text-xs text-white/50">在启动器里玩游戏时自动解锁，还有一些隐藏成就等你发现</p>
         </div>
         <div className="w-40 shrink-0 text-right">
           <div className="text-sm font-medium">
@@ -59,7 +59,13 @@ function AchievementsPanel(): JSX.Element {
                   unlocked ? 'bg-amber-500/20' : 'bg-black/20'
                 }`}
               >
-                {unlocked ? <Icon className="h-5 w-5 text-amber-300" /> : <Lock className="h-4 w-4 text-white/30" />}
+                {unlocked ? (
+                  <Icon className="h-5 w-5 text-amber-300" />
+                ) : a.hidden ? (
+                  <HelpCircle className="h-4 w-4 text-white/30" />
+                ) : (
+                  <Lock className="h-4 w-4 text-white/30" />
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <div className={`truncate text-sm font-medium ${unlocked ? '' : 'text-white/60'}`}>{a.title}</div>

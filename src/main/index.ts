@@ -467,13 +467,25 @@ function registerIpc(): void {
     updateMod(versionId, fileName, modrinthVersionId)
   )
   ipcMain.handle('mods:rollbacks', (_, versionId: string) => listModRollbacks(versionId))
-  ipcMain.handle('mods:rollback', (_, versionId: string, id: string) => rollbackModUpdate(versionId, id))
+  ipcMain.handle('mods:rollback', async (_, versionId: string, id: string) => {
+    const restored = await rollbackModUpdate(versionId, id)
+    void unlockAchievement('rollback').catch(() => undefined)
+    return restored
+  })
   ipcMain.handle('collections:list', () => listModCollections())
-  ipcMain.handle('collections:save', (_, versionId: string, name: string) => saveModCollection(versionId, name))
+  ipcMain.handle('collections:save', async (_, versionId: string, name: string) => {
+    const result = await saveModCollection(versionId, name)
+    void unlockAchievement('mod_collection').catch(() => undefined)
+    return result
+  })
   ipcMain.handle('collections:delete', (_, id: string) => deleteModCollection(String(id)))
   ipcMain.handle('collections:rename', (_, id: string, name: string) => renameModCollection(String(id), name))
   ipcMain.handle('collections:apply', (_, versionId: string, id: string) => applyModCollection(versionId, String(id)))
-  ipcMain.handle('shaders:setup', (_, versionId: string, choice: ShaderChoice) => setupShaders(versionId, choice))
+  ipcMain.handle('shaders:setup', async (_, versionId: string, choice: ShaderChoice) => {
+    const result = await setupShaders(versionId, choice)
+    if (result.activated) void unlockAchievement('shader_fan').catch(() => undefined)
+    return result
+  })
   // 修复向导
   ipcMain.handle('repair:info', (_, versionId: string) => getRepairInfo(versionId))
   ipcMain.handle('repair:disableMods', (_, versionId: string, files: string[]) => disableRecentMods(versionId, files))
