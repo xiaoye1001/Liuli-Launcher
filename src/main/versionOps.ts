@@ -113,7 +113,7 @@ export async function renameVersion(versionId: string, newId: string): Promise<v
 }
 
 /** 版本隔离时游戏在版本文件夹里产生、复制时可以不要的内容 */
-const SKIP_ON_COPY = ['logs', 'crash-reports', 'screenshots', 'backups']
+const SKIP_ON_COPY = ['logs', 'crash-reports', 'screenshots', 'backups', 'liuli-mod-backup']
 
 /** 复制版本（连同版本隔离文件夹里的模组、配置等）；includeSaves 为 false 时不复制存档 */
 export async function copyVersion(versionId: string, newId: string, includeSaves: boolean): Promise<void> {

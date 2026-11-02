@@ -134,6 +134,8 @@ const api = {
   checkModUpdates: (versionId: string) => ipcRenderer.invoke('mods:checkUpdates', versionId),
   updateMod: (versionId: string, fileName: string, modrinthVersionId: string) =>
     ipcRenderer.invoke('mods:update', versionId, fileName, modrinthVersionId),
+  listModRollbacks: (versionId: string) => ipcRenderer.invoke('mods:rollbacks', versionId),
+  rollbackModUpdate: (versionId: string, id: string) => ipcRenderer.invoke('mods:rollback', versionId, id),
   renameVersion: (versionId: string, newId: string) => ipcRenderer.invoke('versions:rename', versionId, newId),
   copyVersion: (versionId: string, newId: string, includeSaves: boolean) =>
     ipcRenderer.invoke('versions:copy', versionId, newId, includeSaves),

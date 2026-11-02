@@ -5,6 +5,7 @@ import { mkdir, readdir, rename, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import { getSettings } from './config'
 import { assertGameStopped, fileSha1, listModFiles, modsContextOf, type ModsContext } from './mods'
+import { backupBeforeUpdate, discardBackup, recordUpdate } from './modRollback'
 import { downloadDispatcher, discardBody } from './network'
 import { hasChinese, matchChineseName, zhNameBySlug } from '../shared/modNames'
 import type {
@@ -608,7 +609,10 @@ async function pickRelease(
   return versions.find((v) => v.version_type === 'release')
 }
 
-/** 更新一个模组：下载新版本，旧文件移到回收站；原来禁用的模组更新后仍然禁用。返回新的文件名 */
+/**
+ * 更新一个模组：下载新版本，旧文件移到回收站；原来禁用的模组更新后仍然禁用。返回新的文件名。
+ * 更新前把旧文件备份到 liuli-mod-backup，新版本有问题时可以退回
+ */
 export async function updateMod(versionId: string, fileName: string, modrinthVersionId: string): Promise<string> {
   assertGameStopped(versionId)
   const ctx = await modsContextOf(versionId)
@@ -616,17 +620,25 @@ export async function updateMod(versionId: string, fileName: string, modrinthVer
     throw new Error(`找不到模组文件：${fileName}`)
   }
   const version = await modrinthFetch<ModrinthVersion>(`/version/${encodeURIComponent(modrinthVersionId)}`)
-  const disabled = fileName.endsWith('.disabled')
-  const newName = await downloadVersionFile(version, ctx.dir)
-  const finalName = disabled ? `${newName}.disabled` : newName
-  if (disabled) {
-    // 原来禁用的模组：旧文件移到回收站（新旧文件名相同时也要移走），新文件改回禁用的名字
-    await shell.trashItem(join(ctx.dir, fileName))
-    await rename(join(ctx.dir, newName), join(ctx.dir, finalName))
-  } else if (fileName !== newName) {
-    // 新旧文件名不同（版本号写在文件名里时）：旧文件移到回收站
-    await shell.trashItem(join(ctx.dir, fileName))
+  const backup = await backupBeforeUpdate(ctx.dir, fileName)
+  let finalName: string
+  try {
+    const disabled = fileName.endsWith('.disabled')
+    const newName = await downloadVersionFile(version, ctx.dir)
+    finalName = disabled ? `${newName}.disabled` : newName
+    if (disabled) {
+      // 原来禁用的模组：旧文件移到回收站（新旧文件名相同时也要移走），新文件改回禁用的名字
+      await shell.trashItem(join(ctx.dir, fileName))
+      await rename(join(ctx.dir, newName), join(ctx.dir, finalName))
+    } else if (fileName !== newName) {
+      // 新旧文件名不同（版本号写在文件名里时）：旧文件移到回收站
+      await shell.trashItem(join(ctx.dir, fileName))
+    }
+  } catch (e) {
+    if (backup) await discardBackup(ctx.dir, backup)
+    throw e
   }
+  if (backup) await recordUpdate(ctx.dir, finalName, fileName, backup).catch(() => undefined)
   return finalName
 }
 

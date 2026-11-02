@@ -44,6 +44,7 @@ import type {
   OptionsCopyMode,
   OptionsCopyResult,
   VideoPreset,
+  ModRollback,
   ModTranslationResult,
   ModpackInfo,
   ModpackUpdateCheck,
@@ -212,6 +213,10 @@ declare global {
       checkModUpdates: (versionId: string) => Promise<ModUpdate[]>
       /** 更新模组，返回新的文件名 */
       updateMod: (versionId: string, fileName: string, modrinthVersionId: string) => Promise<string>
+      /** 可以退回的模组更新（最近 30 天） */
+      listModRollbacks: (versionId: string) => Promise<ModRollback[]>
+      /** 退回更新前的模组文件，返回放回的文件名 */
+      rollbackModUpdate: (versionId: string, id: string) => Promise<string>
       renameVersion: (versionId: string, newId: string) => Promise<void>
       /** 复制版本（includeSaves 为 false 时不复制存档） */
       copyVersion: (versionId: string, newId: string, includeSaves: boolean) => Promise<void>

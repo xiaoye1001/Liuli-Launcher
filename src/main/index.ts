@@ -7,6 +7,7 @@ import { setupPlayReminder } from './playReminder'
 import { setupAutoBackup } from './autoBackup'
 import { getLaunchTiming, setupLaunchTiming } from './launchTiming'
 import { applyVideoPreset, copyGameOptions, getGameOptionsInfo, restoreGameOptions } from './optionsTools'
+import { listModRollbacks, rollbackModUpdate } from './modRollback'
 import { installPerformanceMods } from './performanceMods'
 import { installModTranslation } from './modTranslation'
 import {
@@ -453,6 +454,8 @@ function registerIpc(): void {
   ipcMain.handle('mods:update', (_, versionId: string, fileName: string, modrinthVersionId: string) =>
     updateMod(versionId, fileName, modrinthVersionId)
   )
+  ipcMain.handle('mods:rollbacks', (_, versionId: string) => listModRollbacks(versionId))
+  ipcMain.handle('mods:rollback', (_, versionId: string, id: string) => rollbackModUpdate(versionId, id))
   ipcMain.handle('local:list', (_, versionId: string, kind: LocalResourceKind) => listLocalResources(versionId, kind))
   ipcMain.handle('local:checkUpdates', (_, versionId: string, kind: LocalResourceKind) =>
     checkResourceUpdates(versionId, kind)

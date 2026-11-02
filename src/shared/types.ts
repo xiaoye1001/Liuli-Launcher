@@ -995,6 +995,17 @@ export interface GameOptionsInfo {
   videoPreset: VideoPreset | null
 }
 
+/** 可以退回的模组更新 */
+export interface ModRollback {
+  id: string
+  /** 现在 mods 里的（更新后的）文件名 */
+  currentFile: string
+  /** 更新前的文件名 */
+  oldFile: string
+  /** 更新时间 */
+  at: number
+}
+
 /** 画质档位：流畅 / 均衡 / 高画质 */
 export type VideoPreset = 'smooth' | 'balanced' | 'high'
 
