@@ -1006,6 +1006,21 @@ export interface ModRollback {
   at: number
 }
 
+/** 存档地图预览：以某个位置为中心的俯视图 */
+export interface WorldMap {
+  /** 边长（格，一格一个像素） */
+  size: number
+  /** 左上角的方块坐标 */
+  originX: number
+  originZ: number
+  /** RGBA 像素，没有生成的区块透明 */
+  pixels: Uint8Array
+  /** 画出来的区块数 */
+  chunks: number
+  /** 区块都是不支持的格式（1.13 以前的存档等） */
+  unsupported: boolean
+}
+
 /** 游戏资源占用（游戏运行时每隔几秒读取一次） */
 export interface GameResources {
   /** 游戏进程占用的内存（MB） */

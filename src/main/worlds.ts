@@ -61,6 +61,11 @@ async function worldDir(versionId: string, folder: string): Promise<string> {
   return dir
 }
 
+/** 存档主世界的区域文件夹（地图预览用） */
+export async function worldRegionDir(versionId: string, folder: string): Promise<string> {
+  return join(await worldDir(versionId, folder), 'region')
+}
+
 async function readLevel(dir: string): Promise<NbtCompound | null> {
   try {
     // level.dat 通常只有几 KB，过大的文件不读进内存

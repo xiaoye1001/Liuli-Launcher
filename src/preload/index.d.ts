@@ -49,6 +49,7 @@ import type {
   ShaderChoice,
   ModCollection,
   GameResources,
+  WorldMap,
   ShaderSetupResult,
   ModTranslationResult,
   ModpackInfo,
@@ -190,6 +191,8 @@ declare global {
       backupWorld: (versionId: string, folder: string) => Promise<{ path: string; size: number }>
       openWorldDir: (versionId: string, folder?: string) => Promise<void>
       openBackupsDir: (versionId: string) => Promise<void>
+      /** 存档地图预览：以 (x, z) 为中心、边长 size 格的主世界俯视图 */
+      renderWorldMap: (versionId: string, folder: string, x: number, z: number, size: number) => Promise<WorldMap>
       /** 选择存档备份位置（取消时不改），返回最新的设置 */
       pickBackupDir: () => Promise<AppSettings>
       /** 存档备份位置恢复为游戏目录里的 backups 文件夹 */

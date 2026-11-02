@@ -8,6 +8,7 @@ import { setupAutoBackup } from './autoBackup'
 import { getLaunchTiming, setupLaunchTiming } from './launchTiming'
 import { getGameResources, setupGameMonitor } from './gameMonitor'
 import { copyReportImage, saveReportImage } from './reportImage'
+import { renderWorldMap } from './worldMap'
 import { applyVideoPreset, copyGameOptions, getGameOptionsInfo, restoreGameOptions } from './optionsTools'
 import { listModRollbacks, rollbackModUpdate } from './modRollback'
 import { setupShaders } from './oneClickShaders'
@@ -524,6 +525,9 @@ function registerIpc(): void {
   )
   ipcMain.handle('worlds:open', (_, versionId: string, folder?: string) => openWorldDir(versionId, folder))
   ipcMain.handle('worlds:openBackups', (_, versionId: string) => openBackupsDir(versionId))
+  ipcMain.handle('worlds:map', (_, versionId: string, folder: string, x: number, z: number, size: number) =>
+    renderWorldMap(versionId, folder, Number(x), Number(z), Number(size))
+  )
   // 存档备份位置：选择文件夹（取消时不改），或恢复为游戏目录里的 backups
   ipcMain.handle('backups:pickDir', async (event) => {
     const dir = await pickBackupDir(BrowserWindow.fromWebContents(event.sender))
