@@ -16,6 +16,7 @@ import {
   SlidersHorizontal,
   Sprout,
   Terminal,
+  TerminalSquare,
   Trash2,
   Trophy,
   Zap,
@@ -187,6 +188,14 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
         icon: HardDrive,
         keywords: '开服 服务器 局域网 联机 server 搭建',
         run: tool('server')
+      },
+      {
+        id: 'tool:commands',
+        title: '命令生成器',
+        group: '百宝箱',
+        icon: TerminalSquare,
+        keywords: '命令 指令 give 附魔 effect summon tellraw 召唤 作弊',
+        run: tool('commands')
       },
       {
         id: 'action:log',
