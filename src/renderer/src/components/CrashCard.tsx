@@ -5,6 +5,7 @@ import {
   ArrowRight,
   CheckCircle2,
   FileArchive,
+  History,
   FileText,
   Lightbulb,
   Loader2,
@@ -16,7 +17,7 @@ import {
 import { ShareButton, ShareStatus, useLogShare } from './LogShare'
 import AiAnalysisPanel from './AiAnalysisPanel'
 import RepairWizard from './RepairWizard'
-import type { CrashAction, GameStatus, ModRollback } from '../../../shared/types'
+import type { CrashAction, GameStatus, ModRollback, VersionSnapshot } from '../../../shared/types'
 
 const ACTION_LABELS: Record<CrashAction, string> = {
   versionSettings: '打开版本设置',
@@ -102,6 +103,102 @@ function RecentModUpdates({ versionId }: { versionId: string }): JSX.Element | n
               </span>
             ))}
           </div>
+        </>
+      ) : (
+        <div className="flex items-start gap-1.5 text-xs text-white/80">
+          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-300" />
+          {result}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 最近 7 天内的快照可以一键回去 */
+const RECENT_SNAPSHOT_MS = 7 * 24 * 60 * 60 * 1000
+
+/** 多久以前：x 分钟前 / x 小时前 / x 天前 */
+function ago(ms: number): string {
+  const minutes = Math.max(1, Math.round((Date.now() - ms) / 60000))
+  if (minutes < 60) return `${minutes} 分钟前`
+  const hours = Math.round(minutes / 60)
+  return hours < 24 ? `${hours} 小时前` : `${Math.round(hours / 24)} 天前`
+}
+
+/** 这个版本最近有快照：改坏了可以一键回到快照（恢复前会自动保存现在的状态） */
+function RecentSnapshot({ versionId }: { versionId: string }): JSX.Element | null {
+  const [snapshot, setSnapshot] = useState<VersionSnapshot | null>(null)
+  const [confirm, setConfirm] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let alive = true
+    window.api
+      .listSnapshots(versionId)
+      .then((list) => {
+        const latest = list.find((s) => Date.now() - s.createdAt < RECENT_SNAPSHOT_MS)
+        if (alive) setSnapshot(latest ?? null)
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [versionId])
+
+  useEffect(() => {
+    if (!confirm) return
+    const timer = setTimeout(() => setConfirm(false), 3000)
+    return () => clearTimeout(timer)
+  }, [confirm])
+
+  if (!snapshot && !result) return null
+
+  const restore = async (): Promise<void> => {
+    if (!snapshot) return
+    if (!confirm) {
+      setConfirm(true)
+      return
+    }
+    setConfirm(false)
+    setBusy(true)
+    setError('')
+    try {
+      await window.api.restoreSnapshot(versionId, snapshot.id)
+      setResult(`已回到快照「${snapshot.name}」，可以再启动试试；恢复前的状态也自动保存了一份`)
+      setSnapshot(null)
+    } catch (e) {
+      setError(cleanError(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="rounded-xl bg-black/20 px-4 py-3">
+      {snapshot ? (
+        <>
+          <div className="flex items-center gap-2">
+            <History className="h-4 w-4 shrink-0 text-sky-300" />
+            <span className="min-w-0 truncate font-semibold text-white">
+              {ago(snapshot.createdAt)}有一个快照「{snapshot.name}」
+            </span>
+            <button
+              onClick={() => void restore()}
+              disabled={busy}
+              className={`ml-auto flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-white disabled:opacity-60 ${
+                confirm ? 'bg-amber-500/90 hover:bg-amber-500' : 'bg-sky-500/80 hover:bg-sky-500'
+              }`}
+            >
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Undo2 className="h-3 w-3" />}
+              {confirm ? '确认回到快照？' : '回到这个快照'}
+            </button>
+          </div>
+          <div className="mt-1 text-xs text-white/70">
+            如果拍快照的时候还能正常玩，可以把模组、配置和游戏设置换回那时的样子（存档不受影响）
+          </div>
+          {error && <div className="mt-1 text-xs text-rose-300">{error}</div>}
         </>
       ) : (
         <div className="flex items-start gap-1.5 text-xs text-white/80">
@@ -233,6 +330,7 @@ function CrashCard({ game, onAction, onDismiss, onOpenAiSettings }: CrashCardPro
           </div>
         ))}
         {game.versionId && <RecentModUpdates versionId={game.versionId} />}
+        {game.versionId && <RecentSnapshot versionId={game.versionId} />}
         {/* AI 分析：开启自动分析时卡片出现就开始 */}
         <AiAnalysisPanel
           onOpenSettings={onOpenAiSettings}

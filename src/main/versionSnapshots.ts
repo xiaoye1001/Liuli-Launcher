@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto'
 import { cp, lstat, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
+import { getSettings } from './config'
 import { assertGameStopped, modsContextOf } from './mods'
 import type { VersionSnapshot } from '../shared/types'
 
@@ -14,8 +15,12 @@ const TRACKED = ['mods', 'config', 'defaultconfigs', 'options.txt', 'optionsof.t
 const META = 'liuli-snapshot.json'
 /** 手动创建的快照最多保留几个 */
 const MAX_MANUAL = 10
-/** 恢复前自动保存的快照最多保留几个（旧的自动删除） */
-const MAX_AUTO = 3
+/** 自动保存的快照（恢复前、改模组前）最多保留几个（旧的自动删除） */
+const MAX_AUTO = 5
+/** 改模组前的自动快照：同一个版本 10 分钟内只拍一次（例如「全部更新」一个个更新模组时只拍一次） */
+const AUTO_INTERVAL = 10 * 60_000
+/** 模组和配置太大（超过 2 GB）时不自动拍，免得占太多空间、拖慢操作 */
+const AUTO_MAX_BYTES = 2 * 1024 ** 3
 const ID_RE = /^[a-z0-9]+-[a-f0-9]{6}$/
 
 const cleanName = (name: unknown): string =>
@@ -258,11 +263,43 @@ async function restoreUnlocked(versionId: string, id: string): Promise<VersionSn
     }
   }
   await writeFile(join(root, RESTORE_RECORD), JSON.stringify({ at: Date.now(), mods }), 'utf-8').catch(() => undefined)
-  // 自动保存的快照只留最近几个
-  const autos = (await listSnapshots(versionId)).filter((s) => s.auto)
-  for (const s of autos.slice(MAX_AUTO))
-    await rm(join(root, s.id), { recursive: true, force: true }).catch(() => undefined)
+  await pruneAutos(versionId, root)
   return backup
+}
+
+/** 自动保存的快照只留最近几个 */
+async function pruneAutos(versionId: string, root: string): Promise<void> {
+  const autos = (await listSnapshots(versionId)).filter((s) => s.auto)
+  for (const s of autos.slice(MAX_AUTO)) {
+    await rm(join(root, s.id), { recursive: true, force: true }).catch(() => undefined)
+  }
+}
+
+/** 每个游戏文件夹上次自动拍快照的时间 */
+const lastAuto = new Map<string, number>()
+
+/**
+ * 改模组前自动拍快照（更新模组、整合包、一键优化、一键光影、装合集、迁移模组之前）。
+ * 设置里关掉、10 分钟内拍过、没有模组和配置、或者太大时跳过；失败也不影响原来的操作
+ */
+export async function autoSnapshot(versionId: string, reason: string): Promise<void> {
+  try {
+    if (!(await getSettings()).autoSnapshots) return
+    const { gamePath, root } = await rootOf(versionId)
+    if (Date.now() - (lastAuto.get(gamePath) ?? 0) < AUTO_INTERVAL) return
+    let bytes = 0
+    for (const item of TRACKED) {
+      if (!(await isLink(join(gamePath, item)))) bytes += await measure(join(gamePath, item))
+    }
+    if (bytes === 0 || bytes > AUTO_MAX_BYTES) return
+    lastAuto.set(gamePath, Date.now())
+    await serialized(async () => {
+      await createIn(versionId, gamePath, root, `${reason}前自动保存`, true)
+      await pruneAutos(versionId, root)
+    })
+  } catch {
+    // 自动快照失败不影响原来的操作
+  }
 }
 
 export function deleteSnapshot(versionId: string, id: string): Promise<void> {

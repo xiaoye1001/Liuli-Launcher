@@ -10,7 +10,7 @@ import { getGameResourceHistory, getGameResources, setupGameMonitor } from './ga
 import { setupNotifications } from './notify'
 import { clearCrashHistory, listCrashHistory, setupCrashHistory } from './crashHistory'
 import { applyModProfile, deleteModProfile, listModProfiles, saveModProfile } from './modProfiles'
-import { createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot } from './versionSnapshots'
+import { autoSnapshot, createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot } from './versionSnapshots'
 import { applyModMigration, checkModMigration } from './modMigration'
 import { addSeedFavorite, deleteSeedFavorite, listSeedFavorites, updateSeedFavorite } from './seedFavorites'
 import { getDailyGoal, setDailyGoalDone, skipDailyGoal } from './dailyGoals'
@@ -503,9 +503,11 @@ function registerIpc(): void {
   )
   ipcMain.handle('mods:open', (_, versionId: string) => openModsDir(versionId))
   ipcMain.handle('mods:checkUpdates', (_, versionId: string) => checkModUpdates(versionId))
-  ipcMain.handle('mods:update', (_, versionId: string, fileName: string, modrinthVersionId: string) =>
-    updateMod(versionId, fileName, modrinthVersionId)
-  )
+  // 改模组前先自动拍一张版本快照（10 分钟内只拍一次，失败不影响原来的操作）
+  ipcMain.handle('mods:update', async (_, versionId: string, fileName: string, modrinthVersionId: string) => {
+    await autoSnapshot(versionId, '更新模组')
+    return updateMod(versionId, fileName, modrinthVersionId)
+  })
   ipcMain.handle('mods:rollbacks', (_, versionId: string) => listModRollbacks(versionId))
   ipcMain.handle('mods:rollback', async (_, versionId: string, id: string) => {
     const restored = await rollbackModUpdate(versionId, id)
@@ -544,8 +546,10 @@ function registerIpc(): void {
   )
   ipcMain.handle(
     'modMigration:apply',
-    (_, versionId: string, targetId: string, mods: { projectId: string; title: string }[]) =>
-      applyModMigration(versionId, String(targetId), mods)
+    async (_, versionId: string, targetId: string, mods: { projectId: string; title: string }[]) => {
+      await autoSnapshot(String(targetId), '迁移模组')
+      return applyModMigration(versionId, String(targetId), mods)
+    }
   )
   ipcMain.handle('collections:list', () => listModCollections())
   ipcMain.handle('collections:save', async (_, versionId: string, name: string) => {
@@ -555,8 +559,12 @@ function registerIpc(): void {
   })
   ipcMain.handle('collections:delete', (_, id: string) => deleteModCollection(String(id)))
   ipcMain.handle('collections:rename', (_, id: string, name: string) => renameModCollection(String(id), name))
-  ipcMain.handle('collections:apply', (_, versionId: string, id: string) => applyModCollection(versionId, String(id)))
+  ipcMain.handle('collections:apply', async (_, versionId: string, id: string) => {
+    await autoSnapshot(versionId, '安装模组合集')
+    return applyModCollection(versionId, String(id))
+  })
   ipcMain.handle('shaders:setup', async (_, versionId: string, choice: ShaderChoice) => {
+    await autoSnapshot(versionId, '一键光影')
     const result = await setupShaders(versionId, choice)
     if (result.activated) void unlockAchievement('shader_fan').catch(() => undefined)
     return result
@@ -692,17 +700,22 @@ function registerIpc(): void {
   ipcMain.handle('modpack:pickUpdateFile', (event, versionId: string) =>
     pickModpackUpdateFile(String(versionId), BrowserWindow.fromWebContents(event.sender))
   )
-  ipcMain.handle('modpack:applyUpdate', (_, versionId: string, token: string) =>
-    applyModpackUpdate(String(versionId), String(token))
-  )
+  ipcMain.handle('modpack:applyUpdate', async (_, versionId: string, token: string) => {
+    await autoSnapshot(String(versionId), '更新整合包')
+    return applyModpackUpdate(String(versionId), String(token))
+  })
   ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>
     searchModrinth(versionId, query, offset)
   )
-  ipcMain.handle('mods:performance', (_, versionId: string) => installPerformanceMods(versionId))
+  ipcMain.handle('mods:performance', async (_, versionId: string) => {
+    await autoSnapshot(versionId, '一键性能优化')
+    return installPerformanceMods(versionId)
+  })
   ipcMain.handle('mods:translation', (_, versionId: string) => installModTranslation(versionId))
-  ipcMain.handle('modrinth:install', (_, versionId: string, projectId: string) =>
-    installFromModrinth(versionId, projectId)
-  )
+  ipcMain.handle('modrinth:install', async (_, versionId: string, projectId: string) => {
+    await autoSnapshot(versionId, '安装模组')
+    return installFromModrinth(versionId, projectId)
+  })
   ipcMain.handle('game:launch', (_, versionId: string, server?: string, world?: string) => {
     // 「多人游戏」「无缝衔接」成就在游戏窗口出现后才解锁（启动失败不算）
     noteLaunchRequest(server, world)

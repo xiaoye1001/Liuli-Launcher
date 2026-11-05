@@ -105,6 +105,8 @@ export interface AppSettings {
   showTrivia: boolean
   /** 主页显示「每日小目标」 */
   showDailyGoal: boolean
+  /** 改模组前（更新模组、整合包、一键优化等）自动拍版本快照 */
+  autoSnapshots: boolean
   /** 玩家的生日（MM-DD），当天主页有彩蛋；空字符串为没有填 */
   birthday: string
   /** 主页的「最近游玩」收起（只显示标题） */

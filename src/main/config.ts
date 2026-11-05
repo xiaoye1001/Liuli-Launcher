@@ -89,6 +89,7 @@ function defaultSettings(): AppSettings {
     showSplash: true,
     showTrivia: true,
     showDailyGoal: true,
+    autoSnapshots: true,
     birthday: '',
     recentPlaysCollapsed: false,
     downloadThreads: 16,
