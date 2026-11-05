@@ -14,6 +14,19 @@ import { createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot } from '
 import { applyModMigration, checkModMigration } from './modMigration'
 import { addSeedFavorite, deleteSeedFavorite, listSeedFavorites, updateSeedFavorite } from './seedFavorites'
 import { getDailyGoal, setDailyGoalDone, skipDailyGoal } from './dailyGoals'
+import {
+  createLocalServer,
+  deleteLocalServer,
+  getLocalServerStatus,
+  listLocalServers,
+  openLocalServerFolder,
+  redownloadLocalServer,
+  sendLocalServerCommand,
+  setupLocalServerShutdown,
+  startLocalServer,
+  stopLocalServer,
+  updateLocalServer
+} from './localServer'
 import { copyReportImage, saveReportImage } from './reportImage'
 import { renderWorldMap } from './worldMap'
 import {
@@ -248,7 +261,9 @@ import type {
   OptionsCopyMode,
   ShaderChoice,
   VideoPreset,
-  SeedFavorite
+  SeedFavorite,
+  LocalServer,
+  LocalServerInput
 } from '../shared/types'
 import { HIDEABLE_PAGES, PARTICLE_EFFECTS, THEME_PRESETS } from '../shared/types'
 import { sanitizeAutoTheme, sanitizeCustomThemes } from '../shared/theme'
@@ -503,6 +518,18 @@ function registerIpc(): void {
   ipcMain.handle('modProfiles:delete', (_, versionId: string, id: string) => deleteModProfile(versionId, String(id)))
   ipcMain.handle('seeds:list', () => listSeedFavorites())
   ipcMain.handle('dailyGoal:get', () => getDailyGoal())
+  ipcMain.handle('localServer:list', () => listLocalServers())
+  ipcMain.handle('localServer:status', () => getLocalServerStatus())
+  ipcMain.handle('localServer:create', (_, input: LocalServerInput) => createLocalServer(input))
+  ipcMain.handle('localServer:update', (_, id: string, patch: Partial<LocalServer>) =>
+    updateLocalServer(String(id), patch ?? {})
+  )
+  ipcMain.handle('localServer:redownload', (_, id: string) => redownloadLocalServer(String(id)))
+  ipcMain.handle('localServer:delete', (_, id: string) => deleteLocalServer(String(id)))
+  ipcMain.handle('localServer:open', (_, id: string) => openLocalServerFolder(String(id)))
+  ipcMain.handle('localServer:start', (_, id: string) => startLocalServer(String(id)))
+  ipcMain.handle('localServer:stop', () => stopLocalServer())
+  ipcMain.handle('localServer:command', (_, command: string) => sendLocalServerCommand(String(command ?? '')))
   ipcMain.handle('dailyGoal:done', (_, done: boolean) => setDailyGoalDone(done === true))
   ipcMain.handle('dailyGoal:skip', () => skipDailyGoal())
   ipcMain.handle('seeds:add', (_, input: Partial<SeedFavorite>) => addSeedFavorite(input))
@@ -865,6 +892,7 @@ app.whenReady().then(async () => {
   setupNotifications()
   setupCrashHistory()
   setupServerWatch()
+  setupLocalServerShutdown()
   setupAchievements()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)

@@ -150,6 +150,32 @@ const api = {
   deleteSnapshot: (versionId: string, id: string) => ipcRenderer.invoke('snapshots:delete', versionId, id),
   listSeedFavorites: () => ipcRenderer.invoke('seeds:list'),
   getDailyGoal: () => ipcRenderer.invoke('dailyGoal:get'),
+  listLocalServers: () => ipcRenderer.invoke('localServer:list'),
+  getLocalServerStatus: () => ipcRenderer.invoke('localServer:status'),
+  createLocalServer: (input: Record<string, unknown>) => ipcRenderer.invoke('localServer:create', input),
+  updateLocalServer: (id: string, patch: Record<string, unknown>) =>
+    ipcRenderer.invoke('localServer:update', id, patch),
+  redownloadLocalServer: (id: string) => ipcRenderer.invoke('localServer:redownload', id),
+  deleteLocalServer: (id: string) => ipcRenderer.invoke('localServer:delete', id),
+  openLocalServerFolder: (id: string) => ipcRenderer.invoke('localServer:open', id),
+  startLocalServer: (id: string) => ipcRenderer.invoke('localServer:start', id),
+  stopLocalServer: () => ipcRenderer.invoke('localServer:stop'),
+  sendLocalServerCommand: (command: string) => ipcRenderer.invoke('localServer:command', command),
+  onLocalServerStatus: (callback: (status: unknown) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, status: unknown): void => callback(status)
+    ipcRenderer.on('localServer:status', listener)
+    return () => ipcRenderer.removeListener('localServer:status', listener)
+  },
+  onLocalServerLog: (callback: (line: string) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, line: string): void => callback(line)
+    ipcRenderer.on('localServer:log', listener)
+    return () => ipcRenderer.removeListener('localServer:log', listener)
+  },
+  onLocalServersChanged: (callback: () => void) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('localServer:changed', listener)
+    return () => ipcRenderer.removeListener('localServer:changed', listener)
+  },
   setDailyGoalDone: (done: boolean) => ipcRenderer.invoke('dailyGoal:done', done),
   skipDailyGoal: () => ipcRenderer.invoke('dailyGoal:skip'),
   addSeedFavorite: (input: Record<string, string>) => ipcRenderer.invoke('seeds:add', input),

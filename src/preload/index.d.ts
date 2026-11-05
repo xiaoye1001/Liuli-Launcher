@@ -58,6 +58,9 @@ import type {
   ModMigrationCheck,
   SeedFavorite,
   DailyGoalStatus,
+  LocalServer,
+  LocalServerInput,
+  LocalServerStatus,
   ShaderSetupResult,
   ModTranslationResult,
   ModpackInfo,
@@ -246,6 +249,27 @@ declare global {
       /** 恢复快照；返回恢复前自动保存的快照 */
       restoreSnapshot: (versionId: string, id: string) => Promise<VersionSnapshot>
       deleteSnapshot: (versionId: string, id: string) => Promise<void>
+      /** 一键开服：本地服务器列表（新的在前） */
+      listLocalServers: () => Promise<LocalServer[]>
+      /** 运行状态、最近的输出、正在下载服务端的服务器 */
+      getLocalServerStatus: () => Promise<{ status: LocalServerStatus; log: string[]; preparing: string[] }>
+      /** 新建服务器并下载服务端（必须同意 EULA） */
+      createLocalServer: (input: LocalServerInput) => Promise<LocalServer>
+      updateLocalServer: (
+        id: string,
+        patch: Partial<Pick<LocalServer, 'name' | 'port' | 'memoryMb' | 'onlineMode'>>
+      ) => Promise<LocalServer>
+      redownloadLocalServer: (id: string) => Promise<LocalServer>
+      /** 删除服务器（移到回收站） */
+      deleteLocalServer: (id: string) => Promise<void>
+      openLocalServerFolder: (id: string) => Promise<void>
+      startLocalServer: (id: string) => Promise<void>
+      stopLocalServer: () => Promise<void>
+      /** 往服务器控制台发命令（一行，不用加 /） */
+      sendLocalServerCommand: (command: string) => Promise<void>
+      onLocalServerStatus: (callback: (status: LocalServerStatus) => void) => () => void
+      onLocalServerLog: (callback: (line: string) => void) => () => void
+      onLocalServersChanged: (callback: () => void) => () => void
       /** 每日小目标 */
       getDailyGoal: () => Promise<DailyGoalStatus>
       /** 打卡（false 取消今天的打卡） */

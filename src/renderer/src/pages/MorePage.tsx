@@ -7,6 +7,7 @@ import {
   Coffee,
   Gauge,
   Grid2x2Check,
+  Server,
   Sprout,
   Trash2,
   Trophy,
@@ -23,6 +24,7 @@ import CrashHistoryPanel from '../components/CrashHistoryPanel'
 import SeedFavoritesPanel from '../components/SeedFavoritesPanel'
 import MinecraftToolsPanel from '../components/MinecraftToolsPanel'
 import SlimeChunksPanel from '../components/SlimeChunksPanel'
+import LocalServerPanel from '../components/LocalServerPanel'
 import PageHeader from '../components/PageHeader'
 
 type ToolKey =
@@ -36,6 +38,7 @@ type ToolKey =
   | 'seeds'
   | 'calc'
   | 'slime'
+  | 'server'
 
 interface Tool {
   key: ToolKey
@@ -75,7 +78,8 @@ const TOOLS: Tool[] = [
   { key: 'crashes', title: '崩溃记录', desc: '每次崩溃的原因和次数', icon: Bug, tint: 'text-rose-300' },
   { key: 'seeds', title: '种子收藏夹', desc: '记下好玩的世界种子', icon: Sprout, tint: 'text-emerald-300' },
   { key: 'calc', title: 'Minecraft 小工具', desc: '下界坐标、区块、游戏时间', icon: Calculator, tint: 'text-sky-300' },
-  { key: 'slime', title: '史莱姆区块', desc: '输入种子，看哪里刷史莱姆', icon: Grid2x2Check, tint: 'text-emerald-300' }
+  { key: 'slime', title: '史莱姆区块', desc: '输入种子，看哪里刷史莱姆', icon: Grid2x2Check, tint: 'text-emerald-300' },
+  { key: 'server', title: '一键开服', desc: '开个服务器和朋友一起玩', icon: Server, tint: 'text-rose-300' }
 ]
 
 const LAST_TOOL_KEY = TOOLBOX_KEY
@@ -150,6 +154,7 @@ function MorePage(): JSX.Element {
       {current === 'seeds' && <SeedFavoritesPanel />}
       {current === 'calc' && <MinecraftToolsPanel />}
       {current === 'slime' && <SlimeChunksPanel />}
+      {current === 'server' && <LocalServerPanel />}
     </div>
   )
 }

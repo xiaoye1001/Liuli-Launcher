@@ -7,6 +7,7 @@ import {
   CornerDownLeft,
   Gauge,
   Grid2x2Check,
+  HardDrive,
   Layers,
   Palette,
   Play,
@@ -178,6 +179,14 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
         icon: Grid2x2Check,
         keywords: '史莱姆 粘液球 刷怪 区块 种子 slime',
         run: tool('slime')
+      },
+      {
+        id: 'tool:server',
+        title: '一键开服',
+        group: '百宝箱',
+        icon: HardDrive,
+        keywords: '开服 服务器 局域网 联机 server 搭建',
+        run: tool('server')
       },
       {
         id: 'action:log',

@@ -1110,6 +1110,44 @@ export interface ModProfile {
   disabled: string[]
 }
 
+/** 一键开服：一个本地服务器 */
+export interface LocalServer {
+  id: string
+  name: string
+  /** 游戏版本，例如 1.21.1 */
+  version: string
+  port: number
+  memoryMb: number
+  /** 正版验证（关掉后离线账号也能加入） */
+  onlineMode: boolean
+  /** 需要的 Java 主版本号 */
+  javaMajor: number
+  createdAt: number
+  /** 服务端下载好了，可以启动 */
+  ready: boolean
+}
+
+export interface LocalServerInput {
+  name: string
+  version: string
+  port: number
+  memoryMb: number
+  onlineMode: boolean
+  /** 玩家勾选了同意 Minecraft EULA */
+  acceptEula: boolean
+}
+
+export interface LocalServerStatus {
+  /** 正在运行（或最近一次运行）的服务器 */
+  id: string | null
+  state: 'stopped' | 'starting' | 'running' | 'stopping' | 'error'
+  /** 出错的原因 */
+  message?: string
+  /** 局域网里朋友可以用的地址 */
+  addresses: string[]
+  port: number
+}
+
 /** 每日小目标的状态 */
 export interface DailyGoalStatus {
   /** 今天（YYYY-MM-DD） */
@@ -1573,7 +1611,7 @@ export interface SharedLog {
 // ---------- 高速多线程下载（FastDownloadEngine） ----------
 
 /** 下载任务的来源：模组 / 整合包 / 资源包等 / 百宝箱直链 / 新引擎失败后改用原下载方式 */
-export type FastDownloadSource = 'mod' | 'modpack' | 'resource' | 'toolbox' | 'fallback' | 'multiplayer'
+export type FastDownloadSource = 'mod' | 'modpack' | 'resource' | 'toolbox' | 'fallback' | 'multiplayer' | 'server'
 
 export type FastDownloadStatus =
   | 'downloading'
