@@ -124,7 +124,7 @@ function MorePage(): JSX.Element {
     <div className="page-scroll flex h-full flex-col gap-4">
       <PageHeader
         title="更多"
-        subtitle="百宝箱：高速下载、清理缓存、Java 检测、测速、游玩报告、成就、崩溃记录、种子、小工具、史莱姆区块、一键开服"
+        subtitle="百宝箱：高速下载、清理缓存、Java 检测、测速、游玩报告、成就、崩溃记录、种子、小工具、史莱姆区块、一键开服、命令生成器"
       />
 
       {/* 小工具入口 */}
