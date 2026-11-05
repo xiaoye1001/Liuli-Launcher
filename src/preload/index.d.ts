@@ -51,6 +51,7 @@ import type {
   GameResources,
   WorldMap,
   CrashRecord,
+  KeyConflict,
   ShaderSetupResult,
   ModTranslationResult,
   ModpackInfo,
@@ -276,6 +277,12 @@ declare global {
       copyGameOptions: (from: string, to: string, mode: OptionsCopyMode) => Promise<OptionsCopyResult>
       /** 恢复上次修改前的游戏设置 */
       restoreGameOptions: (versionId: string) => Promise<void>
+      /** 按键冲突：绑在同一个键上的操作 */
+      getKeyConflicts: (versionId: string) => Promise<KeyConflict[]>
+      /** 解除某个操作的按键绑定（修改前自动备份） */
+      unbindKey: (versionId: string, action: string) => Promise<void>
+      /** 全部按键恢复默认（修改前自动备份） */
+      resetKeyBindings: (versionId: string) => Promise<void>
       /** 套用画质档位（只改视距、图形质量等几项，修改前自动备份） */
       applyVideoPreset: (versionId: string, preset: VideoPreset) => Promise<void>
       /** 启动器成就（含进度） */

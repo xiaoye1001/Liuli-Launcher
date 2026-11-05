@@ -11,7 +11,15 @@ import { setupNotifications } from './notify'
 import { clearCrashHistory, listCrashHistory, setupCrashHistory } from './crashHistory'
 import { copyReportImage, saveReportImage } from './reportImage'
 import { renderWorldMap } from './worldMap'
-import { applyVideoPreset, copyGameOptions, getGameOptionsInfo, restoreGameOptions } from './optionsTools'
+import {
+  applyVideoPreset,
+  copyGameOptions,
+  getGameOptionsInfo,
+  getKeyConflicts,
+  resetKeyBindings,
+  restoreGameOptions,
+  unbindKey
+} from './optionsTools'
 import { listModRollbacks, rollbackModUpdate } from './modRollback'
 import { setupShaders } from './oneClickShaders'
 import {
@@ -667,6 +675,9 @@ function registerIpc(): void {
     copyGameOptions(from, to, mode)
   )
   ipcMain.handle('gameOptions:restore', (_, versionId: string) => restoreGameOptions(versionId))
+  ipcMain.handle('gameOptions:keyConflicts', (_, versionId: string) => getKeyConflicts(versionId))
+  ipcMain.handle('gameOptions:unbindKey', (_, versionId: string, action: string) => unbindKey(versionId, action))
+  ipcMain.handle('gameOptions:resetKeys', (_, versionId: string) => resetKeyBindings(versionId))
   ipcMain.handle('gameOptions:preset', (_, versionId: string, preset: VideoPreset) =>
     applyVideoPreset(versionId, preset)
   )

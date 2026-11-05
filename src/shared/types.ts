@@ -1088,6 +1088,15 @@ export interface RepairInfo {
   fullscreen: boolean
 }
 
+/** 按键冲突：绑在同一个键上的几个操作 */
+export interface KeyConflict {
+  /** options.txt 里的按键写法 */
+  key: string
+  /** 按键的显示名 */
+  label: string
+  actions: { id: string; name: string }[]
+}
+
 /** 画质档位：流畅 / 均衡 / 高画质 */
 export type VideoPreset = 'smooth' | 'balanced' | 'high'
 

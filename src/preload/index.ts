@@ -170,6 +170,9 @@ const api = {
   getGameOptionsInfo: (versionId: string) => ipcRenderer.invoke('gameOptions:info', versionId),
   copyGameOptions: (from: string, to: string, mode: string) => ipcRenderer.invoke('gameOptions:copy', from, to, mode),
   restoreGameOptions: (versionId: string) => ipcRenderer.invoke('gameOptions:restore', versionId),
+  getKeyConflicts: (versionId: string) => ipcRenderer.invoke('gameOptions:keyConflicts', versionId),
+  unbindKey: (versionId: string, action: string) => ipcRenderer.invoke('gameOptions:unbindKey', versionId, action),
+  resetKeyBindings: (versionId: string) => ipcRenderer.invoke('gameOptions:resetKeys', versionId),
   applyVideoPreset: (versionId: string, preset: string) => ipcRenderer.invoke('gameOptions:preset', versionId, preset),
   /** 解锁了新成就（参数是成就 ID） */
   onAchievementUnlocked: (callback: (id: string) => void) => {
