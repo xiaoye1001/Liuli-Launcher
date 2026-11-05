@@ -769,15 +769,15 @@ function HomePage({
   if (wide) {
     return (
       <div className="flex h-full gap-5">
-        {/* 左边：问候在上，新闻和最近游玩在下，中间留白露出背景 */}
+        {/* 左边：新闻在上，最近游玩和问候在下，中间留白露出背景 */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-          {hero}
-          {crash}
-          <div className="min-h-0 flex-1" />
           {settings?.showNews && tall && (
             <NewsPanel onHide={async () => setSettings(await window.api.updateSettings({ showNews: false }))} />
           )}
+          {crash}
+          <div className="min-h-0 flex-1" />
           {recentPlays}
+          {hero}
         </div>
 
         {/* 右边：启动坞 */}
