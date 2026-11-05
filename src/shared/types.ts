@@ -1088,6 +1088,28 @@ export interface RepairInfo {
   fullscreen: boolean
 }
 
+/** 模组启用方案：哪些模组开、哪些关（模组文件名，不带 .disabled） */
+export interface ModProfile {
+  id: string
+  name: string
+  createdAt: number
+  enabled: string[]
+  disabled: string[]
+}
+
+/** 应用方案的结果 */
+export interface ModProfileResult {
+  /** 打开了几个 */
+  enabled: number
+  /** 关掉了几个 */
+  disabled: number
+  /** 方案保存之后新加的模组（没有改动） */
+  untouched: number
+  /** 方案里有、但现在已经删掉的模组 */
+  missing: number
+  failed: string[]
+}
+
 /** 按键冲突：绑在同一个键上的几个操作 */
 export interface KeyConflict {
   /** options.txt 里的按键写法 */

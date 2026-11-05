@@ -9,6 +9,7 @@ import { getLaunchTiming, setupLaunchTiming } from './launchTiming'
 import { getGameResources, setupGameMonitor } from './gameMonitor'
 import { setupNotifications } from './notify'
 import { clearCrashHistory, listCrashHistory, setupCrashHistory } from './crashHistory'
+import { applyModProfile, deleteModProfile, listModProfiles, saveModProfile } from './modProfiles'
 import { copyReportImage, saveReportImage } from './reportImage'
 import { renderWorldMap } from './worldMap'
 import {
@@ -483,6 +484,10 @@ function registerIpc(): void {
     void unlockAchievement('rollback').catch(() => undefined)
     return restored
   })
+  ipcMain.handle('modProfiles:list', (_, versionId: string) => listModProfiles(versionId))
+  ipcMain.handle('modProfiles:save', (_, versionId: string, name: string) => saveModProfile(versionId, name))
+  ipcMain.handle('modProfiles:apply', (_, versionId: string, id: string) => applyModProfile(versionId, String(id)))
+  ipcMain.handle('modProfiles:delete', (_, versionId: string, id: string) => deleteModProfile(versionId, String(id)))
   ipcMain.handle('collections:list', () => listModCollections())
   ipcMain.handle('collections:save', async (_, versionId: string, name: string) => {
     const result = await saveModCollection(versionId, name)

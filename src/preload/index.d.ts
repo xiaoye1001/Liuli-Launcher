@@ -52,6 +52,8 @@ import type {
   WorldMap,
   CrashRecord,
   KeyConflict,
+  ModProfile,
+  ModProfileResult,
   ShaderSetupResult,
   ModTranslationResult,
   ModpackInfo,
@@ -227,6 +229,12 @@ declare global {
       listModRollbacks: (versionId: string) => Promise<ModRollback[]>
       /** 退回更新前的模组文件，返回放回的文件名 */
       rollbackModUpdate: (versionId: string, id: string) => Promise<string>
+      /** 模组启用方案；current 是和现在的开关状态一样的方案 */
+      listModProfiles: (versionId: string) => Promise<{ profiles: ModProfile[]; current: string | null }>
+      /** 把现在的开关状态存成方案（同名的会被更新） */
+      saveModProfile: (versionId: string, name: string) => Promise<ModProfile>
+      applyModProfile: (versionId: string, id: string) => Promise<ModProfileResult>
+      deleteModProfile: (versionId: string, id: string) => Promise<void>
       /** 我的模组合集 */
       listModCollections: () => Promise<ModCollection[]>
       /** 把这个版本已启用的模组存为合集（只能保存 Modrinth 上有的模组） */

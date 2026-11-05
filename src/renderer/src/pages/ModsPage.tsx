@@ -6,6 +6,7 @@ import {
   FolderOpen,
   Gauge,
   Languages,
+  Layers3,
   Library,
   Loader2,
   Plus,
@@ -23,6 +24,7 @@ import { HEADER_BUTTON, HEADER_ICON_BUTTON, HEADER_PRIMARY } from '../components
 import ModIssuesCard from '../components/ModIssuesCard'
 import ModCollectionsDialog from '../components/ModCollectionsDialog'
 import McmodLink from '../components/McmodLink'
+import ModProfilesDialog from '../components/ModProfilesDialog'
 import type {
   InstalledVersion,
   ModInfo,
@@ -89,6 +91,7 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
   /** 可以退回的更新：按去掉 .disabled 的文件名查找（启用、禁用后仍然对得上） */
   const [rollbacks, setRollbacks] = useState<Record<string, ModRollback>>({})
   const [collections, setCollections] = useState(false)
+  const [profiles, setProfiles] = useState(false)
   const [checking, setChecking] = useState(false)
   /** 从问题提示跳到「下载模组」时预先填好的搜索词 */
   const [searchPreset, setSearchPreset] = useState<{ text: string; nonce: number } | undefined>()
@@ -444,6 +447,17 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
               {checking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
               检查更新
             </button>
+            {(list?.mods.length ?? 0) > 0 && (
+              <button
+                onClick={() => setProfiles(true)}
+                disabled={pending !== null}
+                title="把模组开关存成方案，一键切换"
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+              >
+                <Layers3 className="h-3.5 w-3.5" />
+                方案
+              </button>
+            )}
             {version.loader && version.loader !== 'optifine' && (
               <button
                 onClick={() => setCollections(true)}
@@ -587,6 +601,9 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
           </div>
         </div>
       </section>
+      {profiles && (
+        <ModProfilesDialog versionId={version.id} onClose={() => setProfiles(false)} onApplied={() => void load()} />
+      )}
       {collections && (
         <ModCollectionsDialog
           versionId={version.id}
