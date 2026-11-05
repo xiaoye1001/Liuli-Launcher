@@ -6,10 +6,38 @@ import { setTrayWindowFactory, syncTray } from './tray'
 import { setupPlayReminder } from './playReminder'
 import { setupAutoBackup } from './autoBackup'
 import { getLaunchTiming, setupLaunchTiming } from './launchTiming'
-import { getGameResources, setupGameMonitor } from './gameMonitor'
+import { getGameResourceHistory, getGameResources, setupGameMonitor } from './gameMonitor'
+import { setupNotifications } from './notify'
+import { clearCrashHistory, listCrashHistory, setupCrashHistory } from './crashHistory'
+import { applyModProfile, deleteModProfile, listModProfiles, saveModProfile } from './modProfiles'
+import { createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot } from './versionSnapshots'
+import { applyModMigration, checkModMigration } from './modMigration'
+import { addSeedFavorite, deleteSeedFavorite, listSeedFavorites, updateSeedFavorite } from './seedFavorites'
+import { getDailyGoal, setDailyGoalDone, skipDailyGoal } from './dailyGoals'
+import {
+  createLocalServer,
+  deleteLocalServer,
+  getLocalServerStatus,
+  listLocalServers,
+  openLocalServerFolder,
+  redownloadLocalServer,
+  sendLocalServerCommand,
+  setupLocalServerShutdown,
+  startLocalServer,
+  stopLocalServer,
+  updateLocalServer
+} from './localServer'
 import { copyReportImage, saveReportImage } from './reportImage'
 import { renderWorldMap } from './worldMap'
-import { applyVideoPreset, copyGameOptions, getGameOptionsInfo, restoreGameOptions } from './optionsTools'
+import {
+  applyVideoPreset,
+  copyGameOptions,
+  getGameOptionsInfo,
+  getKeyConflicts,
+  resetKeyBindings,
+  restoreGameOptions,
+  unbindKey
+} from './optionsTools'
 import { listModRollbacks, rollbackModUpdate } from './modRollback'
 import { setupShaders } from './oneClickShaders'
 import {
@@ -140,7 +168,8 @@ import {
   setAiConfig,
   testAiConnection
 } from './ai'
-import { deleteServer, importGameServers, listServers, moveServer, saveServer } from './servers'
+import { deleteServer, importGameServers, listServers, moveServer, saveServer, setServerWatch } from './servers'
+import { setupServerWatch, watchChanged } from './serverWatch'
 import { pingServer } from './serverPing'
 import {
   cancelUpdateDownload,
@@ -178,7 +207,14 @@ import {
   stopMultiplayer
 } from './services/multiplayerService'
 import { guardIpc, hardenWebContents } from './security'
-import { copyScreenshot, deleteScreenshot, listScreenshots, openScreenshotsDir, showScreenshot } from './screenshots'
+import {
+  copyScreenshot,
+  deleteScreenshot,
+  listScreenshots,
+  openScreenshotsDir,
+  screenshotsOnThisDay,
+  showScreenshot
+} from './screenshots'
 import { copyVersion, createDesktopShortcut, launchArgOf, renameVersion } from './versionOps'
 import { getNews } from './news'
 import { applyNetworkSettings, checkNetwork, validateProxyUrl } from './network'
@@ -224,7 +260,10 @@ import type {
   DirectDownloadOptions,
   OptionsCopyMode,
   ShaderChoice,
-  VideoPreset
+  VideoPreset,
+  SeedFavorite,
+  LocalServer,
+  LocalServerInput
 } from '../shared/types'
 import { HIDEABLE_PAGES, PARTICLE_EFFECTS, THEME_PRESETS } from '../shared/types'
 import { sanitizeAutoTheme, sanitizeCustomThemes } from '../shared/theme'
@@ -473,6 +512,41 @@ function registerIpc(): void {
     void unlockAchievement('rollback').catch(() => undefined)
     return restored
   })
+  ipcMain.handle('modProfiles:list', (_, versionId: string) => listModProfiles(versionId))
+  ipcMain.handle('modProfiles:save', (_, versionId: string, name: string) => saveModProfile(versionId, name))
+  ipcMain.handle('modProfiles:apply', (_, versionId: string, id: string) => applyModProfile(versionId, String(id)))
+  ipcMain.handle('modProfiles:delete', (_, versionId: string, id: string) => deleteModProfile(versionId, String(id)))
+  ipcMain.handle('seeds:list', () => listSeedFavorites())
+  ipcMain.handle('dailyGoal:get', () => getDailyGoal())
+  ipcMain.handle('localServer:list', () => listLocalServers())
+  ipcMain.handle('localServer:status', () => getLocalServerStatus())
+  ipcMain.handle('localServer:create', (_, input: LocalServerInput) => createLocalServer(input))
+  ipcMain.handle('localServer:update', (_, id: string, patch: Partial<LocalServer>) =>
+    updateLocalServer(String(id), patch ?? {})
+  )
+  ipcMain.handle('localServer:redownload', (_, id: string) => redownloadLocalServer(String(id)))
+  ipcMain.handle('localServer:delete', (_, id: string) => deleteLocalServer(String(id)))
+  ipcMain.handle('localServer:open', (_, id: string) => openLocalServerFolder(String(id)))
+  ipcMain.handle('localServer:start', (_, id: string) => startLocalServer(String(id)))
+  ipcMain.handle('localServer:stop', () => stopLocalServer())
+  ipcMain.handle('localServer:command', (_, command: string) => sendLocalServerCommand(String(command ?? '')))
+  ipcMain.handle('dailyGoal:done', (_, done: boolean) => setDailyGoalDone(done === true))
+  ipcMain.handle('dailyGoal:skip', () => skipDailyGoal())
+  ipcMain.handle('seeds:add', (_, input: Partial<SeedFavorite>) => addSeedFavorite(input))
+  ipcMain.handle('seeds:update', (_, id: string, patch: Partial<SeedFavorite>) => updateSeedFavorite(String(id), patch))
+  ipcMain.handle('seeds:delete', (_, id: string) => deleteSeedFavorite(String(id)))
+  ipcMain.handle('snapshots:list', (_, versionId: string) => listSnapshots(versionId))
+  ipcMain.handle('snapshots:create', (_, versionId: string, name: string) => createSnapshot(versionId, name))
+  ipcMain.handle('snapshots:restore', (_, versionId: string, id: string) => restoreSnapshot(versionId, String(id)))
+  ipcMain.handle('snapshots:delete', (_, versionId: string, id: string) => deleteSnapshot(versionId, String(id)))
+  ipcMain.handle('modMigration:check', (_, versionId: string, targetId: string) =>
+    checkModMigration(versionId, String(targetId))
+  )
+  ipcMain.handle(
+    'modMigration:apply',
+    (_, versionId: string, targetId: string, mods: { projectId: string; title: string }[]) =>
+      applyModMigration(versionId, String(targetId), mods)
+  )
   ipcMain.handle('collections:list', () => listModCollections())
   ipcMain.handle('collections:save', async (_, versionId: string, name: string) => {
     const result = await saveModCollection(versionId, name)
@@ -553,6 +627,7 @@ function registerIpc(): void {
     openWorldDatapacksDir(versionId, folder)
   )
   ipcMain.handle('screenshots:list', (_, versionId: string) => listScreenshots(versionId))
+  ipcMain.handle('screenshots:onThisDay', () => screenshotsOnThisDay())
   ipcMain.handle('screenshots:delete', (_, versionId: string, fileName: string) =>
     deleteScreenshot(versionId, fileName)
   )
@@ -644,14 +719,22 @@ function registerIpc(): void {
   ipcMain.handle('servers:list', () => listServers())
   ipcMain.handle('servers:save', (_, server: Omit<SavedServer, 'id'> & { id?: string }) => saveServer(server))
   ipcMain.handle('servers:delete', (_, id: string) => deleteServer(id))
+  ipcMain.handle('servers:watch', async (_, id: string, watch: boolean) => {
+    const list = await setServerWatch(String(id), watch === true)
+    if (watch === true) watchChanged()
+    return list
+  })
   ipcMain.handle('servers:move', (_, id: string, offset: number) => moveServer(id, offset))
   ipcMain.handle('servers:import', () => importGameServers())
   ipcMain.handle('servers:ping', (_, address: string) => pingServer(address))
   ipcMain.handle('game:status', () => getGameStatus())
   ipcMain.handle('game:resources', () => getGameResources())
+  ipcMain.handle('game:resourceHistory', () => getGameResourceHistory())
   ipcMain.handle('game:cancel', () => cancelLaunch())
   ipcMain.handle('game:kill', () => killGame())
   ipcMain.handle('stats:get', () => getPlayStats())
+  ipcMain.handle('crashes:list', () => listCrashHistory())
+  ipcMain.handle('crashes:clear', () => clearCrashHistory())
   ipcMain.handle('report:saveImage', (event, dataUrl: string, name: string) =>
     saveReportImage(BrowserWindow.fromWebContents(event.sender), dataUrl, name)
   )
@@ -663,6 +746,9 @@ function registerIpc(): void {
     copyGameOptions(from, to, mode)
   )
   ipcMain.handle('gameOptions:restore', (_, versionId: string) => restoreGameOptions(versionId))
+  ipcMain.handle('gameOptions:keyConflicts', (_, versionId: string) => getKeyConflicts(versionId))
+  ipcMain.handle('gameOptions:unbindKey', (_, versionId: string, action: string) => unbindKey(versionId, action))
+  ipcMain.handle('gameOptions:resetKeys', (_, versionId: string) => resetKeyBindings(versionId))
   ipcMain.handle('gameOptions:preset', (_, versionId: string, preset: VideoPreset) =>
     applyVideoPreset(versionId, preset)
   )
@@ -803,6 +889,10 @@ app.whenReady().then(async () => {
   setupAutoBackup()
   setupLaunchTiming()
   setupGameMonitor()
+  setupNotifications()
+  setupCrashHistory()
+  setupServerWatch()
+  setupLocalServerShutdown()
   setupAchievements()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)

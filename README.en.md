@@ -65,27 +65,36 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - Automatically picks or downloads the right Java; **automatic memory allocation** based on version, mods, shaders and available RAM
 - Verifies game files before launch and repairs missing or corrupted ones
 - Staged launch animation and live log window; stop the game from the launcher while it runs
-- **Crash analysis** explains causes and fixes, with one-click log sharing to [mclo.gs](https://mclo.gs/)
+- **Crash analysis** explains causes and fixes, with one-click log sharing to [mclo.gs](https://mclo.gs/); a **crash history** keeps the time, version and cause of every crash and failed launch
 - **AI assistant**: add your own API key (Claude, or OpenAI-compatible services such as DeepSeek, Qwen, Kimi and local Ollama) to analyze crashes and launch failures automatically; the key is encrypted on this computer, and sign-in tokens and other private data are removed before anything is sent
 - **Repair wizard** for games that won't start: repair game files, switch to automatic Java, clear custom launch arguments, temporarily disable recently added mods and lower the graphics settings
 - Per-version memory, Java, window size, JVM arguments, pre-launch / post-exit commands and more
-- **In-game settings**: switch graphics presets (smooth / balanced / high), copy settings or just key bindings from another version, with an automatic backup before each change
+- **In-game settings**: switch graphics presets (smooth / balanced / high), copy settings or just key bindings from another version, find **key binding conflicts** (unbind one or reset all), with an automatic backup before each change
 - Multiple game directories, version isolation, favorites and custom icons, playtime statistics
 - **Continue**: jump straight into your last world, skipping the title screen (1.20+); new versions start in Simplified Chinese
-- Shows how long each launch took, and the game's memory and CPU usage while it runs
-- System tray icon; play-time reminders that suggest taking a break
+- Shows how long each launch took, and the game's memory and CPU usage with **usage charts** while it runs
+- System tray icon; play-time reminders that suggest taking a break; **system notifications** when downloads, installs or updates finish while the launcher is in the background
 
 ### Version and world management
-- Mods: enable / disable, dependency checks, update checks; **roll back** an update that causes problems (the crash screen suggests rolling back recently updated mods)
+- Mods: enable / disable, dependency checks, update checks, a one-click link to each mod's **MC百科 (MCMod)** page; **roll back** an update that causes problems (the crash screen suggests rolling back recently updated mods)
+- **Mod profiles**: save which mods are on and off (for example "survival" or "shaders") and switch in one click
+- **Mod migration helper**: when moving to a new game version, check which mods have a build for it and install them in one click
+- **Version snapshots**: save a copy of the mods, mod configs and game settings, and restore it in one click if something breaks
 - One-click **performance mods** (Sodium, Lithium, FerriteCore and more) and **mod translations** (CFPA's I18nUpdateMod, updated automatically in game)
 - **Mod collections**: save your favorite mods as a collection and install it into another version in one click (matching versions are picked automatically)
 - Worlds: backup and restore, import, seed and game rules, data packs; worlds you played are **backed up automatically** after the game exits (latest 3 per world), to a backup folder of your choice
-- Per-world statistics (play time, deaths, diamonds mined and more), a **world map preview** (top-down view of the Overworld) and a one-click seed map
+- Per-world statistics (play time, deaths, diamonds mined and more), a **world map preview** (top-down view of the Overworld), a one-click seed map and saving seeds to your favorites
 - Resource packs, shader packs and screenshots; **one-click shaders** installs Iris / Oculus and a rendering mod, downloads a shader pack and turns it on
 
 ### Servers and multiplayer
-- Save servers with player count, ping and MOTD; join directly
+- Save servers with player count, ping and MOTD; join directly; turn on **online alerts** to get a notification when a server comes online or someone joins
 - Three ways to play together, all with a single room code: **direct connection**, **P2P networking** (powered by [EasyTier](https://github.com/EasyTier/EasyTier)) and **tunnels**
+- **One-click server**: host a vanilla server on your own computer (the official server is downloaded from Mojang, and you must agree to the Minecraft EULA) that friends on the same network can join; view the output, send commands, and it is saved and stopped automatically when the launcher quits
+
+### Toolbox
+- **Seed favorites**: keep track of interesting world seeds (text seeds supported), copy them or open a seed map
+- **Minecraft tools**: Nether / Overworld coordinates, chunk coordinates and game time conversion (copy the /time set command)
+- **Slime chunk finder** (Java Edition): enter a seed and see which chunks around a position spawn slimes, using the same algorithm as the game
 
 ### Accounts
 - Offline accounts, **Microsoft accounts** and authlib-injector skin sites such as LittleSkin
@@ -95,9 +104,10 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - Dark / light / system themes, theme presets and animated particle backgrounds
 - Original built-in themes (HD wallpapers and background music); custom wallpapers (images or video), accent colors, fonts and UI scale
 - Home-screen splash text and a daily Minecraft fact; set a screenshot as the launcher wallpaper; a small surprise on your birthday if you set it
+- A **daily goal** on the home screen (a small in-game challenge each day; keep a streak to unlock an achievement) and **on this day** (screenshots you took on today's date in earlier years)
 - **Ctrl+K quick search** for pages, settings, tools and versions
 - **Play report** (weekly play time, most-played versions) with a shareable **yearly report image**
-- 21 **launcher achievements** (including hidden ones) with an in-game style toast
+- 23 **launcher achievements** (including hidden ones) with an in-game style toast
 - Background music player, click effects and official Minecraft news
 - Automatic updates with signature verification and one-click restart
 
@@ -121,6 +131,8 @@ Game files (versions, mods, worlds, resource packs) are kept apart from launcher
 | Linux | `~/.minecraft` | `~/.config/mc_launcher` |
 
 The installed version uses the system `.minecraft`, shared with the official launcher. You can add more game directories and switch between them in Settings → Game Directory.
+
+Servers created with the one-click server (including their worlds) are stored in `local-servers` in the launcher folder; version snapshots are stored in `liuli-snapshots` in the version's game folder.
 
 Versions 0.5.1 and earlier kept game files in `.minecraft` inside the launcher folder. They are moved to the location above the first time the new version starts (a rename only — nothing is copied or deleted). If a `.minecraft` already exists there, the old folder stays where it is and appears as "旧的默认目录" (old default directory) in the list.
 
@@ -178,6 +190,7 @@ Issues and pull requests are welcome. Please read the [contributing guide](CONTR
 - [MCIM](https://mod.mcimirror.top/): Modrinth and CurseForge mirror
 - [Modrinth](https://modrinth.com/), [CurseForge](https://www.curseforge.com/minecraft): community resources
 - [mclo.gs](https://mclo.gs/): log sharing
+- [MC百科 (MCMod)](https://www.mcmod.cn/): Chinese mod wiki (linked only)
 - [EasyTier](https://github.com/EasyTier/EasyTier): P2P multiplayer
 - [@xmcl / minecraft-launcher-core-node](https://github.com/Voxelum/minecraft-launcher-core-node), [skinview3d](https://github.com/bs-community/skinview3d)
 

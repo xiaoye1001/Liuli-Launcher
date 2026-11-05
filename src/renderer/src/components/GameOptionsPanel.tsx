@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CheckCircle2, Copy, Gauge, Loader2, RotateCcw, Scale, Sparkles, type LucideIcon } from 'lucide-react'
-import type { GameOptionsInfo, OptionsCopyMode, VideoPreset } from '../../../shared/types'
+import { CheckCircle2, Copy, Gauge, Keyboard, Loader2, RotateCcw, Scale, Sparkles, type LucideIcon } from 'lucide-react'
+import type { GameOptionsInfo, KeyConflict, OptionsCopyMode, VideoPreset } from '../../../shared/types'
 
 /** 去掉 Electron 给 IPC 错误加的前缀 */
 function cleanError(e: unknown): string {
@@ -28,11 +28,14 @@ function GameOptionsPanel({ versionId }: { versionId: string }): JSX.Element {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [conflicts, setConflicts] = useState<KeyConflict[]>([])
+  const [confirmReset, setConfirmReset] = useState(false)
 
   const refresh = useCallback(async () => {
     try {
       const next = await window.api.getGameOptionsInfo(versionId)
       setInfo(next)
+      setConflicts(await window.api.getKeyConflicts(versionId).catch(() => []))
       setSource((prev) => (next.sources.some((s) => s.id === prev) ? prev : (next.sources[0]?.id ?? '')))
     } catch (e) {
       setError(cleanError(e))
@@ -70,6 +73,25 @@ function GameOptionsPanel({ versionId }: { versionId: string }): JSX.Element {
       await window.api.applyVideoPreset(versionId, preset)
       return `已切换到「${PRESETS.find((p) => p.id === preset)?.label}」画质，下次启动游戏生效`
     })
+
+  const unbind = (action: { id: string; name: string }): Promise<void> =>
+    run(async () => {
+      await window.api.unbindKey(versionId, action.id)
+      return `已解除「${action.name}」的按键，可以进游戏重新设置`
+    })
+
+  const resetKeys = (): Promise<void> => {
+    if (!confirmReset) {
+      setConfirmReset(true)
+      setTimeout(() => setConfirmReset(false), 3000)
+      return Promise.resolve()
+    }
+    setConfirmReset(false)
+    return run(async () => {
+      await window.api.resetKeyBindings(versionId)
+      return '已把全部按键恢复默认，下次进入游戏生效'
+    })
+  }
 
   const restore = (): Promise<void> =>
     run(async () => {
@@ -124,6 +146,59 @@ function GameOptionsPanel({ versionId }: { versionId: string }): JSX.Element {
               : '这个版本还没有游戏设置，先启动一次游戏再选择画质档位'}
         </p>
       </div>
+
+      {/* 按键冲突 */}
+      {info.hasOptions && (
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+            按键冲突
+            <button
+              onClick={() => void resetKeys()}
+              disabled={busy}
+              className={`ml-auto flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-normal transition-colors disabled:opacity-50 ${
+                confirmReset ? 'bg-red-500/80 text-white hover:bg-red-500' : 'bg-white/10 hover:bg-white/20'
+              }`}
+            >
+              <RotateCcw className="h-3 w-3" />
+              {confirmReset ? '确认恢复？' : '全部按键恢复默认'}
+            </button>
+          </div>
+          {conflicts.length === 0 ? (
+            <p className="flex items-center gap-1.5 text-xs text-white/50">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />
+              没有绑在同一个键上的操作
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {conflicts.map((c) => (
+                <div key={c.key} className="rounded-xl bg-black/20 px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-xs text-amber-200">
+                    <Keyboard className="h-3.5 w-3.5" />「{c.label}」上绑了 {c.actions.length} 个操作
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {c.actions.map((a) => (
+                      <span
+                        key={a.id}
+                        className="flex items-center gap-1 rounded-lg bg-white/10 py-0.5 pl-2 pr-1 text-xs"
+                        title={a.id}
+                      >
+                        {a.name}
+                        <button
+                          onClick={() => void unbind(a)}
+                          disabled={busy}
+                          className="rounded px-1 text-white/50 hover:bg-white/15 hover:text-white disabled:opacity-50"
+                        >
+                          解绑
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 从其他版本复制设置 */}
       <div>

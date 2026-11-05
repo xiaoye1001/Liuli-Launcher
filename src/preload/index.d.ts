@@ -50,6 +50,17 @@ import type {
   ModCollection,
   GameResources,
   WorldMap,
+  CrashRecord,
+  KeyConflict,
+  ModProfile,
+  ModProfileResult,
+  VersionSnapshot,
+  ModMigrationCheck,
+  SeedFavorite,
+  DailyGoalStatus,
+  LocalServer,
+  LocalServerInput,
+  LocalServerStatus,
   ShaderSetupResult,
   ModTranslationResult,
   ModpackInfo,
@@ -77,6 +88,7 @@ import type {
   ExternalLoginResult,
   ModUpdate,
   ScreenshotList,
+  OnThisDayShot,
   PlayStats,
   ModpackExportInfo,
   ModpackExportOptions,
@@ -225,6 +237,64 @@ declare global {
       listModRollbacks: (versionId: string) => Promise<ModRollback[]>
       /** 退回更新前的模组文件，返回放回的文件名 */
       rollbackModUpdate: (versionId: string, id: string) => Promise<string>
+      /** 模组启用方案；current 是和现在的开关状态一样的方案 */
+      listModProfiles: (versionId: string) => Promise<{ profiles: ModProfile[]; current: string | null }>
+      /** 把现在的开关状态存成方案（同名的会被更新） */
+      saveModProfile: (versionId: string, name: string) => Promise<ModProfile>
+      applyModProfile: (versionId: string, id: string) => Promise<ModProfileResult>
+      deleteModProfile: (versionId: string, id: string) => Promise<void>
+      /** 版本快照（模组、模组配置、游戏设置），新的在前 */
+      listSnapshots: (versionId: string) => Promise<VersionSnapshot[]>
+      createSnapshot: (versionId: string, name: string) => Promise<VersionSnapshot>
+      /** 恢复快照；返回恢复前自动保存的快照 */
+      restoreSnapshot: (versionId: string, id: string) => Promise<VersionSnapshot>
+      deleteSnapshot: (versionId: string, id: string) => Promise<void>
+      /** 一键开服：本地服务器列表（新的在前） */
+      listLocalServers: () => Promise<LocalServer[]>
+      /** 运行状态、最近的输出、正在下载服务端的服务器 */
+      getLocalServerStatus: () => Promise<{ status: LocalServerStatus; log: string[]; preparing: string[] }>
+      /** 新建服务器并下载服务端（必须同意 EULA） */
+      createLocalServer: (input: LocalServerInput) => Promise<LocalServer>
+      updateLocalServer: (
+        id: string,
+        patch: Partial<Pick<LocalServer, 'name' | 'port' | 'memoryMb' | 'onlineMode'>>
+      ) => Promise<LocalServer>
+      redownloadLocalServer: (id: string) => Promise<LocalServer>
+      /** 删除服务器（移到回收站） */
+      deleteLocalServer: (id: string) => Promise<void>
+      openLocalServerFolder: (id: string) => Promise<void>
+      startLocalServer: (id: string) => Promise<void>
+      stopLocalServer: () => Promise<void>
+      /** 往服务器控制台发命令（一行，不用加 /） */
+      sendLocalServerCommand: (command: string) => Promise<void>
+      onLocalServerStatus: (callback: (status: LocalServerStatus) => void) => () => void
+      onLocalServerLog: (callback: (line: string) => void) => () => void
+      onLocalServersChanged: (callback: () => void) => () => void
+      /** 每日小目标 */
+      getDailyGoal: () => Promise<DailyGoalStatus>
+      /** 打卡（false 取消今天的打卡） */
+      setDailyGoalDone: (done: boolean) => Promise<DailyGoalStatus>
+      /** 换一个目标（每天最多 3 次） */
+      skipDailyGoal: () => Promise<DailyGoalStatus>
+      /** 种子收藏夹（新的在前） */
+      listSeedFavorites: () => Promise<SeedFavorite[]>
+      /** 收藏种子（同一个种子和版本只收藏一次） */
+      addSeedFavorite: (
+        input: Partial<Pick<SeedFavorite, 'seed' | 'name' | 'note' | 'version'>>
+      ) => Promise<SeedFavorite[]>
+      updateSeedFavorite: (
+        id: string,
+        patch: Partial<Pick<SeedFavorite, 'name' | 'note' | 'version'>>
+      ) => Promise<SeedFavorite[]>
+      deleteSeedFavorite: (id: string) => Promise<SeedFavorite[]>
+      /** 模组迁移：检查已启用的模组在目标版本上有没有适用的版本 */
+      checkModMigration: (versionId: string, targetId: string) => Promise<ModMigrationCheck>
+      /** 把选中的模组装到目标版本 */
+      applyModMigration: (
+        versionId: string,
+        targetId: string,
+        mods: { projectId: string; title: string }[]
+      ) => Promise<PerformanceModResult[]>
       /** 我的模组合集 */
       listModCollections: () => Promise<ModCollection[]>
       /** 把这个版本已启用的模组存为合集（只能保存 Modrinth 上有的模组） */
@@ -252,6 +322,8 @@ declare global {
       createDesktopShortcut: (versionId: string) => Promise<string>
       /** 版本的游戏截图（图片通过 liuli://screenshot/<版本>/<文件名> 读取） */
       listScreenshots: (versionId: string) => Promise<ScreenshotList>
+      /** 那年今日：往年的今天拍的截图（新的在前） */
+      screenshotsOnThisDay: () => Promise<OnThisDayShot[]>
       /** 删除截图（移到回收站） */
       deleteScreenshot: (versionId: string, fileName: string) => Promise<void>
       /** 复制截图到剪贴板 */
@@ -260,6 +332,9 @@ declare global {
       openScreenshotsDir: (versionId: string) => Promise<void>
       /** 游玩时长统计与最近游玩记录 */
       getPlayStats: () => Promise<PlayStats>
+      /** 崩溃记录（新的在前） */
+      listCrashHistory: () => Promise<CrashRecord[]>
+      clearCrashHistory: () => Promise<void>
       /** 保存报告图片（PNG），返回保存的路径，取消时返回 null */
       saveReportImage: (dataUrl: string, name: string) => Promise<string | null>
       /** 复制报告图片到剪贴板 */
@@ -272,6 +347,12 @@ declare global {
       copyGameOptions: (from: string, to: string, mode: OptionsCopyMode) => Promise<OptionsCopyResult>
       /** 恢复上次修改前的游戏设置 */
       restoreGameOptions: (versionId: string) => Promise<void>
+      /** 按键冲突：绑在同一个键上的操作 */
+      getKeyConflicts: (versionId: string) => Promise<KeyConflict[]>
+      /** 解除某个操作的按键绑定（修改前自动备份） */
+      unbindKey: (versionId: string, action: string) => Promise<void>
+      /** 全部按键恢复默认（修改前自动备份） */
+      resetKeyBindings: (versionId: string) => Promise<void>
       /** 套用画质档位（只改视距、图形质量等几项，修改前自动备份） */
       applyVideoPreset: (versionId: string, preset: VideoPreset) => Promise<void>
       /** 启动器成就（含进度） */
@@ -360,6 +441,8 @@ declare global {
       /** 添加（没有 id）或修改服务器，返回新的列表 */
       saveServer: (server: Omit<SavedServer, 'id'> & { id?: string }) => Promise<SavedServer[]>
       deleteServer: (id: string) => Promise<SavedServer[]>
+      /** 上线提醒：服务器上线、有人进服时弹系统通知 */
+      setServerWatch: (id: string, watch: boolean) => Promise<SavedServer[]>
       moveServer: (id: string, offset: number) => Promise<SavedServer[]>
       /** 从游戏的多人游戏列表（servers.dat）导入 */
       importGameServers: () => Promise<{ added: number; list: SavedServer[] }>
@@ -375,6 +458,8 @@ declare global {
       onGameStatus: (callback: (status: GameStatus) => void) => () => void
       /** 游戏资源占用（内存、CPU），游戏没有运行时为 null */
       getGameResources: () => Promise<GameResources | null>
+      /** 这次游戏最近一段时间的占用记录（旧的在前，画曲线用） */
+      getGameResourceHistory: () => Promise<GameResources[]>
       onGameResources: (callback: (resources: GameResources | null) => void) => () => void
       /** 选择背景图片，取消时返回原设置 */
       pickBackground: () => Promise<AppSettings>

@@ -8,6 +8,7 @@ import { getPlayStats } from './playStats'
 import { totalDiamonds } from './worlds'
 import { isBirthdayToday } from '../shared/birthday'
 import { getMainWindow } from './windows'
+import { dailyGoalBestStreak } from './dailyGoals'
 import { ACHIEVEMENTS, isAchievementId, type AchievementId, type AchievementStatus } from '../shared/achievements'
 import type { AppSettings, PlayStats } from '../shared/types'
 
@@ -174,7 +175,8 @@ export async function getAchievements(): Promise<AchievementStatus[]> {
     hours_10: hours,
     hours_100: hours,
     explorer: played,
-    streak_7: longestStreak(stats)
+    streak_7: longestStreak(stats),
+    daily_streak_7: await dailyGoalBestStreak().catch(() => 0)
   }
   return ACHIEVEMENTS.map((a) => {
     const unlocked = !!data[a.id]

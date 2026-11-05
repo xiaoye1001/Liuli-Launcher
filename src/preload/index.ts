@@ -140,6 +140,51 @@ const api = {
   listModRollbacks: (versionId: string) => ipcRenderer.invoke('mods:rollbacks', versionId),
   rollbackModUpdate: (versionId: string, id: string) => ipcRenderer.invoke('mods:rollback', versionId, id),
   setupShaders: (versionId: string, choice: string) => ipcRenderer.invoke('shaders:setup', versionId, choice),
+  listModProfiles: (versionId: string) => ipcRenderer.invoke('modProfiles:list', versionId),
+  saveModProfile: (versionId: string, name: string) => ipcRenderer.invoke('modProfiles:save', versionId, name),
+  applyModProfile: (versionId: string, id: string) => ipcRenderer.invoke('modProfiles:apply', versionId, id),
+  deleteModProfile: (versionId: string, id: string) => ipcRenderer.invoke('modProfiles:delete', versionId, id),
+  listSnapshots: (versionId: string) => ipcRenderer.invoke('snapshots:list', versionId),
+  createSnapshot: (versionId: string, name: string) => ipcRenderer.invoke('snapshots:create', versionId, name),
+  restoreSnapshot: (versionId: string, id: string) => ipcRenderer.invoke('snapshots:restore', versionId, id),
+  deleteSnapshot: (versionId: string, id: string) => ipcRenderer.invoke('snapshots:delete', versionId, id),
+  listSeedFavorites: () => ipcRenderer.invoke('seeds:list'),
+  getDailyGoal: () => ipcRenderer.invoke('dailyGoal:get'),
+  listLocalServers: () => ipcRenderer.invoke('localServer:list'),
+  getLocalServerStatus: () => ipcRenderer.invoke('localServer:status'),
+  createLocalServer: (input: Record<string, unknown>) => ipcRenderer.invoke('localServer:create', input),
+  updateLocalServer: (id: string, patch: Record<string, unknown>) =>
+    ipcRenderer.invoke('localServer:update', id, patch),
+  redownloadLocalServer: (id: string) => ipcRenderer.invoke('localServer:redownload', id),
+  deleteLocalServer: (id: string) => ipcRenderer.invoke('localServer:delete', id),
+  openLocalServerFolder: (id: string) => ipcRenderer.invoke('localServer:open', id),
+  startLocalServer: (id: string) => ipcRenderer.invoke('localServer:start', id),
+  stopLocalServer: () => ipcRenderer.invoke('localServer:stop'),
+  sendLocalServerCommand: (command: string) => ipcRenderer.invoke('localServer:command', command),
+  onLocalServerStatus: (callback: (status: unknown) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, status: unknown): void => callback(status)
+    ipcRenderer.on('localServer:status', listener)
+    return () => ipcRenderer.removeListener('localServer:status', listener)
+  },
+  onLocalServerLog: (callback: (line: string) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, line: string): void => callback(line)
+    ipcRenderer.on('localServer:log', listener)
+    return () => ipcRenderer.removeListener('localServer:log', listener)
+  },
+  onLocalServersChanged: (callback: () => void) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('localServer:changed', listener)
+    return () => ipcRenderer.removeListener('localServer:changed', listener)
+  },
+  setDailyGoalDone: (done: boolean) => ipcRenderer.invoke('dailyGoal:done', done),
+  skipDailyGoal: () => ipcRenderer.invoke('dailyGoal:skip'),
+  addSeedFavorite: (input: Record<string, string>) => ipcRenderer.invoke('seeds:add', input),
+  updateSeedFavorite: (id: string, patch: Record<string, string>) => ipcRenderer.invoke('seeds:update', id, patch),
+  deleteSeedFavorite: (id: string) => ipcRenderer.invoke('seeds:delete', id),
+  checkModMigration: (versionId: string, targetId: string) =>
+    ipcRenderer.invoke('modMigration:check', versionId, targetId),
+  applyModMigration: (versionId: string, targetId: string, mods: { projectId: string; title: string }[]) =>
+    ipcRenderer.invoke('modMigration:apply', versionId, targetId, mods),
   listModCollections: () => ipcRenderer.invoke('collections:list'),
   saveModCollection: (versionId: string, name: string) => ipcRenderer.invoke('collections:save', versionId, name),
   deleteModCollection: (id: string) => ipcRenderer.invoke('collections:delete', id),
@@ -155,12 +200,15 @@ const api = {
     ipcRenderer.invoke('versions:copy', versionId, newId, includeSaves),
   createDesktopShortcut: (versionId: string) => ipcRenderer.invoke('versions:shortcut', versionId),
   listScreenshots: (versionId: string) => ipcRenderer.invoke('screenshots:list', versionId),
+  screenshotsOnThisDay: () => ipcRenderer.invoke('screenshots:onThisDay'),
   deleteScreenshot: (versionId: string, fileName: string) =>
     ipcRenderer.invoke('screenshots:delete', versionId, fileName),
   copyScreenshot: (versionId: string, fileName: string) => ipcRenderer.invoke('screenshots:copy', versionId, fileName),
   showScreenshot: (versionId: string, fileName: string) => ipcRenderer.invoke('screenshots:show', versionId, fileName),
   openScreenshotsDir: (versionId: string) => ipcRenderer.invoke('screenshots:open', versionId),
   getPlayStats: () => ipcRenderer.invoke('stats:get'),
+  listCrashHistory: () => ipcRenderer.invoke('crashes:list'),
+  clearCrashHistory: () => ipcRenderer.invoke('crashes:clear'),
   saveReportImage: (dataUrl: string, name: string) => ipcRenderer.invoke('report:saveImage', dataUrl, name),
   copyReportImage: (dataUrl: string) => ipcRenderer.invoke('report:copyImage', dataUrl),
   getAchievements: () => ipcRenderer.invoke('achievements:list'),
@@ -168,6 +216,9 @@ const api = {
   getGameOptionsInfo: (versionId: string) => ipcRenderer.invoke('gameOptions:info', versionId),
   copyGameOptions: (from: string, to: string, mode: string) => ipcRenderer.invoke('gameOptions:copy', from, to, mode),
   restoreGameOptions: (versionId: string) => ipcRenderer.invoke('gameOptions:restore', versionId),
+  getKeyConflicts: (versionId: string) => ipcRenderer.invoke('gameOptions:keyConflicts', versionId),
+  unbindKey: (versionId: string, action: string) => ipcRenderer.invoke('gameOptions:unbindKey', versionId, action),
+  resetKeyBindings: (versionId: string) => ipcRenderer.invoke('gameOptions:resetKeys', versionId),
   applyVideoPreset: (versionId: string, preset: string) => ipcRenderer.invoke('gameOptions:preset', versionId, preset),
   /** 解锁了新成就（参数是成就 ID） */
   onAchievementUnlocked: (callback: (id: string) => void) => {
@@ -244,6 +295,7 @@ const api = {
   listServers: () => ipcRenderer.invoke('servers:list'),
   saveServer: (server: Omit<SavedServer, 'id'> & { id?: string }) => ipcRenderer.invoke('servers:save', server),
   deleteServer: (id: string) => ipcRenderer.invoke('servers:delete', id),
+  setServerWatch: (id: string, watch: boolean) => ipcRenderer.invoke('servers:watch', id, watch),
   moveServer: (id: string, offset: number) => ipcRenderer.invoke('servers:move', id, offset),
   importGameServers: () => ipcRenderer.invoke('servers:import'),
   pingServer: (address: string) => ipcRenderer.invoke('servers:ping', address),
@@ -328,6 +380,7 @@ const api = {
     }
   },
   getGameResources: () => ipcRenderer.invoke('game:resources'),
+  getGameResourceHistory: () => ipcRenderer.invoke('game:resourceHistory'),
   onGameResources: (callback: (resources: GameResources | null) => void) => {
     const listener = (_: Electron.IpcRendererEvent, resources: GameResources | null): void => callback(resources)
     ipcRenderer.on('game:resources', listener)

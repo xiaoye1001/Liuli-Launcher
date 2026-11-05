@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, Copy, Loader2, Map as MapIcon, Search } from 'lucide-react'
+import { Check, ChevronDown, Copy, Loader2, Map as MapIcon, Search, Star } from 'lucide-react'
+import { seedMapUrl as mapUrlOf } from '../utils/seed'
 import WorldMapView from './WorldMapView'
 import type { WorldDetails, WorldDifficulty, WorldStats } from '../../../shared/types'
 
@@ -10,12 +11,7 @@ import type { WorldDetails, WorldDifficulty, WorldStats } from '../../../shared/
 function seedMapUrl(details: WorldDetails): string | null {
   if (!details.seed || !/^-?\d{1,20}$/.test(details.seed)) return null
   const center = details.player && details.player.dimension.endsWith('overworld') ? details.player : details.spawn
-  const params = new URLSearchParams({ seed: details.seed, dimension: 'overworld' })
-  if (center) {
-    params.set('x', String(Math.round(center.x)))
-    params.set('z', String(Math.round(center.z)))
-  }
-  return `https://www.chunkbase.com/apps/seed-map#${params.toString()}`
+  return mapUrlOf(details.seed, center?.x, center?.z)
 }
 
 function cleanError(e: unknown): string {
@@ -191,13 +187,25 @@ function WorldStatsGrid({ stats }: { stats: WorldStats }): JSX.Element {
   )
 }
 
-function WorldDetailsPanel({ versionId, folder }: { versionId: string; folder: string }): JSX.Element {
+function WorldDetailsPanel({
+  versionId,
+  folder,
+  worldName,
+  gameVersion
+}: {
+  versionId: string
+  folder: string
+  /** 收藏种子时用的名称和游戏版本 */
+  worldName?: string
+  gameVersion?: string
+}): JSX.Element {
   const [details, setDetails] = useState<WorldDetails | null>(null)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const [keyword, setKeyword] = useState('')
   const [changedOnly, setChangedOnly] = useState(false)
   const [showMap, setShowMap] = useState(false)
+  const [favorite, setFavorite] = useState('')
 
   useEffect(() => {
     window.api
@@ -239,6 +247,16 @@ function WorldDetailsPanel({ versionId, folder }: { versionId: string; folder: s
     setTimeout(() => setCopied(false), 1500)
   }
 
+  const saveSeed = async (): Promise<void> => {
+    if (!details.seed) return
+    try {
+      await window.api.addSeedFavorite({ seed: details.seed, name: worldName ?? folder, version: gameVersion ?? '' })
+      setFavorite('已收藏')
+    } catch (e) {
+      setFavorite(cleanError(e).includes('已经收藏过') ? '收藏过了' : '收藏失败')
+    }
+  }
+
   const weather = { clear: '晴天', rain: '下雨', thunder: '雷雨' }[details.weather]
   const p = details.player
   const mapUrl = seedMapUrl(details)
@@ -267,6 +285,19 @@ function WorldDetailsPanel({ versionId, folder }: { versionId: string; folder: s
               >
                 <MapIcon className="h-3.5 w-3.5" />
                 种子地图
+              </button>
+            )}
+            {details.seed && (
+              <button
+                onClick={() => void saveSeed()}
+                disabled={!!favorite}
+                title="把这个种子存到百宝箱的「种子收藏夹」"
+                className="flex shrink-0 items-center gap-1 rounded px-1.5 py-1 text-xs text-white/60 hover:bg-white/10 hover:text-white disabled:hover:bg-transparent"
+              >
+                <Star
+                  className={`h-3.5 w-3.5 ${favorite === '已收藏' || favorite === '收藏过了' ? 'fill-current text-amber-300' : ''}`}
+                />
+                {favorite || '收藏'}
               </button>
             )}
           </div>

@@ -3,8 +3,9 @@ import { mkdir, readdir, stat } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import { pathToFileURL } from 'url'
 import { modsContextOf } from './mods'
+import { listInstalledVersions } from './launch'
 import { assertSafeId } from './versionManage'
-import type { ScreenshotList } from '../shared/types'
+import type { OnThisDayShot, ScreenshotList } from '../shared/types'
 
 const IMAGE = /\.(png|jpe?g)$/i
 const THUMB_WIDTH = 384
@@ -44,6 +45,41 @@ export async function listScreenshots(versionId: string): Promise<ScreenshotList
   }
   items.sort((a, b) => b.time - a.time)
   return { versionId, dir, items }
+}
+
+/** 游戏截图的文件名带日期：2025-11-05_20.31.07.png */
+const DATED = /^(\d{4})-(\d{2})-(\d{2})_(\d{2})\.(\d{2})\.(\d{2})/
+
+/**
+ * 那年今日：往年的今天拍的截图（所有版本的截图文件夹，同一个文件夹只看一次）。
+ * 日期按文件名里的日期，文件名里没有时按修改时间；新的年份在前，最多 24 张
+ */
+export async function screenshotsOnThisDay(now = new Date()): Promise<OnThisDayShot[]> {
+  const month = now.getMonth()
+  const day = now.getDate()
+  const year = now.getFullYear()
+  const seen = new Set<string>()
+  const shots: OnThisDayShot[] = []
+  for (const version of await listInstalledVersions().catch(() => [])) {
+    const dir = await dirOf(version.id).catch(() => '')
+    if (!dir || seen.has(dir)) continue
+    seen.add(dir)
+    for (const name of await readdir(dir).catch(() => [] as string[])) {
+      if (!IMAGE.test(name)) continue
+      const m = DATED.exec(name)
+      let taken: Date
+      if (m) {
+        taken = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6])
+      } else {
+        const info = await stat(join(dir, name)).catch(() => null)
+        if (!info?.isFile()) continue
+        taken = new Date(info.mtimeMs)
+      }
+      if (taken.getMonth() !== month || taken.getDate() !== day || taken.getFullYear() >= year) continue
+      shots.push({ versionId: version.id, fileName: name, time: taken.getTime(), year: taken.getFullYear() })
+    }
+  }
+  return shots.sort((a, b) => b.time - a.time).slice(0, 24)
 }
 
 /**

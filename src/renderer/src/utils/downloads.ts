@@ -37,7 +37,8 @@ export const SOURCE_LABELS: Record<FastDownloadSource, string> = {
   modpack: '整合包',
   resource: '资源',
   fallback: '兼容模式',
-  multiplayer: '联机组件'
+  multiplayer: '联机组件',
+  server: '开服'
 }
 
 /** 来源标签的颜色 */
@@ -47,7 +48,8 @@ export const SOURCE_STYLES: Record<FastDownloadSource, string> = {
   modpack: 'bg-fuchsia-500/15 text-fuchsia-300',
   resource: 'bg-amber-500/15 text-amber-300',
   fallback: 'bg-orange-500/15 text-orange-300',
-  multiplayer: 'bg-violet-500/15 text-violet-300'
+  multiplayer: 'bg-violet-500/15 text-violet-300',
+  server: 'bg-rose-500/15 text-rose-300'
 }
 
 /** 从下载地址里取文件名（解析失败时返回空字符串） */

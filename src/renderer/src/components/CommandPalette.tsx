@@ -1,15 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BarChart3,
+  Bug,
+  Calculator,
   Coffee,
   CornerDownLeft,
   Gauge,
+  Grid2x2Check,
+  HardDrive,
   Layers,
   Palette,
   Play,
   Rocket,
   Search,
   SlidersHorizontal,
+  Sprout,
   Terminal,
   Trash2,
   Trophy,
@@ -143,6 +148,46 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
         run: tool('report')
       },
       { id: 'tool:achievements', title: '启动器成就', group: '百宝箱', icon: Trophy, run: tool('achievements') },
+      {
+        id: 'tool:crashes',
+        title: '崩溃记录',
+        group: '百宝箱',
+        icon: Bug,
+        keywords: '崩溃 报错 启动失败 历史',
+        run: tool('crashes')
+      },
+      {
+        id: 'tool:seeds',
+        title: '种子收藏夹',
+        group: '百宝箱',
+        icon: Sprout,
+        keywords: '种子 seed 世界 地图',
+        run: tool('seeds')
+      },
+      {
+        id: 'tool:calc',
+        title: 'Minecraft 小工具',
+        group: '百宝箱',
+        icon: Calculator,
+        keywords: '下界 坐标 换算 区块 时间 刻 计算器',
+        run: tool('calc')
+      },
+      {
+        id: 'tool:slime',
+        title: '史莱姆区块查看',
+        group: '百宝箱',
+        icon: Grid2x2Check,
+        keywords: '史莱姆 粘液球 刷怪 区块 种子 slime',
+        run: tool('slime')
+      },
+      {
+        id: 'tool:server',
+        title: '一键开服',
+        group: '百宝箱',
+        icon: HardDrive,
+        keywords: '开服 服务器 局域网 联机 server 搭建',
+        run: tool('server')
+      },
       {
         id: 'action:log',
         title: '打开游戏日志',

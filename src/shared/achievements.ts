@@ -17,6 +17,8 @@ export const ACHIEVEMENTS = [
   { id: 'streak_7', title: '七日之约', desc: '连续 7 天都玩了游戏', target: 7 },
   { id: 'shader_fan', title: '光影艺术家', desc: '用「一键光影」开启光影' },
   { id: 'mod_collection', title: '我的收藏', desc: '第一次保存模组合集' },
+  { id: 'daily_goal', title: '小目标达成', desc: '完成一次每日小目标' },
+  { id: 'daily_streak_7', title: '说到做到', desc: '连续 7 天完成每日小目标', target: 7 },
   { id: 'diamonds_100', title: '钻石大亨', desc: '一个游戏目录的存档里一共挖了 100 个钻石矿', hidden: true },
   { id: 'birthday', title: '生日快乐', desc: '在自己生日那天玩游戏', hidden: true },
   { id: 'speedrunner', title: '闪电启动', desc: '游戏 10 秒以内就启动好了', hidden: true },

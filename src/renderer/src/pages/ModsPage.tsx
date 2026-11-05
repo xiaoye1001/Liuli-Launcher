@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
+  ArrowRightLeft,
   ArrowUpCircle,
   CheckCircle2,
   FolderOpen,
   Gauge,
   Languages,
+  Layers3,
   Library,
   Loader2,
   Plus,
@@ -22,6 +24,9 @@ import { EmptyState, LoadingState } from '../components/EmptyState'
 import { HEADER_BUTTON, HEADER_ICON_BUTTON, HEADER_PRIMARY } from '../components/headerButtons'
 import ModIssuesCard from '../components/ModIssuesCard'
 import ModCollectionsDialog from '../components/ModCollectionsDialog'
+import McmodLink from '../components/McmodLink'
+import ModProfilesDialog from '../components/ModProfilesDialog'
+import ModMigrationDialog from '../components/ModMigrationDialog'
 import type {
   InstalledVersion,
   ModInfo,
@@ -88,6 +93,8 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
   /** 可以退回的更新：按去掉 .disabled 的文件名查找（启用、禁用后仍然对得上） */
   const [rollbacks, setRollbacks] = useState<Record<string, ModRollback>>({})
   const [collections, setCollections] = useState(false)
+  const [profiles, setProfiles] = useState(false)
+  const [migration, setMigration] = useState(false)
   const [checking, setChecking] = useState(false)
   /** 从问题提示跳到「下载模组」时预先填好的搜索词 */
   const [searchPreset, setSearchPreset] = useState<{ text: string; nonce: number } | undefined>()
@@ -443,6 +450,17 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
               {checking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
               检查更新
             </button>
+            {(list?.mods.length ?? 0) > 0 && (
+              <button
+                onClick={() => setProfiles(true)}
+                disabled={pending !== null}
+                title="把模组开关存成方案，一键切换"
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+              >
+                <Layers3 className="h-3.5 w-3.5" />
+                方案
+              </button>
+            )}
             {version.loader && version.loader !== 'optifine' && (
               <button
                 onClick={() => setCollections(true)}
@@ -452,6 +470,17 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
               >
                 <Library className="h-3.5 w-3.5" />
                 合集
+              </button>
+            )}
+            {version.loader && version.loader !== 'optifine' && (list?.mods.length ?? 0) > 0 && (
+              <button
+                onClick={() => setMigration(true)}
+                disabled={pending !== null}
+                title="换新的游戏版本时，检查这些模组在新版本上有没有，一键装过去"
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+              >
+                <ArrowRightLeft className="h-3.5 w-3.5" />
+                迁移
               </button>
             )}
           </div>
@@ -553,6 +582,7 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
                       退回旧版
                     </button>
                   )}
+                  <McmodLink name={mod.name} label={false} />
                   <span className="shrink-0 text-xs text-white/30">{formatSize(mod.size)}</span>
                   {/* 启用开关 */}
                   <button
@@ -585,6 +615,10 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
           </div>
         </div>
       </section>
+      {migration && <ModMigrationDialog versionId={version.id} onClose={() => setMigration(false)} />}
+      {profiles && (
+        <ModProfilesDialog versionId={version.id} onClose={() => setProfiles(false)} onApplied={() => void load()} />
+      )}
       {collections && (
         <ModCollectionsDialog
           versionId={version.id}

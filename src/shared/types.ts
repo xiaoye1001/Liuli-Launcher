@@ -87,6 +87,8 @@ export interface AppSettings {
   defaultChinese: boolean
   /** 显示系统托盘图标 */
   showTray: boolean
+  /** 启动器在后台时，下载、安装、更新完成后弹出系统通知 */
+  systemNotifications: boolean
   /** 健康游戏提醒：连续游玩多少分钟提醒休息，0 为不提醒 */
   playReminderMinutes: number
   /** 退出游戏后自动备份这次玩过的存档（每个存档保留最近 3 份） */
@@ -101,6 +103,8 @@ export interface AppSettings {
   showSplash: boolean
   /** 主页显示「今日冷知识」 */
   showTrivia: boolean
+  /** 主页显示「每日小目标」 */
+  showDailyGoal: boolean
   /** 玩家的生日（MM-DD），当天主页有彩蛋；空字符串为没有填 */
   birthday: string
   /** 主页的「最近游玩」收起（只显示标题） */
@@ -585,6 +589,20 @@ export interface CrashAnalysis {
   hasNativeLog: boolean
 }
 
+/** 一次崩溃或启动失败的记录 */
+export interface CrashRecord {
+  id: string
+  at: number
+  versionId: string
+  /** 游戏运行后崩溃 / 启动失败 */
+  kind: 'crash' | 'launch'
+  exitCode: number | null
+  /** 识别出的原因（标题） */
+  causes: string[]
+  /** 没有识别出原因时的关键错误，或启动失败的原因 */
+  detail: string
+}
+
 /** 推送到日志窗口的一批日志 */
 export interface GameLogEvent {
   /** 为 true 时表示新一次启动，界面应先清空旧日志 */
@@ -913,6 +931,8 @@ export interface SavedServer {
   address: string
   /** 加入时使用的游戏版本，空字符串表示使用主页选择的版本 */
   versionId: string
+  /** 上线提醒：服务器上线、有人进服时弹系统通知 */
+  watch?: boolean
 }
 
 /** 服务器状态查询结果 */
@@ -937,6 +957,15 @@ export interface Screenshot {
   size: number
   /** 修改时间（毫秒时间戳） */
   time: number
+}
+
+/** 那年今日：往年今天拍的一张截图 */
+export interface OnThisDayShot {
+  versionId: string
+  fileName: string
+  /** 拍摄时间（文件名里的日期，没有时用修改时间） */
+  time: number
+  year: number
 }
 
 export interface ScreenshotList {
@@ -1070,6 +1099,142 @@ export interface RepairInfo {
   hasOptions: boolean
   /** 启动器的「全屏启动」 */
   fullscreen: boolean
+}
+
+/** 模组启用方案：哪些模组开、哪些关（模组文件名，不带 .disabled） */
+export interface ModProfile {
+  id: string
+  name: string
+  createdAt: number
+  enabled: string[]
+  disabled: string[]
+}
+
+/** 一键开服：一个本地服务器 */
+export interface LocalServer {
+  id: string
+  name: string
+  /** 游戏版本，例如 1.21.1 */
+  version: string
+  port: number
+  memoryMb: number
+  /** 正版验证（关掉后离线账号也能加入） */
+  onlineMode: boolean
+  /** 需要的 Java 主版本号 */
+  javaMajor: number
+  createdAt: number
+  /** 服务端下载好了，可以启动 */
+  ready: boolean
+}
+
+export interface LocalServerInput {
+  name: string
+  version: string
+  port: number
+  memoryMb: number
+  onlineMode: boolean
+  /** 玩家勾选了同意 Minecraft EULA */
+  acceptEula: boolean
+}
+
+export interface LocalServerStatus {
+  /** 正在运行（或最近一次运行）的服务器 */
+  id: string | null
+  state: 'stopped' | 'starting' | 'running' | 'stopping' | 'error'
+  /** 出错的原因 */
+  message?: string
+  /** 局域网里朋友可以用的地址 */
+  addresses: string[]
+  port: number
+}
+
+/** 每日小目标的状态 */
+export interface DailyGoalStatus {
+  /** 今天（YYYY-MM-DD） */
+  date: string
+  goal: string
+  /** 今天打卡了没有 */
+  done: boolean
+  /** 现在连续完成了几天（今天还没打卡时从昨天算） */
+  streak: number
+  /** 最长连续天数 */
+  best: number
+  /** 一共完成了几天 */
+  total: number
+  /** 今天还能换几次 */
+  skipsLeft: number
+}
+
+/** 种子收藏夹里的一个种子 */
+export interface SeedFavorite {
+  id: string
+  /** 输入的种子（数字或文字） */
+  seed: string
+  name: string
+  note: string
+  /** 游戏版本，例如 1.20.1（同一个种子在不同版本上地形不同） */
+  version: string
+  createdAt: number
+}
+
+/** 模组迁移：一个模组在目标版本上的情况 */
+export interface ModMigrationItem {
+  projectId: string
+  title: string
+  /** 有适用的版本 / 目标版本已经装了 / 没有适用的版本 / 检查失败 */
+  status: 'available' | 'installed' | 'unavailable' | 'error'
+  /** 目标版本上能用的版本号 */
+  version?: string
+  detail?: string
+}
+
+/** 模组迁移的检查结果 */
+export interface ModMigrationCheck {
+  targetId: string
+  minecraftVersion: string
+  loader: string
+  /** 两个版本的加载器是否相同（不同时大多数模组不能通用） */
+  sameLoader: boolean
+  items: ModMigrationItem[]
+  /** 不是从 Modrinth 下载的模组文件（无法检查，需要手动处理） */
+  unknown: string[]
+}
+
+/** 版本快照：模组、模组配置和游戏设置的一份副本 */
+export interface VersionSnapshot {
+  id: string
+  name: string
+  createdAt: number
+  /** 恢复其他快照前自动保存的 */
+  auto: boolean
+  /** 创建快照的版本（不隔离的版本共用快照） */
+  versionId: string
+  modCount: number
+  bytes: number
+  /** 快照里有的内容：mods、config、options.txt 等 */
+  items: string[]
+}
+
+/** 应用方案的结果 */
+export interface ModProfileResult {
+  /** 打开了几个 */
+  enabled: number
+  /** 关掉了几个 */
+  disabled: number
+  /** 方案保存之后新加的模组（没有改动） */
+  untouched: number
+  /** 方案里有、但现在已经删掉的模组 */
+  missing: number
+  failed: string[]
+}
+
+/** 按键冲突：绑在同一个键上的几个操作 */
+export interface KeyConflict {
+  /** options.txt 里的按键写法 */
+  key: string
+  /** 按键的显示名 */
+  label: string
+  actions: { id: string; name: string }[]
 }
 
 /** 画质档位：流畅 / 均衡 / 高画质 */
@@ -1446,7 +1611,7 @@ export interface SharedLog {
 // ---------- 高速多线程下载（FastDownloadEngine） ----------
 
 /** 下载任务的来源：模组 / 整合包 / 资源包等 / 百宝箱直链 / 新引擎失败后改用原下载方式 */
-export type FastDownloadSource = 'mod' | 'modpack' | 'resource' | 'toolbox' | 'fallback' | 'multiplayer'
+export type FastDownloadSource = 'mod' | 'modpack' | 'resource' | 'toolbox' | 'fallback' | 'multiplayer' | 'server'
 
 export type FastDownloadStatus =
   | 'downloading'

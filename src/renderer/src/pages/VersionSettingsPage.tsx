@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Coffee,
   FolderTree,
+  History,
   Loader2,
   MemoryStick,
   Monitor,
@@ -22,6 +23,7 @@ import { HEADER_BUTTON } from '../components/headerButtons'
 import JavaSelect, { type JavaChoice } from '../components/JavaSelect'
 import MemoryPlanSummary from '../components/MemoryPlanSummary'
 import GameOptionsPanel from '../components/GameOptionsPanel'
+import VersionSnapshotsPanel from '../components/VersionSnapshotsPanel'
 import RepairWizard from '../components/RepairWizard'
 import type { AppSettings, InstalledVersion, JavaInfo, MemoryPlan, VersionConfig } from '../../../shared/types'
 
@@ -782,6 +784,19 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
             className="lg:col-span-2"
           >
             <GameOptionsPanel key={optionsKey} versionId={version.id} />
+          </Card>
+
+          {/* 版本快照 */}
+          <Card
+            icon={History}
+            tint="bg-sky-500/15 text-sky-300"
+            title="版本快照"
+            desc="把模组、模组配置和游戏设置存一份，装坏了、更新坏了可以一键恢复"
+            overridden={false}
+            onReset={() => undefined}
+            className="lg:col-span-2"
+          >
+            <VersionSnapshotsPanel versionId={version.id} onRestored={() => setOptionsKey((k) => k + 1)} />
           </Card>
 
           {/* 高级选项（占满一行，可以折叠） */}

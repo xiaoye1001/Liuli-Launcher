@@ -22,6 +22,7 @@ import type {
   ResourceSource,
   ResourceType
 } from '../../../shared/types'
+import McmodLink from './McmodLink'
 import PageHeader from './PageHeader'
 
 /** 各类资源的显示信息与可用的筛选项 */
@@ -744,6 +745,11 @@ function ResourceBrowser({
 
                 {open && (
                   <div className="max-h-96 overflow-y-auto border-t border-white/10 p-2">
+                    {(type === 'mod' || type === 'modpack') && (
+                      <div className="flex justify-end px-1">
+                        <McmodLink name={project.title} />
+                      </div>
+                    )}
                     {list === 'loading' && (
                       <div className="flex items-center gap-2 px-3 py-2 text-xs text-white/50">
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

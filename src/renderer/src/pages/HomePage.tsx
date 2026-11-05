@@ -23,6 +23,9 @@ import {
 import CrashCard from '../components/CrashCard'
 import RecentPlays from '../components/RecentPlays'
 import VersionIcon from '../components/VersionIcon'
+import DailyGoalLine from '../components/DailyGoalLine'
+import OnThisDay from '../components/OnThisDay'
+import ResourceSparklines from '../components/ResourceSparklines'
 import NewsPanel from '../components/NewsPanel'
 import SplashText from '../components/SplashText'
 import TriviaLine from '../components/TriviaLine'
@@ -419,13 +422,25 @@ function HomePage({
   }, [game.state, game.versionId, game.startedAt])
   /** 游戏运行时的内存和 CPU 占用 */
   const [resources, setResources] = useState<GameResources | null>(null)
+  /** 这次游戏的占用记录（画曲线用） */
+  const [resourceHistory, setResourceHistory] = useState<GameResources[]>([])
   useEffect(() => {
     if (!running) {
       setResources(null)
+      setResourceHistory([])
       return
     }
+    const add = (list: GameResources[]): void =>
+      setResourceHistory((prev) => {
+        const known = new Set(prev.map((r) => r.at))
+        return [...prev, ...list.filter((r) => !known.has(r.at))].sort((a, b) => a.at - b.at).slice(-200)
+      })
     void window.api.getGameResources().then(setResources)
-    return window.api.onGameResources(setResources)
+    void window.api.getGameResourceHistory().then(add)
+    return window.api.onGameResources((next) => {
+      setResources(next)
+      if (next) add([next])
+    })
   }, [running])
   const stopStyle = killConfirm || killing || launchHover
 
@@ -636,6 +651,11 @@ function HomePage({
               </>
             )}
           </span>
+          {resourceHistory.length >= 2 && (
+            <div className={stacked ? 'w-full' : 'order-last w-full'}>
+              <ResourceSparklines history={resourceHistory} />
+            </div>
+          )}
           {timing && (
             <span className="flex items-start gap-1.5">
               {stacked && <Timer className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
@@ -706,6 +726,7 @@ function HomePage({
             : '选择版本后点击启动，开始你的冒险。'}
       </p>
       {settings?.showTrivia && <TriviaLine />}
+      {settings?.showDailyGoal && <DailyGoalLine />}
       <div className="mt-4 flex flex-wrap gap-2">
         <StatChip icon={Layers} onClick={onManageVersions} title="管理已安装的版本">
           已安装 {versions.length} 个版本
@@ -724,6 +745,7 @@ function HomePage({
             成就 {summary.achieved} / {summary.achievements}
           </StatChip>
         )}
+        <OnThisDay className="rounded-full border border-white/10 bg-black/15 px-3 py-1 text-xs text-white/70 transition-colors hover:bg-black/25 hover:text-white" />
       </div>
     </section>
   )
@@ -933,6 +955,8 @@ function HomePage({
               : '选择版本后点击启动，开始你的冒险。'}
         </p>
         {settings?.showTrivia && <TriviaLine />}
+        {settings?.showDailyGoal && <DailyGoalLine />}
+        <OnThisDay className="mt-2 text-xs text-white/60 hover:text-white" />
         <div className="mt-5 flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1.5">
             <span className="text-xs text-white/50">{msAccount ? accountLabel : '离线玩家名'}</span>

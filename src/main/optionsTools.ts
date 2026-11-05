@@ -5,7 +5,7 @@ import { getSettings } from './config'
 import { getGameStatus, listInstalledVersions } from './launch'
 import { versionGameDir } from './isolation'
 import { modsContextOf } from './mods'
-import type { GameOptionsInfo, OptionsCopyMode, OptionsCopyResult, VideoPreset } from '../shared/types'
+import type { GameOptionsInfo, KeyConflict, OptionsCopyMode, OptionsCopyResult, VideoPreset } from '../shared/types'
 
 /**
  * 游戏内设置（options.txt：视频、按键、声音、语言等）的小工具：从其他版本复制设置、画质档位。
@@ -346,4 +346,115 @@ async function writePreset(versionId: string, preset: VideoPreset, extra: [strin
     else next.push(`${key}:${value}`)
   }
   await writeOptionsWithBackup(target.gamePath, next.join(eol) + eol)
+}
+
+// ---------- 按键冲突 ----------
+
+/** 常用操作的中文名（模组的按键显示原来的名字） */
+const ACTION_NAMES: Record<string, string> = {
+  'key.attack': '攻击 / 破坏',
+  'key.use': '使用物品 / 放置方块',
+  'key.forward': '向前走',
+  'key.back': '向后走',
+  'key.left': '向左走',
+  'key.right': '向右走',
+  'key.jump': '跳跃',
+  'key.sneak': '潜行',
+  'key.sprint': '疾跑',
+  'key.drop': '丢弃物品',
+  'key.inventory': '打开 / 关闭物品栏',
+  'key.chat': '打开聊天栏',
+  'key.playerlist': '玩家列表',
+  'key.pickItem': '选取方块',
+  'key.command': '输入命令',
+  'key.socialInteractions': '社交屏幕',
+  'key.screenshot': '截图',
+  'key.togglePerspective': '切换视角',
+  'key.smoothCamera': '电影视角',
+  'key.fullscreen': '全屏',
+  'key.spectatorOutlines': '高亮玩家（旁观者）',
+  'key.swapOffhand': '与副手交换物品',
+  'key.saveToolbarActivator': '保存快捷栏',
+  'key.loadToolbarActivator': '加载快捷栏',
+  'key.advancements': '进度'
+}
+
+function actionName(id: string): string {
+  const hotbar = /^key\.hotbar\.(\d)$/.exec(id)
+  if (hotbar) return `快捷栏 ${hotbar[1]}`
+  return ACTION_NAMES[id] ?? id
+}
+
+/** 按键的显示名：key.keyboard.space → Space，key.mouse.left → 鼠标左键；旧版本是数字键码 */
+function keyLabel(value: string): string {
+  const [key, modifier] = value.split(':')
+  let label: string
+  const mouse = /^key\.mouse\.(.+)$/.exec(key)
+  if (mouse) {
+    label = { left: '鼠标左键', right: '鼠标右键', middle: '鼠标中键' }[mouse[1]] ?? `鼠标按键 ${mouse[1]}`
+  } else if (/^key\.keyboard\./.test(key)) {
+    label = key
+      .slice('key.keyboard.'.length)
+      .split('.')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ')
+  } else if (/^-?\d+$/.test(key)) {
+    label = Number(key) < 0 ? `鼠标按键 ${Number(key) + 101}` : `键码 ${key}`
+  } else {
+    label = key
+  }
+  // Forge 的组合键写在后面（例如 key.keyboard.k:SHIFT）
+  return modifier && modifier !== 'NONE' ? `${modifier.charAt(0)}${modifier.slice(1).toLowerCase()} + ${label}` : label
+}
+
+/** 没有绑定的按键 */
+const isUnbound = (value: string): boolean => value === 'key.keyboard.unknown' || value === '0' || value === ''
+
+/** 绑在同一个键上的操作 */
+export async function getKeyConflicts(versionId: string): Promise<KeyConflict[]> {
+  const target = await targetOf(versionId)
+  const text = await readOptions(target.file)
+  if (text === null) return []
+  const groups = new Map<string, string[]>()
+  for (const line of splitLines(text).lines) {
+    const m = /^key_([^:]+):(.*)$/.exec(line)
+    if (!m || isUnbound(m[2])) continue
+    // 按完整的值比较（Forge 的组合键带修饰键，例如 key.keyboard.k:SHIFT 和 key.keyboard.k 不冲突）
+    const list = groups.get(m[2]) ?? []
+    list.push(m[1])
+    groups.set(m[2], list)
+  }
+  return [...groups.entries()]
+    .filter(([, actions]) => actions.length > 1)
+    .map(([key, actions]) => ({
+      key,
+      label: keyLabel(key),
+      actions: actions.map((id) => ({ id, name: actionName(id) }))
+    }))
+}
+
+async function editKeyLines(versionId: string, edit: (lines: string[], named: boolean) => string[]): Promise<void> {
+  const target = await targetOf(versionId)
+  await assertNotRunning(versionId, target.gamePath)
+  const text = await readOptions(target.file)
+  if (text === null) throw new Error('这个版本还没有游戏设置')
+  const { lines, eol } = splitLines(text)
+  const next = edit(lines, usesNamedKeys(target.minecraftVersion))
+  await writeOptionsWithBackup(target.gamePath, next.join(eol) + eol)
+}
+
+/** 解除某个操作的按键绑定 */
+export async function unbindKey(versionId: string, action: string): Promise<void> {
+  if (typeof action !== 'string' || !/^[\w.:-]{1,200}$/.test(action)) throw new Error('无效的操作')
+  await editKeyLines(versionId, (lines, named) => {
+    const index = lines.findIndex((l) => l.startsWith(`key_${action}:`))
+    if (index < 0) throw new Error('找不到这个操作的按键设置')
+    lines[index] = `key_${action}:${named ? 'key.keyboard.unknown' : '0'}`
+    return lines
+  })
+}
+
+/** 全部按键恢复默认：删掉所有按键设置，下次进入游戏时游戏（和模组）会写回默认键位 */
+export async function resetKeyBindings(versionId: string): Promise<void> {
+  await editKeyLines(versionId, (lines) => lines.filter((l) => !l.startsWith('key_')))
 }

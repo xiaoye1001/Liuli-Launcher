@@ -203,6 +203,11 @@ async function pickVersion(projectId: string, ctx: ModsContext): Promise<Modrint
   return versions.find((v) => v.version_type === 'release') ?? versions[0]
 }
 
+/** 项目在这个版本上能用的最新版本号（没有时为 null）：检查模组能不能迁移到别的版本时用 */
+export async function compatibleVersionNumber(projectId: string, ctx: ModsContext): Promise<string | null> {
+  return (await pickVersion(projectId, ctx))?.version_number ?? null
+}
+
 /** Modrinth 整合包规定的下载地址来源（导入、导出整合包时都只接受这些网站的 https 地址） */
 export function isAllowedModpackUrl(url: string): boolean {
   return /^https:\/\/(cdn\.modrinth\.com|github\.com|raw\.githubusercontent\.com|gitlab\.com)\//.test(url)

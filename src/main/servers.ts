@@ -20,7 +20,8 @@ function sanitize(raw: unknown): SavedServer | null {
     id: s.id,
     name: typeof s.name === 'string' ? s.name.slice(0, 64) : '',
     address: s.address.slice(0, 255),
-    versionId: typeof s.versionId === 'string' ? s.versionId : ''
+    versionId: typeof s.versionId === 'string' ? s.versionId : '',
+    watch: s.watch === true
   }
 }
 
@@ -60,20 +61,29 @@ function validate(server: Pick<SavedServer, 'name' | 'address'>): void {
 
 /** 添加或修改服务器（id 为空时添加） */
 export async function saveServer(server: Omit<SavedServer, 'id'> & { id?: string }): Promise<SavedServer[]> {
+  const list = [...(await listServers())]
+  const id = server.id || randomUUID()
   const entry: SavedServer = {
-    id: server.id || randomUUID(),
+    id,
     name: server.name.trim() || server.address.trim(),
     address: server.address.trim(),
-    versionId: server.versionId
+    versionId: server.versionId,
+    // 编辑时没有传上线提醒：保留原来的
+    watch: typeof server.watch === 'boolean' ? server.watch : (list.find((s) => s.id === id)?.watch ?? false)
   }
   validate(entry)
-  const list = [...(await listServers())]
   const index = list.findIndex((s) => s.id === entry.id)
   if (index >= 0) list[index] = entry
   else {
     if (list.length >= MAX_SERVERS) throw new Error(`最多只能保存 ${MAX_SERVERS} 个服务器`)
     list.push(entry)
   }
+  return save(list)
+}
+
+/** 打开或关闭服务器的上线提醒 */
+export async function setServerWatch(id: string, watch: boolean): Promise<SavedServer[]> {
+  const list = (await listServers()).map((s) => (s.id === id ? { ...s, watch: watch === true } : s))
   return save(list)
 }
 
