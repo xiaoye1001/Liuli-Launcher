@@ -62,7 +62,10 @@ const NAME_PATTERN = /^[A-Za-z0-9_]{3,16}$/
 /** 窗口够宽时主页分成左右两栏（右边是启动坞），窄的时候上下排列 */
 const WIDE_QUERY = '(min-width: 1024px)'
 /** 窄窗口里只有窗口够高才显示新闻（太矮时新闻会被挤成一条） */
-const TALL_QUERY = '(min-height: 700px)'
+const TALL_QUERY = '(min-height: 760px)'
+/** 宽窗口：够高时新闻带配图，矮一些时只显示标题，再矮就不显示 */
+const NEWS_FULL_QUERY = '(min-height: 760px)'
+const NEWS_COMPACT_QUERY = '(min-height: 660px)'
 
 function useMedia(query: string): boolean {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
@@ -459,6 +462,8 @@ function HomePage({
   const crashShown = game.state === 'crashed' && !!game.error && !crashDismissed
   const wide = useMedia(WIDE_QUERY)
   const tall = useMedia(TALL_QUERY)
+  const newsFull = useMedia(NEWS_FULL_QUERY)
+  const newsRoom = useMedia(NEWS_COMPACT_QUERY)
   const current = versions.find((v) => v.id === selected)
   const accountLabel = msAccount ? (external ? `外置账号 · ${external.serverName}` : '微软正版账号') : '离线账号'
   /** 头像和 3D 角色用的皮肤：正版 / 外置账号用账号的皮肤，离线账号用设置里选的皮肤 */
@@ -769,14 +774,18 @@ function HomePage({
   if (wide) {
     return (
       <div className="flex h-full gap-5">
-        {/* 左边：新闻在上，最近游玩和问候在下，中间留白露出背景 */}
+        {/* 左边：上面留白露出背景，下面依次是最近游玩、新闻、问候 */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-          {settings?.showNews && tall && (
-            <NewsPanel onHide={async () => setSettings(await window.api.updateSettings({ showNews: false }))} />
-          )}
           {crash}
           <div className="min-h-0 flex-1" />
           {recentPlays}
+          {/* 崩溃提示显示着的时候不显示新闻，给原因分析留出空间 */}
+          {settings?.showNews && newsRoom && !crashShown && (
+            <NewsPanel
+              compact={!newsFull}
+              onHide={async () => setSettings(await window.api.updateSettings({ showNews: false }))}
+            />
+          )}
           {hero}
         </div>
 
