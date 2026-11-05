@@ -50,6 +50,7 @@ import type {
   ModCollection,
   GameResources,
   WorldMap,
+  CrashRecord,
   ShaderSetupResult,
   ModTranslationResult,
   ModpackInfo,
@@ -260,6 +261,9 @@ declare global {
       openScreenshotsDir: (versionId: string) => Promise<void>
       /** 游玩时长统计与最近游玩记录 */
       getPlayStats: () => Promise<PlayStats>
+      /** 崩溃记录（新的在前） */
+      listCrashHistory: () => Promise<CrashRecord[]>
+      clearCrashHistory: () => Promise<void>
       /** 保存报告图片（PNG），返回保存的路径，取消时返回 null */
       saveReportImage: (dataUrl: string, name: string) => Promise<string | null>
       /** 复制报告图片到剪贴板 */

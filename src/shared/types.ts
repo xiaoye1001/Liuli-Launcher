@@ -587,6 +587,20 @@ export interface CrashAnalysis {
   hasNativeLog: boolean
 }
 
+/** 一次崩溃或启动失败的记录 */
+export interface CrashRecord {
+  id: string
+  at: number
+  versionId: string
+  /** 游戏运行后崩溃 / 启动失败 */
+  kind: 'crash' | 'launch'
+  exitCode: number | null
+  /** 识别出的原因（标题） */
+  causes: string[]
+  /** 没有识别出原因时的关键错误，或启动失败的原因 */
+  detail: string
+}
+
 /** 推送到日志窗口的一批日志 */
 export interface GameLogEvent {
   /** 为 true 时表示新一次启动，界面应先清空旧日志 */

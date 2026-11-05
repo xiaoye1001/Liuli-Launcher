@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  Bug,
   BarChart3,
   Coffee,
   CornerDownLeft,
@@ -143,6 +144,14 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
         run: tool('report')
       },
       { id: 'tool:achievements', title: '启动器成就', group: '百宝箱', icon: Trophy, run: tool('achievements') },
+      {
+        id: 'tool:crashes',
+        title: '崩溃记录',
+        group: '百宝箱',
+        icon: Bug,
+        keywords: '崩溃 报错 启动失败 历史',
+        run: tool('crashes')
+      },
       {
         id: 'action:log',
         title: '打开游戏日志',

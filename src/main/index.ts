@@ -8,6 +8,7 @@ import { setupAutoBackup } from './autoBackup'
 import { getLaunchTiming, setupLaunchTiming } from './launchTiming'
 import { getGameResources, setupGameMonitor } from './gameMonitor'
 import { setupNotifications } from './notify'
+import { clearCrashHistory, listCrashHistory, setupCrashHistory } from './crashHistory'
 import { copyReportImage, saveReportImage } from './reportImage'
 import { renderWorldMap } from './worldMap'
 import { applyVideoPreset, copyGameOptions, getGameOptionsInfo, restoreGameOptions } from './optionsTools'
@@ -653,6 +654,8 @@ function registerIpc(): void {
   ipcMain.handle('game:cancel', () => cancelLaunch())
   ipcMain.handle('game:kill', () => killGame())
   ipcMain.handle('stats:get', () => getPlayStats())
+  ipcMain.handle('crashes:list', () => listCrashHistory())
+  ipcMain.handle('crashes:clear', () => clearCrashHistory())
   ipcMain.handle('report:saveImage', (event, dataUrl: string, name: string) =>
     saveReportImage(BrowserWindow.fromWebContents(event.sender), dataUrl, name)
   )
@@ -805,6 +808,7 @@ app.whenReady().then(async () => {
   setupLaunchTiming()
   setupGameMonitor()
   setupNotifications()
+  setupCrashHistory()
   setupAchievements()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)

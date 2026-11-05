@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
 import { onJump, TOOLBOX_KEY } from '../utils/jump'
-import { BarChart3, Coffee, Gauge, Trash2, Trophy, Zap, type LucideIcon } from 'lucide-react'
+import { BarChart3, Bug, Coffee, Gauge, Trash2, Trophy, Zap, type LucideIcon } from 'lucide-react'
 import FastDownloadPanel from '../components/FastDownloadPanel'
 import CleanerPanel from '../components/CleanerPanel'
 import JavaCheckPanel from '../components/JavaCheckPanel'
 import SpeedTestPanel from '../components/SpeedTestPanel'
 import PlayReportPanel from '../components/PlayReportPanel'
 import AchievementsPanel from '../components/AchievementsPanel'
+import CrashHistoryPanel from '../components/CrashHistoryPanel'
 import PageHeader from '../components/PageHeader'
 
-type ToolKey = 'download' | 'clean' | 'java' | 'speed' | 'report' | 'achievements'
+type ToolKey = 'download' | 'clean' | 'java' | 'speed' | 'report' | 'achievements' | 'crashes'
 
 interface Tool {
   key: ToolKey
@@ -45,7 +46,8 @@ const TOOLS: Tool[] = [
   },
   { key: 'speed', title: '下载源测速', desc: '官方源与镜像对比', icon: Gauge, tint: 'text-sky-300' },
   { key: 'report', title: '我的游玩报告', desc: '游玩时长、最常玩的版本', icon: BarChart3, tint: 'text-emerald-300' },
-  { key: 'achievements', title: '启动器成就', desc: '玩游戏时自动解锁', icon: Trophy, tint: 'text-amber-300' }
+  { key: 'achievements', title: '启动器成就', desc: '玩游戏时自动解锁', icon: Trophy, tint: 'text-amber-300' },
+  { key: 'crashes', title: '崩溃记录', desc: '每次崩溃的原因和次数', icon: Bug, tint: 'text-rose-300' }
 ]
 
 const LAST_TOOL_KEY = TOOLBOX_KEY
@@ -116,6 +118,7 @@ function MorePage(): JSX.Element {
       {current === 'speed' && <SpeedTestPanel />}
       {current === 'report' && <PlayReportPanel />}
       {current === 'achievements' && <AchievementsPanel />}
+      {current === 'crashes' && <CrashHistoryPanel />}
     </div>
   )
 }
