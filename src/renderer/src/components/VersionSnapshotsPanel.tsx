@@ -136,17 +136,28 @@ function VersionSnapshotsPanel({
                 {confirm === s.id ? '确认恢复？' : '恢复'}
               </button>
               <button
-                onClick={() =>
+                onClick={() => {
+                  // 删除快照不能恢复：点两次才删
+                  if (confirm !== `delete:${s.id}`) {
+                    setConfirm(`delete:${s.id}`)
+                    setTimeout(() => setConfirm((c) => (c === `delete:${s.id}` ? '' : c)), 3000)
+                    return
+                  }
                   void run(`delete:${s.id}`, async () => {
                     await window.api.deleteSnapshot(versionId, s.id)
                     return `已删除快照「${s.name}」`
                   })
-                }
+                }}
                 disabled={!!busy}
-                title="删除快照"
-                className="rounded-lg p-1.5 text-white/50 transition-colors hover:bg-red-500/30 hover:text-red-200 disabled:opacity-40"
+                title="删除快照（不能恢复）"
+                className={`flex items-center gap-1 rounded-lg p-1.5 text-xs transition-colors disabled:opacity-40 ${
+                  confirm === `delete:${s.id}`
+                    ? 'bg-red-500/80 px-2 text-white'
+                    : 'text-white/50 hover:bg-red-500/30 hover:text-red-200'
+                }`}
               >
                 <Trash2 className="h-3.5 w-3.5" />
+                {confirm === `delete:${s.id}` && '确认删除？'}
               </button>
             </div>
           ))}

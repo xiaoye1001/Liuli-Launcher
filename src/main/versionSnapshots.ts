@@ -42,6 +42,43 @@ const exists = (path: string): Promise<boolean> =>
     () => false
   )
 
+/** 是不是快捷方式（符号链接）：例如有人把 mods 链接到别的地方共用，快照不碰它 */
+const isLink = (path: string): Promise<boolean> =>
+  lstat(path).then(
+    (info) => info.isSymbolicLink(),
+    () => false
+  )
+
+/** 创建、恢复、删除排队进行，同时点两次不会互相干扰 */
+let queue: Promise<unknown> = Promise.resolve()
+function serialized<T>(task: () => Promise<T>): Promise<T> {
+  const next = queue.then(task, task)
+  queue = next.catch(() => undefined)
+  return next
+}
+
+/** 最近一次恢复放回去的模组和它们的修改时间（修复向导用来区分「恢复的」和「新加的」模组） */
+const RESTORE_RECORD = 'last-restore.json'
+
+/**
+ * 恢复快照放回去的模组：文件名（不带 .disabled）→ 修改时间。这些文件是复制出来的新文件，创建时间是恢复的时间，
+ * 但它们不是新加的模组，修复向导看修改时间就行
+ */
+export async function restoredModTimes(modsDir: string): Promise<Map<string, number>> {
+  try {
+    const raw = JSON.parse(await readFile(join(dirname(modsDir), SNAPSHOTS_DIR, RESTORE_RECORD), 'utf-8')) as {
+      mods?: Record<string, unknown>
+    }
+    return new Map(
+      Object.entries(raw.mods ?? {}).filter(
+        (e): e is [string, number] => typeof e[1] === 'number' && Number.isFinite(e[1])
+      )
+    )
+  } catch {
+    return new Map()
+  }
+}
+
 /** 文件夹里所有文件的大小和模组个数（不跟随快捷方式） */
 async function measure(path: string): Promise<number> {
   const info = await lstat(path).catch(() => null)
@@ -52,11 +89,12 @@ async function measure(path: string): Promise<number> {
   return total
 }
 
-/** 复制时跳过快捷方式（符号链接），不把 mods 文件夹以外的东西带进来 */
+/** 复制时跳过快捷方式（符号链接），不把 mods 文件夹以外的东西带进来；保留文件的修改时间 */
 async function copyItem(from: string, to: string): Promise<void> {
   await cp(from, to, {
     recursive: true,
     force: true,
+    preserveTimestamps: true,
     filter: async (src) => !(await lstat(src)).isSymbolicLink()
   })
 }
@@ -105,7 +143,7 @@ async function createIn(
   try {
     const items: string[] = []
     for (const item of TRACKED) {
-      if (!(await exists(join(gamePath, item)))) continue
+      if (!(await exists(join(gamePath, item))) || (await isLink(join(gamePath, item)))) continue
       await copyItem(join(gamePath, item), join(temp, item))
       items.push(item)
     }
@@ -130,7 +168,11 @@ async function createIn(
 }
 
 /** 创建快照 */
-export async function createSnapshot(versionId: string, name: string): Promise<VersionSnapshot> {
+export function createSnapshot(versionId: string, name: string): Promise<VersionSnapshot> {
+  return serialized(() => createUnlocked(versionId, name))
+}
+
+async function createUnlocked(versionId: string, name: string): Promise<VersionSnapshot> {
   const { gamePath, root } = await rootOf(versionId)
   const manual = (await listSnapshots(versionId)).filter((s) => !s.auto)
   if (manual.length >= MAX_MANUAL) throw new Error(`最多保存 ${MAX_MANUAL} 个快照，请先删除一些`)
@@ -139,7 +181,11 @@ export async function createSnapshot(versionId: string, name: string): Promise<V
 }
 
 /** 恢复快照：先自动保存现在的状态，再把快照里的内容换回来；返回自动保存的快照 */
-export async function restoreSnapshot(versionId: string, id: string): Promise<VersionSnapshot> {
+export function restoreSnapshot(versionId: string, id: string): Promise<VersionSnapshot> {
+  return serialized(() => restoreUnlocked(versionId, id))
+}
+
+async function restoreUnlocked(versionId: string, id: string): Promise<VersionSnapshot> {
   assertId(id)
   assertGameStopped(versionId)
   const { gamePath, root } = await rootOf(versionId)
@@ -159,33 +205,59 @@ export async function restoreSnapshot(versionId: string, id: string): Promise<Ve
   const old = join(root, `.replaced-${id}`)
   await rm(staging, { recursive: true, force: true })
   await rm(old, { recursive: true, force: true })
+  // 现在是快捷方式的（例如链接到别处共用的 mods）不动
+  const linked = new Set<string>()
+  for (const item of TRACKED) if (await isLink(join(gamePath, item))) linked.add(item)
+  const items = meta.items.filter((item) => !linked.has(item))
+  /** 换回原来的内容失败时保留 old 文件夹，不删掉原来的文件 */
+  let keepOld = false
   try {
     await mkdir(staging, { recursive: true })
-    for (const item of meta.items) await copyItem(join(source, item), join(staging, item))
+    for (const item of items) await copyItem(join(source, item), join(staging, item))
     await mkdir(old, { recursive: true })
     assertGameStopped(versionId)
     const moved: string[] = []
     const placed: string[] = []
     try {
       for (const item of TRACKED) {
+        if (linked.has(item)) continue
         if (await exists(join(gamePath, item))) {
           await rename(join(gamePath, item), join(old, item))
           moved.push(item)
         }
       }
-      for (const item of meta.items) {
+      for (const item of items) {
         await rename(join(staging, item), join(gamePath, item))
         placed.push(item)
       }
     } catch (e) {
       for (const item of placed) await rm(join(gamePath, item), { recursive: true, force: true }).catch(() => undefined)
-      for (const item of moved) await rename(join(old, item), join(gamePath, item)).catch(() => undefined)
-      throw new Error(`有文件正在被使用，没能恢复（原来的内容没有改动）：${(e as Error).message}`)
+      for (const item of moved) {
+        await rename(join(old, item), join(gamePath, item)).catch(() => {
+          keepOld = true
+        })
+      }
+      throw new Error(
+        keepOld
+          ? `没能恢复，原来的文件也没能全部放回去：它们在 ${old}，也可以恢复「${backup.name}」这个快照找回来`
+          : `有文件正在被使用，没能恢复（原来的内容没有改动）：${(e as Error).message}`
+      )
     }
   } finally {
     await rm(staging, { recursive: true, force: true }).catch(() => undefined)
-    await rm(old, { recursive: true, force: true }).catch(() => undefined)
+    if (!keepOld) await rm(old, { recursive: true, force: true }).catch(() => undefined)
   }
+  // 记下放回去的模组，修复向导不把它们当成新加的模组
+  const modsDir = join(gamePath, 'mods')
+  const mods: Record<string, number> = {}
+  if (items.includes('mods')) {
+    for (const name of await readdir(modsDir).catch(() => [] as string[])) {
+      const info = await stat(join(modsDir, name)).catch(() => null)
+      // 按去掉 .disabled 的名字记：恢复后再打开或关闭这个模组也认得出来
+      if (info?.isFile()) mods[name.replace(/\.disabled$/, '')] = info.mtimeMs
+    }
+  }
+  await writeFile(join(root, RESTORE_RECORD), JSON.stringify({ at: Date.now(), mods }), 'utf-8').catch(() => undefined)
   // 自动保存的快照只留最近几个
   const autos = (await listSnapshots(versionId)).filter((s) => s.auto)
   for (const s of autos.slice(MAX_AUTO))
@@ -193,9 +265,11 @@ export async function restoreSnapshot(versionId: string, id: string): Promise<Ve
   return backup
 }
 
-export async function deleteSnapshot(versionId: string, id: string): Promise<void> {
-  assertId(id)
-  const { root } = await rootOf(versionId)
-  if (!(await stat(join(root, id)).catch(() => null))) return
-  await rm(join(root, id), { recursive: true, force: true })
+export function deleteSnapshot(versionId: string, id: string): Promise<void> {
+  return serialized(async () => {
+    assertId(id)
+    const { root } = await rootOf(versionId)
+    if (!(await stat(join(root, id)).catch(() => null))) return
+    await rm(join(root, id), { recursive: true, force: true })
+  })
 }

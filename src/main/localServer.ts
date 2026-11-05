@@ -310,9 +310,21 @@ function lanAddresses(port: number): string[] {
   return list.slice(0, 6)
 }
 
+/** 正在准备启动（找 Java、检查端口）：连点两次「启动」不会开出两个服务器 */
+let launching = false
+
 export async function startLocalServer(id: string): Promise<void> {
   const dir = assertId(id)
-  if (running) throw new Error('已经有一个服务器在运行，请先停止它')
+  if (running || launching) throw new Error('已经有一个服务器在运行，请先停止它')
+  launching = true
+  try {
+    await startUnlocked(id, dir)
+  } finally {
+    launching = false
+  }
+}
+
+async function startUnlocked(id: string, dir: string): Promise<void> {
   const server = await readMeta(dir)
   if (!server) throw new Error('找不到这个服务器')
   if (!server.ready) throw new Error('服务端还没有下载好')
@@ -357,22 +369,28 @@ export async function startLocalServer(id: string): Promise<void> {
   }
   child.stdout?.on('data', onData)
   child.stderr?.on('data', onData)
-  child.on('error', (e) => {
-    pushLog(`[琉璃启动器] 无法启动 Java：${e.message}`)
-  })
-  child.on('close', (code) => {
+  let finished = false
+  const finish = (code: number | null, error?: string): void => {
+    if (finished) return
+    finished = true
     if (buffer) pushLog(buffer)
     if (current.killTimer) clearTimeout(current.killTimer)
     if (running === current) running = null
-    const failed = !current.stopping && code !== 0
+    const failed = !!error || (!current.stopping && code !== 0)
     pushLog(`[琉璃启动器] 服务器已停止${code !== null ? `（退出码 ${code}）` : ''}`)
     setStatus({
       id,
       state: failed ? 'error' : 'stopped',
-      message: failed ? (status.message ?? '服务器意外停止，请查看下面的输出') : undefined,
+      message: failed ? (error ?? status.message ?? '服务器意外停止，请查看下面的输出') : undefined,
       addresses: []
     })
+  }
+  child.on('error', (e) => {
+    pushLog(`[琉璃启动器] 无法启动 Java：${e.message}`)
+    // 根本没启动起来（例如 Java 被删了）：不会再有 close 事件，直接结束
+    if (child.pid === undefined) finish(null, `无法启动 Java：${e.message}`)
   })
+  child.on('close', (code) => finish(code))
 }
 
 /** 停止服务器：先让服务器自己保存并退出，20 秒还没退出就强制结束 */

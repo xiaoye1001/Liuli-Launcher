@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import { mkdir, readFile, rename, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { onGameStatusChange } from './launch'
+import { sanitizeLog } from './logShare'
 import type { CrashRecord } from '../shared/types'
 
 /**
@@ -69,8 +70,8 @@ export function setupCrashHistory(): void {
       kind: analysis ? 'crash' : 'launch',
       exitCode: analysis?.exitCode ?? next.exitCode ?? null,
       causes: (analysis?.causes ?? []).map((c) => c.title).slice(0, 5),
-      // 没有识别出原因时记关键错误；启动失败记失败原因的第一行
-      detail: (analysis ? (analysis.keyError ?? '') : (next.error ?? '').split('\n')[0]).slice(0, 400)
+      // 没有识别出原因时记关键错误；启动失败记失败原因的第一行（去掉登录令牌和用户文件夹路径再保存）
+      detail: sanitizeLog(analysis ? (analysis.keyError ?? '') : (next.error ?? '').split('\n')[0]).slice(0, 400)
     }
     void load()
       .then((list) => {

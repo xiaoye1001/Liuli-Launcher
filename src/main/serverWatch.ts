@@ -1,3 +1,4 @@
+import { net, powerMonitor } from 'electron'
 import { listServers } from './servers'
 import { pingServer } from './serverPing'
 import { notify } from './notify'
@@ -38,11 +39,22 @@ export async function checkWatchedServers(): Promise<void> {
   if (checking) return
   checking = true
   try {
+    // 自己没联网时不查：不然网络恢复后每个服务器都会提醒「上线了」
+    if (!net.isOnline()) return
     const watched = (await listServers()).filter((s) => s.watch)
     const ids = new Set(watched.map((s) => s.id))
     for (const id of [...states.keys()]) if (!ids.has(id)) states.delete(id)
-    for (const server of watched) {
-      const status = await pingServer(server.address).catch(() => null)
+    const results = []
+    for (const server of watched) results.push({ server, status: await pingServer(server.address).catch(() => null) })
+    // 好几个服务器原来有在线的、这次全都连不上：多半是自己的网络断了，这一轮不算
+    if (
+      results.length >= 2 &&
+      results.every((r) => !r.status?.online) &&
+      results.some((r) => states.get(r.server.id)?.online)
+    ) {
+      return
+    }
+    for (const { server, status } of results) {
       // 查询期间关掉了提醒或删掉了服务器
       if (!(await listServers()).some((s) => s.id === server.id && s.watch)) continue
       const next: WatchState = { online: !!status?.online, players: status?.online ? status.players.online : 0 }
@@ -79,6 +91,8 @@ export function watchChanged(): void {
 }
 
 export function setupServerWatch(): void {
+  // 电脑睡眠醒来后重新记状态（睡眠期间的变化不提醒）
+  powerMonitor.on('resume', () => states.clear())
   setTimeout(() => void checkWatchedServers(), Math.min(INTERVAL, 20_000))
   setInterval(() => void checkWatchedServers(), INTERVAL)
 }

@@ -4,6 +4,7 @@ import { getSettings } from './config'
 import { assertGameStopped, modsContextOf, setModEnabled } from './mods'
 import { applySafeVideoSettings, getGameOptionsInfo } from './optionsTools'
 import { getVersionConfig, setVersionConfig } from './versionConfig'
+import { restoredModTimes } from './versionSnapshots'
 import type { RepairInfo, VersionConfig } from '../shared/types'
 
 /**
@@ -21,12 +22,17 @@ const ADVANCED_KEYS = ['jvmArgs', 'gameArgs', 'wrapperCommand', 'envVars', 'preL
 async function recentMods(dir: string): Promise<{ recent: string[]; enabled: number }> {
   const found: { file: string; at: number }[] = []
   let enabled = 0
+  // 恢复版本快照放回去的模组是复制出来的新文件，只看修改时间
+  const restored = await restoredModTimes(dir)
   for (const file of await readdir(dir).catch(() => [] as string[])) {
     if (!file.toLowerCase().endsWith('.jar')) continue
     const info = await stat(join(dir, file)).catch(() => null)
     if (!info?.isFile()) continue
     enabled++
-    const at = Math.max(info.mtimeMs, info.birthtimeMs || 0)
+    const at =
+      restored.get(file.replace(/\.disabled$/, '')) === info.mtimeMs
+        ? info.mtimeMs
+        : Math.max(info.mtimeMs, info.birthtimeMs || 0)
     if (Date.now() - at < RECENT_MS) found.push({ file, at })
   }
   return { recent: found.sort((a, b) => b.at - a.at).map((f) => f.file), enabled }
