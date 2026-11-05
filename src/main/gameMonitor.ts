@@ -22,6 +22,9 @@ interface RawSample {
 
 let timer: ReturnType<typeof setInterval> | null = null
 let latest: GameResources | null = null
+/** 这次游戏的占用记录（画曲线用）：最多 200 个点，约 10 分钟（Windows 约 16 分钟） */
+const MAX_HISTORY = 200
+let history: GameResources[] = []
 let previous: { cpuSeconds: number; at: number } | null = null
 let sampling = false
 
@@ -129,6 +132,7 @@ function formatMemory(mb: number): string {
 
 function publish(next: GameResources | null): void {
   latest = next
+  if (next) history = [...history, next].slice(-MAX_HISTORY)
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send('game:resources', next)
   }
@@ -179,6 +183,7 @@ export function setupGameMonitor(): void {
     if (next.state === 'running') {
       if (timer) return
       previous = null
+      history = []
       void sample()
       timer = setInterval(() => void sample(), INTERVAL)
     } else if (next.state !== 'launching') {
@@ -190,4 +195,9 @@ export function setupGameMonitor(): void {
 /** 最近一次读取的游戏资源占用（游戏没有运行时为 null） */
 export function getGameResources(): GameResources | null {
   return latest
+}
+
+/** 这次游戏最近一段时间的占用记录（旧的在前）；游戏没有运行时为空 */
+export function getGameResourceHistory(): GameResources[] {
+  return latest ? history : []
 }

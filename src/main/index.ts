@@ -6,7 +6,7 @@ import { setTrayWindowFactory, syncTray } from './tray'
 import { setupPlayReminder } from './playReminder'
 import { setupAutoBackup } from './autoBackup'
 import { getLaunchTiming, setupLaunchTiming } from './launchTiming'
-import { getGameResources, setupGameMonitor } from './gameMonitor'
+import { getGameResourceHistory, getGameResources, setupGameMonitor } from './gameMonitor'
 import { setupNotifications } from './notify'
 import { clearCrashHistory, listCrashHistory, setupCrashHistory } from './crashHistory'
 import { applyModProfile, deleteModProfile, listModProfiles, saveModProfile } from './modProfiles'
@@ -690,6 +690,7 @@ function registerIpc(): void {
   ipcMain.handle('servers:ping', (_, address: string) => pingServer(address))
   ipcMain.handle('game:status', () => getGameStatus())
   ipcMain.handle('game:resources', () => getGameResources())
+  ipcMain.handle('game:resourceHistory', () => getGameResourceHistory())
   ipcMain.handle('game:cancel', () => cancelLaunch())
   ipcMain.handle('game:kill', () => killGame())
   ipcMain.handle('stats:get', () => getPlayStats())

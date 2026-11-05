@@ -350,6 +350,7 @@ const api = {
     }
   },
   getGameResources: () => ipcRenderer.invoke('game:resources'),
+  getGameResourceHistory: () => ipcRenderer.invoke('game:resourceHistory'),
   onGameResources: (callback: (resources: GameResources | null) => void) => {
     const listener = (_: Electron.IpcRendererEvent, resources: GameResources | null): void => callback(resources)
     ipcRenderer.on('game:resources', listener)

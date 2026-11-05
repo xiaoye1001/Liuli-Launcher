@@ -424,6 +424,8 @@ declare global {
       onGameStatus: (callback: (status: GameStatus) => void) => () => void
       /** 游戏资源占用（内存、CPU），游戏没有运行时为 null */
       getGameResources: () => Promise<GameResources | null>
+      /** 这次游戏最近一段时间的占用记录（旧的在前，画曲线用） */
+      getGameResourceHistory: () => Promise<GameResources[]>
       onGameResources: (callback: (resources: GameResources | null) => void) => () => void
       /** 选择背景图片，取消时返回原设置 */
       pickBackground: () => Promise<AppSettings>
