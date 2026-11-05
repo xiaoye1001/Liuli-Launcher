@@ -79,6 +79,7 @@ function defaultSettings(): AppSettings {
     darkLoadingScreen: true,
     defaultChinese: true,
     showTray: true,
+    systemNotifications: true,
     playReminderMinutes: 0,
     autoBackupWorlds: true,
     backupDir: '',

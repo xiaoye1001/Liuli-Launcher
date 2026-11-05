@@ -170,6 +170,13 @@ async function downloadOptions(): Promise<Options> {
   }
 }
 
+/** 安装、修复、下载 Java 的任务结束时通知（系统通知用） */
+type FinishListener = (status: InstallStatus) => void
+const finishListeners: FinishListener[] = []
+export function onInstallFinished(listener: FinishListener): void {
+  finishListeners.push(listener)
+}
+
 /** 运行一个安装任务，并把进度与速度推送到界面。返回的 Promise 在任务结束时完成（成功为 true，不会抛出） */
 function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): Promise<boolean> {
   currentTask = task
@@ -258,6 +265,16 @@ function runTask(versionId: string, kind: InstallKind, task: AnyInstallTask): Pr
       currentTask = null
       closeInstallDispatcher()
       broadcast()
+      const finished = status
+      if (finished) {
+        for (const listener of finishListeners) {
+          try {
+            listener(finished)
+          } catch {
+            // 通知出错不影响安装
+          }
+        }
+      }
     })
 }
 

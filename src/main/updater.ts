@@ -6,6 +6,7 @@ import { createReadStream } from 'fs'
 import { existsSync } from 'fs'
 import { appendFile, chmod, copyFile, mkdir, readFile, rename, rm, stat, writeFile } from 'fs/promises'
 import { basename, dirname, join } from 'path'
+import { notify } from './notify'
 import { parseUpdateLog } from './updateScript'
 import { getSettings } from './config'
 import { getGameStatus } from './launch'
@@ -392,6 +393,7 @@ export async function downloadUpdate(): Promise<void> {
     downloadedFile = destination
     downloadedAsset = asset
     setDownload({ state: 'ready', progress: download_.total, speed: 0 })
+    void notify('琉璃启动器新版本已下载', `v${asset.version} 已经下载好，打开启动器点「重启更新」就能更新`)
   } catch (e) {
     const cancelled = controller.signal.aborted
     setDownload({
@@ -399,6 +401,7 @@ export async function downloadUpdate(): Promise<void> {
       speed: 0,
       error: cancelled ? undefined : e instanceof Error ? e.message : String(e)
     })
+    if (!cancelled) void notify('新版本下载失败', e instanceof Error ? e.message : String(e))
     if (!cancelled) throw e
   } finally {
     clearInterval(timer)

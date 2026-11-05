@@ -1,5 +1,6 @@
 import { getSettings } from './config'
 import { onGameStatusChange } from './launch'
+import { notify } from './notify'
 import { autoBackupWorlds } from './worlds'
 
 /**
@@ -29,7 +30,10 @@ export function setupAutoBackup(): void {
         if (!(await getSettings()).autoBackupWorlds) return
         const { done, failed } = await autoBackupWorlds(versionId, since, prune)
         if (done.length > 0) console.log(`已自动备份存档：${done.join('、')}`)
-        if (failed.length > 0) console.warn(`这些存档自动备份失败：${failed.join('、')}`)
+        if (failed.length > 0) {
+          console.warn(`这些存档自动备份失败：${failed.join('、')}`)
+          void notify('存档自动备份失败', `这些存档没能备份：${failed.join('、')}，可以在存档页手动备份`)
+        }
       })
       .catch((e) => console.warn('自动备份存档失败：', e))
   })

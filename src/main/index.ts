@@ -7,6 +7,7 @@ import { setupPlayReminder } from './playReminder'
 import { setupAutoBackup } from './autoBackup'
 import { getLaunchTiming, setupLaunchTiming } from './launchTiming'
 import { getGameResources, setupGameMonitor } from './gameMonitor'
+import { setupNotifications } from './notify'
 import { copyReportImage, saveReportImage } from './reportImage'
 import { renderWorldMap } from './worldMap'
 import { applyVideoPreset, copyGameOptions, getGameOptionsInfo, restoreGameOptions } from './optionsTools'
@@ -803,6 +804,7 @@ app.whenReady().then(async () => {
   setupAutoBackup()
   setupLaunchTiming()
   setupGameMonitor()
+  setupNotifications()
   setupAchievements()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)

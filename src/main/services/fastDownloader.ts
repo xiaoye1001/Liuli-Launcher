@@ -16,6 +16,7 @@ import { mkdir, open, readdir, rename, rm, stat, type FileHandle } from 'fs/prom
 import { basename, dirname, extname, join } from 'path'
 import { request, type Dispatcher } from 'undici'
 import { fastDownloadDispatcher } from '../network'
+import { notify } from '../notify'
 import { appendDownloadLog } from '../downloadLog'
 import type { FastDownloadSource, FastDownloadStatus, FastDownloadTask } from '../../shared/types'
 
@@ -684,6 +685,13 @@ function finish(task: Task, status: FastDownloadStatus, error?: string): void {
   task.speed = 0
   trimFinished()
   push()
+  // 百宝箱里自己添加的下载：完成或失败时通知（安装游戏、模组时的下载由安装任务统一通知）
+  if (task.source === 'toolbox' && (status === 'completed' || status === 'error')) {
+    void notify(
+      status === 'completed' ? '下载完成' : '下载失败',
+      status === 'completed' ? task.fileName : `${task.fileName}：${error ?? '未知原因'}`
+    )
+  }
 }
 
 // ---------- 对外接口 ----------

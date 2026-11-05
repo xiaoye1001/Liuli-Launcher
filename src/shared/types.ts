@@ -87,6 +87,8 @@ export interface AppSettings {
   defaultChinese: boolean
   /** 显示系统托盘图标 */
   showTray: boolean
+  /** 启动器在后台时，下载、安装、更新完成后弹出系统通知 */
+  systemNotifications: boolean
   /** 健康游戏提醒：连续游玩多少分钟提醒休息，0 为不提醒 */
   playReminderMinutes: number
   /** 退出游戏后自动备份这次玩过的存档（每个存档保留最近 3 份） */
