@@ -6,10 +6,10 @@ import {
   Check,
   ChevronDown,
   Clock,
-  FolderOpen,
   Gamepad2,
   Layers,
   Loader2,
+  Pencil,
   Play,
   Settings2,
   Square,
@@ -33,6 +33,7 @@ import { formatClock, formatDuration } from '../utils/format'
 import { useAppearance } from '../utils/appearance'
 import { renderWelcome } from '../utils/welcome'
 import SkinHead from '../components/SkinHead'
+import SkinViewer3D from '../components/SkinViewer3D'
 import { closeGameLaunchOverlay, openGameLaunchOverlay } from '../components/GameLaunchOverlay'
 import type {
   AccountsInfo,
@@ -61,7 +62,7 @@ const NAME_PATTERN = /^[A-Za-z0-9_]{3,16}$/
 /** 窗口够宽时主页分成左右两栏（右边是启动坞），窄的时候上下排列 */
 const WIDE_QUERY = '(min-width: 1024px)'
 /** 窄窗口里只有窗口够高才显示新闻（太矮时新闻会被挤成一条） */
-const TALL_QUERY = '(min-height: 760px)'
+const TALL_QUERY = '(min-height: 700px)'
 
 function useMedia(query: string): boolean {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
@@ -460,6 +461,10 @@ function HomePage({
   const tall = useMedia(TALL_QUERY)
   const current = versions.find((v) => v.id === selected)
   const accountLabel = msAccount ? (external ? `外置账号 · ${external.serverName}` : '微软正版账号') : '离线账号'
+  /** 头像和 3D 角色用的皮肤：正版 / 外置账号用账号的皮肤，离线账号用设置里选的皮肤 */
+  const skin = msAccount ? msAccount.skin : (settings?.skinDataUrl ?? '')
+  const skinModel = msAccount ? msAccount.skinModel : (settings?.skinModel ?? 'default')
+  const [editingName, setEditingName] = useState(false)
 
   /** 问候卡片里的小标签：累计游玩时长、成就进度（游戏结束后刷新） */
   const [summary, setSummary] = useState<{
@@ -670,44 +675,11 @@ function HomePage({
     </div>
   )
 
-  /** 启动坞中间：选中版本的游玩时长、启动次数、上次游玩，以及常用操作 */
+  /** 选中版本的游玩情况：已玩多久、上次什么时候玩 */
   const versionStats = selected ? summary?.versions[selected] : undefined
-  const versionOverview = current && (
-    <div className="rounded-xl border border-white/10 bg-black/15 p-3">
-      <div className="grid grid-cols-3 gap-2 text-center">
-        {[
-          ['游玩时长', versionStats?.totalMs ? formatDuration(versionStats.totalMs) : '—'],
-          ['启动次数', versionStats?.launches ? `${versionStats.launches} 次` : '—'],
-          ['上次游玩', versionStats?.lastPlayed ? lastPlayedText(versionStats.lastPlayed) : '还没玩过']
-        ].map(([label, value]) => (
-          <div key={label} className="min-w-0">
-            <div className="truncate text-sm font-semibold" title={value}>
-              {value}
-            </div>
-            <div className="mt-0.5 text-[11px] text-white/45">{label}</div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <button
-          onClick={() => void window.api.openVersionDir(selected).catch(() => undefined)}
-          title="在文件管理器里打开这个版本的文件夹"
-          className="flex items-center justify-center gap-1.5 rounded-lg bg-white/10 px-2 py-1.5 text-xs text-white/75 transition-colors hover:bg-white/20 hover:text-white"
-        >
-          <FolderOpen className="h-3.5 w-3.5" />
-          版本文件夹
-        </button>
-        <button
-          onClick={onManageVersions}
-          title="模组、存档、资源包和光影"
-          className="flex items-center justify-center gap-1.5 rounded-lg bg-white/10 px-2 py-1.5 text-xs text-white/75 transition-colors hover:bg-white/20 hover:text-white"
-        >
-          <Layers className="h-3.5 w-3.5" />
-          模组与存档
-        </button>
-      </div>
-    </div>
-  )
+  const versionPlayText = versionStats?.totalMs
+    ? `已玩 ${formatDuration(versionStats.totalMs)}${versionStats.lastPlayed ? ` · ${lastPlayedText(versionStats.lastPlayed)}` : ''}`
+    : '还没玩过'
 
   // ---------- 页面 ----------
 
@@ -797,69 +769,126 @@ function HomePage({
   if (wide) {
     return (
       <div className="flex h-full gap-5">
-        {/* 左边：问候、崩溃提示、新闻、最近游玩 */}
+        {/* 左边：问候在上，新闻和最近游玩在下，中间留白露出背景 */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
           {hero}
           {crash}
-          {news}
+          <div className="min-h-0 flex-1" />
+          {settings?.showNews && tall && (
+            <NewsPanel onHide={async () => setSettings(await window.api.updateSettings({ showNews: false }))} />
+          )}
           {recentPlays}
         </div>
 
         {/* 右边：启动坞 */}
         <aside
           aria-label="启动"
-          className="relative flex w-[19rem] shrink-0 flex-col rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl"
+          className="relative flex w-[19rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/10 p-5 shadow-2xl backdrop-blur-xl"
         >
           {prism}
-          {/* 玩家 */}
-          <div className="flex flex-col items-center">
-            <button
-              onClick={onOpenAccount}
-              disabled={!onOpenAccount}
-              title="切换账号"
-              className={`rounded-2xl bg-gradient-to-br p-[3px] transition-transform enabled:hover:scale-105 ${
-                running
-                  ? 'from-emerald-400 via-cyan-400 to-emerald-300 shadow-lg shadow-emerald-500/40'
-                  : 'from-emerald-400/60 via-cyan-400/40 to-violet-400/50'
+          {/* 账号 */}
+          <div className="flex items-center gap-2 text-xs text-white/55">
+            <span className="flex min-w-0 items-center gap-1.5 rounded-full bg-black/15 py-1 pl-1 pr-2.5">
+              <SkinHead skin={skin} size={18} />
+              <span className="truncate">{accountLabel}</span>
+            </span>
+            {onOpenAccount && (
+              <button
+                onClick={onOpenAccount}
+                title="切换账号"
+                className="ml-auto shrink-0 hover:text-white hover:underline"
+              >
+                切换账号
+              </button>
+            )}
+          </div>
+
+          {/* 玩家名：离线账号点一下就能改 */}
+          <div className="mt-3 flex min-h-9 items-center justify-center">
+            {msAccount ? (
+              <div className="truncate text-2xl font-bold tracking-tight">{msAccount.name}</div>
+            ) : editingName || !nameValid ? (
+              <input
+                autoFocus={editingName}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={() => {
+                  void saveName()
+                  setEditingName(false)
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                maxLength={16}
+                placeholder="Steve"
+                aria-label="离线玩家名"
+                className={`w-full rounded-lg border bg-black/20 px-3 py-1 text-center text-xl font-bold outline-none ${
+                  nameValid ? 'border-white/15' : 'border-red-400/60'
+                }`}
+              />
+            ) : (
+              <button
+                onClick={() => setEditingName(true)}
+                title="点击修改离线玩家名"
+                className="group flex min-w-0 items-center gap-2 rounded-lg px-2 py-0.5 hover:bg-white/10"
+              >
+                <span className="truncate text-2xl font-bold tracking-tight">{name}</span>
+                <Pencil className="h-3.5 w-3.5 shrink-0 text-white/30 group-hover:text-white/70" />
+              </button>
+            )}
+          </div>
+          <div className="mt-0.5 flex items-center justify-center gap-1.5 text-xs text-white/50">
+            {running ? (
+              <>
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                正在玩 {game.versionId}
+              </>
+            ) : (
+              versionPlayText !== '还没玩过' && selected && `${selected} · ${versionPlayText}`
+            )}
+          </div>
+
+          {/* 角色：站在一块发光的琉璃台上 */}
+          <div className="relative -mx-5 min-h-[9rem] flex-1">
+            <div
+              className={`pointer-events-none absolute bottom-[6%] left-1/2 h-8 w-40 -translate-x-1/2 rounded-[50%] bg-gradient-to-r from-emerald-400 via-cyan-400 to-violet-400 blur-xl transition-opacity ${
+                running ? 'opacity-70' : 'opacity-35'
               }`}
-            >
-              <div className="rounded-[13px] bg-black/25 p-3">
-                <SkinHead skin={msAccount?.skin ?? ''} size={64} />
-              </div>
-            </button>
-            <div className="mt-3 w-full">{nameField(true)}</div>
-            <div className="mt-1 flex items-center gap-1.5 text-xs text-white/50">
-              {running && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />}
-              {running ? `正在玩 ${game.versionId}` : accountLabel}
+            />
+            <div className="pointer-events-none absolute bottom-[8%] left-1/2 h-3 w-28 -translate-x-1/2 rounded-[50%] border border-white/30 bg-white/10" />
+            <div className="absolute inset-0">
+              <SkinViewer3D
+                skin={skin}
+                model={skinModel}
+                animation="idle"
+                autoRotate={false}
+                nameTag=""
+                zoom={0.78}
+                angle={-0.5}
+                fallback={
+                  <div className="flex h-full items-center justify-center">
+                    <SkinHead skin={skin} size={96} />
+                  </div>
+                }
+              />
             </div>
           </div>
 
           {/* 版本 */}
-          <div className="mt-6">
-            <div className="mb-1.5 flex items-center justify-between text-xs text-white/50">
-              游戏版本
-              <button onClick={onManageVersions} className="text-white/50 hover:text-white hover:underline">
-                管理版本
-              </button>
-            </div>
-            <div className="flex gap-2">
-              <VersionSelect
-                versions={versions}
-                value={selected}
-                onChange={selectVersion}
-                className="min-w-0 flex-1"
-                dropDown
-              />
-              {settingsButton}
-            </div>
-            <div className="mt-2">{versionMeta}</div>
+          <div className="flex gap-2">
+            <VersionSelect versions={versions} value={selected} onChange={selectVersion} className="min-w-0 flex-1" />
+            {settingsButton}
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <div className="min-w-0 flex-1">{versionMeta}</div>
+            <button
+              onClick={onManageVersions}
+              className="shrink-0 text-xs text-white/50 hover:text-white hover:underline"
+            >
+              管理版本
+            </button>
           </div>
 
-          <div className="mt-4">{versionOverview}</div>
-          <div className="min-h-4 flex-1" />
-
           {/* 状态和启动 */}
-          <div className="space-y-2">{statusLines(true)}</div>
+          <div className="mt-3 space-y-2 empty:hidden">{statusLines(true)}</div>
           <div className="mt-3 space-y-2">
             {continueButton(true)}
             <div className="flex gap-2">
