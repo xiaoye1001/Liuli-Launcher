@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Bug,
   BarChart3,
+  Bug,
   Coffee,
   CornerDownLeft,
   Gauge,
@@ -11,6 +11,7 @@ import {
   Rocket,
   Search,
   SlidersHorizontal,
+  Sprout,
   Terminal,
   Trash2,
   Trophy,
@@ -151,6 +152,14 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
         icon: Bug,
         keywords: '崩溃 报错 启动失败 历史',
         run: tool('crashes')
+      },
+      {
+        id: 'tool:seeds',
+        title: '种子收藏夹',
+        group: '百宝箱',
+        icon: Sprout,
+        keywords: '种子 seed 世界 地图',
+        run: tool('seeds')
       },
       {
         id: 'action:log',

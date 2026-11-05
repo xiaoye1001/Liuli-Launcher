@@ -608,7 +608,14 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
-                  {open && panel === 'details' && <WorldDetailsPanel versionId={version.id} folder={world.folder} />}
+                  {open && panel === 'details' && (
+                    <WorldDetailsPanel
+                      versionId={version.id}
+                      folder={world.folder}
+                      worldName={world.name}
+                      gameVersion={world.version || version.minecraftVersion}
+                    />
+                  )}
                   {open && panel === 'datapacks' && (
                     <DatapackPanel
                       versionId={version.id}

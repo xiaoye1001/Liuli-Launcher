@@ -148,6 +148,10 @@ const api = {
   createSnapshot: (versionId: string, name: string) => ipcRenderer.invoke('snapshots:create', versionId, name),
   restoreSnapshot: (versionId: string, id: string) => ipcRenderer.invoke('snapshots:restore', versionId, id),
   deleteSnapshot: (versionId: string, id: string) => ipcRenderer.invoke('snapshots:delete', versionId, id),
+  listSeedFavorites: () => ipcRenderer.invoke('seeds:list'),
+  addSeedFavorite: (input: Record<string, string>) => ipcRenderer.invoke('seeds:add', input),
+  updateSeedFavorite: (id: string, patch: Record<string, string>) => ipcRenderer.invoke('seeds:update', id, patch),
+  deleteSeedFavorite: (id: string) => ipcRenderer.invoke('seeds:delete', id),
   checkModMigration: (versionId: string, targetId: string) =>
     ipcRenderer.invoke('modMigration:check', versionId, targetId),
   applyModMigration: (versionId: string, targetId: string, mods: { projectId: string; title: string }[]) =>

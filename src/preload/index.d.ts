@@ -56,6 +56,7 @@ import type {
   ModProfileResult,
   VersionSnapshot,
   ModMigrationCheck,
+  SeedFavorite,
   ShaderSetupResult,
   ModTranslationResult,
   ModpackInfo,
@@ -243,6 +244,17 @@ declare global {
       /** 恢复快照；返回恢复前自动保存的快照 */
       restoreSnapshot: (versionId: string, id: string) => Promise<VersionSnapshot>
       deleteSnapshot: (versionId: string, id: string) => Promise<void>
+      /** 种子收藏夹（新的在前） */
+      listSeedFavorites: () => Promise<SeedFavorite[]>
+      /** 收藏种子（同一个种子和版本只收藏一次） */
+      addSeedFavorite: (
+        input: Partial<Pick<SeedFavorite, 'seed' | 'name' | 'note' | 'version'>>
+      ) => Promise<SeedFavorite[]>
+      updateSeedFavorite: (
+        id: string,
+        patch: Partial<Pick<SeedFavorite, 'name' | 'note' | 'version'>>
+      ) => Promise<SeedFavorite[]>
+      deleteSeedFavorite: (id: string) => Promise<SeedFavorite[]>
       /** 模组迁移：检查已启用的模组在目标版本上有没有适用的版本 */
       checkModMigration: (versionId: string, targetId: string) => Promise<ModMigrationCheck>
       /** 把选中的模组装到目标版本 */

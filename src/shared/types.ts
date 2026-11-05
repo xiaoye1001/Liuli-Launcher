@@ -1099,6 +1099,18 @@ export interface ModProfile {
   disabled: string[]
 }
 
+/** 种子收藏夹里的一个种子 */
+export interface SeedFavorite {
+  id: string
+  /** 输入的种子（数字或文字） */
+  seed: string
+  name: string
+  note: string
+  /** 游戏版本，例如 1.20.1（同一个种子在不同版本上地形不同） */
+  version: string
+  createdAt: number
+}
+
 /** 模组迁移：一个模组在目标版本上的情况 */
 export interface ModMigrationItem {
   projectId: string

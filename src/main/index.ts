@@ -12,6 +12,7 @@ import { clearCrashHistory, listCrashHistory, setupCrashHistory } from './crashH
 import { applyModProfile, deleteModProfile, listModProfiles, saveModProfile } from './modProfiles'
 import { createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot } from './versionSnapshots'
 import { applyModMigration, checkModMigration } from './modMigration'
+import { addSeedFavorite, deleteSeedFavorite, listSeedFavorites, updateSeedFavorite } from './seedFavorites'
 import { copyReportImage, saveReportImage } from './reportImage'
 import { renderWorldMap } from './worldMap'
 import {
@@ -238,7 +239,8 @@ import type {
   DirectDownloadOptions,
   OptionsCopyMode,
   ShaderChoice,
-  VideoPreset
+  VideoPreset,
+  SeedFavorite
 } from '../shared/types'
 import { HIDEABLE_PAGES, PARTICLE_EFFECTS, THEME_PRESETS } from '../shared/types'
 import { sanitizeAutoTheme, sanitizeCustomThemes } from '../shared/theme'
@@ -491,6 +493,10 @@ function registerIpc(): void {
   ipcMain.handle('modProfiles:save', (_, versionId: string, name: string) => saveModProfile(versionId, name))
   ipcMain.handle('modProfiles:apply', (_, versionId: string, id: string) => applyModProfile(versionId, String(id)))
   ipcMain.handle('modProfiles:delete', (_, versionId: string, id: string) => deleteModProfile(versionId, String(id)))
+  ipcMain.handle('seeds:list', () => listSeedFavorites())
+  ipcMain.handle('seeds:add', (_, input: Partial<SeedFavorite>) => addSeedFavorite(input))
+  ipcMain.handle('seeds:update', (_, id: string, patch: Partial<SeedFavorite>) => updateSeedFavorite(String(id), patch))
+  ipcMain.handle('seeds:delete', (_, id: string) => deleteSeedFavorite(String(id)))
   ipcMain.handle('snapshots:list', (_, versionId: string) => listSnapshots(versionId))
   ipcMain.handle('snapshots:create', (_, versionId: string, name: string) => createSnapshot(versionId, name))
   ipcMain.handle('snapshots:restore', (_, versionId: string, id: string) => restoreSnapshot(versionId, String(id)))
