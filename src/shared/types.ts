@@ -103,6 +103,8 @@ export interface AppSettings {
   showSplash: boolean
   /** 主页显示「今日冷知识」 */
   showTrivia: boolean
+  /** 主页显示「每日小目标」 */
+  showDailyGoal: boolean
   /** 玩家的生日（MM-DD），当天主页有彩蛋；空字符串为没有填 */
   birthday: string
   /** 主页的「最近游玩」收起（只显示标题） */
@@ -1106,6 +1108,23 @@ export interface ModProfile {
   createdAt: number
   enabled: string[]
   disabled: string[]
+}
+
+/** 每日小目标的状态 */
+export interface DailyGoalStatus {
+  /** 今天（YYYY-MM-DD） */
+  date: string
+  goal: string
+  /** 今天打卡了没有 */
+  done: boolean
+  /** 现在连续完成了几天（今天还没打卡时从昨天算） */
+  streak: number
+  /** 最长连续天数 */
+  best: number
+  /** 一共完成了几天 */
+  total: number
+  /** 今天还能换几次 */
+  skipsLeft: number
 }
 
 /** 种子收藏夹里的一个种子 */

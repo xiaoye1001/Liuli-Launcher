@@ -1,40 +1,41 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  AlertTriangle,
   Archive,
   BellRing,
   Cake,
-  Lightbulb,
   CheckCircle2,
   Clock,
   Coffee,
   ExternalLink,
-  FolderOpen,
-  AlertTriangle,
-  ImagePlus,
-  Trash2,
-  Info,
-  Rocket,
-  Sparkles,
-  Layers,
   Film,
+  FolderOpen,
   Globe,
+  ImagePlus,
+  Info,
+  Layers,
+  Lightbulb,
   Loader2,
   MemoryStick,
+  Monitor,
+  Moon,
+  MousePointerClick,
   Network,
   Newspaper,
-  XCircle,
-  ShieldCheck,
-  Monitor,
-  MousePointerClick,
-  Moon,
   Palette,
   Pipette,
   RefreshCw,
+  Rocket,
   RotateCcw,
+  ShieldCheck,
   SlidersHorizontal,
+  Sparkles,
   Sun,
+  Target,
   Terminal,
+  Trash2,
+  XCircle,
   type LucideIcon
 } from 'lucide-react'
 import { backgroundUrl } from '../utils/appearance'
@@ -891,6 +892,31 @@ function SettingsPage(): JSX.Element {
                 <span
                   className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
                     settings.showTrivia ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+            {/* 每日小目标 */}
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Target className="h-4 w-4 text-sky-300" />
+                <div>
+                  <div className="text-sm font-medium">主页显示每日小目标</div>
+                  <div className="text-xs text-white/50">每天一个游戏里的小挑战，做到了就打卡，连续打卡能解锁成就</div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.showDailyGoal}
+                aria-label="主页显示每日小目标"
+                onClick={() => update({ showDailyGoal: !settings.showDailyGoal })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.showDailyGoal ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.showDailyGoal ? 'left-6' : 'left-1'
                   }`}
                 />
               </button>

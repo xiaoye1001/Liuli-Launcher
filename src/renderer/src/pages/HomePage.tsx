@@ -23,6 +23,7 @@ import {
 import CrashCard from '../components/CrashCard'
 import RecentPlays from '../components/RecentPlays'
 import VersionIcon from '../components/VersionIcon'
+import DailyGoalLine from '../components/DailyGoalLine'
 import OnThisDay from '../components/OnThisDay'
 import ResourceSparklines from '../components/ResourceSparklines'
 import NewsPanel from '../components/NewsPanel'
@@ -725,6 +726,7 @@ function HomePage({
             : '选择版本后点击启动，开始你的冒险。'}
       </p>
       {settings?.showTrivia && <TriviaLine />}
+      {settings?.showDailyGoal && <DailyGoalLine />}
       <div className="mt-4 flex flex-wrap gap-2">
         <StatChip icon={Layers} onClick={onManageVersions} title="管理已安装的版本">
           已安装 {versions.length} 个版本
@@ -953,6 +955,7 @@ function HomePage({
               : '选择版本后点击启动，开始你的冒险。'}
         </p>
         {settings?.showTrivia && <TriviaLine />}
+        {settings?.showDailyGoal && <DailyGoalLine />}
         <OnThisDay className="mt-2 text-xs text-white/60 hover:text-white" />
         <div className="mt-5 flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1.5">

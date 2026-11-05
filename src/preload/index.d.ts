@@ -57,6 +57,7 @@ import type {
   VersionSnapshot,
   ModMigrationCheck,
   SeedFavorite,
+  DailyGoalStatus,
   ShaderSetupResult,
   ModTranslationResult,
   ModpackInfo,
@@ -245,6 +246,12 @@ declare global {
       /** 恢复快照；返回恢复前自动保存的快照 */
       restoreSnapshot: (versionId: string, id: string) => Promise<VersionSnapshot>
       deleteSnapshot: (versionId: string, id: string) => Promise<void>
+      /** 每日小目标 */
+      getDailyGoal: () => Promise<DailyGoalStatus>
+      /** 打卡（false 取消今天的打卡） */
+      setDailyGoalDone: (done: boolean) => Promise<DailyGoalStatus>
+      /** 换一个目标（每天最多 3 次） */
+      skipDailyGoal: () => Promise<DailyGoalStatus>
       /** 种子收藏夹（新的在前） */
       listSeedFavorites: () => Promise<SeedFavorite[]>
       /** 收藏种子（同一个种子和版本只收藏一次） */

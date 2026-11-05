@@ -88,6 +88,7 @@ function defaultSettings(): AppSettings {
     showRecentPlays: true,
     showSplash: true,
     showTrivia: true,
+    showDailyGoal: true,
     birthday: '',
     recentPlaysCollapsed: false,
     downloadThreads: 16,

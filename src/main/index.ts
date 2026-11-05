@@ -13,6 +13,7 @@ import { applyModProfile, deleteModProfile, listModProfiles, saveModProfile } fr
 import { createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot } from './versionSnapshots'
 import { applyModMigration, checkModMigration } from './modMigration'
 import { addSeedFavorite, deleteSeedFavorite, listSeedFavorites, updateSeedFavorite } from './seedFavorites'
+import { getDailyGoal, setDailyGoalDone, skipDailyGoal } from './dailyGoals'
 import { copyReportImage, saveReportImage } from './reportImage'
 import { renderWorldMap } from './worldMap'
 import {
@@ -501,6 +502,9 @@ function registerIpc(): void {
   ipcMain.handle('modProfiles:apply', (_, versionId: string, id: string) => applyModProfile(versionId, String(id)))
   ipcMain.handle('modProfiles:delete', (_, versionId: string, id: string) => deleteModProfile(versionId, String(id)))
   ipcMain.handle('seeds:list', () => listSeedFavorites())
+  ipcMain.handle('dailyGoal:get', () => getDailyGoal())
+  ipcMain.handle('dailyGoal:done', (_, done: boolean) => setDailyGoalDone(done === true))
+  ipcMain.handle('dailyGoal:skip', () => skipDailyGoal())
   ipcMain.handle('seeds:add', (_, input: Partial<SeedFavorite>) => addSeedFavorite(input))
   ipcMain.handle('seeds:update', (_, id: string, patch: Partial<SeedFavorite>) => updateSeedFavorite(String(id), patch))
   ipcMain.handle('seeds:delete', (_, id: string) => deleteSeedFavorite(String(id)))
