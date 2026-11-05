@@ -22,6 +22,7 @@ import { EmptyState, LoadingState } from '../components/EmptyState'
 import { HEADER_BUTTON, HEADER_ICON_BUTTON, HEADER_PRIMARY } from '../components/headerButtons'
 import ModIssuesCard from '../components/ModIssuesCard'
 import ModCollectionsDialog from '../components/ModCollectionsDialog'
+import McmodLink from '../components/McmodLink'
 import type {
   InstalledVersion,
   ModInfo,
@@ -553,6 +554,7 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
                       退回旧版
                     </button>
                   )}
+                  <McmodLink name={mod.name} label={false} />
                   <span className="shrink-0 text-xs text-white/30">{formatSize(mod.size)}</span>
                   {/* 启用开关 */}
                   <button

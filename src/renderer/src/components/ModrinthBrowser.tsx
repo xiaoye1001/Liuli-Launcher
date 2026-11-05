@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Download, Loader2, Puzzle, Search } from 'lucide-react'
 import type { ModrinthProject } from '../../../shared/types'
+import McmodLink from './McmodLink'
 
 function formatDownloads(n: number): string {
   if (n >= 1e8) return `${(n / 1e8).toFixed(1)} 亿`
@@ -153,6 +154,7 @@ function ModrinthBrowser({ versionId, onInstalled, preset }: ModrinthBrowserProp
                   {project.description}
                 </div>
               </div>
+              <McmodLink name={project.title} />
               <span className="flex shrink-0 items-center gap-1 text-xs text-white/40">
                 <Download className="h-3.5 w-3.5" />
                 {formatDownloads(project.downloads)}
