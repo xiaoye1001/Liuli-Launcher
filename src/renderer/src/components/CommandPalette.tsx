@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BarChart3,
   Bug,
+  Calculator,
   Coffee,
   CornerDownLeft,
   Gauge,
@@ -160,6 +161,14 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
         icon: Sprout,
         keywords: '种子 seed 世界 地图',
         run: tool('seeds')
+      },
+      {
+        id: 'tool:calc',
+        title: 'Minecraft 小工具',
+        group: '百宝箱',
+        icon: Calculator,
+        keywords: '下界 坐标 换算 区块 时间 刻 计算器',
+        run: tool('calc')
       },
       {
         id: 'action:log',
