@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
+  ArrowRightLeft,
   ArrowUpCircle,
   CheckCircle2,
   FolderOpen,
@@ -25,6 +26,7 @@ import ModIssuesCard from '../components/ModIssuesCard'
 import ModCollectionsDialog from '../components/ModCollectionsDialog'
 import McmodLink from '../components/McmodLink'
 import ModProfilesDialog from '../components/ModProfilesDialog'
+import ModMigrationDialog from '../components/ModMigrationDialog'
 import type {
   InstalledVersion,
   ModInfo,
@@ -92,6 +94,7 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
   const [rollbacks, setRollbacks] = useState<Record<string, ModRollback>>({})
   const [collections, setCollections] = useState(false)
   const [profiles, setProfiles] = useState(false)
+  const [migration, setMigration] = useState(false)
   const [checking, setChecking] = useState(false)
   /** 从问题提示跳到「下载模组」时预先填好的搜索词 */
   const [searchPreset, setSearchPreset] = useState<{ text: string; nonce: number } | undefined>()
@@ -469,6 +472,17 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
                 合集
               </button>
             )}
+            {version.loader && version.loader !== 'optifine' && (list?.mods.length ?? 0) > 0 && (
+              <button
+                onClick={() => setMigration(true)}
+                disabled={pending !== null}
+                title="换新的游戏版本时，检查这些模组在新版本上有没有，一键装过去"
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+              >
+                <ArrowRightLeft className="h-3.5 w-3.5" />
+                迁移
+              </button>
+            )}
           </div>
 
           {list && (
@@ -601,6 +615,7 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
           </div>
         </div>
       </section>
+      {migration && <ModMigrationDialog versionId={version.id} onClose={() => setMigration(false)} />}
       {profiles && (
         <ModProfilesDialog versionId={version.id} onClose={() => setProfiles(false)} onApplied={() => void load()} />
       )}

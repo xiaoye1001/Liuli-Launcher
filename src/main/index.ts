@@ -11,6 +11,7 @@ import { setupNotifications } from './notify'
 import { clearCrashHistory, listCrashHistory, setupCrashHistory } from './crashHistory'
 import { applyModProfile, deleteModProfile, listModProfiles, saveModProfile } from './modProfiles'
 import { createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot } from './versionSnapshots'
+import { applyModMigration, checkModMigration } from './modMigration'
 import { copyReportImage, saveReportImage } from './reportImage'
 import { renderWorldMap } from './worldMap'
 import {
@@ -493,6 +494,14 @@ function registerIpc(): void {
   ipcMain.handle('snapshots:create', (_, versionId: string, name: string) => createSnapshot(versionId, name))
   ipcMain.handle('snapshots:restore', (_, versionId: string, id: string) => restoreSnapshot(versionId, String(id)))
   ipcMain.handle('snapshots:delete', (_, versionId: string, id: string) => deleteSnapshot(versionId, String(id)))
+  ipcMain.handle('modMigration:check', (_, versionId: string, targetId: string) =>
+    checkModMigration(versionId, String(targetId))
+  )
+  ipcMain.handle(
+    'modMigration:apply',
+    (_, versionId: string, targetId: string, mods: { projectId: string; title: string }[]) =>
+      applyModMigration(versionId, String(targetId), mods)
+  )
   ipcMain.handle('collections:list', () => listModCollections())
   ipcMain.handle('collections:save', async (_, versionId: string, name: string) => {
     const result = await saveModCollection(versionId, name)

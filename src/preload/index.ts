@@ -148,6 +148,10 @@ const api = {
   createSnapshot: (versionId: string, name: string) => ipcRenderer.invoke('snapshots:create', versionId, name),
   restoreSnapshot: (versionId: string, id: string) => ipcRenderer.invoke('snapshots:restore', versionId, id),
   deleteSnapshot: (versionId: string, id: string) => ipcRenderer.invoke('snapshots:delete', versionId, id),
+  checkModMigration: (versionId: string, targetId: string) =>
+    ipcRenderer.invoke('modMigration:check', versionId, targetId),
+  applyModMigration: (versionId: string, targetId: string, mods: { projectId: string; title: string }[]) =>
+    ipcRenderer.invoke('modMigration:apply', versionId, targetId, mods),
   listModCollections: () => ipcRenderer.invoke('collections:list'),
   saveModCollection: (versionId: string, name: string) => ipcRenderer.invoke('collections:save', versionId, name),
   deleteModCollection: (id: string) => ipcRenderer.invoke('collections:delete', id),

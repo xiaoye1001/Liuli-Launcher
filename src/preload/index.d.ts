@@ -55,6 +55,7 @@ import type {
   ModProfile,
   ModProfileResult,
   VersionSnapshot,
+  ModMigrationCheck,
   ShaderSetupResult,
   ModTranslationResult,
   ModpackInfo,
@@ -242,6 +243,14 @@ declare global {
       /** 恢复快照；返回恢复前自动保存的快照 */
       restoreSnapshot: (versionId: string, id: string) => Promise<VersionSnapshot>
       deleteSnapshot: (versionId: string, id: string) => Promise<void>
+      /** 模组迁移：检查已启用的模组在目标版本上有没有适用的版本 */
+      checkModMigration: (versionId: string, targetId: string) => Promise<ModMigrationCheck>
+      /** 把选中的模组装到目标版本 */
+      applyModMigration: (
+        versionId: string,
+        targetId: string,
+        mods: { projectId: string; title: string }[]
+      ) => Promise<PerformanceModResult[]>
       /** 我的模组合集 */
       listModCollections: () => Promise<ModCollection[]>
       /** 把这个版本已启用的模组存为合集（只能保存 Modrinth 上有的模组） */

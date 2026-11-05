@@ -1097,6 +1097,29 @@ export interface ModProfile {
   disabled: string[]
 }
 
+/** 模组迁移：一个模组在目标版本上的情况 */
+export interface ModMigrationItem {
+  projectId: string
+  title: string
+  /** 有适用的版本 / 目标版本已经装了 / 没有适用的版本 / 检查失败 */
+  status: 'available' | 'installed' | 'unavailable' | 'error'
+  /** 目标版本上能用的版本号 */
+  version?: string
+  detail?: string
+}
+
+/** 模组迁移的检查结果 */
+export interface ModMigrationCheck {
+  targetId: string
+  minecraftVersion: string
+  loader: string
+  /** 两个版本的加载器是否相同（不同时大多数模组不能通用） */
+  sameLoader: boolean
+  items: ModMigrationItem[]
+  /** 不是从 Modrinth 下载的模组文件（无法检查，需要手动处理） */
+  unknown: string[]
+}
+
 /** 版本快照：模组、模组配置和游戏设置的一份副本 */
 export interface VersionSnapshot {
   id: string
