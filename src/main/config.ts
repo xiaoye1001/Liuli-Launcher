@@ -90,6 +90,7 @@ function defaultSettings(): AppSettings {
     showTrivia: true,
     showDailyGoal: true,
     autoSnapshots: true,
+    modUpdateCheck: true,
     birthday: '',
     recentPlaysCollapsed: false,
     downloadThreads: 16,

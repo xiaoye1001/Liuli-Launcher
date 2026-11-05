@@ -46,7 +46,8 @@ import type {
   ModLoader,
   PlayStats,
   ResourceType,
-  VersionDisplay
+  VersionDisplay,
+  ModUpdateSummary
 } from '../../../shared/types'
 
 const LOADER_LABELS: Record<ModLoader, { label: string; className: string }> = {
@@ -291,6 +292,8 @@ function VersionsPage({
 }: VersionsPageProps): JSX.Element {
   const [installed, setInstalled] = useState<InstalledVersion[] | null>(null)
   const [stats, setStats] = useState<PlayStats | null>(null)
+  /** 后台检查到的可以更新的模组 */
+  const [modUpdates, setModUpdates] = useState<Record<string, ModUpdateSummary>>({})
   const [selected, setSelected] = useState('')
   const [gameDir, setGameDir] = useState('')
   /** 添加过的游戏目录（多于一个时显示切换框） */
@@ -334,6 +337,14 @@ function VersionsPage({
     window.api.getInstallStatus().then(setInstall)
     return window.api.onInstallStatus(setInstall)
   }, [load])
+
+  useEffect(() => {
+    void window.api
+      .getModUpdateSummary()
+      .then(setModUpdates)
+      .catch(() => undefined)
+    return window.api.onModUpdatesChanged(setModUpdates)
+  }, [])
 
   // 从主页进入：打开指定版本的版本设置
   useEffect(() => {
@@ -641,6 +652,18 @@ function VersionsPage({
                       <div className="mt-1 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs">
                         <span className={`shrink-0 rounded-md px-2 py-0.5 ${info.className}`}>{info.label}</span>
                         <span className="shrink-0 text-white/50">{version.minecraftVersion}</span>
+                        {isModded(version) && (modUpdates[version.id]?.mods.length ?? 0) > 0 && (
+                          <span
+                            title={`可以更新：${modUpdates[version.id].mods
+                              .slice(0, 8)
+                              .map((m) => m.title)
+                              .join('、')}${modUpdates[version.id].mods.length > 8 ? ' 等' : ''}（点「模组」查看）`}
+                            className="shrink-0 rounded-md bg-amber-500/15 px-2 py-0.5 text-amber-300"
+                            data-testid="mod-update-badge"
+                          >
+                            {modUpdates[version.id].mods.length} 个模组可更新
+                          </span>
+                        )}
                         {version.modpack && (
                           <span
                             title={`用启动器安装的整合包：${version.modpack.name} ${version.modpack.version}`}
@@ -687,9 +710,21 @@ function VersionsPage({
                     <Star className={`h-4 w-4 ${version.favorite ? 'fill-current' : ''}`} />
                   </button>
                   {isModded(version) ? (
-                    <button onClick={() => setModsFor(version)} title="管理该版本的模组" className={actionClass}>
+                    <button
+                      onClick={() => setModsFor(version)}
+                      title="管理该版本的模组"
+                      className={`relative ${actionClass}`}
+                    >
                       <Puzzle className="h-3.5 w-3.5" />
                       模组
+                      {(modUpdates[version.id]?.mods.length ?? 0) > 0 && (
+                        <span
+                          aria-label={`${modUpdates[version.id].mods.length} 个模组可更新`}
+                          className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold leading-none text-white"
+                        >
+                          {modUpdates[version.id].mods.length}
+                        </span>
+                      )}
                     </button>
                   ) : (
                     // 原版没有「模组」按钮：留出同样宽的空位，每一行的按钮都上下对齐

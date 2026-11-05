@@ -23,6 +23,7 @@ import {
   MousePointerClick,
   Network,
   Newspaper,
+  PackageSearch,
   Palette,
   Pipette,
   RefreshCw,
@@ -1269,6 +1270,33 @@ function SettingsPage(): JSX.Element {
                 <span
                   className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
                     settings.systemNotifications ? 'left-6' : 'left-1'
+                  }`}
+                />
+              </button>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <PackageSearch className="h-4 w-4 text-amber-300" />
+                <div>
+                  <div className="text-sm font-medium">模组更新提醒</div>
+                  <div className="text-xs text-white/50">
+                    每 6 小时在后台检查一次各个版本的模组有没有新版本（只能检查 Modrinth 上的模组）， 版本列表上显示「N
+                    个模组可更新」
+                  </div>
+                </div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={settings.modUpdateCheck}
+                aria-label="模组更新提醒"
+                onClick={() => update({ modUpdateCheck: !settings.modUpdateCheck })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  settings.modUpdateCheck ? 'bg-emerald-500' : 'bg-white/20'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                    settings.modUpdateCheck ? 'left-6' : 'left-1'
                   }`}
                 />
               </button>

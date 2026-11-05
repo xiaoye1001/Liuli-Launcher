@@ -12,6 +12,7 @@ import { clearCrashHistory, listCrashHistory, setupCrashHistory } from './crashH
 import { applyModProfile, deleteModProfile, listModProfiles, saveModProfile } from './modProfiles'
 import { autoSnapshot, createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot } from './versionSnapshots'
 import { applyModMigration, checkModMigration } from './modMigration'
+import { getModUpdateSummary, markModUpdated, recordModUpdates, setupModUpdateWatch } from './modUpdateWatch'
 import { addSeedFavorite, deleteSeedFavorite, listSeedFavorites, updateSeedFavorite } from './seedFavorites'
 import { getDailyGoal, setDailyGoalDone, skipDailyGoal } from './dailyGoals'
 import {
@@ -502,11 +503,19 @@ function registerIpc(): void {
     addMods(versionId, BrowserWindow.fromWebContents(event.sender))
   )
   ipcMain.handle('mods:open', (_, versionId: string) => openModsDir(versionId))
-  ipcMain.handle('mods:checkUpdates', (_, versionId: string) => checkModUpdates(versionId))
+  ipcMain.handle('mods:checkUpdates', async (_, versionId: string) => {
+    const updates = await checkModUpdates(versionId)
+    // 手动检查的结果也记下来，版本列表上的「可更新」数量跟着变
+    void recordModUpdates(versionId, updates).catch(() => undefined)
+    return updates
+  })
+  ipcMain.handle('modUpdates:summary', () => getModUpdateSummary())
   // 改模组前先自动拍一张版本快照（10 分钟内只拍一次，失败不影响原来的操作）
   ipcMain.handle('mods:update', async (_, versionId: string, fileName: string, modrinthVersionId: string) => {
     await autoSnapshot(versionId, '更新模组')
-    return updateMod(versionId, fileName, modrinthVersionId)
+    const result = await updateMod(versionId, fileName, modrinthVersionId)
+    void markModUpdated(versionId, fileName).catch(() => undefined)
+    return result
   })
   ipcMain.handle('mods:rollbacks', (_, versionId: string) => listModRollbacks(versionId))
   ipcMain.handle('mods:rollback', async (_, versionId: string, id: string) => {
@@ -906,6 +915,7 @@ app.whenReady().then(async () => {
   setupCrashHistory()
   setupServerWatch()
   setupLocalServerShutdown()
+  setupModUpdateWatch()
   setupAchievements()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)

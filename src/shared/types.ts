@@ -107,6 +107,8 @@ export interface AppSettings {
   showDailyGoal: boolean
   /** 改模组前（更新模组、整合包、一键优化等）自动拍版本快照 */
   autoSnapshots: boolean
+  /** 后台定期检查模组更新 */
+  modUpdateCheck: boolean
   /** 玩家的生日（MM-DD），当天主页有彩蛋；空字符串为没有填 */
   birthday: string
   /** 主页的「最近游玩」收起（只显示标题） */
@@ -1110,6 +1112,13 @@ export interface ModProfile {
   createdAt: number
   enabled: string[]
   disabled: string[]
+}
+
+/** 后台检查到的、一个版本可以更新的模组 */
+export interface ModUpdateSummary {
+  /** 检查时间 */
+  at: number
+  mods: { fileName: string; title: string; newVersion: string }[]
 }
 
 /** 一键开服：一个本地服务器 */

@@ -150,6 +150,12 @@ const api = {
   deleteSnapshot: (versionId: string, id: string) => ipcRenderer.invoke('snapshots:delete', versionId, id),
   listSeedFavorites: () => ipcRenderer.invoke('seeds:list'),
   getDailyGoal: () => ipcRenderer.invoke('dailyGoal:get'),
+  getModUpdateSummary: () => ipcRenderer.invoke('modUpdates:summary'),
+  onModUpdatesChanged: (callback: (summary: Record<string, unknown>) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, summary: Record<string, unknown>): void => callback(summary)
+    ipcRenderer.on('modUpdates:changed', listener)
+    return () => ipcRenderer.removeListener('modUpdates:changed', listener)
+  },
   listLocalServers: () => ipcRenderer.invoke('localServer:list'),
   getLocalServerStatus: () => ipcRenderer.invoke('localServer:status'),
   createLocalServer: (input: Record<string, unknown>) => ipcRenderer.invoke('localServer:create', input),

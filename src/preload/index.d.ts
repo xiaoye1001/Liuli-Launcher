@@ -58,6 +58,7 @@ import type {
   ModMigrationCheck,
   SeedFavorite,
   DailyGoalStatus,
+  ModUpdateSummary,
   LocalServer,
   LocalServerInput,
   LocalServerStatus,
@@ -270,6 +271,9 @@ declare global {
       onLocalServerStatus: (callback: (status: LocalServerStatus) => void) => () => void
       onLocalServerLog: (callback: (line: string) => void) => () => void
       onLocalServersChanged: (callback: () => void) => () => void
+      /** 后台检查到的各个版本可以更新的模组 */
+      getModUpdateSummary: () => Promise<Record<string, ModUpdateSummary>>
+      onModUpdatesChanged: (callback: (summary: Record<string, ModUpdateSummary>) => void) => () => void
       /** 每日小目标 */
       getDailyGoal: () => Promise<DailyGoalStatus>
       /** 打卡（false 取消今天的打卡） */
