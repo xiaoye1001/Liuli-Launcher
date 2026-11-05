@@ -28,8 +28,10 @@ import { getDailyGoal, setDailyGoalDone, skipDailyGoal } from './dailyGoals'
 import {
   createLocalServer,
   deleteLocalServer,
+  getLocalServerPlayers,
   getLocalServerStatus,
   listLocalServers,
+  manageLocalServerPlayer,
   openLocalServerFolder,
   redownloadLocalServer,
   sendLocalServerCommand,
@@ -275,6 +277,7 @@ import type {
   SeedFavorite,
   LocalServer,
   LocalServerInput,
+  LocalServerPlayerAction,
   CloudBackupInput
 } from '../shared/types'
 import { HIDEABLE_PAGES, PARTICLE_EFFECTS, THEME_PRESETS } from '../shared/types'
@@ -563,6 +566,10 @@ function registerIpc(): void {
   ipcMain.handle('localServer:start', (_, id: string) => startLocalServer(String(id)))
   ipcMain.handle('localServer:stop', () => stopLocalServer())
   ipcMain.handle('localServer:command', (_, command: string) => sendLocalServerCommand(String(command ?? '')))
+  ipcMain.handle('localServer:players', (_, id: string) => getLocalServerPlayers(String(id)))
+  ipcMain.handle('localServer:managePlayer', (_, id: string, action: LocalServerPlayerAction, name?: string) =>
+    manageLocalServerPlayer(String(id), action, typeof name === 'string' ? name : undefined)
+  )
   ipcMain.handle('dailyGoal:done', (_, done: boolean) => setDailyGoalDone(done === true))
   ipcMain.handle('dailyGoal:skip', () => skipDailyGoal())
   ipcMain.handle('seeds:add', (_, input: Partial<SeedFavorite>) => addSeedFavorite(input))

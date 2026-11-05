@@ -1208,7 +1208,29 @@ export interface LocalServerStatus {
   /** 局域网里朋友可以用的地址 */
   addresses: string[]
   port: number
+  /** 在线玩家（从服务器输出里的加入、离开记录得到） */
+  players: string[]
 }
+
+/** 一键开服的玩家名单 */
+export interface LocalServerPlayers {
+  online: string[]
+  /** 管理员（ops.json） */
+  ops: string[]
+  /** 白名单（whitelist.json） */
+  whitelist: string[]
+  /** 是否开启了白名单（server.properties 的 white-list） */
+  whitelistEnabled: boolean
+}
+
+export type LocalServerPlayerAction =
+  | 'op'
+  | 'deop'
+  | 'kick'
+  | 'whitelistAdd'
+  | 'whitelistRemove'
+  | 'whitelistOn'
+  | 'whitelistOff'
 
 /** 每日小目标的状态 */
 export interface DailyGoalStatus {

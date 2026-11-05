@@ -16,6 +16,7 @@ import {
   Trash2,
   X
 } from 'lucide-react'
+import ServerPlayersPanel from './ServerPlayersPanel'
 import type { InstalledVersion, LocalServer, LocalServerStatus } from '../../../shared/types'
 
 function cleanError(e: unknown): string {
@@ -69,7 +70,13 @@ function OnlineModeSwitch({ value, onChange }: { value: boolean; onChange: (v: b
 /** 百宝箱：一键开服 */
 function LocalServerPanel(): JSX.Element {
   const [servers, setServers] = useState<LocalServer[] | null>(null)
-  const [status, setStatus] = useState<LocalServerStatus>({ id: null, state: 'stopped', addresses: [], port: 0 })
+  const [status, setStatus] = useState<LocalServerStatus>({
+    id: null,
+    state: 'stopped',
+    addresses: [],
+    port: 0,
+    players: []
+  })
   const [log, setLog] = useState<string[]>([])
   const [preparing, setPreparing] = useState<string[]>([])
   const [installed, setInstalled] = useState<InstalledVersion[]>([])
@@ -570,6 +577,7 @@ function LocalServerPanel(): JSX.Element {
                       </div>
                     </div>
                   )}
+                  {state === 'running' && <ServerPlayersPanel serverId={server.id} online={status.players} />}
                   <div
                     ref={logRef}
                     role="log"

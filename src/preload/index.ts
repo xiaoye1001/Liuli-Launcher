@@ -180,6 +180,9 @@ const api = {
   startLocalServer: (id: string) => ipcRenderer.invoke('localServer:start', id),
   stopLocalServer: () => ipcRenderer.invoke('localServer:stop'),
   sendLocalServerCommand: (command: string) => ipcRenderer.invoke('localServer:command', command),
+  getLocalServerPlayers: (id: string) => ipcRenderer.invoke('localServer:players', id),
+  manageLocalServerPlayer: (id: string, action: string, name?: string) =>
+    ipcRenderer.invoke('localServer:managePlayer', id, action, name),
   onLocalServerStatus: (callback: (status: unknown) => void) => {
     const listener = (_: Electron.IpcRendererEvent, status: unknown): void => callback(status)
     ipcRenderer.on('localServer:status', listener)

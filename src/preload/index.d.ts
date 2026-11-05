@@ -66,6 +66,8 @@ import type {
   LocalServer,
   LocalServerInput,
   LocalServerStatus,
+  LocalServerPlayers,
+  LocalServerPlayerAction,
   ShaderSetupResult,
   ModTranslationResult,
   ModpackInfo,
@@ -272,6 +274,10 @@ declare global {
       stopLocalServer: () => Promise<void>
       /** 往服务器控制台发命令（一行，不用加 /） */
       sendLocalServerCommand: (command: string) => Promise<void>
+      /** 在线玩家、管理员、白名单 */
+      getLocalServerPlayers: (id: string) => Promise<LocalServerPlayers>
+      /** 管理玩家（服务器运行时）：设为 / 取消管理员、踢出、白名单 */
+      manageLocalServerPlayer: (id: string, action: LocalServerPlayerAction, name?: string) => Promise<void>
       onLocalServerStatus: (callback: (status: LocalServerStatus) => void) => () => void
       onLocalServerLog: (callback: (line: string) => void) => () => void
       onLocalServersChanged: (callback: () => void) => () => void
