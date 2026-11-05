@@ -1,7 +1,7 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { spawn, type ChildProcess } from 'child_process'
 import { randomBytes } from 'crypto'
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'fs/promises'
+import { mkdir, readdir, readFile, rename, stat, writeFile } from 'fs/promises'
 import { createServer } from 'net'
 import { networkInterfaces, totalmem } from 'os'
 import { join } from 'path'
@@ -278,9 +278,9 @@ export async function updateLocalServer(
 export async function deleteLocalServer(id: string): Promise<void> {
   const dir = assertId(id)
   if (running?.id === id || preparing.has(id)) throw new Error('服务器正在运行或下载，不能删除')
-  await shell.trashItem(dir).catch(async () => {
-    // 回收站不可用时直接删除
-    await rm(dir, { recursive: true, force: true })
+  // 只移到回收站：移不过去时不直接删除，免得存档找不回来
+  await shell.trashItem(dir).catch((e: unknown) => {
+    throw new Error(`没能移到回收站，服务器没有删除：${e instanceof Error ? e.message : String(e)}`)
   })
   if (status.id === id) setStatus({ id: null, state: 'stopped', message: undefined })
 }
