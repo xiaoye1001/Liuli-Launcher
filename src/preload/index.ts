@@ -261,6 +261,7 @@ const api = {
   listServers: () => ipcRenderer.invoke('servers:list'),
   saveServer: (server: Omit<SavedServer, 'id'> & { id?: string }) => ipcRenderer.invoke('servers:save', server),
   deleteServer: (id: string) => ipcRenderer.invoke('servers:delete', id),
+  setServerWatch: (id: string, watch: boolean) => ipcRenderer.invoke('servers:watch', id, watch),
   moveServer: (id: string, offset: number) => ipcRenderer.invoke('servers:move', id, offset),
   importGameServers: () => ipcRenderer.invoke('servers:import'),
   pingServer: (address: string) => ipcRenderer.invoke('servers:ping', address),

@@ -153,7 +153,8 @@ import {
   setAiConfig,
   testAiConnection
 } from './ai'
-import { deleteServer, importGameServers, listServers, moveServer, saveServer } from './servers'
+import { deleteServer, importGameServers, listServers, moveServer, saveServer, setServerWatch } from './servers'
+import { setupServerWatch, watchChanged } from './serverWatch'
 import { pingServer } from './serverPing'
 import {
   cancelUpdateDownload,
@@ -673,6 +674,11 @@ function registerIpc(): void {
   ipcMain.handle('servers:list', () => listServers())
   ipcMain.handle('servers:save', (_, server: Omit<SavedServer, 'id'> & { id?: string }) => saveServer(server))
   ipcMain.handle('servers:delete', (_, id: string) => deleteServer(id))
+  ipcMain.handle('servers:watch', async (_, id: string, watch: boolean) => {
+    const list = await setServerWatch(String(id), watch === true)
+    if (watch === true) watchChanged()
+    return list
+  })
   ipcMain.handle('servers:move', (_, id: string, offset: number) => moveServer(id, offset))
   ipcMain.handle('servers:import', () => importGameServers())
   ipcMain.handle('servers:ping', (_, address: string) => pingServer(address))
@@ -839,6 +845,7 @@ app.whenReady().then(async () => {
   setupGameMonitor()
   setupNotifications()
   setupCrashHistory()
+  setupServerWatch()
   setupAchievements()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)

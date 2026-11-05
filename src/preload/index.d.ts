@@ -395,6 +395,8 @@ declare global {
       /** 添加（没有 id）或修改服务器，返回新的列表 */
       saveServer: (server: Omit<SavedServer, 'id'> & { id?: string }) => Promise<SavedServer[]>
       deleteServer: (id: string) => Promise<SavedServer[]>
+      /** 上线提醒：服务器上线、有人进服时弹系统通知 */
+      setServerWatch: (id: string, watch: boolean) => Promise<SavedServer[]>
       moveServer: (id: string, offset: number) => Promise<SavedServer[]>
       /** 从游戏的多人游戏列表（servers.dat）导入 */
       importGameServers: () => Promise<{ added: number; list: SavedServer[] }>

@@ -929,6 +929,8 @@ export interface SavedServer {
   address: string
   /** 加入时使用的游戏版本，空字符串表示使用主页选择的版本 */
   versionId: string
+  /** 上线提醒：服务器上线、有人进服时弹系统通知 */
+  watch?: boolean
 }
 
 /** 服务器状态查询结果 */

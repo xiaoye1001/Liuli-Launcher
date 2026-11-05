@@ -3,6 +3,8 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
+  Bell,
+  BellRing,
   CheckCircle2,
   Download,
   Loader2,
@@ -395,6 +397,34 @@ function ServersPage(): JSX.Element {
                   <ArrowDown className="h-3.5 w-3.5" />
                 </button>
               </div>
+              <button
+                onClick={() =>
+                  run(async () => {
+                    setServers(await window.api.setServerWatch(server.id, !server.watch))
+                    if (!server.watch) {
+                      setNotice(
+                        settings?.systemNotifications === false
+                          ? `已打开「${server.name}」的上线提醒，但系统通知在设置里关掉了，打开后才会提醒`
+                          : `已打开「${server.name}」的上线提醒：启动器在后台时，服务器上线或有人进服会弹通知`
+                      )
+                    }
+                  })
+                }
+                aria-pressed={!!server.watch}
+                aria-label={`上线提醒：${server.name}`}
+                title={
+                  server.watch
+                    ? '上线提醒已打开：服务器上线、有人进服时弹通知（点击关闭）'
+                    : '上线提醒：服务器上线、有人进服时弹通知'
+                }
+                className={`shrink-0 rounded-lg p-2 transition-colors ${
+                  server.watch
+                    ? 'text-amber-300 hover:bg-white/10'
+                    : 'text-white/60 opacity-0 hover:bg-white/10 hover:text-white focus-visible:opacity-100 group-hover:opacity-100'
+                }`}
+              >
+                {server.watch ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+              </button>
               <button
                 onClick={() => {
                   setFormError('')
