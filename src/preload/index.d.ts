@@ -84,6 +84,7 @@ import type {
   ExternalLoginResult,
   ModUpdate,
   ScreenshotList,
+  OnThisDayShot,
   PlayStats,
   ModpackExportInfo,
   ModpackExportOptions,
@@ -290,6 +291,8 @@ declare global {
       createDesktopShortcut: (versionId: string) => Promise<string>
       /** 版本的游戏截图（图片通过 liuli://screenshot/<版本>/<文件名> 读取） */
       listScreenshots: (versionId: string) => Promise<ScreenshotList>
+      /** 那年今日：往年的今天拍的截图（新的在前） */
+      screenshotsOnThisDay: () => Promise<OnThisDayShot[]>
       /** 删除截图（移到回收站） */
       deleteScreenshot: (versionId: string, fileName: string) => Promise<void>
       /** 复制截图到剪贴板 */

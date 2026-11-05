@@ -193,7 +193,14 @@ import {
   stopMultiplayer
 } from './services/multiplayerService'
 import { guardIpc, hardenWebContents } from './security'
-import { copyScreenshot, deleteScreenshot, listScreenshots, openScreenshotsDir, showScreenshot } from './screenshots'
+import {
+  copyScreenshot,
+  deleteScreenshot,
+  listScreenshots,
+  openScreenshotsDir,
+  screenshotsOnThisDay,
+  showScreenshot
+} from './screenshots'
 import { copyVersion, createDesktopShortcut, launchArgOf, renameVersion } from './versionOps'
 import { getNews } from './news'
 import { applyNetworkSettings, checkNetwork, validateProxyUrl } from './network'
@@ -589,6 +596,7 @@ function registerIpc(): void {
     openWorldDatapacksDir(versionId, folder)
   )
   ipcMain.handle('screenshots:list', (_, versionId: string) => listScreenshots(versionId))
+  ipcMain.handle('screenshots:onThisDay', () => screenshotsOnThisDay())
   ipcMain.handle('screenshots:delete', (_, versionId: string, fileName: string) =>
     deleteScreenshot(versionId, fileName)
   )

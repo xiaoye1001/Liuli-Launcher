@@ -957,6 +957,15 @@ export interface Screenshot {
   time: number
 }
 
+/** 那年今日：往年今天拍的一张截图 */
+export interface OnThisDayShot {
+  versionId: string
+  fileName: string
+  /** 拍摄时间（文件名里的日期，没有时用修改时间） */
+  time: number
+  year: number
+}
+
 export interface ScreenshotList {
   versionId: string
   /** screenshots 文件夹 */

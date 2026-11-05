@@ -23,6 +23,7 @@ import {
 import CrashCard from '../components/CrashCard'
 import RecentPlays from '../components/RecentPlays'
 import VersionIcon from '../components/VersionIcon'
+import OnThisDay from '../components/OnThisDay'
 import ResourceSparklines from '../components/ResourceSparklines'
 import NewsPanel from '../components/NewsPanel'
 import SplashText from '../components/SplashText'
@@ -742,6 +743,7 @@ function HomePage({
             成就 {summary.achieved} / {summary.achievements}
           </StatChip>
         )}
+        <OnThisDay className="rounded-full border border-white/10 bg-black/15 px-3 py-1 text-xs text-white/70 transition-colors hover:bg-black/25 hover:text-white" />
       </div>
     </section>
   )
@@ -951,6 +953,7 @@ function HomePage({
               : '选择版本后点击启动，开始你的冒险。'}
         </p>
         {settings?.showTrivia && <TriviaLine />}
+        <OnThisDay className="mt-2 text-xs text-white/60 hover:text-white" />
         <div className="mt-5 flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1.5">
             <span className="text-xs text-white/50">{msAccount ? accountLabel : '离线玩家名'}</span>
