@@ -10,6 +10,7 @@ import { getGameResources, setupGameMonitor } from './gameMonitor'
 import { setupNotifications } from './notify'
 import { clearCrashHistory, listCrashHistory, setupCrashHistory } from './crashHistory'
 import { applyModProfile, deleteModProfile, listModProfiles, saveModProfile } from './modProfiles'
+import { createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot } from './versionSnapshots'
 import { copyReportImage, saveReportImage } from './reportImage'
 import { renderWorldMap } from './worldMap'
 import {
@@ -488,6 +489,10 @@ function registerIpc(): void {
   ipcMain.handle('modProfiles:save', (_, versionId: string, name: string) => saveModProfile(versionId, name))
   ipcMain.handle('modProfiles:apply', (_, versionId: string, id: string) => applyModProfile(versionId, String(id)))
   ipcMain.handle('modProfiles:delete', (_, versionId: string, id: string) => deleteModProfile(versionId, String(id)))
+  ipcMain.handle('snapshots:list', (_, versionId: string) => listSnapshots(versionId))
+  ipcMain.handle('snapshots:create', (_, versionId: string, name: string) => createSnapshot(versionId, name))
+  ipcMain.handle('snapshots:restore', (_, versionId: string, id: string) => restoreSnapshot(versionId, String(id)))
+  ipcMain.handle('snapshots:delete', (_, versionId: string, id: string) => deleteSnapshot(versionId, String(id)))
   ipcMain.handle('collections:list', () => listModCollections())
   ipcMain.handle('collections:save', async (_, versionId: string, name: string) => {
     const result = await saveModCollection(versionId, name)

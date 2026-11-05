@@ -43,6 +43,7 @@ const EXCLUDED = new Set([
   // 模组更新前的备份、游戏设置修改前的备份
   'liuli-mod-backup',
   'liuli-mod-profiles.json',
+  'liuli-snapshots',
   'options.txt.liuli-backup',
   'launcher_profiles.json',
   'launcher_accounts.json',

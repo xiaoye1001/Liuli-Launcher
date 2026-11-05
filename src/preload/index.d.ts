@@ -54,6 +54,7 @@ import type {
   KeyConflict,
   ModProfile,
   ModProfileResult,
+  VersionSnapshot,
   ShaderSetupResult,
   ModTranslationResult,
   ModpackInfo,
@@ -235,6 +236,12 @@ declare global {
       saveModProfile: (versionId: string, name: string) => Promise<ModProfile>
       applyModProfile: (versionId: string, id: string) => Promise<ModProfileResult>
       deleteModProfile: (versionId: string, id: string) => Promise<void>
+      /** 版本快照（模组、模组配置、游戏设置），新的在前 */
+      listSnapshots: (versionId: string) => Promise<VersionSnapshot[]>
+      createSnapshot: (versionId: string, name: string) => Promise<VersionSnapshot>
+      /** 恢复快照；返回恢复前自动保存的快照 */
+      restoreSnapshot: (versionId: string, id: string) => Promise<VersionSnapshot>
+      deleteSnapshot: (versionId: string, id: string) => Promise<void>
       /** 我的模组合集 */
       listModCollections: () => Promise<ModCollection[]>
       /** 把这个版本已启用的模组存为合集（只能保存 Modrinth 上有的模组） */

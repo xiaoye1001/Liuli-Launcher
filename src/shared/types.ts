@@ -1097,6 +1097,21 @@ export interface ModProfile {
   disabled: string[]
 }
 
+/** 版本快照：模组、模组配置和游戏设置的一份副本 */
+export interface VersionSnapshot {
+  id: string
+  name: string
+  createdAt: number
+  /** 恢复其他快照前自动保存的 */
+  auto: boolean
+  /** 创建快照的版本（不隔离的版本共用快照） */
+  versionId: string
+  modCount: number
+  bytes: number
+  /** 快照里有的内容：mods、config、options.txt 等 */
+  items: string[]
+}
+
 /** 应用方案的结果 */
 export interface ModProfileResult {
   /** 打开了几个 */
