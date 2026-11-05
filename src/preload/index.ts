@@ -151,6 +151,19 @@ const api = {
   listSeedFavorites: () => ipcRenderer.invoke('seeds:list'),
   getDailyGoal: () => ipcRenderer.invoke('dailyGoal:get'),
   getModUpdateSummary: () => ipcRenderer.invoke('modUpdates:summary'),
+  getCloudBackupConfig: () => ipcRenderer.invoke('cloudBackup:config'),
+  configureCloudBackup: (input: Record<string, unknown>) => ipcRenderer.invoke('cloudBackup:configure', input),
+  testCloudBackup: () => ipcRenderer.invoke('cloudBackup:test'),
+  getCloudBackupStatus: () => ipcRenderer.invoke('cloudBackup:status'),
+  listCloudBackups: (versionId: string) => ipcRenderer.invoke('cloudBackup:list', versionId),
+  uploadWorldBackup: (versionId: string, file: string) => ipcRenderer.invoke('cloudBackup:upload', versionId, file),
+  downloadCloudBackup: (versionId: string, source: string, file: string) =>
+    ipcRenderer.invoke('cloudBackup:download', versionId, source, file),
+  onCloudBackupStatus: (callback: (status: unknown) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, status: unknown): void => callback(status)
+    ipcRenderer.on('cloudBackup:status', listener)
+    return () => ipcRenderer.removeListener('cloudBackup:status', listener)
+  },
   onModUpdatesChanged: (callback: (summary: Record<string, unknown>) => void) => {
     const listener = (_: Electron.IpcRendererEvent, summary: Record<string, unknown>): void => callback(summary)
     ipcRenderer.on('modUpdates:changed', listener)

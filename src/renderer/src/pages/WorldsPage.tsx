@@ -4,6 +4,9 @@ import {
   Archive,
   CheckCircle2,
   ChevronDown,
+  Cloud,
+  CloudDownload,
+  CloudUpload,
   Download,
   FileUp,
   Folder,
@@ -22,6 +25,7 @@ import { EmptyState, LoadingState } from '../components/EmptyState'
 import { HEADER_BUTTON, HEADER_ICON_BUTTON } from '../components/headerButtons'
 import WorldDetailsPanel from '../components/WorldDetailsPanel'
 import type {
+  CloudBackupItem,
   InstalledVersion,
   WorldBackup,
   WorldDatapack,
@@ -202,8 +206,12 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
   const [panel, setPanel] = useState<'details' | 'datapacks'>('details')
   /** 正在操作的存档（备份可能需要一些时间） */
   const [pending, setPending] = useState<string | null>(null)
-  const [tab, setTab] = useState<'worlds' | 'backups'>('worlds')
+  const [tab, setTab] = useState<'worlds' | 'backups' | 'cloud'>('worlds')
   const [backups, setBackups] = useState<WorldBackup[]>([])
+  /** 设置好了存档云备份（网盘地址和密码） */
+  const [cloudReady, setCloudReady] = useState(false)
+  const [cloudItems, setCloudItems] = useState<CloudBackupItem[] | null>(null)
+  const [cloudError, setCloudError] = useState('')
   /** 等待确认覆盖还原的备份 */
   const [confirming, setConfirming] = useState<string | null>(null)
 
@@ -227,6 +235,28 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    void window.api
+      .getCloudBackupConfig()
+      .then((c) => setCloudReady(!!c.url && c.hasPassword))
+      .catch(() => setCloudReady(false))
+  }, [])
+
+  const loadCloud = useCallback(async () => {
+    setCloudItems(null)
+    setCloudError('')
+    try {
+      setCloudItems(await window.api.listCloudBackups(version.id))
+    } catch (e) {
+      setCloudError(cleanError(e))
+      setCloudItems([])
+    }
+  }, [version.id])
+
+  useEffect(() => {
+    if (tab === 'cloud') void loadCloud()
+  }, [tab, loadCloud])
 
   const act = async (key: string, action: () => Promise<string | void>): Promise<void> => {
     setPending(key)
@@ -349,7 +379,8 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
             {(
               [
                 ['worlds', `存档 ${list?.worlds.length ?? 0}`],
-                ['backups', `备份 ${backups.length}`]
+                ['backups', `备份 ${backups.length}`],
+                ...(cloudReady ? ([['cloud', '云端']] as const) : [])
               ] as const
             ).map(([key, label]) => (
               <button
@@ -376,6 +407,74 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
 
         <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
           {!list && loading && <LoadingState />}
+          {tab === 'cloud' && (
+            <>
+              {cloudItems === null && <LoadingState />}
+              {cloudError && (
+                <div className="flex items-start gap-2 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  {cloudError}
+                </div>
+              )}
+              {cloudItems?.length === 0 && !cloudError && (
+                <EmptyState icon={Cloud}>网盘里还没有存档备份。开启云备份后，新的备份会自动上传</EmptyState>
+              )}
+              {cloudItems
+                ?.filter((c) => !kw || c.world.toLowerCase().includes(kw))
+                .map((item) => {
+                  const local = backups.some((b) => b.file === item.file)
+                  return (
+                    <div
+                      key={`${item.source}/${item.file}`}
+                      className="flex items-center gap-3 rounded-xl bg-black/20 px-4 py-3"
+                    >
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10">
+                        <Cloud className="h-5 w-5 text-sky-300" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate font-semibold" title={item.world}>
+                            {worldNames.get(item.world) ?? item.world}
+                          </span>
+                          {item.auto && (
+                            <span className="shrink-0 rounded-md bg-sky-500/20 px-2 py-0.5 text-xs text-sky-300">
+                              自动
+                            </span>
+                          )}
+                          <span
+                            className="shrink-0 truncate rounded-md bg-white/10 px-2 py-0.5 text-xs text-white/50"
+                            title={`网盘文件夹：${item.source}`}
+                          >
+                            {item.mine ? '这个游戏目录' : `来自 ${item.source.replace(/-[0-9a-f]{8}$/, '')}`}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 truncate text-xs text-white/50" title={item.file}>
+                          {new Date(item.createdAt).toLocaleString('zh-CN')} · {formatSize(item.size)}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() =>
+                          act(`download:${item.source}/${item.file}`, async () => {
+                            await window.api.downloadCloudBackup(version.id, item.source, item.file)
+                            return `已下载到本地：${item.file}，可以在「备份」里还原`
+                          })
+                        }
+                        disabled={pending !== null || local}
+                        title={local ? '本地已经有这个备份了' : '下载到这个版本的备份文件夹，之后在「备份」里还原'}
+                        className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+                      >
+                        {pending === `download:${item.source}/${item.file}` ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <CloudDownload className="h-3.5 w-3.5" />
+                        )}
+                        {local ? '本地已有' : '下载到本地'}
+                      </button>
+                    </div>
+                  )
+                })}
+            </>
+          )}
           {tab === 'backups' && (
             <>
               {backups.length === 0 && (
@@ -450,6 +549,26 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
                           >
                             <Plus className="h-3.5 w-3.5" />
                             还原为新存档
+                          </button>
+                        )}
+                        {cloudReady && (
+                          <button
+                            onClick={() =>
+                              act(`upload:${backup.file}`, async () => {
+                                await window.api.uploadWorldBackup(version.id, backup.file)
+                                return `已把备份 ${backup.file} 上传到网盘`
+                              })
+                            }
+                            disabled={pending !== null}
+                            title="上传到网盘"
+                            aria-label={`上传 ${backup.file} 到网盘`}
+                            className="shrink-0 rounded-lg p-2 text-white/60 hover:bg-sky-500/30 hover:text-sky-200 disabled:opacity-40"
+                          >
+                            {pending === `upload:${backup.file}` ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CloudUpload className="h-4 w-4" />
+                            )}
                           </button>
                         )}
                         <button

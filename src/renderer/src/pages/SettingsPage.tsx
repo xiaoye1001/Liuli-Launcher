@@ -39,6 +39,7 @@ import {
   XCircle,
   type LucideIcon
 } from 'lucide-react'
+import CloudBackupSettings from '../components/CloudBackupSettings'
 import { backgroundUrl } from '../utils/appearance'
 import { ReleaseNotes, UpdateActions } from '../components/UpdateNotice'
 import GameDirSection from '../components/GameDirSection'
@@ -1394,6 +1395,8 @@ function SettingsPage(): JSX.Element {
               </div>
               {backupDirError && <div className="mt-2 text-xs text-rose-300">{backupDirError}</div>}
             </div>
+            {/* 存档云备份（WebDAV） */}
+            <CloudBackupSettings />
             <div className="mt-4 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
               <div className="flex items-center gap-3">
                 <ShieldCheck className="h-4 w-4 text-emerald-300" />

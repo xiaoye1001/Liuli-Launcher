@@ -13,6 +13,16 @@ import { applyModProfile, deleteModProfile, listModProfiles, saveModProfile } fr
 import { autoSnapshot, createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot } from './versionSnapshots'
 import { applyModMigration, checkModMigration } from './modMigration'
 import { getModUpdateSummary, markModUpdated, recordModUpdates, setupModUpdateWatch } from './modUpdateWatch'
+import {
+  configureCloudBackup,
+  downloadCloudBackup,
+  getCloudBackupConfig,
+  getCloudBackupStatus,
+  listCloudBackups,
+  testCloudBackup,
+  uploadExistingBackup,
+  uploadIfEnabled
+} from './cloudBackup'
 import { addSeedFavorite, deleteSeedFavorite, listSeedFavorites, updateSeedFavorite } from './seedFavorites'
 import { getDailyGoal, setDailyGoalDone, skipDailyGoal } from './dailyGoals'
 import {
@@ -264,7 +274,8 @@ import type {
   VideoPreset,
   SeedFavorite,
   LocalServer,
-  LocalServerInput
+  LocalServerInput,
+  CloudBackupInput
 } from '../shared/types'
 import { HIDEABLE_PAGES, PARTICLE_EFFECTS, THEME_PRESETS } from '../shared/types'
 import { sanitizeAutoTheme, sanitizeCustomThemes } from '../shared/theme'
@@ -510,6 +521,17 @@ function registerIpc(): void {
     return updates
   })
   ipcMain.handle('modUpdates:summary', () => getModUpdateSummary())
+  ipcMain.handle('cloudBackup:config', () => getCloudBackupConfig())
+  ipcMain.handle('cloudBackup:configure', (_, input: CloudBackupInput) => configureCloudBackup(input))
+  ipcMain.handle('cloudBackup:test', () => testCloudBackup())
+  ipcMain.handle('cloudBackup:status', () => getCloudBackupStatus())
+  ipcMain.handle('cloudBackup:list', (_, versionId: string) => listCloudBackups(versionId))
+  ipcMain.handle('cloudBackup:upload', (_, versionId: string, file: string) =>
+    uploadExistingBackup(versionId, String(file))
+  )
+  ipcMain.handle('cloudBackup:download', (_, versionId: string, source: string, file: string) =>
+    downloadCloudBackup(versionId, String(source), String(file))
+  )
   // 改模组前先自动拍一张版本快照（10 分钟内只拍一次，失败不影响原来的操作）
   ipcMain.handle('mods:update', async (_, versionId: string, fileName: string, modrinthVersionId: string) => {
     await autoSnapshot(versionId, '更新模组')
@@ -611,6 +633,8 @@ function registerIpc(): void {
   ipcMain.handle('worlds:backup', (_, versionId: string, folder: string) =>
     backupWorld(versionId, folder).then((result) => {
       void unlockAchievement('backup').catch(() => undefined)
+      // 开启了存档云备份：在后台上传（失败不影响本地备份）
+      void uploadIfEnabled(versionId, [result.path]).catch(() => undefined)
       return result
     })
   )

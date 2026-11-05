@@ -109,6 +109,13 @@ export interface AppSettings {
   autoSnapshots: boolean
   /** 后台定期检查模组更新 */
   modUpdateCheck: boolean
+  /** 存档云备份（WebDAV）：备份后自动上传 */
+  cloudBackupEnabled: boolean
+  /** WebDAV 地址（只能是 https，本机地址可以用 http） */
+  cloudBackupUrl: string
+  cloudBackupUser: string
+  /** 网盘里放备份的文件夹 */
+  cloudBackupFolder: string
   /** 玩家的生日（MM-DD），当天主页有彩蛋；空字符串为没有填 */
   birthday: string
   /** 主页的「最近游玩」收起（只显示标题） */
@@ -1112,6 +1119,50 @@ export interface ModProfile {
   createdAt: number
   enabled: string[]
   disabled: string[]
+}
+
+/** 存档云备份的设置（不包含密码） */
+export interface CloudBackupConfig {
+  enabled: boolean
+  url: string
+  user: string
+  folder: string
+  /** 保存了可用的密码（只对保存时的网址和用户名有效） */
+  hasPassword: boolean
+}
+
+export interface CloudBackupInput {
+  enabled: boolean
+  url: string
+  user: string
+  /** 为空时保留原来的密码 */
+  password?: string
+  folder: string
+  /** 清除网盘设置和密码 */
+  clear?: boolean
+}
+
+export interface CloudBackupStatus {
+  state: 'idle' | 'uploading' | 'error'
+  /** 正在上传的备份 */
+  file?: string
+  error?: string
+  lastUploadAt?: number
+  /** 排队等待上传的数量（包括正在上传的） */
+  queued: number
+}
+
+/** 网盘里的一份存档备份 */
+export interface CloudBackupItem {
+  /** 网盘里的游戏目录文件夹（游戏目录名-哈希） */
+  source: string
+  file: string
+  world: string
+  size: number
+  createdAt: number
+  auto: boolean
+  /** 是这个版本的游戏目录上传的 */
+  mine: boolean
 }
 
 /** 后台检查到的、一个版本可以更新的模组 */

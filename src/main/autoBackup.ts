@@ -1,6 +1,7 @@
 import { getSettings } from './config'
 import { onGameStatusChange } from './launch'
 import { notify } from './notify'
+import { uploadIfEnabled } from './cloudBackup'
 import { autoBackupWorlds } from './worlds'
 
 /**
@@ -28,8 +29,10 @@ export function setupAutoBackup(): void {
     running = running
       .then(async () => {
         if (!(await getSettings()).autoBackupWorlds) return
-        const { done, failed } = await autoBackupWorlds(versionId, since, prune)
+        const { done, failed, paths } = await autoBackupWorlds(versionId, since, prune)
         if (done.length > 0) console.log(`已自动备份存档：${done.join('、')}`)
+        // 开启了存档云备份：上传这次的自动备份
+        if (paths.length > 0) void uploadIfEnabled(versionId, paths).catch(() => undefined)
         if (failed.length > 0) {
           console.warn(`这些存档自动备份失败：${failed.join('、')}`)
           void notify('存档自动备份失败', `这些存档没能备份：${failed.join('、')}，可以在存档页手动备份`)
