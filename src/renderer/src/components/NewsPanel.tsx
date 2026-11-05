@@ -13,7 +13,8 @@ function formatDate(date: string): string {
 }
 
 /** 主页的 Minecraft 官方新闻：横向滚动的卡片，点击在浏览器中打开全文 */
-function NewsPanel({ onHide }: { onHide: () => void }): JSX.Element {
+/** compact：窗口矮的时候不显示配图，只显示标题和日期 */
+function NewsPanel({ onHide, compact = false }: { onHide: () => void; compact?: boolean }): JSX.Element {
   const [news, setNews] = useState<NewsList | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -70,17 +71,22 @@ function NewsPanel({ onHide }: { onHide: () => void }): JSX.Element {
           {news.items.map((item) => {
             const content = (
               <>
-                <div className="aspect-video w-full overflow-hidden rounded-lg bg-black/30">
-                  {item.image && (
-                    <img
-                      src={item.image}
-                      alt=""
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                    />
-                  )}
-                </div>
-                <div className="mt-2 line-clamp-2 text-sm font-medium leading-snug" title={item.title}>
+                {!compact && (
+                  <div className="aspect-video w-full overflow-hidden rounded-lg bg-black/30">
+                    {item.image && (
+                      <img
+                        src={item.image}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                      />
+                    )}
+                  </div>
+                )}
+                <div
+                  className={`line-clamp-2 text-sm font-medium leading-snug ${compact ? 'min-h-[2.5em]' : 'mt-2'}`}
+                  title={item.title}
+                >
                   {item.title}
                 </div>
                 <div className="mt-1 truncate text-xs text-white/40">

@@ -5,6 +5,7 @@ import Sidebar, { NAV_ITEMS, type PageKey } from './components/Sidebar'
 import AccountPage from './pages/AccountPage'
 import DownloadPage from './pages/DownloadPage'
 import HomePage from './pages/HomePage'
+import { requestJump } from './utils/jump'
 import PlaceholderPage from './pages/PlaceholderPage'
 import VersionsPage from './pages/VersionsPage'
 import ServersPage from './pages/ServersPage'
@@ -46,6 +47,11 @@ function renderPage(key: PageKey, ctx: PageContext): JSX.Element {
         onOpenVersionSettings={ctx.openVersionSettings}
         onManageVersions={() => ctx.navigate('versions')}
         onOpenAiSettings={() => ctx.navigate('ai')}
+        onOpenAccount={() => ctx.navigate('account')}
+        onOpenTool={(tool) => {
+          requestJump({ target: 'more', key: tool })
+          ctx.navigate('more')
+        }}
       />
     )
   }
