@@ -6,6 +6,7 @@ import {
   Coffee,
   CornerDownLeft,
   Gauge,
+  Grid2x2Check,
   Layers,
   Palette,
   Play,
@@ -169,6 +170,14 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
         icon: Calculator,
         keywords: '下界 坐标 换算 区块 时间 刻 计算器',
         run: tool('calc')
+      },
+      {
+        id: 'tool:slime',
+        title: '史莱姆区块查看',
+        group: '百宝箱',
+        icon: Grid2x2Check,
+        keywords: '史莱姆 粘液球 刷怪 区块 种子 slime',
+        run: tool('slime')
       },
       {
         id: 'action:log',
