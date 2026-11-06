@@ -192,6 +192,15 @@ const api = {
   stopLocalServer: () => ipcRenderer.invoke('localServer:stop'),
   sendLocalServerCommand: (command: string) => ipcRenderer.invoke('localServer:command', command),
   getLocalServerPlayers: (id: string) => ipcRenderer.invoke('localServer:players', id),
+  listServerAddons: (id: string) => ipcRenderer.invoke('serverAddons:list', id),
+  addServerAddons: (id: string, kind: 'datapack' | 'mod') => ipcRenderer.invoke('serverAddons:add', id, kind),
+  setServerAddonEnabled: (id: string, kind: 'datapack' | 'mod', fileName: string, enabled: boolean) =>
+    ipcRenderer.invoke('serverAddons:setEnabled', id, kind, fileName, enabled),
+  removeServerAddon: (id: string, kind: 'datapack' | 'mod', fileName: string) =>
+    ipcRenderer.invoke('serverAddons:remove', id, kind, fileName),
+  importServerMods: (id: string, versionId: string) => ipcRenderer.invoke('serverAddons:importMods', id, versionId),
+  installFabricServer: (id: string) => ipcRenderer.invoke('serverAddons:installFabric', id),
+  removeFabricServer: (id: string) => ipcRenderer.invoke('serverAddons:removeFabric', id),
   manageLocalServerPlayer: (id: string, action: string, name?: string) =>
     ipcRenderer.invoke('localServer:managePlayer', id, action, name),
   onLocalServerStatus: (callback: (status: unknown) => void) => {

@@ -2295,3 +2295,39 @@ export interface LagReport {
   /** 主页上的提醒已经看过 */
   seen: boolean
 }
+
+/** 一键开服：数据包或者服务端模组 */
+export type ServerAddonKind = 'datapack' | 'mod'
+
+export interface ServerAddonFile {
+  /** 文件名（停用的带 .disabled） */
+  fileName: string
+  /** 显示的名字（不带 .disabled） */
+  name: string
+  size: number
+  enabled: boolean
+  /** 文件夹形式的数据包（只能删除，不能停用） */
+  folder: boolean
+}
+
+export interface ServerAddons {
+  serverId: string
+  /** 存档文件夹名（server.properties 的 level-name） */
+  world: string
+  /** 存档已经生成过 */
+  worldExists: boolean
+  /** 装了 Fabric 时的加载器版本 */
+  loader: { loader: 'fabric'; version: string } | null
+  datapacks: ServerAddonFile[]
+  mods: ServerAddonFile[]
+}
+
+export interface ServerModImportResult {
+  copied: string[]
+  /** 只能在客户端用，没有导入 */
+  clientOnly: string[]
+  /** 服务器里已经有了 */
+  existing: string[]
+  /** 不是 Fabric 模组 */
+  invalid: string[]
+}

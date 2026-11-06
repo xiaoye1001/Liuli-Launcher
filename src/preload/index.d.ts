@@ -1,6 +1,9 @@
 import type { AchievementStatus } from '../shared/achievements'
 import type {
   RecipeBook,
+  ServerAddonKind,
+  ServerAddons,
+  ServerModImportResult,
   LagReport,
   CleanCategory,
   LocalAddresses,
@@ -301,6 +304,13 @@ declare global {
       sendLocalServerCommand: (command: string) => Promise<void>
       /** 在线玩家、管理员、白名单 */
       getLocalServerPlayers: (id: string) => Promise<LocalServerPlayers>
+      listServerAddons: (id: string) => Promise<ServerAddons>
+      addServerAddons: (id: string, kind: ServerAddonKind) => Promise<{ added: string[]; skipped: string[] }>
+      setServerAddonEnabled: (id: string, kind: ServerAddonKind, fileName: string, enabled: boolean) => Promise<void>
+      removeServerAddon: (id: string, kind: ServerAddonKind, fileName: string) => Promise<void>
+      importServerMods: (id: string, versionId: string) => Promise<ServerModImportResult>
+      installFabricServer: (id: string) => Promise<{ loader: string }>
+      removeFabricServer: (id: string) => Promise<void>
       /** 管理玩家（服务器运行时）：设为 / 取消管理员、踢出、白名单 */
       manageLocalServerPlayer: (id: string, action: LocalServerPlayerAction, name?: string) => Promise<void>
       onLocalServerStatus: (callback: (status: LocalServerStatus) => void) => () => void

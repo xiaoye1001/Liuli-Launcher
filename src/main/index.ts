@@ -25,6 +25,15 @@ import { exportMapArt } from './mapArtExport'
 import { getRecipeBook } from './recipes'
 import { listScreenshotAlbums, screenshotImages, setupScreenshotSessions } from './screenshotAlbums'
 import { listLagReports, markLagReportSeen, setupLagReports } from './lagReport'
+import {
+  addServerAddons,
+  importServerMods,
+  installFabricServer,
+  listServerAddons,
+  removeFabricServer,
+  removeServerAddon,
+  setServerAddonEnabled
+} from './serverAddons'
 import { applyModSyncCode, createModSyncCode, previewModSyncCode } from './modSync'
 import { listConfigFiles, readConfigFile, restoreConfigFile, saveConfigEntries, saveConfigText } from './modConfigs'
 import { clearExtraInstance, killExtraInstance, launchExtraInstance, listExtraInstances } from './extraInstances'
@@ -603,6 +612,22 @@ function registerIpc(): void {
   ipcMain.handle('localServer:stop', () => stopLocalServer())
   ipcMain.handle('localServer:command', (_, command: string) => sendLocalServerCommand(String(command ?? '')))
   ipcMain.handle('localServer:players', (_, id: string) => getLocalServerPlayers(String(id)))
+  const addonKind = (kind: unknown): 'datapack' | 'mod' => (kind === 'mod' ? 'mod' : 'datapack')
+  ipcMain.handle('serverAddons:list', (_, id: string) => listServerAddons(String(id)))
+  ipcMain.handle('serverAddons:add', (event, id: string, kind: unknown) =>
+    addServerAddons(BrowserWindow.fromWebContents(event.sender), String(id), addonKind(kind))
+  )
+  ipcMain.handle('serverAddons:setEnabled', (_, id: string, kind: unknown, fileName: unknown, enabled: unknown) =>
+    setServerAddonEnabled(String(id), addonKind(kind), fileName, enabled === true)
+  )
+  ipcMain.handle('serverAddons:remove', (_, id: string, kind: unknown, fileName: unknown) =>
+    removeServerAddon(String(id), addonKind(kind), fileName)
+  )
+  ipcMain.handle('serverAddons:importMods', (_, id: string, versionId: string) =>
+    importServerMods(String(id), String(versionId))
+  )
+  ipcMain.handle('serverAddons:installFabric', (_, id: string) => installFabricServer(String(id)))
+  ipcMain.handle('serverAddons:removeFabric', (_, id: string) => removeFabricServer(String(id)))
   ipcMain.handle('localServer:managePlayer', (_, id: string, action: LocalServerPlayerAction, name?: string) =>
     manageLocalServerPlayer(String(id), action, typeof name === 'string' ? name : undefined)
   )

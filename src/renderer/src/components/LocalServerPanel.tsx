@@ -17,6 +17,7 @@ import {
   X
 } from 'lucide-react'
 import ServerPlayersPanel from './ServerPlayersPanel'
+import ServerAddonsPanel from './ServerAddonsPanel'
 import ServerRoomShare from './ServerRoomShare'
 import type { InstalledVersion, LocalServer, LocalServerStatus } from '../../../shared/types'
 
@@ -538,6 +539,16 @@ function LocalServerPanel(): JSX.Element {
                     </button>
                   </div>
                 </div>
+              )}
+
+              {/* 数据包、Fabric 和模组 */}
+              {server.ready && (
+                <ServerAddonsPanel
+                  serverId={server.id}
+                  version={server.version}
+                  running={mine && live}
+                  installed={installed}
+                />
               )}
 
               {/* 运行中：地址和控制台 */}
