@@ -69,34 +69,41 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - **Crash analysis** explains causes and fixes, with one-click log sharing to [mclo.gs](https://mclo.gs/); a **crash history** keeps the time, version and cause of every crash and failed launch
 - **AI assistant**: add your own API key (Claude, or OpenAI-compatible services such as DeepSeek, Qwen, Kimi and local Ollama) to analyze crashes and launch failures automatically; the key is encrypted on this computer, and sign-in tokens and other private data are removed before anything is sent
 - **Repair wizard** for games that won't start: repair game files, switch to automatic Java, clear custom launch arguments, temporarily disable recently added mods and lower the graphics settings
-- Per-version memory, Java, window size, JVM arguments, pre-launch / post-exit commands and more
+- Per-version memory, Java, window size, JVM arguments, pre-launch / post-exit commands and more; **launch presets** set everything at once (auto / low-end PC / large modpack / ZGC low-pause), and ZGC is unavailable when Java is too old
 - **Multiple instances**: open extra game windows next to the main game with different offline names, to test multiplayer yourself or run two accounts
 - **In-game settings**: switch graphics presets (smooth / balanced / high), copy settings or just key bindings from another version, find **key binding conflicts** (unbind one or reset all), with an automatic backup before each change
 - Multiple game directories, version isolation, favorites and custom icons, playtime statistics
 - **Continue**: jump straight into your last world, skipping the title screen (1.20+); new versions start in Simplified Chinese
 - Shows how long each launch took, and the game's memory and CPU usage with **usage charts** while it runs
+- **Lag report**: after the game exits, the game log and resource usage tell you whether it lagged (server falling behind, out of memory, connection timeouts, CPU maxed out) and what to try; the home screen points it out when there was a problem
 - System tray icon; play-time reminders that suggest taking a break; **system notifications** when downloads, installs or updates finish while the launcher is in the background
 
 ### Version and world management
 - Mods: enable / disable, dependency checks, update checks, a one-click link to each mod's **MC百科 (MCMod)** page; **roll back** an update that causes problems (the crash screen suggests rolling back recently updated mods)
 - **Mod update reminders**: mod updates are checked in the background and the version list shows how many mods can be updated
 - **Mod conflict detection**: reads the incompatibilities mods declare themselves (respecting version ranges) and flags well-known conflicts (such as Sodium with OptiFine, or two shader loaders), with one-click disable
+- **Mod compatibility check**: finds mods built for the wrong loader or game version, and old disabled copies left next to the version in use, with one-click cleanup
 - **Mod bisect**: when the game crashes and you don't know which mod is to blame, each round turns on half of the suspects; play, answer "still broken" or "fixed", and the culprit is found in a few rounds. Required dependencies stay on, and everything is restored at the end
 - **Mod profiles**: save which mods are on and off (for example "survival" or "shaders") and switch in one click
 - **Mod migration helper**: when moving to a new game version, check which mods have a build for it and install them in one click
+- **Mod sync code**: turn a version's mods into a short code for a friend, who pastes it to install the same mods (from Modrinth, with an automatic snapshot first)
+- **Mod config editor**: edit mod configs (TOML, JSON, .properties, Forge .cfg) in a form that shows ranges and allowed values, with a backup before the first change and one-click restore
 - **Version snapshots**: save a copy of the mods, mod configs and game settings, and restore it in one click if something breaks; **automatic snapshots** are taken before updating mods or modpacks, one-click optimization and similar actions, and the crash screen can go back to the latest snapshot
 - One-click **performance mods** (Sodium, Lithium, FerriteCore and more) and **mod translations** (CFPA's I18nUpdateMod, updated automatically in game)
 - **Mod collections**: save your favorite mods as a collection and install it into another version in one click (matching versions are picked automatically)
 - Worlds: backup and restore, import, seed and game rules, data packs; worlds you played are **backed up automatically** after the game exits (latest 3 per world), to a backup folder of your choice
 - **Cloud world backup (WebDAV)**: backups are uploaded to your own cloud drive (Jianguoyun, Nextcloud, Synology and more) and can be downloaded on another computer; the password is stored encrypted
-- Per-world statistics (play time, deaths, diamonds mined and more), a **world map preview** (top-down view of the Overworld), a one-click seed map and saving seeds to your favorites
-- Resource packs, shader packs and screenshots; **one-click shaders** installs Iris / Oculus and a rendering mod, downloads a shader pack and turns it on
+- Per-world statistics (play time, deaths, diamonds mined and more), a **world map preview** (top-down view of the Overworld that you can drag and zoom, with coordinates under the cursor), a one-click seed map and saving seeds to your favorites
+- **Coordinate notebook**: note places in each world (base, village, stronghold) with automatic Nether / Overworld conversion and a copyable teleport command; saved places appear on the world map
+- **World version warnings**: a heads-up to back up first when a world was saved by a newer game version or would be upgraded when opened
+- **World size and trimming**: see how much space the Overworld, Nether, End and other parts take, and delete barely visited regions far from spawn and the player, with a full backup first
+- Resource packs, shader packs and screenshots; screenshots can be **sorted by play session** (with the world or server you played) and a session can be turned into one collage image; **one-click shaders** installs Iris / Oculus and a rendering mod, downloads a shader pack and turns it on
 - **Schematic manager** (Litematica): list the schematics in the schematics folder with size and author, and see a **material list** (in-game names, counted in stacks and shulker boxes) you can copy
 
 ### Servers and multiplayer
 - Save servers with player count, ping and MOTD; join directly; turn on **online alerts** to get a notification when a server comes online or someone joins
 - Three ways to play together, all with a single room code: **direct connection**, **P2P networking** (powered by [EasyTier](https://github.com/EasyTier/EasyTier)) and **tunnels**
-- **One-click server**: host a vanilla server on your own computer (the official server is downloaded from Mojang, and you must agree to the Minecraft EULA) that friends on the same network can join; view the output, send commands, manage online players, operators and the whitelist with buttons, and it is saved and stopped automatically when the launcher quits; generate a **room code** so friends outside your network can join too
+- **One-click server**: host a vanilla server on your own computer (the official server is downloaded from Mojang, and you must agree to the Minecraft EULA) that friends on the same network can join; view the output, send commands, manage online players, operators and the whitelist with buttons, and it is saved and stopped automatically when the launcher quits; generate a **room code** so friends outside your network can join too; add **data packs** to the server, and install a **Fabric server** and server-side mods in one click (import them from a client version, skipping client-only mods automatically)
 
 ### Toolbox
 - **Seed favorites**: keep track of interesting world seeds (text seeds supported), copy them or open a seed map
@@ -104,6 +111,10 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - **Slime chunk finder** (Java Edition): enter a seed and see which chunks around a position spawn slimes, using the same algorithm as the game
 - **Command generator** (Java Edition): build /give (enchantments, names), /effect, /summon and /tellraw commands from a form, using the right syntax for your game version
 - **Enchanting calculator**: pick an item and the enchantments you want to get the cheapest anvil order, with no step hitting "Too Expensive!" (Java Edition 1.21+ rules and game data)
+- **Redstone calculator**: hopper transfer rates, furnace / blast furnace smelting times and fuel, comparator signal strength and redstone tick conversion
+- **Version diff**: compare the mods and config files of two versions (for example before and after a modpack update)
+- **Map art generator**: convert an image to map colors, get the block list (in stacks and shulker boxes) and save it as a Litematica schematic to build from
+- **Recipe and trade lookup**: reads the recipes from the version's own game files to show how an item is made and what it is used for, plus common vanilla villager trades and job site blocks
 
 ### Accounts
 - Offline accounts, **Microsoft accounts** and authlib-injector skin sites such as LittleSkin
@@ -144,7 +155,7 @@ Game files (versions, mods, worlds, resource packs) are kept apart from launcher
 
 The installed version uses the system `.minecraft`, shared with the official launcher. You can add more game directories and switch between them in Settings → Game Directory.
 
-Servers created with the one-click server (including their worlds) are stored in `local-servers` in the launcher folder, and the skin wardrobe in `skin-wardrobe`; version snapshots are stored in `liuli-snapshots` in the version's game folder, and schematics in the version's `schematics` folder.
+Servers created with the one-click server (including their worlds) are stored in `local-servers` in the launcher folder, and the skin wardrobe in `skin-wardrobe`; version snapshots are stored in `liuli-snapshots` in the version's game folder, schematics (including map art) in the version's `schematics` folder, and mod config backups in the version's `liuli-config-backup` folder; the coordinate notebook is saved as `liuli-waypoints.json` in each world folder.
 
 Versions 0.5.1 and earlier kept game files in `.minecraft` inside the launcher folder. They are moved to the location above the first time the new version starts (a rename only — nothing is copied or deleted). If a `.minecraft` already exists there, the old folder stays where it is and appears as "旧的默认目录" (old default directory) in the list.
 

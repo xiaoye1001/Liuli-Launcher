@@ -295,7 +295,8 @@ async function fabricGet(path: string): Promise<Response> {
   for (const url of urls) {
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(30000), redirect: 'follow' })
-      if (response.ok) return response
+      // 镜像可能跳转到它的下载节点：最后的地址也必须是 https
+      if (response.ok && (!response.url || response.url.startsWith('https://'))) return response
       last = new Error(`HTTP ${response.status}`)
     } catch (e) {
       last = e
