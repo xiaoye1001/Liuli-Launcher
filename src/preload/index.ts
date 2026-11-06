@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
+  LagReport,
   CleanCategory,
   MultiplayerMod,
   MultiplayerStatus,
@@ -365,6 +366,13 @@ const api = {
   exportMapArt: (versionId: string, input: Record<string, unknown>) =>
     ipcRenderer.invoke('mapArt:export', versionId, input),
   getRecipeBook: (versionId: string) => ipcRenderer.invoke('recipes:book', versionId),
+  listLagReports: () => ipcRenderer.invoke('lagReports:list'),
+  markLagReportSeen: (id: string) => ipcRenderer.invoke('lagReports:seen', id),
+  onLagReport: (listener: (report: LagReport) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, report: LagReport): void => listener(report)
+    ipcRenderer.on('lagReport:new', handler)
+    return () => ipcRenderer.removeListener('lagReport:new', handler)
+  },
   analyzeWorldSize: (versionId: string, folder: string) => ipcRenderer.invoke('worldTrim:analyze', versionId, folder),
   planWorldTrim: (versionId: string, folder: string, minutes: number, radius: number) =>
     ipcRenderer.invoke('worldTrim:plan', versionId, folder, minutes, radius),

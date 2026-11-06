@@ -2259,3 +2259,39 @@ export interface ScreenshotAlbum {
   recorded: boolean
   shots: { fileName: string; time: number }[]
 }
+
+/** 卡顿报告里的建议 */
+export type LagTip = 'oom' | 'simulation' | 'cpu' | 'memory' | 'network'
+
+/** 一次游玩的卡顿报告（游戏结束后根据日志和资源占用生成） */
+export interface LagReport {
+  id: string
+  versionId: string
+  start: number
+  end: number
+  crashed: boolean
+  /** 内置服务器 / 服务器「跟不上」的次数（Can't keep up） */
+  lagCount: number
+  /** 最长一次落后多少毫秒 */
+  lagMaxMs: number
+  /** 一共落后多少刻 */
+  lagTicks: number
+  /** 内存用完了（OutOfMemoryError） */
+  oom: boolean
+  /** 和服务器连接超时的次数 */
+  timeouts: number
+  /** 游戏进程最多占用多少内存（MB），没有读到时为 null */
+  peakMemoryMb: number | null
+  /** 分配给游戏的最大内存（MB），不知道时为 0 */
+  maxMemoryMb: number
+  /** 电脑的总内存（MB） */
+  systemMemoryMb: number
+  /** 平均 CPU 占用（%），没有读到时为 null */
+  avgCpu: number | null
+  /** CPU 占用 90% 以上的时间比例（0～1） */
+  highCpuShare: number
+  level: 'good' | 'some' | 'bad'
+  tips: LagTip[]
+  /** 主页上的提醒已经看过 */
+  seen: boolean
+}

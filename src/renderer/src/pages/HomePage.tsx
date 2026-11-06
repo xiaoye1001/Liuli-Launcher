@@ -26,6 +26,7 @@ import VersionIcon from '../components/VersionIcon'
 import DailyGoalLine from '../components/DailyGoalLine'
 import OnThisDay from '../components/OnThisDay'
 import GameReleaseBanner from '../components/GameReleaseBanner'
+import { LagReportBanner } from '../components/LagReportView'
 import ResourceSparklines from '../components/ResourceSparklines'
 import NewsPanel from '../components/NewsPanel'
 import SplashText from '../components/SplashText'
@@ -744,6 +745,7 @@ function HomePage({
       {settings?.showTrivia && <TriviaLine />}
       {settings?.showDailyGoal && <DailyGoalLine />}
       <GameReleaseBanner onInstall={onInstallVersion} />
+      <LagReportBanner onOpenVersionSettings={onOpenVersionSettings} />
       <div className="mt-4 flex flex-wrap gap-2">
         <StatChip icon={Layers} onClick={onManageVersions} title="管理已安装的版本">
           已安装 {versions.length} 个版本
@@ -974,6 +976,7 @@ function HomePage({
         {settings?.showTrivia && <TriviaLine />}
         {settings?.showDailyGoal && <DailyGoalLine />}
         <GameReleaseBanner onInstall={onInstallVersion} />
+        <LagReportBanner onOpenVersionSettings={onOpenVersionSettings} />
         <OnThisDay className="mt-2 text-xs text-white/60 hover:text-white" />
         <div className="mt-5 flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1.5">

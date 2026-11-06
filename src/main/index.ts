@@ -24,6 +24,7 @@ import { analyzeWorldSize, applyWorldTrim, planWorldTrim } from './worldTrim'
 import { exportMapArt } from './mapArtExport'
 import { getRecipeBook } from './recipes'
 import { listScreenshotAlbums, screenshotImages, setupScreenshotSessions } from './screenshotAlbums'
+import { listLagReports, markLagReportSeen, setupLagReports } from './lagReport'
 import { applyModSyncCode, createModSyncCode, previewModSyncCode } from './modSync'
 import { listConfigFiles, readConfigFile, restoreConfigFile, saveConfigEntries, saveConfigText } from './modConfigs'
 import { clearExtraInstance, killExtraInstance, launchExtraInstance, listExtraInstances } from './extraInstances'
@@ -758,6 +759,8 @@ function registerIpc(): void {
   ipcMain.handle('versions:compare', (_, a: unknown, b: unknown) => compareVersions(a, b))
   ipcMain.handle('mapArt:export', (_, versionId: string, input: unknown) => exportMapArt(String(versionId), input))
   ipcMain.handle('recipes:book', (_, versionId: string) => getRecipeBook(String(versionId)))
+  ipcMain.handle('lagReports:list', () => listLagReports())
+  ipcMain.handle('lagReports:seen', (_, id: unknown) => markLagReportSeen(id))
   ipcMain.handle('worldTrim:analyze', (_, versionId: string, folder: string) =>
     analyzeWorldSize(String(versionId), String(folder))
   )
@@ -1060,6 +1063,7 @@ app.whenReady().then(async () => {
   setupPlayReminder()
   setupAutoBackup()
   setupScreenshotSessions()
+  setupLagReports()
   setupLaunchTiming()
   setupGameMonitor()
   setupNotifications()
