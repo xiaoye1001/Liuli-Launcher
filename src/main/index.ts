@@ -18,6 +18,24 @@ import { addToWardrobe, listWardrobe, removeFromWardrobe, updateWardrobeSkin, we
 import { applySettingsImport, exportLauncherSettings, readSettingsFile } from './settingsTransfer'
 import { answerModBisect, finishModBisect, getModBisect, startModBisect } from './modBisect'
 import { getServerRoom, hostServerRoom, setupServerRoom, stopServerRoom } from './serverRoom'
+import { compareVersions } from './versionDiff'
+import { deleteWaypoint, listWaypoints, saveWaypoint } from './worldWaypoints'
+import { analyzeWorldSize, applyWorldTrim, planWorldTrim } from './worldTrim'
+import { exportMapArt } from './mapArtExport'
+import { getRecipeBook } from './recipes'
+import { listScreenshotAlbums, screenshotImages, setupScreenshotSessions } from './screenshotAlbums'
+import { listLagReports, markLagReportSeen, setupLagReports } from './lagReport'
+import {
+  addServerAddons,
+  importServerMods,
+  installFabricServer,
+  listServerAddons,
+  removeFabricServer,
+  removeServerAddon,
+  setServerAddonEnabled
+} from './serverAddons'
+import { applyModSyncCode, createModSyncCode, previewModSyncCode } from './modSync'
+import { listConfigFiles, readConfigFile, restoreConfigFile, saveConfigEntries, saveConfigText } from './modConfigs'
 import { clearExtraInstance, killExtraInstance, launchExtraInstance, listExtraInstances } from './extraInstances'
 import {
   addSchematics,
@@ -594,6 +612,22 @@ function registerIpc(): void {
   ipcMain.handle('localServer:stop', () => stopLocalServer())
   ipcMain.handle('localServer:command', (_, command: string) => sendLocalServerCommand(String(command ?? '')))
   ipcMain.handle('localServer:players', (_, id: string) => getLocalServerPlayers(String(id)))
+  const addonKind = (kind: unknown): 'datapack' | 'mod' => (kind === 'mod' ? 'mod' : 'datapack')
+  ipcMain.handle('serverAddons:list', (_, id: string) => listServerAddons(String(id)))
+  ipcMain.handle('serverAddons:add', (event, id: string, kind: unknown) =>
+    addServerAddons(BrowserWindow.fromWebContents(event.sender), String(id), addonKind(kind))
+  )
+  ipcMain.handle('serverAddons:setEnabled', (_, id: string, kind: unknown, fileName: unknown, enabled: unknown) =>
+    setServerAddonEnabled(String(id), addonKind(kind), fileName, enabled === true)
+  )
+  ipcMain.handle('serverAddons:remove', (_, id: string, kind: unknown, fileName: unknown) =>
+    removeServerAddon(String(id), addonKind(kind), fileName)
+  )
+  ipcMain.handle('serverAddons:importMods', (_, id: string, versionId: string) =>
+    importServerMods(String(id), String(versionId))
+  )
+  ipcMain.handle('serverAddons:installFabric', (_, id: string) => installFabricServer(String(id)))
+  ipcMain.handle('serverAddons:removeFabric', (_, id: string) => removeFabricServer(String(id)))
   ipcMain.handle('localServer:managePlayer', (_, id: string, action: LocalServerPlayerAction, name?: string) =>
     manageLocalServerPlayer(String(id), action, typeof name === 'string' ? name : undefined)
   )
@@ -703,6 +737,10 @@ function registerIpc(): void {
   )
   ipcMain.handle('screenshots:list', (_, versionId: string) => listScreenshots(versionId))
   ipcMain.handle('screenshots:onThisDay', () => screenshotsOnThisDay())
+  ipcMain.handle('screenshots:albums', (_, versionId: string) => listScreenshotAlbums(String(versionId)))
+  ipcMain.handle('screenshots:images', (_, versionId: string, fileNames: unknown, width: unknown) =>
+    screenshotImages(String(versionId), fileNames, width)
+  )
   ipcMain.handle('screenshots:delete', (_, versionId: string, fileName: string) =>
     deleteScreenshot(versionId, fileName)
   )
@@ -743,6 +781,45 @@ function registerIpc(): void {
   ipcMain.handle('bisect:get', (_, versionId: string) => getModBisect(String(versionId)))
   ipcMain.handle('serverRoom:host', (_, mode: unknown) => hostServerRoom(mode))
   ipcMain.handle('extraInstances:list', () => listExtraInstances())
+  ipcMain.handle('versions:compare', (_, a: unknown, b: unknown) => compareVersions(a, b))
+  ipcMain.handle('mapArt:export', (_, versionId: string, input: unknown) => exportMapArt(String(versionId), input))
+  ipcMain.handle('recipes:book', (_, versionId: string) => getRecipeBook(String(versionId)))
+  ipcMain.handle('lagReports:list', () => listLagReports())
+  ipcMain.handle('lagReports:seen', (_, id: unknown) => markLagReportSeen(id))
+  ipcMain.handle('worldTrim:analyze', (_, versionId: string, folder: string) =>
+    analyzeWorldSize(String(versionId), String(folder))
+  )
+  ipcMain.handle('worldTrim:plan', (_, versionId: string, folder: string, minutes: unknown, radius: unknown) =>
+    planWorldTrim(String(versionId), String(folder), minutes, radius)
+  )
+  ipcMain.handle('worldTrim:apply', (_, versionId: string, folder: string, minutes: unknown, radius: unknown) =>
+    applyWorldTrim(String(versionId), String(folder), minutes, radius)
+  )
+  ipcMain.handle('waypoints:list', (_, versionId: string, folder: string) =>
+    listWaypoints(String(versionId), String(folder))
+  )
+  ipcMain.handle('waypoints:save', (_, versionId: string, folder: string, input: unknown) =>
+    saveWaypoint(String(versionId), String(folder), input)
+  )
+  ipcMain.handle('waypoints:delete', (_, versionId: string, folder: string, id: unknown) =>
+    deleteWaypoint(String(versionId), String(folder), id)
+  )
+  ipcMain.handle('modSync:create', (_, versionId: string) => createModSyncCode(String(versionId)))
+  ipcMain.handle('configs:list', (_, versionId: string) => listConfigFiles(String(versionId)))
+  ipcMain.handle('configs:read', (_, versionId: string, name: unknown) => readConfigFile(String(versionId), name))
+  ipcMain.handle('configs:save', (_, versionId: string, name: unknown, changes: unknown) =>
+    saveConfigEntries(String(versionId), name, changes)
+  )
+  ipcMain.handle('configs:saveText', (_, versionId: string, name: unknown, text: unknown) =>
+    saveConfigText(String(versionId), name, text)
+  )
+  ipcMain.handle('configs:restore', (_, versionId: string, name: unknown) => restoreConfigFile(String(versionId), name))
+  ipcMain.handle('modSync:preview', (_, versionId: string, code: unknown) =>
+    previewModSyncCode(String(versionId), code)
+  )
+  ipcMain.handle('modSync:apply', (_, versionId: string, code: unknown, replace: unknown) =>
+    applyModSyncCode(String(versionId), code, replace)
+  )
   ipcMain.handle('extraInstances:launch', (_, versionId: unknown, name: unknown) =>
     launchExtraInstance(versionId, name)
   )
@@ -1010,6 +1087,8 @@ app.whenReady().then(async () => {
   syncTray((await getSettings()).showTray)
   setupPlayReminder()
   setupAutoBackup()
+  setupScreenshotSessions()
+  setupLagReports()
   setupLaunchTiming()
   setupGameMonitor()
   setupNotifications()

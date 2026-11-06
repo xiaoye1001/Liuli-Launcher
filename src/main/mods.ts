@@ -276,7 +276,7 @@ export async function listMods(versionId: string): Promise<ModList> {
   }
   while (cache.size > CACHE_LIMIT) cache.delete(cache.keys().next().value as string)
   mods.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
-  const issues = findModIssues(mods, loader)
+  const issues = findModIssues(mods, loader, minecraftVersion)
   // 依赖关系只在主进程里用，不发给界面
   return {
     versionId,

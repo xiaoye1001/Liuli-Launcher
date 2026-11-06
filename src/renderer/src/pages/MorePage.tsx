@@ -3,6 +3,10 @@ import { onJump, TOOLBOX_KEY } from '../utils/jump'
 import {
   Anvil,
   CopyPlus,
+  CircuitBoard,
+  FileDiff,
+  Paintbrush,
+  BookOpen,
   BarChart3,
   Bug,
   Calculator,
@@ -31,6 +35,10 @@ import LocalServerPanel from '../components/LocalServerPanel'
 import CommandGeneratorPanel from '../components/CommandGeneratorPanel'
 import EnchantCalculatorPanel from '../components/EnchantCalculatorPanel'
 import MultiInstancePanel from '../components/MultiInstancePanel'
+import RedstoneToolsPanel from '../components/RedstoneToolsPanel'
+import VersionDiffPanel from '../components/VersionDiffPanel'
+import MapArtPanel from '../components/MapArtPanel'
+import RecipeLookupPanel from '../components/RecipeLookupPanel'
 import PageHeader from '../components/PageHeader'
 
 type ToolKey =
@@ -48,6 +56,10 @@ type ToolKey =
   | 'commands'
   | 'enchant'
   | 'multi'
+  | 'redstone'
+  | 'diff'
+  | 'mapart'
+  | 'recipes'
 
 interface Tool {
   key: ToolKey
@@ -97,7 +109,17 @@ const TOOLS: Tool[] = [
     tint: 'text-emerald-300'
   },
   { key: 'enchant', title: '附魔计算器', desc: '铁砧上最省经验的顺序', icon: Anvil, tint: 'text-violet-300' },
-  { key: 'multi', title: '多开', desc: '同时开几个游戏窗口', icon: CopyPlus, tint: 'text-sky-300' }
+  { key: 'multi', title: '多开', desc: '同时开几个游戏窗口', icon: CopyPlus, tint: 'text-sky-300' },
+  { key: 'redstone', title: '红石计算器', desc: '漏斗、熔炉、比较器、刻', icon: CircuitBoard, tint: 'text-red-300' },
+  { key: 'diff', title: '版本差异对比', desc: '两个版本的模组和配置', icon: FileDiff, tint: 'text-sky-300' },
+  { key: 'mapart', title: '地图画生成器', desc: '图片变成方块清单和投影', icon: Paintbrush, tint: 'text-violet-300' },
+  {
+    key: 'recipes',
+    title: '合成与交易查询',
+    desc: '怎么做、能做什么、村民交易',
+    icon: BookOpen,
+    tint: 'text-amber-300'
+  }
 ]
 
 const LAST_TOOL_KEY = TOOLBOX_KEY
@@ -132,7 +154,7 @@ function MorePage(): JSX.Element {
     <div className="page-scroll flex h-full flex-col gap-4">
       <PageHeader
         title="更多"
-        subtitle="百宝箱：高速下载、清理缓存、Java 检测、测速、游玩报告、成就、崩溃记录、种子、小工具、史莱姆区块、一键开服、命令生成器、附魔计算器、多开"
+        subtitle="百宝箱：高速下载、清理缓存、Java 检测、测速、游玩报告、成就、崩溃记录、种子、小工具、史莱姆区块、一键开服、命令生成器、附魔计算器、多开、红石计算器、版本对比、地图画"
       />
 
       {/* 小工具入口 */}
@@ -179,6 +201,10 @@ function MorePage(): JSX.Element {
       {current === 'commands' && <CommandGeneratorPanel />}
       {current === 'enchant' && <EnchantCalculatorPanel />}
       {current === 'multi' && <MultiInstancePanel />}
+      {current === 'redstone' && <RedstoneToolsPanel />}
+      {current === 'diff' && <VersionDiffPanel />}
+      {current === 'mapart' && <MapArtPanel />}
+      {current === 'recipes' && <RecipeLookupPanel />}
     </div>
   )
 }

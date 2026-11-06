@@ -712,3 +712,83 @@ export async function identifyEnabledMods(
   }
   return { projects: ids.map((projectId) => ({ projectId, title: titles.get(projectId) ?? projectId })), unknown }
 }
+
+/**
+ * 已启用的模组对应的 Modrinth 版本（模组同步码用）：每个文件的版本 ID、项目 ID，以及 Modrinth 上没有的文件名
+ */
+export async function identifyEnabledModVersions(versionId: string): Promise<{
+  versions: { fileName: string; versionId: string; projectId: string }[]
+  unknown: string[]
+}> {
+  const ctx = await modsContextOf(versionId)
+  const files = (await listModFiles(ctx.dir)).filter((name) => name.toLowerCase().endsWith('.jar'))
+  const hashes = await Promise.all(files.map((name) => fileSha1(join(ctx.dir, name)).catch(() => '')))
+  const byHash: Record<string, ModrinthVersion> = {}
+  const wanted = [...new Set(hashes.filter(Boolean))]
+  for (let i = 0; i < wanted.length; i += 500) {
+    Object.assign(
+      byHash,
+      await modrinthFetch<Record<string, ModrinthVersion>>('/version_files', {
+        method: 'POST',
+        body: JSON.stringify({ hashes: wanted.slice(i, i + 500), algorithm: 'sha1' })
+      })
+    )
+  }
+  const versions: { fileName: string; versionId: string; projectId: string }[] = []
+  const unknown: string[] = []
+  files.forEach((name, i) => {
+    const v = byHash[hashes[i]]
+    if (v?.id && v.project_id) versions.push({ fileName: name, versionId: v.id, projectId: v.project_id })
+    else unknown.push(name)
+  })
+  return { versions, unknown }
+}
+
+/** 查询一批 Modrinth 版本的信息（名称、项目、适用的游戏版本和加载器） */
+export async function getModrinthVersions(ids: string[]): Promise<
+  {
+    id: string
+    projectId: string
+    name: string
+    versionNumber: string
+    gameVersions: string[]
+    loaders: string[]
+  }[]
+> {
+  const result: {
+    id: string
+    projectId: string
+    name: string
+    versionNumber: string
+    gameVersions: string[]
+    loaders: string[]
+  }[] = []
+  for (let i = 0; i < ids.length; i += 100) {
+    const batch = await modrinthFetch<(ModrinthVersion & { game_versions?: string[] })[]>(
+      `/versions?ids=${encodeURIComponent(JSON.stringify(ids.slice(i, i + 100)))}`
+    )
+    for (const v of batch) {
+      result.push({
+        id: v.id,
+        projectId: v.project_id,
+        name: v.name,
+        versionNumber: v.version_number,
+        gameVersions: v.game_versions ?? [],
+        loaders: v.loaders ?? []
+      })
+    }
+  }
+  return result
+}
+
+/** 项目名称（查不到的用项目 ID） */
+export async function getModrinthProjectTitles(ids: string[]): Promise<Map<string, string>> {
+  const titles = new Map<string, string>()
+  for (let i = 0; i < ids.length; i += 100) {
+    const projects = await modrinthFetch<{ id: string; title: string }[]>(
+      `/projects?ids=${encodeURIComponent(JSON.stringify(ids.slice(i, i + 100)))}`
+    ).catch(() => [])
+    for (const p of projects) titles.set(p.id, p.title)
+  }
+  return titles
+}

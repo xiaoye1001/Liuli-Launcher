@@ -800,6 +800,22 @@ export type ModIssue =
       mods: { fileName: string; name: string; version: string }[]
     }
   | {
+      /** 模组不适合这个版本：给别的加载器用的，或者声明的游戏版本不包括这个版本 */
+      kind: 'incompatible'
+      reason: 'loader' | 'minecraft'
+      /** 给人看的说明，例如「这是 Forge 模组」「需要 Minecraft 1.21.x」 */
+      detail: string
+      mod: { fileName: string; name: string; version: string }
+    }
+  | {
+      /** 更新后留下的旧版本（已禁用），可以删掉 */
+      kind: 'leftover'
+      modId: string
+      /** 正在用的那个 */
+      current: { fileName: string; name: string; version: string }
+      old: { fileName: string; name: string; version: string }[]
+    }
+  | {
       /** 模组之间互相冲突 */
       kind: 'conflict'
       /** declared：模组自己在描述文件里声明的；known：启动器内置的常见冲突 */
@@ -1235,6 +1251,132 @@ export interface WardrobeSkin {
   /** PNG 的 data URL（预览用） */
   image: string
   addedAt: number
+}
+
+/** 存档体积分析 */
+export interface WorldSizeReport {
+  total: number
+  parts: { key: string; name: string; bytes: number; regions: number }[]
+}
+
+/** 存档瘦身：可以删掉的区域文件 */
+export interface WorldTrimPlan {
+  /** 检查了多少个区域文件 */
+  scanned: number
+  regions: { dimension: string; dimensionName: string; file: string; bytes: number; ticks: number }[]
+  bytes: number
+  minutes: number
+  radius: number
+}
+
+export type WaypointDimension = 'overworld' | 'the_nether' | 'the_end'
+
+/** 坐标笔记本里的一个地点 */
+export interface Waypoint {
+  id: string
+  name: string
+  x: number
+  y: number
+  z: number
+  dimension: WaypointDimension
+  note: string
+  /** 地图上的颜色 */
+  color: string
+  createdAt: number
+}
+
+/** config 文件夹里的一个配置文件 */
+export interface ConfigFileInfo {
+  /** config 文件夹里的相对路径 */
+  name: string
+  size: number
+  modified: number
+  /** 能不能用表单编辑（否则只能改文本） */
+  editable: boolean
+  /** 改过（有第一次修改前的备份） */
+  hasBackup: boolean
+}
+
+/** 配置文件里的一个设置项 */
+export interface ConfigEntry {
+  id: string
+  section: string
+  key: string
+  type: 'boolean' | 'number' | 'string'
+  value: boolean | number | string
+  /** 设置项上面的注释 */
+  comment: string
+  min?: number
+  max?: number
+  /** 只能选这些值 */
+  options?: string[]
+}
+
+export interface ConfigFileView {
+  name: string
+  text: string
+  /** 读不出设置项（格式不支持或 JSON 带注释）时为 null，只能改文本 */
+  entries: ConfigEntry[] | null
+  hasBackup: boolean
+}
+
+/** 模组同步码里的一个模组 */
+export interface ModSyncItem {
+  versionId: string
+  projectId: string
+  title: string
+  versionNumber: string
+  /** new：这个版本没装；same：装了同一个版本；different：装了别的版本 */
+  status: 'new' | 'same' | 'different'
+  /** 已经装了的文件 */
+  currentFile?: string
+  /** Modrinth 上标记适用于这个版本的游戏版本和加载器 */
+  fits: boolean
+}
+
+export interface ModSyncPreview {
+  /** 生成同步码的版本 */
+  minecraftVersion: string
+  loader: string
+  /** 要装到的版本 */
+  targetMinecraftVersion: string
+  targetLoader: string
+  items: ModSyncItem[]
+  /** Modrinth 上查不到的（被作者删掉了） */
+  missing: number
+  /** 这个版本有、同步码里没有的模组文件 */
+  extra: string[]
+}
+
+export interface ModSyncResult {
+  installed: string[]
+  replaced: string[]
+  failed: { title: string; error: string }[]
+  skipped: number
+}
+
+/** 版本差异对比里的一个模组 */
+export interface VersionDiffMod {
+  fileName: string
+  name: string
+  version: string
+  enabled: boolean
+}
+
+export interface VersionDiff {
+  a: { id: string; minecraftVersion: string; loader: string | null; mods: number }
+  b: { id: string; minecraftVersion: string; loader: string | null; mods: number }
+  /** 两个版本用的是同一个模组文件夹（都没有隔离） */
+  sameFolder: boolean
+  mods: {
+    added: VersionDiffMod[]
+    removed: VersionDiffMod[]
+    changed: { from: VersionDiffMod; to: VersionDiffMod }[]
+    same: number
+  }
+  configs: { added: string[]; removed: string[]; changed: string[] }
+  /** 文件太多，只比较了一部分 */
+  truncated: boolean
 }
 
 /** 多开的游戏窗口 */
@@ -2068,3 +2210,124 @@ export interface MultiplayerStatus {
 
 /** 可以一键安装的联机模组 */
 export type MultiplayerMod = 'e4mc' | 'world-host'
+
+/** 配方里的一个材料格：可以用其中任意一种物品（物品 ID，原版物品不带 minecraft:） */
+export interface RecipeIngredient {
+  items: string[]
+  /** 来自物品标签（例如 planks）时的标签名 */
+  tag?: string
+}
+
+export type RecipeKind = 'crafting' | 'smelting' | 'blasting' | 'smoking' | 'campfire' | 'stonecutting' | 'smithing'
+
+export interface GameRecipe {
+  /** 配方文件名 */
+  id: string
+  kind: RecipeKind
+  ingredients: RecipeIngredient[]
+  /** 有形状的合成：格子里放 ingredients 的第几个，空格为 -1 */
+  shape?: { width: number; height: number; cells: number[] }
+  result: { item: string; count: number }
+  /** 烧炼得到的经验 */
+  experience?: number
+  /** 烧炼用时（游戏刻） */
+  time?: number
+}
+
+export interface RecipeBook {
+  versionId: string
+  minecraftVersion: string
+  recipes: GameRecipe[]
+  /** 物品 ID → 名字（中文；没有下载中文语言文件时是英文，再没有时不在这里） */
+  names: Record<string, string>
+  /** 名字是不是中文 */
+  chinese: boolean
+}
+
+/** 截图按游玩分组：一次游玩拍的截图 */
+export interface ScreenshotAlbum {
+  /** 第一张、最后一张截图的时间 */
+  start: number
+  end: number
+  /** 那次玩的版本（没有记录时是当前查看的版本） */
+  versionId: string
+  /** 那次进入的存档（文件夹名） */
+  worlds: string[]
+  /** 那次连接的服务器 */
+  servers: string[]
+  /** 是不是启动器记下来的游玩（不是的话只是按时间分的组） */
+  recorded: boolean
+  shots: { fileName: string; time: number }[]
+}
+
+/** 卡顿报告里的建议 */
+export type LagTip = 'oom' | 'simulation' | 'cpu' | 'memory' | 'network'
+
+/** 一次游玩的卡顿报告（游戏结束后根据日志和资源占用生成） */
+export interface LagReport {
+  id: string
+  versionId: string
+  start: number
+  end: number
+  crashed: boolean
+  /** 内置服务器 / 服务器「跟不上」的次数（Can't keep up） */
+  lagCount: number
+  /** 最长一次落后多少毫秒 */
+  lagMaxMs: number
+  /** 一共落后多少刻 */
+  lagTicks: number
+  /** 内存用完了（OutOfMemoryError） */
+  oom: boolean
+  /** 和服务器连接超时的次数 */
+  timeouts: number
+  /** 游戏进程最多占用多少内存（MB），没有读到时为 null */
+  peakMemoryMb: number | null
+  /** 分配给游戏的最大内存（MB），不知道时为 0 */
+  maxMemoryMb: number
+  /** 电脑的总内存（MB） */
+  systemMemoryMb: number
+  /** 平均 CPU 占用（%），没有读到时为 null */
+  avgCpu: number | null
+  /** CPU 占用 90% 以上的时间比例（0～1） */
+  highCpuShare: number
+  level: 'good' | 'some' | 'bad'
+  tips: LagTip[]
+  /** 主页上的提醒已经看过 */
+  seen: boolean
+}
+
+/** 一键开服：数据包或者服务端模组 */
+export type ServerAddonKind = 'datapack' | 'mod'
+
+export interface ServerAddonFile {
+  /** 文件名（停用的带 .disabled） */
+  fileName: string
+  /** 显示的名字（不带 .disabled） */
+  name: string
+  size: number
+  enabled: boolean
+  /** 文件夹形式的数据包（只能删除，不能停用） */
+  folder: boolean
+}
+
+export interface ServerAddons {
+  serverId: string
+  /** 存档文件夹名（server.properties 的 level-name） */
+  world: string
+  /** 存档已经生成过 */
+  worldExists: boolean
+  /** 装了 Fabric 时的加载器版本 */
+  loader: { loader: 'fabric'; version: string } | null
+  datapacks: ServerAddonFile[]
+  mods: ServerAddonFile[]
+}
+
+export interface ServerModImportResult {
+  copied: string[]
+  /** 只能在客户端用，没有导入 */
+  clientOnly: string[]
+  /** 服务器里已经有了 */
+  existing: string[]
+  /** 不是 Fabric 模组 */
+  invalid: string[]
+}

@@ -19,6 +19,10 @@ import {
   TerminalSquare,
   Anvil,
   CopyPlus,
+  CircuitBoard,
+  FileDiff,
+  Paintbrush,
+  BookOpen,
   Trash2,
   Trophy,
   Zap,
@@ -214,6 +218,38 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
         icon: CopyPlus,
         keywords: '多开 多窗口 双开 两个号 小号 测试联机 multi instance',
         run: tool('multi')
+      },
+      {
+        id: 'tool:redstone',
+        title: '红石计算器',
+        group: '百宝箱',
+        icon: CircuitBoard,
+        keywords: '红石 漏斗 熔炉 燃料 比较器 信号 中继器 刻 生电 redstone hopper',
+        run: tool('redstone')
+      },
+      {
+        id: 'tool:diff',
+        title: '版本差异对比',
+        group: '百宝箱',
+        icon: FileDiff,
+        keywords: '对比 差异 比较 整合包更新 改了什么 diff compare',
+        run: tool('diff')
+      },
+      {
+        id: 'tool:mapart',
+        title: '地图画生成器',
+        group: '百宝箱',
+        icon: Paintbrush,
+        keywords: '地图画 像素画 图片 地图 map art 投影',
+        run: tool('mapart')
+      },
+      {
+        id: 'tool:recipes',
+        title: '合成与交易查询',
+        group: '百宝箱',
+        icon: BookOpen,
+        keywords: '合成 配方 合成表 熔炉 切石机 锻造 村民 交易 绿宝石 工作站 recipe craft trade villager',
+        run: tool('recipes')
       },
       {
         id: 'action:log',

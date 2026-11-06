@@ -9,6 +9,7 @@ import { getSettings } from './config'
 import { getVersionManifest } from './versions'
 import { componentForMajor, pickJava, requirementOf } from './javaRuntime'
 import { downloadWithFallback } from './services/downloadWithFallback'
+import { launchJarOf } from './serverLoader'
 import type {
   LocalServer,
   LocalServerInput,
@@ -76,6 +77,11 @@ function pushLog(line: string): void {
   log.push(clean.slice(0, 2000))
   if (log.length > MAX_LOG) log = log.slice(-MAX_LOG)
   broadcast('localServer:log', clean.slice(0, 2000))
+}
+
+/** 服务器文件夹（检查编号） */
+export function localServerDir(id: string): string {
+  return assertId(id)
 }
 
 function assertId(id: string): string {
@@ -358,8 +364,12 @@ async function startUnlocked(id: string, dir: string): Promise<void> {
     )
   }
   if (!(await portFree(server.port))) throw new Error(`端口 ${server.port} 已经被占用，换一个端口或关掉占用它的程序`)
+  // 装了 Fabric 时用 Fabric 的服务端启动器
+  const jarFile = await launchJarOf(dir)
   log = []
-  pushLog(`[琉璃启动器] 正在启动 ${server.name}（${server.version}），使用 Java ${java.majorVersion}`)
+  pushLog(
+    `[琉璃启动器] 正在启动 ${server.name}（${server.version}${jarFile === 'server.jar' ? '' : '，Fabric'}），使用 Java ${java.majorVersion}`
+  )
   const child = spawn(
     java.path,
     [
@@ -368,7 +378,7 @@ async function startUnlocked(id: string, dir: string): Promise<void> {
       '-Dstdout.encoding=UTF-8',
       '-Dstderr.encoding=UTF-8',
       '-jar',
-      'server.jar',
+      jarFile,
       'nogui'
     ],
     { cwd: dir, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] }

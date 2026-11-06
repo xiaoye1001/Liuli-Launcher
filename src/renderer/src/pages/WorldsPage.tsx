@@ -20,6 +20,7 @@ import {
   Trash2
 } from 'lucide-react'
 import GrassBlockIcon from '../components/GrassBlockIcon'
+import { worldVersionRelation } from '../utils/worldVersion'
 import PageHeader from '../components/PageHeader'
 import { EmptyState, LoadingState } from '../components/EmptyState'
 import { HEADER_BUTTON, HEADER_ICON_BUTTON } from '../components/headerButtons'
@@ -45,6 +46,35 @@ const DATAPACK_STATES: Record<WorldDatapack['state'], { label: string; className
   enabled: { label: '已启用', className: 'text-emerald-300', title: '' },
   disabled: { label: '已停用', className: 'text-white/40', title: '在游戏中用 /datapack enable 启用' },
   new: { label: '待加载', className: 'text-sky-300', title: '下次进入存档时自动启用' }
+}
+
+/** 存档版本和这个游戏版本不一样时的提示 */
+function WorldVersionBadge({ world, game }: { world: string; game: string }): JSX.Element | null {
+  const relation = worldVersionRelation(world, game)
+  if (relation === 'newer') {
+    return (
+      <span
+        data-testid="world-version-warning"
+        title={`这个存档上次是用 ${world} 打开的，比这个版本（${game}）新。用旧版本打开可能丢失方块和物品，甚至损坏存档；一定要打开的话先备份`}
+        className="flex items-center gap-1 rounded-md bg-red-500/20 px-2 py-0.5 text-red-300"
+      >
+        <AlertTriangle className="h-3 w-3" />比 {game} 新，打开可能损坏
+      </span>
+    )
+  }
+  if (relation === 'upgrade') {
+    return (
+      <span
+        data-testid="world-version-warning"
+        title={`用 ${game} 打开会把这个存档从 ${world} 升级，升级后就不能再用 ${world} 打开了。建议先点「备份」`}
+        className="flex items-center gap-1 rounded-md bg-amber-500/20 px-2 py-0.5 text-amber-200"
+      >
+        <AlertTriangle className="h-3 w-3" />
+        打开会升级到 {game}，建议先备份
+      </span>
+    )
+  }
+  return null
 }
 
 function formatSize(bytes: number): string {
@@ -647,6 +677,9 @@ function WorldsPage({ version, onBack, onDownloadDatapacks }: WorldsPageProps): 
                               <span className="rounded-md bg-white/10 px-2 py-0.5 text-white/60">允许作弊</span>
                             )}
                             {world.version && <span className="text-white/50">{world.version}</span>}
+                            {world.version && (
+                              <WorldVersionBadge world={world.version} game={version.minecraftVersion} />
+                            )}
                           </>
                         )}
                         <span className="text-white/40">· 最后游玩 {formatLastPlayed(world.lastPlayed)}</span>

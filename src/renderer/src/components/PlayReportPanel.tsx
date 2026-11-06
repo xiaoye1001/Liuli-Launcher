@@ -5,6 +5,7 @@ import { formatDuration } from '../utils/format'
 import { buildPlayReport, PERIOD_INFO } from '../utils/playReport'
 import { reportYears } from '../utils/yearReport'
 import YearReportDialog from './YearReportDialog'
+import { LagReportList } from './LagReportView'
 import type { LaunchTimingRecord, PlayStats } from '../../../shared/types'
 
 function hours(ms: number): string {
@@ -196,6 +197,8 @@ function PlayReportPanel(): JSX.Element {
           {new Date(fastest.at).toLocaleDateString('zh-CN')}），从游戏进程启动到窗口出现
         </p>
       )}
+
+      <LagReportList />
 
       <p className="text-[11px] text-white/40">
         每周时长、时段、最长的一次和周末占比根据最近 {report.sessionCount}{' '}

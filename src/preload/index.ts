@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
+  LagReport,
   CleanCategory,
   MultiplayerMod,
   MultiplayerStatus,
@@ -191,6 +192,15 @@ const api = {
   stopLocalServer: () => ipcRenderer.invoke('localServer:stop'),
   sendLocalServerCommand: (command: string) => ipcRenderer.invoke('localServer:command', command),
   getLocalServerPlayers: (id: string) => ipcRenderer.invoke('localServer:players', id),
+  listServerAddons: (id: string) => ipcRenderer.invoke('serverAddons:list', id),
+  addServerAddons: (id: string, kind: 'datapack' | 'mod') => ipcRenderer.invoke('serverAddons:add', id, kind),
+  setServerAddonEnabled: (id: string, kind: 'datapack' | 'mod', fileName: string, enabled: boolean) =>
+    ipcRenderer.invoke('serverAddons:setEnabled', id, kind, fileName, enabled),
+  removeServerAddon: (id: string, kind: 'datapack' | 'mod', fileName: string) =>
+    ipcRenderer.invoke('serverAddons:remove', id, kind, fileName),
+  importServerMods: (id: string, versionId: string) => ipcRenderer.invoke('serverAddons:importMods', id, versionId),
+  installFabricServer: (id: string) => ipcRenderer.invoke('serverAddons:installFabric', id),
+  removeFabricServer: (id: string) => ipcRenderer.invoke('serverAddons:removeFabric', id),
   manageLocalServerPlayer: (id: string, action: string, name?: string) =>
     ipcRenderer.invoke('localServer:managePlayer', id, action, name),
   onLocalServerStatus: (callback: (status: unknown) => void) => {
@@ -233,6 +243,9 @@ const api = {
   createDesktopShortcut: (versionId: string) => ipcRenderer.invoke('versions:shortcut', versionId),
   listScreenshots: (versionId: string) => ipcRenderer.invoke('screenshots:list', versionId),
   screenshotsOnThisDay: () => ipcRenderer.invoke('screenshots:onThisDay'),
+  listScreenshotAlbums: (versionId: string) => ipcRenderer.invoke('screenshots:albums', versionId),
+  getScreenshotImages: (versionId: string, fileNames: string[], width: number) =>
+    ipcRenderer.invoke('screenshots:images', versionId, fileNames, width),
   deleteScreenshot: (versionId: string, fileName: string) =>
     ipcRenderer.invoke('screenshots:delete', versionId, fileName),
   copyScreenshot: (versionId: string, fileName: string) => ipcRenderer.invoke('screenshots:copy', versionId, fileName),
@@ -358,6 +371,38 @@ const api = {
   listWardrobe: () => ipcRenderer.invoke('wardrobe:list'),
   hostServerRoom: (mode: 'p2p' | 'direct') => ipcRenderer.invoke('serverRoom:host', mode),
   listExtraInstances: () => ipcRenderer.invoke('extraInstances:list'),
+  compareVersions: (a: string, b: string) => ipcRenderer.invoke('versions:compare', a, b),
+  exportMapArt: (versionId: string, input: Record<string, unknown>) =>
+    ipcRenderer.invoke('mapArt:export', versionId, input),
+  getRecipeBook: (versionId: string) => ipcRenderer.invoke('recipes:book', versionId),
+  listLagReports: () => ipcRenderer.invoke('lagReports:list'),
+  markLagReportSeen: (id: string) => ipcRenderer.invoke('lagReports:seen', id),
+  onLagReport: (listener: (report: LagReport) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, report: LagReport): void => listener(report)
+    ipcRenderer.on('lagReport:new', handler)
+    return () => ipcRenderer.removeListener('lagReport:new', handler)
+  },
+  analyzeWorldSize: (versionId: string, folder: string) => ipcRenderer.invoke('worldTrim:analyze', versionId, folder),
+  planWorldTrim: (versionId: string, folder: string, minutes: number, radius: number) =>
+    ipcRenderer.invoke('worldTrim:plan', versionId, folder, minutes, radius),
+  applyWorldTrim: (versionId: string, folder: string, minutes: number, radius: number) =>
+    ipcRenderer.invoke('worldTrim:apply', versionId, folder, minutes, radius),
+  listWaypoints: (versionId: string, folder: string) => ipcRenderer.invoke('waypoints:list', versionId, folder),
+  saveWaypoint: (versionId: string, folder: string, input: Record<string, unknown>) =>
+    ipcRenderer.invoke('waypoints:save', versionId, folder, input),
+  deleteWaypoint: (versionId: string, folder: string, id: string) =>
+    ipcRenderer.invoke('waypoints:delete', versionId, folder, id),
+  createModSyncCode: (versionId: string) => ipcRenderer.invoke('modSync:create', versionId),
+  listConfigFiles: (versionId: string) => ipcRenderer.invoke('configs:list', versionId),
+  readConfigFile: (versionId: string, name: string) => ipcRenderer.invoke('configs:read', versionId, name),
+  saveConfigEntries: (versionId: string, name: string, changes: Record<string, unknown>) =>
+    ipcRenderer.invoke('configs:save', versionId, name, changes),
+  saveConfigText: (versionId: string, name: string, text: string) =>
+    ipcRenderer.invoke('configs:saveText', versionId, name, text),
+  restoreConfigFile: (versionId: string, name: string) => ipcRenderer.invoke('configs:restore', versionId, name),
+  previewModSyncCode: (versionId: string, code: string) => ipcRenderer.invoke('modSync:preview', versionId, code),
+  applyModSyncCode: (versionId: string, code: string, replace: boolean) =>
+    ipcRenderer.invoke('modSync:apply', versionId, code, replace),
   launchExtraInstance: (versionId: string, name: string) =>
     ipcRenderer.invoke('extraInstances:launch', versionId, name),
   killExtraInstance: (id: string) => ipcRenderer.invoke('extraInstances:kill', id),

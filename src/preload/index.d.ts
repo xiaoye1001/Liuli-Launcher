@@ -1,5 +1,10 @@
 import type { AchievementStatus } from '../shared/achievements'
 import type {
+  RecipeBook,
+  ServerAddonKind,
+  ServerAddons,
+  ServerModImportResult,
+  LagReport,
   CleanCategory,
   LocalAddresses,
   MultiplayerMod,
@@ -67,6 +72,14 @@ import type {
   SchematicList,
   ModBisectState,
   ExtraInstance,
+  VersionDiff,
+  ModSyncPreview,
+  ModSyncResult,
+  ConfigFileInfo,
+  ConfigFileView,
+  Waypoint,
+  WorldSizeReport,
+  WorldTrimPlan,
   SchematicDetails,
   SkinModel,
   CloudBackupConfig,
@@ -105,6 +118,7 @@ import type {
   ExternalLoginResult,
   ModUpdate,
   ScreenshotList,
+  ScreenshotAlbum,
   OnThisDayShot,
   PlayStats,
   ModpackExportInfo,
@@ -290,6 +304,13 @@ declare global {
       sendLocalServerCommand: (command: string) => Promise<void>
       /** 在线玩家、管理员、白名单 */
       getLocalServerPlayers: (id: string) => Promise<LocalServerPlayers>
+      listServerAddons: (id: string) => Promise<ServerAddons>
+      addServerAddons: (id: string, kind: ServerAddonKind) => Promise<{ added: string[]; skipped: string[] }>
+      setServerAddonEnabled: (id: string, kind: ServerAddonKind, fileName: string, enabled: boolean) => Promise<void>
+      removeServerAddon: (id: string, kind: ServerAddonKind, fileName: string) => Promise<void>
+      importServerMods: (id: string, versionId: string) => Promise<ServerModImportResult>
+      installFabricServer: (id: string) => Promise<{ loader: string }>
+      removeFabricServer: (id: string) => Promise<void>
       /** 管理玩家（服务器运行时）：设为 / 取消管理员、踢出、白名单 */
       manageLocalServerPlayer: (id: string, action: LocalServerPlayerAction, name?: string) => Promise<void>
       onLocalServerStatus: (callback: (status: LocalServerStatus) => void) => () => void
@@ -370,6 +391,8 @@ declare global {
       listScreenshots: (versionId: string) => Promise<ScreenshotList>
       /** 那年今日：往年的今天拍的截图（新的在前） */
       screenshotsOnThisDay: () => Promise<OnThisDayShot[]>
+      listScreenshotAlbums: (versionId: string) => Promise<ScreenshotAlbum[]>
+      getScreenshotImages: (versionId: string, fileNames: string[], width: number) => Promise<string[]>
       /** 删除截图（移到回收站） */
       deleteScreenshot: (versionId: string, fileName: string) => Promise<void>
       /** 复制截图到剪贴板 */
@@ -572,6 +595,37 @@ declare global {
       openMicrosoftLoginPage: () => Promise<void>
       /** 读取正版账号的皮肤与披风 */
       getMsSkinProfile: (uuid: string) => Promise<MsSkinProfile>
+      /** 模组配置可视化编辑 */
+      listConfigFiles: (versionId: string) => Promise<ConfigFileInfo[]>
+      readConfigFile: (versionId: string, name: string) => Promise<ConfigFileView>
+      saveConfigEntries: (versionId: string, name: string, changes: Record<string, unknown>) => Promise<ConfigFileView>
+      saveConfigText: (versionId: string, name: string, text: string) => Promise<ConfigFileView>
+      restoreConfigFile: (versionId: string, name: string) => Promise<ConfigFileView>
+      /** 模组同步码 */
+      createModSyncCode: (versionId: string) => Promise<{ code: string; count: number; unknown: string[] }>
+      previewModSyncCode: (versionId: string, code: string) => Promise<ModSyncPreview>
+      applyModSyncCode: (versionId: string, code: string, replace: boolean) => Promise<ModSyncResult>
+      /** 地图画导出成投影 */
+      exportMapArt: (versionId: string, input: Record<string, unknown>) => Promise<{ path: string; blocks: number }>
+      getRecipeBook: (versionId: string) => Promise<RecipeBook>
+      listLagReports: () => Promise<LagReport[]>
+      markLagReportSeen: (id: string) => Promise<void>
+      onLagReport: (listener: (report: LagReport) => void) => () => void
+      /** 存档体积分析与瘦身 */
+      analyzeWorldSize: (versionId: string, folder: string) => Promise<WorldSizeReport>
+      planWorldTrim: (versionId: string, folder: string, minutes: number, radius: number) => Promise<WorldTrimPlan>
+      applyWorldTrim: (
+        versionId: string,
+        folder: string,
+        minutes: number,
+        radius: number
+      ) => Promise<{ removed: number; bytes: number; backup: string }>
+      /** 坐标笔记本 */
+      listWaypoints: (versionId: string, folder: string) => Promise<Waypoint[]>
+      saveWaypoint: (versionId: string, folder: string, input: Record<string, unknown>) => Promise<Waypoint[]>
+      deleteWaypoint: (versionId: string, folder: string, id: string) => Promise<Waypoint[]>
+      /** 版本差异对比 */
+      compareVersions: (a: string, b: string) => Promise<VersionDiff>
       /** 多开：再开几个游戏窗口（离线名字） */
       listExtraInstances: () => Promise<ExtraInstance[]>
       launchExtraInstance: (versionId: string, name: string) => Promise<ExtraInstance[]>

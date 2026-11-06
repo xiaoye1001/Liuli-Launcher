@@ -13,7 +13,8 @@ interface ParsedVersion {
 /** 解析版本号：去掉 + 后面的构建信息，必须以数字开头 */
 export function parseVersion(text: string): ParsedVersion | undefined {
   const clean = text.trim().replace(/^v/i, '').split('+')[0]
-  const match = /^(\d+(?:\.\d+)*)(?:-([0-9A-Za-z.-]+))?/.exec(clean)
+  // 整个都要是版本号（例如 24w14a 这样的快照名、mc1.20-1.0 这样的写法看不懂，返回 undefined）
+  const match = /^(\d+(?:\.\d+)*)(?:-([0-9A-Za-z.-]+))?$/.exec(clean)
   if (!match) return undefined
   return { nums: match[1].split('.').map(Number), pre: match[2] ?? '' }
 }
