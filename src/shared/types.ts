@@ -1253,6 +1253,30 @@ export interface WardrobeSkin {
   addedAt: number
 }
 
+/** 版本差异对比里的一个模组 */
+export interface VersionDiffMod {
+  fileName: string
+  name: string
+  version: string
+  enabled: boolean
+}
+
+export interface VersionDiff {
+  a: { id: string; minecraftVersion: string; loader: string | null; mods: number }
+  b: { id: string; minecraftVersion: string; loader: string | null; mods: number }
+  /** 两个版本用的是同一个模组文件夹（都没有隔离） */
+  sameFolder: boolean
+  mods: {
+    added: VersionDiffMod[]
+    removed: VersionDiffMod[]
+    changed: { from: VersionDiffMod; to: VersionDiffMod }[]
+    same: number
+  }
+  configs: { added: string[]; removed: string[]; changed: string[] }
+  /** 文件太多，只比较了一部分 */
+  truncated: boolean
+}
+
 /** 多开的游戏窗口 */
 export interface ExtraInstance {
   id: string

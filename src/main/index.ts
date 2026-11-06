@@ -18,6 +18,7 @@ import { addToWardrobe, listWardrobe, removeFromWardrobe, updateWardrobeSkin, we
 import { applySettingsImport, exportLauncherSettings, readSettingsFile } from './settingsTransfer'
 import { answerModBisect, finishModBisect, getModBisect, startModBisect } from './modBisect'
 import { getServerRoom, hostServerRoom, setupServerRoom, stopServerRoom } from './serverRoom'
+import { compareVersions } from './versionDiff'
 import { clearExtraInstance, killExtraInstance, launchExtraInstance, listExtraInstances } from './extraInstances'
 import {
   addSchematics,
@@ -743,6 +744,7 @@ function registerIpc(): void {
   ipcMain.handle('bisect:get', (_, versionId: string) => getModBisect(String(versionId)))
   ipcMain.handle('serverRoom:host', (_, mode: unknown) => hostServerRoom(mode))
   ipcMain.handle('extraInstances:list', () => listExtraInstances())
+  ipcMain.handle('versions:compare', (_, a: unknown, b: unknown) => compareVersions(a, b))
   ipcMain.handle('extraInstances:launch', (_, versionId: unknown, name: unknown) =>
     launchExtraInstance(versionId, name)
   )

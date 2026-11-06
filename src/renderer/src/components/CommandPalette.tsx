@@ -20,6 +20,7 @@ import {
   Anvil,
   CopyPlus,
   CircuitBoard,
+  FileDiff,
   Trash2,
   Trophy,
   Zap,
@@ -223,6 +224,14 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
         icon: CircuitBoard,
         keywords: '红石 漏斗 熔炉 燃料 比较器 信号 中继器 刻 生电 redstone hopper',
         run: tool('redstone')
+      },
+      {
+        id: 'tool:diff',
+        title: '版本差异对比',
+        group: '百宝箱',
+        icon: FileDiff,
+        keywords: '对比 差异 比较 整合包更新 改了什么 diff compare',
+        run: tool('diff')
       },
       {
         id: 'action:log',

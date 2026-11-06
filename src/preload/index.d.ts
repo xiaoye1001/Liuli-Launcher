@@ -67,6 +67,7 @@ import type {
   SchematicList,
   ModBisectState,
   ExtraInstance,
+  VersionDiff,
   SchematicDetails,
   SkinModel,
   CloudBackupConfig,
@@ -572,6 +573,8 @@ declare global {
       openMicrosoftLoginPage: () => Promise<void>
       /** 读取正版账号的皮肤与披风 */
       getMsSkinProfile: (uuid: string) => Promise<MsSkinProfile>
+      /** 版本差异对比 */
+      compareVersions: (a: string, b: string) => Promise<VersionDiff>
       /** 多开：再开几个游戏窗口（离线名字） */
       listExtraInstances: () => Promise<ExtraInstance[]>
       launchExtraInstance: (versionId: string, name: string) => Promise<ExtraInstance[]>

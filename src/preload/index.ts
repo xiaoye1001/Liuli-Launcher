@@ -358,6 +358,7 @@ const api = {
   listWardrobe: () => ipcRenderer.invoke('wardrobe:list'),
   hostServerRoom: (mode: 'p2p' | 'direct') => ipcRenderer.invoke('serverRoom:host', mode),
   listExtraInstances: () => ipcRenderer.invoke('extraInstances:list'),
+  compareVersions: (a: string, b: string) => ipcRenderer.invoke('versions:compare', a, b),
   launchExtraInstance: (versionId: string, name: string) =>
     ipcRenderer.invoke('extraInstances:launch', versionId, name),
   killExtraInstance: (id: string) => ipcRenderer.invoke('extraInstances:kill', id),
