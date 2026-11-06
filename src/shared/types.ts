@@ -1253,6 +1253,22 @@ export interface WardrobeSkin {
   addedAt: number
 }
 
+/** 存档体积分析 */
+export interface WorldSizeReport {
+  total: number
+  parts: { key: string; name: string; bytes: number; regions: number }[]
+}
+
+/** 存档瘦身：可以删掉的区域文件 */
+export interface WorldTrimPlan {
+  /** 检查了多少个区域文件 */
+  scanned: number
+  regions: { dimension: string; dimensionName: string; file: string; bytes: number; ticks: number }[]
+  bytes: number
+  minutes: number
+  radius: number
+}
+
 export type WaypointDimension = 'overworld' | 'the_nether' | 'the_end'
 
 /** 坐标笔记本里的一个地点 */

@@ -20,6 +20,7 @@ import { answerModBisect, finishModBisect, getModBisect, startModBisect } from '
 import { getServerRoom, hostServerRoom, setupServerRoom, stopServerRoom } from './serverRoom'
 import { compareVersions } from './versionDiff'
 import { deleteWaypoint, listWaypoints, saveWaypoint } from './worldWaypoints'
+import { analyzeWorldSize, applyWorldTrim, planWorldTrim } from './worldTrim'
 import { applyModSyncCode, createModSyncCode, previewModSyncCode } from './modSync'
 import { listConfigFiles, readConfigFile, restoreConfigFile, saveConfigEntries, saveConfigText } from './modConfigs'
 import { clearExtraInstance, killExtraInstance, launchExtraInstance, listExtraInstances } from './extraInstances'
@@ -748,6 +749,15 @@ function registerIpc(): void {
   ipcMain.handle('serverRoom:host', (_, mode: unknown) => hostServerRoom(mode))
   ipcMain.handle('extraInstances:list', () => listExtraInstances())
   ipcMain.handle('versions:compare', (_, a: unknown, b: unknown) => compareVersions(a, b))
+  ipcMain.handle('worldTrim:analyze', (_, versionId: string, folder: string) =>
+    analyzeWorldSize(String(versionId), String(folder))
+  )
+  ipcMain.handle('worldTrim:plan', (_, versionId: string, folder: string, minutes: unknown, radius: unknown) =>
+    planWorldTrim(String(versionId), String(folder), minutes, radius)
+  )
+  ipcMain.handle('worldTrim:apply', (_, versionId: string, folder: string, minutes: unknown, radius: unknown) =>
+    applyWorldTrim(String(versionId), String(folder), minutes, radius)
+  )
   ipcMain.handle('waypoints:list', (_, versionId: string, folder: string) =>
     listWaypoints(String(versionId), String(folder))
   )

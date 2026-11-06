@@ -3,6 +3,7 @@ import { Check, ChevronDown, Copy, Loader2, Map as MapIcon, Search, Star } from 
 import { seedMapUrl as mapUrlOf } from '../utils/seed'
 import WorldMapView from './WorldMapView'
 import WaypointsPanel from './WaypointsPanel'
+import WorldSizePanel from './WorldSizePanel'
 import type { Waypoint, WorldDetails, WorldDifficulty, WorldStats } from '../../../shared/types'
 
 /**
@@ -339,6 +340,8 @@ function WorldDetailsPanel({
       {details.stats && <WorldStatsGrid stats={details.stats} />}
 
       <WaypointsPanel versionId={versionId} folder={folder} player={p} onChange={setWaypoints} />
+
+      <WorldSizePanel versionId={versionId} folder={folder} />
 
       {/* 地图预览：点开时才读取区域文件 */}
       <div>
