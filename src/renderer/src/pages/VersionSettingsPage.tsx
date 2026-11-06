@@ -15,6 +15,7 @@ import {
   SquareTerminal,
   Terminal,
   Wrench,
+  Zap,
   type LucideIcon
 } from 'lucide-react'
 import VersionIcon from '../components/VersionIcon'
@@ -23,6 +24,7 @@ import { HEADER_BUTTON } from '../components/headerButtons'
 import JavaSelect, { type JavaChoice } from '../components/JavaSelect'
 import MemoryPlanSummary from '../components/MemoryPlanSummary'
 import GameOptionsPanel from '../components/GameOptionsPanel'
+import LaunchPresets from '../components/LaunchPresets'
 import VersionSnapshotsPanel from '../components/VersionSnapshotsPanel'
 import RepairWizard from '../components/RepairWizard'
 import type { AppSettings, InstalledVersion, JavaInfo, MemoryPlan, VersionConfig } from '../../../shared/types'
@@ -787,6 +789,27 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
           </Card>
 
           {/* 版本快照 */}
+          <Card
+            icon={Zap}
+            tint="bg-amber-500/15 text-amber-300"
+            title="启动参数预设"
+            desc="一键套用内存和 JVM 参数；只改这两项，可以随时再手动调整"
+            overridden={false}
+            onReset={() => undefined}
+            className="lg:col-span-2"
+          >
+            <LaunchPresets
+              config={config}
+              totalMemory={totalMemory}
+              memoryMax={memoryMax}
+              javaMajor={effectiveJava?.majorVersion ?? required}
+              onApply={(patch) => {
+                if (patch.maxMemory !== undefined) setMemoryDraft(patch.maxMemory)
+                void save(patch)
+              }}
+            />
+          </Card>
+
           <Card
             icon={History}
             tint="bg-sky-500/15 text-sky-300"
