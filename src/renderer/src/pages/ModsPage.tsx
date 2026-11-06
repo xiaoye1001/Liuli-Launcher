@@ -536,6 +536,10 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
                 setBrowserOpened(true)
                 setTab('modrinth')
               }}
+              onDelete={(fileName) => {
+                const mod = list.mods.find((m) => m.fileName === fileName)
+                if (mod) void remove(mod)
+              }}
             />
           )}
 

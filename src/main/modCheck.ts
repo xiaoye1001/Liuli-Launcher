@@ -372,8 +372,64 @@ function findConflicts(enabled: CheckedMod[], loader: ModLoader): ConflictIssue[
   return [...result, ...declared.values()]
 }
 
+const LOADER_NAMES: Record<string, string> = { fabric: 'Fabric', quilt: 'Quilt', forge: 'Forge', neoforge: 'NeoForge' }
+
+/** 不适合这个版本的模组：只有别的加载器的描述文件，或者声明的 Minecraft 版本范围不包括这个版本 */
+function findIncompatible(enabled: CheckedMod[], loader: ModLoader, minecraftVersion: string | undefined): ModIssue[] {
+  const result: ModIssue[] = []
+  // Sinytra Connector 让 Forge / NeoForge 也能加载 Fabric 模组
+  const connector = enabled.some((m) => m.modId === 'connector')
+  for (const mod of enabled) {
+    const kinds = Object.keys(mod.relations) as (keyof ModRelations)[]
+    const meta = metaFor(mod.relations, loader)
+    if (!meta) {
+      // 读不到描述文件的 jar（例如 OptiFine 本体）不算
+      if (kinds.length === 0) continue
+      if (connector && kinds.some((k) => k === 'fabric' || k === 'quilt')) continue
+      result.push({
+        kind: 'incompatible',
+        reason: 'loader',
+        detail: `这是 ${kinds.map((k) => LOADER_NAMES[k]).join(' / ')} 模组，这个版本用的是 ${LOADER_NAMES[loader] ?? loader}`,
+        mod: brief(mod)
+      })
+      continue
+    }
+    if (!minecraftVersion) continue
+    const dep = meta.depends.find((d) => d.ids.includes('minecraft'))
+    if (!dep || !dep.range.trim()) continue
+    const format = loader === 'forge' || loader === 'neoforge' ? 'maven' : 'semver'
+    // Forge 描述文件可能是旧格式（NeoForge 读 mods.toml 时）；判断不了的不报
+    if (versionInRange(dep.range, minecraftVersion, format) === false) {
+      result.push({
+        kind: 'incompatible',
+        reason: 'minecraft',
+        detail: `需要 Minecraft ${dep.range}，这个版本是 ${minecraftVersion}`,
+        mod: brief(mod)
+      })
+    }
+  }
+  return result
+}
+
+/** 更新后留下的旧版本：已禁用、和某个启用的模组 ID 相同 */
+function findLeftovers(mods: CheckedMod[], loader: ModLoader): ModIssue[] {
+  const result: ModIssue[] = []
+  for (const current of mods) {
+    if (!current.enabled || !current.modId || !metaFor(current.relations, loader)) continue
+    const old = mods.filter((m) => !m.enabled && m.modId === current.modId)
+    if (old.length > 0) {
+      result.push({ kind: 'leftover', modId: current.modId, current: brief(current), old: old.map(brief) })
+    }
+  }
+  return result
+}
+
 /** 检查模组之间的问题：缺少前置模组（或前置被禁用了）、同一个模组装了多个、互相冲突 */
-export function findModIssues(mods: CheckedMod[], loader: ModLoader | undefined): ModIssue[] {
+export function findModIssues(
+  mods: CheckedMod[],
+  loader: ModLoader | undefined,
+  minecraftVersion?: string
+): ModIssue[] {
   if (!loader || loader === 'optifine') return []
   const enabled = mods.filter((m) => m.enabled)
   const provided = new Set<string>()
@@ -423,5 +479,11 @@ export function findModIssues(mods: CheckedMod[], loader: ModLoader | undefined)
       mods: list.map((m) => ({ fileName: m.fileName, name: m.name, version: m.version }))
     }))
 
-  return [...missing.values(), ...duplicates, ...findConflicts(enabled, loader)]
+  return [
+    ...missing.values(),
+    ...duplicates,
+    ...findConflicts(enabled, loader),
+    ...findIncompatible(enabled, loader, minecraftVersion),
+    ...findLeftovers(mods, loader)
+  ]
 }

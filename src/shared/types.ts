@@ -800,6 +800,22 @@ export type ModIssue =
       mods: { fileName: string; name: string; version: string }[]
     }
   | {
+      /** 模组不适合这个版本：给别的加载器用的，或者声明的游戏版本不包括这个版本 */
+      kind: 'incompatible'
+      reason: 'loader' | 'minecraft'
+      /** 给人看的说明，例如「这是 Forge 模组」「需要 Minecraft 1.21.x」 */
+      detail: string
+      mod: { fileName: string; name: string; version: string }
+    }
+  | {
+      /** 更新后留下的旧版本（已禁用），可以删掉 */
+      kind: 'leftover'
+      modId: string
+      /** 正在用的那个 */
+      current: { fileName: string; name: string; version: string }
+      old: { fileName: string; name: string; version: string }[]
+    }
+  | {
       /** 模组之间互相冲突 */
       kind: 'conflict'
       /** declared：模组自己在描述文件里声明的；known：启动器内置的常见冲突 */
