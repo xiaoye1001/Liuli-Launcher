@@ -21,6 +21,7 @@ import ClickEffects from './components/ClickEffects'
 import AchievementToast from './components/AchievementToast'
 import CommandPalette from './components/CommandPalette'
 import GameLaunchOverlay from './components/GameLaunchOverlay'
+import OnboardingWizard from './components/OnboardingWizard'
 import type { ModpackInfo, ResourceType } from '../../shared/types'
 import { DEFAULT_TITLE, useAppearance, useAppearanceLoaded } from './utils/appearance'
 import DynamicBackground from './components/DynamicBackground'
@@ -194,6 +195,8 @@ function App(): JSX.Element {
           <CommandPalette navigate={setPage} openVersionSettings={openVersionSettings} />
           {/* 解锁成就时的「达成进度！」提示 */}
           <AchievementToast />
+          {/* 新手引导：第一次打开（还没装游戏）时，开屏动画结束后显示 */}
+          {!splash && <OnboardingWizard onInstall={installVersion} onOpenAccount={() => setPage('account')} />}
           {/* 读到外观设置之前先用纯背景盖住（只有一瞬间），避免主界面闪一下或按默认设置播放开屏动画 */}
           {splash && !appearanceLoaded && <div className="app-background fixed inset-0 z-[70]" />}
           <AnimatePresence>

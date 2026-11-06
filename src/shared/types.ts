@@ -111,6 +111,8 @@ export interface AppSettings {
   modUpdateCheck: boolean
   /** Minecraft 新版本发布提醒：off 不提醒，release 只提醒正式版，all 正式版和快照都提醒 */
   gameReleaseAlerts: 'off' | 'release' | 'all'
+  /** 新手引导已经走完（或跳过） */
+  onboardingDone: boolean
   /** 存档云备份（WebDAV）：备份后自动上传 */
   cloudBackupEnabled: boolean
   /** WebDAV 地址（只能是 https，本机地址可以用 http） */

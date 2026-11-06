@@ -571,6 +571,8 @@ declare global {
       openMicrosoftLoginPage: () => Promise<void>
       /** 读取正版账号的皮肤与披风 */
       getMsSkinProfile: (uuid: string) => Promise<MsSkinProfile>
+      /** 新手引导要不要显示 */
+      shouldShowOnboarding: () => Promise<boolean>
       /** 模组二分排查 */
       getModBisect: (versionId: string) => Promise<ModBisectState | null>
       startModBisect: (versionId: string) => Promise<ModBisectState>

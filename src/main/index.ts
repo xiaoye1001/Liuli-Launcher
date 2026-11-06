@@ -739,6 +739,11 @@ function registerIpc(): void {
   ipcMain.handle('ms:setCape', (_, uuid: string, capeId: string | null) => setMsCape(uuid, capeId))
   ipcMain.handle('wardrobe:list', () => listWardrobe())
   ipcMain.handle('bisect:get', (_, versionId: string) => getModBisect(String(versionId)))
+  // 新手引导：还没走完、而且还没有装任何游戏版本时显示（老用户升级后不会突然弹出来）
+  ipcMain.handle('onboarding:shouldShow', async () => {
+    if ((await getSettings()).onboardingDone) return false
+    return (await listInstalledVersions().catch(() => [])).length === 0
+  })
   ipcMain.handle('bisect:start', (_, versionId: string) => startModBisect(String(versionId)))
   ipcMain.handle('bisect:answer', (_, versionId: string, result: unknown) => answerModBisect(String(versionId), result))
   ipcMain.handle('bisect:finish', (_, versionId: string, disableFound: unknown) =>

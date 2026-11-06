@@ -92,6 +92,7 @@ function defaultSettings(): AppSettings {
     autoSnapshots: true,
     modUpdateCheck: true,
     gameReleaseAlerts: 'release',
+    onboardingDone: false,
     cloudBackupEnabled: false,
     cloudBackupUrl: '',
     cloudBackupUser: '',

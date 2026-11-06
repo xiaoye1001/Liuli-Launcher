@@ -226,6 +226,8 @@ function HomePage({
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [versions, setVersions] = useState<InstalledVersion[]>([])
   const [name, setName] = useState('')
+  /** 最近一次保存（或读到）的离线玩家名，用来发现别处改了名字 */
+  const savedName = useRef<string | null>(null)
   const [game, setGame] = useState<GameStatus>({ state: 'idle', versionId: '' })
   const [accounts, setAccounts] = useState<AccountsInfo | null>(null)
   /** 启动时自动下载 Java 的进度 */
@@ -270,6 +272,7 @@ function HomePage({
         setAccounts(accountsInfo)
         setSettings(loaded)
         setName(loaded.offlineName)
+        savedName.current = loaded.offlineName
         setVersions(installed)
         // 上次选择的版本已不存在时，默认选第一个
         if (installed.length > 0 && !installed.some((v) => v.id === loaded.selectedVersion)) {
@@ -295,11 +298,19 @@ function HomePage({
           : prev
       )
     )
+    // 在别处改了离线玩家名（例如新手引导）：跟着更新；自己保存的名字广播回来时不变
+    const offName = window.api.onSettingsChanged((next) => {
+      if (savedName.current === null || next.offlineName === savedName.current) return
+      savedName.current = next.offlineName
+      setName(next.offlineName)
+      setSettings((prev) => (prev ? { ...prev, offlineName: next.offlineName } : prev))
+    })
     return () => {
       alive = false
       offInstall()
       offGame()
       offSettings()
+      offName()
     }
   }, [])
 
@@ -317,6 +328,7 @@ function HomePage({
 
   const saveName = async (): Promise<void> => {
     if (!msAccount && nameValid && settings && name !== settings.offlineName) {
+      savedName.current = name
       setSettings(await window.api.updateSettings({ offlineName: name }))
     }
   }

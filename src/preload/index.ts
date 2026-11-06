@@ -356,6 +356,7 @@ const api = {
   openMicrosoftLoginPage: () => ipcRenderer.invoke('ms:openLoginPage'),
   getMsSkinProfile: (uuid: string) => ipcRenderer.invoke('ms:skinProfile', uuid),
   listWardrobe: () => ipcRenderer.invoke('wardrobe:list'),
+  shouldShowOnboarding: () => ipcRenderer.invoke('onboarding:shouldShow'),
   getModBisect: (versionId: string) => ipcRenderer.invoke('bisect:get', versionId),
   startModBisect: (versionId: string) => ipcRenderer.invoke('bisect:start', versionId),
   answerModBisect: (versionId: string, result: 'bad' | 'good') =>
