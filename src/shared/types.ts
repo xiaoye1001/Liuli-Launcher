@@ -105,6 +105,17 @@ export interface AppSettings {
   showTrivia: boolean
   /** 主页显示「每日小目标」 */
   showDailyGoal: boolean
+  /** 改模组前（更新模组、整合包、一键优化等）自动拍版本快照 */
+  autoSnapshots: boolean
+  /** 后台定期检查模组更新 */
+  modUpdateCheck: boolean
+  /** 存档云备份（WebDAV）：备份后自动上传 */
+  cloudBackupEnabled: boolean
+  /** WebDAV 地址（只能是 https，本机地址可以用 http） */
+  cloudBackupUrl: string
+  cloudBackupUser: string
+  /** 网盘里放备份的文件夹 */
+  cloudBackupFolder: string
   /** 玩家的生日（MM-DD），当天主页有彩蛋；空字符串为没有填 */
   birthday: string
   /** 主页的「最近游玩」收起（只显示标题） */
@@ -1110,6 +1121,57 @@ export interface ModProfile {
   disabled: string[]
 }
 
+/** 存档云备份的设置（不包含密码） */
+export interface CloudBackupConfig {
+  enabled: boolean
+  url: string
+  user: string
+  folder: string
+  /** 保存了可用的密码（只对保存时的网址和用户名有效） */
+  hasPassword: boolean
+}
+
+export interface CloudBackupInput {
+  enabled: boolean
+  url: string
+  user: string
+  /** 为空时保留原来的密码 */
+  password?: string
+  folder: string
+  /** 清除网盘设置和密码 */
+  clear?: boolean
+}
+
+export interface CloudBackupStatus {
+  state: 'idle' | 'uploading' | 'error'
+  /** 正在上传的备份 */
+  file?: string
+  error?: string
+  lastUploadAt?: number
+  /** 排队等待上传的数量（包括正在上传的） */
+  queued: number
+}
+
+/** 网盘里的一份存档备份 */
+export interface CloudBackupItem {
+  /** 网盘里的游戏目录文件夹（游戏目录名-哈希） */
+  source: string
+  file: string
+  world: string
+  size: number
+  createdAt: number
+  auto: boolean
+  /** 是这个版本的游戏目录上传的 */
+  mine: boolean
+}
+
+/** 后台检查到的、一个版本可以更新的模组 */
+export interface ModUpdateSummary {
+  /** 检查时间 */
+  at: number
+  mods: { fileName: string; title: string; newVersion: string }[]
+}
+
 /** 一键开服：一个本地服务器 */
 export interface LocalServer {
   id: string
@@ -1146,7 +1208,29 @@ export interface LocalServerStatus {
   /** 局域网里朋友可以用的地址 */
   addresses: string[]
   port: number
+  /** 在线玩家（从服务器输出里的加入、离开记录得到） */
+  players: string[]
 }
+
+/** 一键开服的玩家名单 */
+export interface LocalServerPlayers {
+  online: string[]
+  /** 管理员（ops.json） */
+  ops: string[]
+  /** 白名单（whitelist.json） */
+  whitelist: string[]
+  /** 是否开启了白名单（server.properties 的 white-list） */
+  whitelistEnabled: boolean
+}
+
+export type LocalServerPlayerAction =
+  | 'op'
+  | 'deop'
+  | 'kick'
+  | 'whitelistAdd'
+  | 'whitelistRemove'
+  | 'whitelistOn'
+  | 'whitelistOff'
 
 /** 每日小目标的状态 */
 export interface DailyGoalStatus {

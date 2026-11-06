@@ -10,15 +10,28 @@ import { getGameResourceHistory, getGameResources, setupGameMonitor } from './ga
 import { setupNotifications } from './notify'
 import { clearCrashHistory, listCrashHistory, setupCrashHistory } from './crashHistory'
 import { applyModProfile, deleteModProfile, listModProfiles, saveModProfile } from './modProfiles'
-import { createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot } from './versionSnapshots'
+import { autoSnapshot, createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot } from './versionSnapshots'
 import { applyModMigration, checkModMigration } from './modMigration'
+import { getModUpdateSummary, markModUpdated, recordModUpdates, setupModUpdateWatch } from './modUpdateWatch'
+import {
+  configureCloudBackup,
+  downloadCloudBackup,
+  getCloudBackupConfig,
+  getCloudBackupStatus,
+  listCloudBackups,
+  testCloudBackup,
+  uploadExistingBackup,
+  uploadIfEnabled
+} from './cloudBackup'
 import { addSeedFavorite, deleteSeedFavorite, listSeedFavorites, updateSeedFavorite } from './seedFavorites'
 import { getDailyGoal, setDailyGoalDone, skipDailyGoal } from './dailyGoals'
 import {
   createLocalServer,
   deleteLocalServer,
+  getLocalServerPlayers,
   getLocalServerStatus,
   listLocalServers,
+  manageLocalServerPlayer,
   openLocalServerFolder,
   redownloadLocalServer,
   sendLocalServerCommand,
@@ -263,7 +276,9 @@ import type {
   VideoPreset,
   SeedFavorite,
   LocalServer,
-  LocalServerInput
+  LocalServerInput,
+  LocalServerPlayerAction,
+  CloudBackupInput
 } from '../shared/types'
 import { HIDEABLE_PAGES, PARTICLE_EFFECTS, THEME_PRESETS } from '../shared/types'
 import { sanitizeAutoTheme, sanitizeCustomThemes } from '../shared/theme'
@@ -502,10 +517,31 @@ function registerIpc(): void {
     addMods(versionId, BrowserWindow.fromWebContents(event.sender))
   )
   ipcMain.handle('mods:open', (_, versionId: string) => openModsDir(versionId))
-  ipcMain.handle('mods:checkUpdates', (_, versionId: string) => checkModUpdates(versionId))
-  ipcMain.handle('mods:update', (_, versionId: string, fileName: string, modrinthVersionId: string) =>
-    updateMod(versionId, fileName, modrinthVersionId)
+  ipcMain.handle('mods:checkUpdates', async (_, versionId: string) => {
+    const updates = await checkModUpdates(versionId)
+    // 手动检查的结果也记下来，版本列表上的「可更新」数量跟着变
+    void recordModUpdates(versionId, updates).catch(() => undefined)
+    return updates
+  })
+  ipcMain.handle('modUpdates:summary', () => getModUpdateSummary())
+  ipcMain.handle('cloudBackup:config', () => getCloudBackupConfig())
+  ipcMain.handle('cloudBackup:configure', (_, input: CloudBackupInput) => configureCloudBackup(input))
+  ipcMain.handle('cloudBackup:test', () => testCloudBackup())
+  ipcMain.handle('cloudBackup:status', () => getCloudBackupStatus())
+  ipcMain.handle('cloudBackup:list', (_, versionId: string) => listCloudBackups(versionId))
+  ipcMain.handle('cloudBackup:upload', (_, versionId: string, file: string) =>
+    uploadExistingBackup(versionId, String(file))
   )
+  ipcMain.handle('cloudBackup:download', (_, versionId: string, source: string, file: string) =>
+    downloadCloudBackup(versionId, String(source), String(file))
+  )
+  // 改模组前先自动拍一张版本快照（10 分钟内只拍一次，失败不影响原来的操作）
+  ipcMain.handle('mods:update', async (_, versionId: string, fileName: string, modrinthVersionId: string) => {
+    await autoSnapshot(versionId, '更新模组')
+    const result = await updateMod(versionId, fileName, modrinthVersionId)
+    void markModUpdated(versionId, fileName).catch(() => undefined)
+    return result
+  })
   ipcMain.handle('mods:rollbacks', (_, versionId: string) => listModRollbacks(versionId))
   ipcMain.handle('mods:rollback', async (_, versionId: string, id: string) => {
     const restored = await rollbackModUpdate(versionId, id)
@@ -530,6 +566,10 @@ function registerIpc(): void {
   ipcMain.handle('localServer:start', (_, id: string) => startLocalServer(String(id)))
   ipcMain.handle('localServer:stop', () => stopLocalServer())
   ipcMain.handle('localServer:command', (_, command: string) => sendLocalServerCommand(String(command ?? '')))
+  ipcMain.handle('localServer:players', (_, id: string) => getLocalServerPlayers(String(id)))
+  ipcMain.handle('localServer:managePlayer', (_, id: string, action: LocalServerPlayerAction, name?: string) =>
+    manageLocalServerPlayer(String(id), action, typeof name === 'string' ? name : undefined)
+  )
   ipcMain.handle('dailyGoal:done', (_, done: boolean) => setDailyGoalDone(done === true))
   ipcMain.handle('dailyGoal:skip', () => skipDailyGoal())
   ipcMain.handle('seeds:add', (_, input: Partial<SeedFavorite>) => addSeedFavorite(input))
@@ -544,8 +584,10 @@ function registerIpc(): void {
   )
   ipcMain.handle(
     'modMigration:apply',
-    (_, versionId: string, targetId: string, mods: { projectId: string; title: string }[]) =>
-      applyModMigration(versionId, String(targetId), mods)
+    async (_, versionId: string, targetId: string, mods: { projectId: string; title: string }[]) => {
+      await autoSnapshot(String(targetId), '迁移模组')
+      return applyModMigration(versionId, String(targetId), mods)
+    }
   )
   ipcMain.handle('collections:list', () => listModCollections())
   ipcMain.handle('collections:save', async (_, versionId: string, name: string) => {
@@ -555,8 +597,12 @@ function registerIpc(): void {
   })
   ipcMain.handle('collections:delete', (_, id: string) => deleteModCollection(String(id)))
   ipcMain.handle('collections:rename', (_, id: string, name: string) => renameModCollection(String(id), name))
-  ipcMain.handle('collections:apply', (_, versionId: string, id: string) => applyModCollection(versionId, String(id)))
+  ipcMain.handle('collections:apply', async (_, versionId: string, id: string) => {
+    await autoSnapshot(versionId, '安装模组合集')
+    return applyModCollection(versionId, String(id))
+  })
   ipcMain.handle('shaders:setup', async (_, versionId: string, choice: ShaderChoice) => {
+    await autoSnapshot(versionId, '一键光影')
     const result = await setupShaders(versionId, choice)
     if (result.activated) void unlockAchievement('shader_fan').catch(() => undefined)
     return result
@@ -594,6 +640,8 @@ function registerIpc(): void {
   ipcMain.handle('worlds:backup', (_, versionId: string, folder: string) =>
     backupWorld(versionId, folder).then((result) => {
       void unlockAchievement('backup').catch(() => undefined)
+      // 开启了存档云备份：在后台上传（失败不影响本地备份）
+      void uploadIfEnabled(versionId, [result.path]).catch(() => undefined)
       return result
     })
   )
@@ -692,17 +740,22 @@ function registerIpc(): void {
   ipcMain.handle('modpack:pickUpdateFile', (event, versionId: string) =>
     pickModpackUpdateFile(String(versionId), BrowserWindow.fromWebContents(event.sender))
   )
-  ipcMain.handle('modpack:applyUpdate', (_, versionId: string, token: string) =>
-    applyModpackUpdate(String(versionId), String(token))
-  )
+  ipcMain.handle('modpack:applyUpdate', async (_, versionId: string, token: string) => {
+    await autoSnapshot(String(versionId), '更新整合包')
+    return applyModpackUpdate(String(versionId), String(token))
+  })
   ipcMain.handle('modrinth:search', (_, versionId: string, query: string, offset: number) =>
     searchModrinth(versionId, query, offset)
   )
-  ipcMain.handle('mods:performance', (_, versionId: string) => installPerformanceMods(versionId))
+  ipcMain.handle('mods:performance', async (_, versionId: string) => {
+    await autoSnapshot(versionId, '一键性能优化')
+    return installPerformanceMods(versionId)
+  })
   ipcMain.handle('mods:translation', (_, versionId: string) => installModTranslation(versionId))
-  ipcMain.handle('modrinth:install', (_, versionId: string, projectId: string) =>
-    installFromModrinth(versionId, projectId)
-  )
+  ipcMain.handle('modrinth:install', async (_, versionId: string, projectId: string) => {
+    await autoSnapshot(versionId, '安装模组')
+    return installFromModrinth(versionId, projectId)
+  })
   ipcMain.handle('game:launch', (_, versionId: string, server?: string, world?: string) => {
     // 「多人游戏」「无缝衔接」成就在游戏窗口出现后才解锁（启动失败不算）
     noteLaunchRequest(server, world)
@@ -893,6 +946,7 @@ app.whenReady().then(async () => {
   setupCrashHistory()
   setupServerWatch()
   setupLocalServerShutdown()
+  setupModUpdateWatch()
   setupAchievements()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)

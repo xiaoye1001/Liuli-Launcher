@@ -8,6 +8,7 @@ import {
   Gauge,
   Grid2x2Check,
   Server,
+  TerminalSquare,
   Sprout,
   Trash2,
   Trophy,
@@ -25,6 +26,7 @@ import SeedFavoritesPanel from '../components/SeedFavoritesPanel'
 import MinecraftToolsPanel from '../components/MinecraftToolsPanel'
 import SlimeChunksPanel from '../components/SlimeChunksPanel'
 import LocalServerPanel from '../components/LocalServerPanel'
+import CommandGeneratorPanel from '../components/CommandGeneratorPanel'
 import PageHeader from '../components/PageHeader'
 
 type ToolKey =
@@ -39,6 +41,7 @@ type ToolKey =
   | 'calc'
   | 'slime'
   | 'server'
+  | 'commands'
 
 interface Tool {
   key: ToolKey
@@ -79,7 +82,14 @@ const TOOLS: Tool[] = [
   { key: 'seeds', title: '种子收藏夹', desc: '记下好玩的世界种子', icon: Sprout, tint: 'text-emerald-300' },
   { key: 'calc', title: 'Minecraft 小工具', desc: '下界坐标、区块、游戏时间', icon: Calculator, tint: 'text-sky-300' },
   { key: 'slime', title: '史莱姆区块', desc: '输入种子，看哪里刷史莱姆', icon: Grid2x2Check, tint: 'text-emerald-300' },
-  { key: 'server', title: '一键开服', desc: '开个服务器和朋友一起玩', icon: Server, tint: 'text-rose-300' }
+  { key: 'server', title: '一键开服', desc: '开个服务器和朋友一起玩', icon: Server, tint: 'text-rose-300' },
+  {
+    key: 'commands',
+    title: '命令生成器',
+    desc: '给物品、状态效果、召唤',
+    icon: TerminalSquare,
+    tint: 'text-emerald-300'
+  }
 ]
 
 const LAST_TOOL_KEY = TOOLBOX_KEY
@@ -114,7 +124,7 @@ function MorePage(): JSX.Element {
     <div className="page-scroll flex h-full flex-col gap-4">
       <PageHeader
         title="更多"
-        subtitle="百宝箱：高速下载、清理缓存、Java 检测、测速、游玩报告、成就、崩溃记录、种子、小工具、史莱姆区块、一键开服"
+        subtitle="百宝箱：高速下载、清理缓存、Java 检测、测速、游玩报告、成就、崩溃记录、种子、小工具、史莱姆区块、一键开服、命令生成器"
       />
 
       {/* 小工具入口 */}
@@ -158,6 +168,7 @@ function MorePage(): JSX.Element {
       {current === 'calc' && <MinecraftToolsPanel />}
       {current === 'slime' && <SlimeChunksPanel />}
       {current === 'server' && <LocalServerPanel />}
+      {current === 'commands' && <CommandGeneratorPanel />}
     </div>
   )
 }

@@ -150,6 +150,25 @@ const api = {
   deleteSnapshot: (versionId: string, id: string) => ipcRenderer.invoke('snapshots:delete', versionId, id),
   listSeedFavorites: () => ipcRenderer.invoke('seeds:list'),
   getDailyGoal: () => ipcRenderer.invoke('dailyGoal:get'),
+  getModUpdateSummary: () => ipcRenderer.invoke('modUpdates:summary'),
+  getCloudBackupConfig: () => ipcRenderer.invoke('cloudBackup:config'),
+  configureCloudBackup: (input: Record<string, unknown>) => ipcRenderer.invoke('cloudBackup:configure', input),
+  testCloudBackup: () => ipcRenderer.invoke('cloudBackup:test'),
+  getCloudBackupStatus: () => ipcRenderer.invoke('cloudBackup:status'),
+  listCloudBackups: (versionId: string) => ipcRenderer.invoke('cloudBackup:list', versionId),
+  uploadWorldBackup: (versionId: string, file: string) => ipcRenderer.invoke('cloudBackup:upload', versionId, file),
+  downloadCloudBackup: (versionId: string, source: string, file: string) =>
+    ipcRenderer.invoke('cloudBackup:download', versionId, source, file),
+  onCloudBackupStatus: (callback: (status: unknown) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, status: unknown): void => callback(status)
+    ipcRenderer.on('cloudBackup:status', listener)
+    return () => ipcRenderer.removeListener('cloudBackup:status', listener)
+  },
+  onModUpdatesChanged: (callback: (summary: Record<string, unknown>) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, summary: Record<string, unknown>): void => callback(summary)
+    ipcRenderer.on('modUpdates:changed', listener)
+    return () => ipcRenderer.removeListener('modUpdates:changed', listener)
+  },
   listLocalServers: () => ipcRenderer.invoke('localServer:list'),
   getLocalServerStatus: () => ipcRenderer.invoke('localServer:status'),
   createLocalServer: (input: Record<string, unknown>) => ipcRenderer.invoke('localServer:create', input),
@@ -161,6 +180,9 @@ const api = {
   startLocalServer: (id: string) => ipcRenderer.invoke('localServer:start', id),
   stopLocalServer: () => ipcRenderer.invoke('localServer:stop'),
   sendLocalServerCommand: (command: string) => ipcRenderer.invoke('localServer:command', command),
+  getLocalServerPlayers: (id: string) => ipcRenderer.invoke('localServer:players', id),
+  manageLocalServerPlayer: (id: string, action: string, name?: string) =>
+    ipcRenderer.invoke('localServer:managePlayer', id, action, name),
   onLocalServerStatus: (callback: (status: unknown) => void) => {
     const listener = (_: Electron.IpcRendererEvent, status: unknown): void => callback(status)
     ipcRenderer.on('localServer:status', listener)

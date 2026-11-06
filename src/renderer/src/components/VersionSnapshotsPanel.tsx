@@ -23,6 +23,24 @@ function VersionSnapshotsPanel({
   const [confirm, setConfirm] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  /** 改模组前自动拍快照（全局设置） */
+  const [auto, setAuto] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    window.api
+      .getSettings()
+      .then((s) => setAuto(s.autoSnapshots))
+      .catch(() => setAuto(null))
+  }, [])
+
+  const toggleAuto = async (): Promise<void> => {
+    if (auto === null) return
+    try {
+      setAuto((await window.api.updateSettings({ autoSnapshots: !auto })).autoSnapshots)
+    } catch (e) {
+      setError(cleanError(e))
+    }
+  }
 
   const refresh = useCallback(async () => {
     try {
@@ -162,6 +180,25 @@ function VersionSnapshotsPanel({
             </div>
           ))}
         </div>
+      )}
+
+      {auto !== null && (
+        <label className="flex cursor-pointer items-start gap-2 rounded-xl bg-black/20 px-3 py-2 text-sm">
+          <input
+            type="checkbox"
+            checked={auto}
+            onChange={() => void toggleAuto()}
+            aria-label="改模组前自动拍快照"
+            className="mt-1"
+          />
+          <span>
+            改模组前自动拍快照
+            <span className="block text-xs text-white/50">
+              更新模组或整合包、安装模组或合集、一键优化、一键光影、迁移模组之前自动保存一份（10 分钟内只拍一次， 超过 2
+              GB 不拍），标「自动」，只留最近 5 个
+            </span>
+          </span>
+        </label>
       )}
 
       <p className="text-xs text-white/40">

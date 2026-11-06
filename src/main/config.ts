@@ -89,6 +89,12 @@ function defaultSettings(): AppSettings {
     showSplash: true,
     showTrivia: true,
     showDailyGoal: true,
+    autoSnapshots: true,
+    modUpdateCheck: true,
+    cloudBackupEnabled: false,
+    cloudBackupUrl: '',
+    cloudBackupUser: '',
+    cloudBackupFolder: 'LiuliLauncher',
     birthday: '',
     recentPlaysCollapsed: false,
     downloadThreads: 16,
@@ -162,7 +168,12 @@ const MANAGED_KEYS = new Set<string>([
   'aiBaseUrl',
   'aiModel',
   // 存档备份位置由选择文件夹的接口检查后修改
-  'backupDir'
+  'backupDir',
+  // 存档云备份的网盘地址、账号由云备份设置接口检查后修改
+  'cloudBackupEnabled',
+  'cloudBackupUrl',
+  'cloudBackupUser',
+  'cloudBackupFolder'
 ])
 
 /** 取值固定的设置项 */

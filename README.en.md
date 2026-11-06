@@ -77,24 +77,27 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 
 ### Version and world management
 - Mods: enable / disable, dependency checks, update checks, a one-click link to each mod's **MC百科 (MCMod)** page; **roll back** an update that causes problems (the crash screen suggests rolling back recently updated mods)
+- **Mod update reminders**: mod updates are checked in the background and the version list shows how many mods can be updated
 - **Mod profiles**: save which mods are on and off (for example "survival" or "shaders") and switch in one click
 - **Mod migration helper**: when moving to a new game version, check which mods have a build for it and install them in one click
-- **Version snapshots**: save a copy of the mods, mod configs and game settings, and restore it in one click if something breaks
+- **Version snapshots**: save a copy of the mods, mod configs and game settings, and restore it in one click if something breaks; **automatic snapshots** are taken before updating mods or modpacks, one-click optimization and similar actions, and the crash screen can go back to the latest snapshot
 - One-click **performance mods** (Sodium, Lithium, FerriteCore and more) and **mod translations** (CFPA's I18nUpdateMod, updated automatically in game)
 - **Mod collections**: save your favorite mods as a collection and install it into another version in one click (matching versions are picked automatically)
 - Worlds: backup and restore, import, seed and game rules, data packs; worlds you played are **backed up automatically** after the game exits (latest 3 per world), to a backup folder of your choice
+- **Cloud world backup (WebDAV)**: backups are uploaded to your own cloud drive (Jianguoyun, Nextcloud, Synology and more) and can be downloaded on another computer; the password is stored encrypted
 - Per-world statistics (play time, deaths, diamonds mined and more), a **world map preview** (top-down view of the Overworld), a one-click seed map and saving seeds to your favorites
 - Resource packs, shader packs and screenshots; **one-click shaders** installs Iris / Oculus and a rendering mod, downloads a shader pack and turns it on
 
 ### Servers and multiplayer
 - Save servers with player count, ping and MOTD; join directly; turn on **online alerts** to get a notification when a server comes online or someone joins
 - Three ways to play together, all with a single room code: **direct connection**, **P2P networking** (powered by [EasyTier](https://github.com/EasyTier/EasyTier)) and **tunnels**
-- **One-click server**: host a vanilla server on your own computer (the official server is downloaded from Mojang, and you must agree to the Minecraft EULA) that friends on the same network can join; view the output, send commands, and it is saved and stopped automatically when the launcher quits
+- **One-click server**: host a vanilla server on your own computer (the official server is downloaded from Mojang, and you must agree to the Minecraft EULA) that friends on the same network can join; view the output, send commands, manage online players, operators and the whitelist with buttons, and it is saved and stopped automatically when the launcher quits
 
 ### Toolbox
 - **Seed favorites**: keep track of interesting world seeds (text seeds supported), copy them or open a seed map
 - **Minecraft tools**: Nether / Overworld coordinates, chunk coordinates and game time conversion (copy the /time set command)
 - **Slime chunk finder** (Java Edition): enter a seed and see which chunks around a position spawn slimes, using the same algorithm as the game
+- **Command generator** (Java Edition): build /give (enchantments, names), /effect, /summon and /tellraw commands from a form, using the right syntax for your game version
 
 ### Accounts
 - Offline accounts, **Microsoft accounts** and authlib-injector skin sites such as LittleSkin

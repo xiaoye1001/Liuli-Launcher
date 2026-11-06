@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ArrowRightLeft,
@@ -118,6 +118,20 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
   useEffect(() => {
     load()
   }, [load])
+
+  // 后台检查发现这个版本有模组可以更新：打开模组页时自动检查一次，直接显示「更新」按钮
+  const autoChecked = useRef(false)
+  useEffect(() => {
+    if (autoChecked.current) return
+    autoChecked.current = true
+    void window.api
+      .getModUpdateSummary()
+      .then((summary) => {
+        if ((summary[version.id]?.mods.length ?? 0) > 0) void checkUpdates()
+      })
+      .catch(() => undefined)
+    // 只在打开页面时检查一次
+  }, [])
 
   const run = async (fileName: string | null, action: () => Promise<void>): Promise<void> => {
     setPending(fileName)

@@ -58,9 +58,16 @@ import type {
   ModMigrationCheck,
   SeedFavorite,
   DailyGoalStatus,
+  ModUpdateSummary,
+  CloudBackupConfig,
+  CloudBackupInput,
+  CloudBackupItem,
+  CloudBackupStatus,
   LocalServer,
   LocalServerInput,
   LocalServerStatus,
+  LocalServerPlayers,
+  LocalServerPlayerAction,
   ShaderSetupResult,
   ModTranslationResult,
   ModpackInfo,
@@ -267,9 +274,30 @@ declare global {
       stopLocalServer: () => Promise<void>
       /** 往服务器控制台发命令（一行，不用加 /） */
       sendLocalServerCommand: (command: string) => Promise<void>
+      /** 在线玩家、管理员、白名单 */
+      getLocalServerPlayers: (id: string) => Promise<LocalServerPlayers>
+      /** 管理玩家（服务器运行时）：设为 / 取消管理员、踢出、白名单 */
+      manageLocalServerPlayer: (id: string, action: LocalServerPlayerAction, name?: string) => Promise<void>
       onLocalServerStatus: (callback: (status: LocalServerStatus) => void) => () => void
       onLocalServerLog: (callback: (line: string) => void) => () => void
       onLocalServersChanged: (callback: () => void) => () => void
+      /** 存档云备份（WebDAV）的设置，不包含密码 */
+      getCloudBackupConfig: () => Promise<CloudBackupConfig>
+      /** 保存网盘设置（密码为空时保留原来的） */
+      configureCloudBackup: (input: CloudBackupInput) => Promise<CloudBackupConfig>
+      /** 测试连接，成功时返回说明 */
+      testCloudBackup: () => Promise<string>
+      getCloudBackupStatus: () => Promise<CloudBackupStatus>
+      /** 网盘里的存档备份（包括别的电脑上传的） */
+      listCloudBackups: (versionId: string) => Promise<CloudBackupItem[]>
+      /** 把一个本地备份上传到网盘 */
+      uploadWorldBackup: (versionId: string, file: string) => Promise<void>
+      /** 把网盘里的备份下载到这个版本的备份文件夹 */
+      downloadCloudBackup: (versionId: string, source: string, file: string) => Promise<string>
+      onCloudBackupStatus: (callback: (status: CloudBackupStatus) => void) => () => void
+      /** 后台检查到的各个版本可以更新的模组 */
+      getModUpdateSummary: () => Promise<Record<string, ModUpdateSummary>>
+      onModUpdatesChanged: (callback: (summary: Record<string, ModUpdateSummary>) => void) => () => void
       /** 每日小目标 */
       getDailyGoal: () => Promise<DailyGoalStatus>
       /** 打卡（false 取消今天的打卡） */

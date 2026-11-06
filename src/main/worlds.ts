@@ -28,7 +28,7 @@ const MAX_ICON_BYTES = 256 * 1024
 const MAX_WORLD_BYTES = 64 * 1024 * 1024 * 1024
 
 /** 版本使用的游戏目录（考虑版本隔离） */
-async function gameDirOf(versionId: string): Promise<string> {
+export async function gameDirOf(versionId: string): Promise<string> {
   return dirname((await modsContextOf(versionId)).dir)
 }
 
@@ -430,11 +430,13 @@ export async function autoBackupWorlds(
   versionId: string,
   since: number,
   prune: boolean
-): Promise<{ done: string[]; failed: string[] }> {
+): Promise<{ done: string[]; failed: string[]; paths: string[] }> {
   const root = await gameDirOf(versionId)
   const backups = await backupsDirFor(root)
   const done: string[] = []
   const failed: string[] = []
+  /** 这次新建的备份文件（上传到云端用） */
+  const paths: string[] = []
   await removeStaleTemp(backups)
   for (const entry of await readdir(join(root, 'saves'), { withFileTypes: true }).catch(() => [])) {
     // 以 . 开头的是还原、删除存档时的临时文件夹
@@ -460,12 +462,13 @@ export async function autoBackupWorlds(
         break
       }
       done.push(entry.name)
+      paths.push(path)
       if (prune) await pruneAutoBackups(backups, entry.name)
     } catch {
       failed.push(entry.name)
     }
   }
-  return { done, failed }
+  return { done, failed, paths }
 }
 
 /** 有没有游戏正在启动或运行，并且用的是这个游戏目录 */
@@ -608,14 +611,14 @@ export async function importWorldFile(versionId: string, file: string): Promise<
 /** 备份文件名：存档名_时间（同一秒内的第二份带序号），自动备份后面多了「(自动)」 */
 const BACKUP_NAME = /^(.+)_(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})(?: \(\d+\))?( \(自动\))?\.zip$/i
 
-function parseBackupName(file: string): { world: string; createdAt: number; auto: boolean } | null {
+export function parseBackupName(file: string): { world: string; createdAt: number; auto: boolean } | null {
   const m = BACKUP_NAME.exec(file)
   if (!m) return null
   const [, world, y, mo, d, h, mi, sec, auto] = m
   return { world, createdAt: new Date(+y, +mo - 1, +d, +h, +mi, +sec).getTime(), auto: !!auto }
 }
 
-async function backupFile(versionId: string, file: string): Promise<string> {
+export async function backupFile(versionId: string, file: string): Promise<string> {
   assertSafeName(file, '备份文件名')
   if (!/\.zip$/i.test(file)) throw new Error(`不是备份文件：${file}`)
   for (const dir of await backupDirsFor(await gameDirOf(versionId))) {
