@@ -59,6 +59,7 @@ import type {
   SeedFavorite,
   DailyGoalStatus,
   ModUpdateSummary,
+  GameReleaseNews,
   CloudBackupConfig,
   CloudBackupInput,
   CloudBackupItem,
@@ -298,6 +299,10 @@ declare global {
       /** 后台检查到的各个版本可以更新的模组 */
       getModUpdateSummary: () => Promise<Record<string, ModUpdateSummary>>
       onModUpdatesChanged: (callback: (summary: Record<string, ModUpdateSummary>) => void) => () => void
+      /** Minecraft 新版本发布提醒 */
+      getGameReleaseNews: () => Promise<GameReleaseNews | null>
+      dismissGameReleaseNews: () => Promise<void>
+      onGameReleaseNews: (callback: (news: GameReleaseNews | null) => void) => () => void
       /** 每日小目标 */
       getDailyGoal: () => Promise<DailyGoalStatus>
       /** 打卡（false 取消今天的打卡） */

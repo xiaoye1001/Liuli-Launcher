@@ -13,6 +13,7 @@ import { applyModProfile, deleteModProfile, listModProfiles, saveModProfile } fr
 import { autoSnapshot, createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot } from './versionSnapshots'
 import { applyModMigration, checkModMigration } from './modMigration'
 import { getModUpdateSummary, markModUpdated, recordModUpdates, setupModUpdateWatch } from './modUpdateWatch'
+import { dismissGameReleaseNews, getGameReleaseNews, setupGameReleaseWatch } from './gameReleaseWatch'
 import {
   configureCloudBackup,
   downloadCloudBackup,
@@ -524,6 +525,8 @@ function registerIpc(): void {
     return updates
   })
   ipcMain.handle('modUpdates:summary', () => getModUpdateSummary())
+  ipcMain.handle('gameRelease:news', () => getGameReleaseNews())
+  ipcMain.handle('gameRelease:dismiss', () => dismissGameReleaseNews())
   ipcMain.handle('cloudBackup:config', () => getCloudBackupConfig())
   ipcMain.handle('cloudBackup:configure', (_, input: CloudBackupInput) => configureCloudBackup(input))
   ipcMain.handle('cloudBackup:test', () => testCloudBackup())
@@ -947,6 +950,7 @@ app.whenReady().then(async () => {
   setupServerWatch()
   setupLocalServerShutdown()
   setupModUpdateWatch()
+  setupGameReleaseWatch()
   setupAchievements()
   // 上次自动更新留下的安装包已经用不到了（稍后再删，等更新程序完全退出）
   setTimeout(() => void cleanUpdateFiles(), 60_000)

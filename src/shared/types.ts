@@ -109,6 +109,8 @@ export interface AppSettings {
   autoSnapshots: boolean
   /** 后台定期检查模组更新 */
   modUpdateCheck: boolean
+  /** Minecraft 新版本发布提醒：off 不提醒，release 只提醒正式版，all 正式版和快照都提醒 */
+  gameReleaseAlerts: 'off' | 'release' | 'all'
   /** 存档云备份（WebDAV）：备份后自动上传 */
   cloudBackupEnabled: boolean
   /** WebDAV 地址（只能是 https，本机地址可以用 http） */
@@ -1221,6 +1223,13 @@ export interface LocalServerStatus {
   port: number
   /** 在线玩家（从服务器输出里的加入、离开记录得到） */
   players: string[]
+}
+
+/** 刚发布、还没被看过的 Minecraft 新版本 */
+export interface GameReleaseNews {
+  id: string
+  type: 'release' | 'snapshot'
+  releaseTime: string
 }
 
 /** 一键开服的玩家名单 */

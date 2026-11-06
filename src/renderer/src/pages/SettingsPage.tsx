@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertTriangle,
   Archive,
+  PartyPopper,
   BellRing,
   Cake,
   CheckCircle2,
@@ -1281,8 +1282,9 @@ function SettingsPage(): JSX.Element {
                 <div>
                   <div className="text-sm font-medium">模组更新提醒</div>
                   <div className="text-xs text-white/50">
-                    每 6 小时在后台检查一次各个版本的模组有没有新版本（只能检查 Modrinth 上的模组）， 版本列表上显示「N
-                    个模组可更新」
+                    {
+                      '每 6 小时在后台检查一次各个版本的模组有没有新版本（只能检查 Modrinth 上的模组），版本列表上显示「N 个模组可更新」'
+                    }
                   </div>
                 </div>
               </div>
@@ -1301,6 +1303,27 @@ function SettingsPage(): JSX.Element {
                   }`}
                 />
               </button>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <PartyPopper className="h-4 w-4 text-emerald-300" />
+                <div>
+                  <div className="text-sm font-medium">Minecraft 新版本提醒</div>
+                  <div className="text-xs text-white/50">
+                    每 3 小时看一次官方版本列表，有新版本时在主页提醒，启动器在后台时弹系统通知
+                  </div>
+                </div>
+              </div>
+              <select
+                value={settings.gameReleaseAlerts}
+                onChange={(e) => update({ gameReleaseAlerts: e.target.value as AppSettings['gameReleaseAlerts'] })}
+                aria-label="Minecraft 新版本提醒"
+                className="shrink-0 rounded-xl border border-white/10 bg-black/30 px-3 py-1.5 text-sm outline-none focus:border-emerald-400/50"
+              >
+                <option value="release">只提醒正式版</option>
+                <option value="all">正式版和快照</option>
+                <option value="off">不提醒</option>
+              </select>
             </div>
             <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
               <div className="flex items-center gap-3">

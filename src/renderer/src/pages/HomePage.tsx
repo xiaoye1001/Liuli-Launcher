@@ -25,6 +25,7 @@ import RecentPlays from '../components/RecentPlays'
 import VersionIcon from '../components/VersionIcon'
 import DailyGoalLine from '../components/DailyGoalLine'
 import OnThisDay from '../components/OnThisDay'
+import GameReleaseBanner from '../components/GameReleaseBanner'
 import ResourceSparklines from '../components/ResourceSparklines'
 import NewsPanel from '../components/NewsPanel'
 import SplashText from '../components/SplashText'
@@ -210,6 +211,8 @@ interface HomePageProps {
   onOpenAccount?: () => void
   /** 打开「更多」里的某个工具（游玩报告、成就） */
   onOpenTool?: (tool: string) => void
+  /** 去下载页安装某个 Minecraft 版本（新版本发布提醒） */
+  onInstallVersion?: (versionId: string) => void
 }
 
 function HomePage({
@@ -217,7 +220,8 @@ function HomePage({
   onManageVersions,
   onOpenAiSettings,
   onOpenAccount,
-  onOpenTool
+  onOpenTool,
+  onInstallVersion
 }: HomePageProps): JSX.Element {
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [versions, setVersions] = useState<InstalledVersion[]>([])
@@ -727,6 +731,7 @@ function HomePage({
       </p>
       {settings?.showTrivia && <TriviaLine />}
       {settings?.showDailyGoal && <DailyGoalLine />}
+      <GameReleaseBanner onInstall={onInstallVersion} />
       <div className="mt-4 flex flex-wrap gap-2">
         <StatChip icon={Layers} onClick={onManageVersions} title="管理已安装的版本">
           已安装 {versions.length} 个版本
@@ -956,6 +961,7 @@ function HomePage({
         </p>
         {settings?.showTrivia && <TriviaLine />}
         {settings?.showDailyGoal && <DailyGoalLine />}
+        <GameReleaseBanner onInstall={onInstallVersion} />
         <OnThisDay className="mt-2 text-xs text-white/60 hover:text-white" />
         <div className="mt-5 flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1.5">

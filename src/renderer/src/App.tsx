@@ -36,6 +36,10 @@ interface PageContext {
   downloadRequest: { section: ResourceType; versionId: string; world?: string } | null
   openDownload: (section: ResourceType, versionId: string, world?: string) => void
   clearDownloadRequest: () => void
+  /** 去下载页打开某个 Minecraft 版本的安装设置 */
+  installRequest: string | null
+  installVersion: (versionId: string) => void
+  clearInstallRequest: () => void
   openVersionSettings: (versionId: string) => void
   clearVersionSettings: () => void
 }
@@ -52,6 +56,7 @@ function renderPage(key: PageKey, ctx: PageContext): JSX.Element {
           requestJump({ target: 'more', key: tool })
           ctx.navigate('more')
         }}
+        onInstallVersion={ctx.installVersion}
       />
     )
   }
@@ -73,6 +78,8 @@ function renderPage(key: PageKey, ctx: PageContext): JSX.Element {
         onModpackConsumed={ctx.clearDroppedModpack}
         request={ctx.downloadRequest}
         onRequestConsumed={ctx.clearDownloadRequest}
+        installRequest={ctx.installRequest}
+        onInstallRequestConsumed={ctx.clearInstallRequest}
       />
     )
   }
@@ -93,6 +100,12 @@ function App(): JSX.Element {
   const [versionSettings, setVersionSettings] = useState<string | null>(null)
   const [downloadRequest, setDownloadRequest] = useState<PageContext['downloadRequest']>(null)
   const clearDownloadRequest = useCallback(() => setDownloadRequest(null), [])
+  const [installRequest, setInstallRequest] = useState<string | null>(null)
+  const clearInstallRequest = useCallback(() => setInstallRequest(null), [])
+  const installVersion = useCallback((versionId: string) => {
+    setInstallRequest(versionId)
+    setPage('download')
+  }, [])
   const openDownload = useCallback((section: ResourceType, versionId: string, world?: string) => {
     setDownloadRequest({ section, versionId, world })
     setPage('download')
@@ -162,6 +175,9 @@ function App(): JSX.Element {
                     downloadRequest,
                     openDownload,
                     clearDownloadRequest,
+                    installRequest,
+                    installVersion,
+                    clearInstallRequest,
                     openVersionSettings,
                     clearVersionSettings
                   })}

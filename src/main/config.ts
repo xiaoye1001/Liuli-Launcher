@@ -91,6 +91,7 @@ function defaultSettings(): AppSettings {
     showDailyGoal: true,
     autoSnapshots: true,
     modUpdateCheck: true,
+    gameReleaseAlerts: 'release',
     cloudBackupEnabled: false,
     cloudBackupUrl: '',
     cloudBackupUser: '',
@@ -190,7 +191,8 @@ const ENUM_VALUES: Partial<Record<keyof AppSettings, readonly string[]>> = {
   afterLaunch: ['keep', 'minimize', 'hide'],
   updateSource: ['auto', 'official', 'github'],
   aiProvider: AI_PROVIDER_IDS,
-  particleDensity: ['low', 'normal', 'high']
+  particleDensity: ['low', 'normal', 'high'],
+  gameReleaseAlerts: ['off', 'release', 'all']
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

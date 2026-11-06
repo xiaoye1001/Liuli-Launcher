@@ -151,6 +151,13 @@ const api = {
   listSeedFavorites: () => ipcRenderer.invoke('seeds:list'),
   getDailyGoal: () => ipcRenderer.invoke('dailyGoal:get'),
   getModUpdateSummary: () => ipcRenderer.invoke('modUpdates:summary'),
+  getGameReleaseNews: () => ipcRenderer.invoke('gameRelease:news'),
+  dismissGameReleaseNews: () => ipcRenderer.invoke('gameRelease:dismiss'),
+  onGameReleaseNews: (callback: (news: unknown) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, news: unknown): void => callback(news)
+    ipcRenderer.on('gameRelease:changed', listener)
+    return () => ipcRenderer.removeListener('gameRelease:changed', listener)
+  },
   getCloudBackupConfig: () => ipcRenderer.invoke('cloudBackup:config'),
   configureCloudBackup: (input: Record<string, unknown>) => ipcRenderer.invoke('cloudBackup:configure', input),
   testCloudBackup: () => ipcRenderer.invoke('cloudBackup:test'),
