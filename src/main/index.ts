@@ -19,6 +19,7 @@ import { applySettingsImport, exportLauncherSettings, readSettingsFile } from '.
 import { answerModBisect, finishModBisect, getModBisect, startModBisect } from './modBisect'
 import { getServerRoom, hostServerRoom, setupServerRoom, stopServerRoom } from './serverRoom'
 import { compareVersions } from './versionDiff'
+import { applyModSyncCode, createModSyncCode, previewModSyncCode } from './modSync'
 import { clearExtraInstance, killExtraInstance, launchExtraInstance, listExtraInstances } from './extraInstances'
 import {
   addSchematics,
@@ -745,6 +746,13 @@ function registerIpc(): void {
   ipcMain.handle('serverRoom:host', (_, mode: unknown) => hostServerRoom(mode))
   ipcMain.handle('extraInstances:list', () => listExtraInstances())
   ipcMain.handle('versions:compare', (_, a: unknown, b: unknown) => compareVersions(a, b))
+  ipcMain.handle('modSync:create', (_, versionId: string) => createModSyncCode(String(versionId)))
+  ipcMain.handle('modSync:preview', (_, versionId: string, code: unknown) =>
+    previewModSyncCode(String(versionId), code)
+  )
+  ipcMain.handle('modSync:apply', (_, versionId: string, code: unknown, replace: unknown) =>
+    applyModSyncCode(String(versionId), code, replace)
+  )
   ipcMain.handle('extraInstances:launch', (_, versionId: unknown, name: unknown) =>
     launchExtraInstance(versionId, name)
   )

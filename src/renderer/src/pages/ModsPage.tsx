@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ArrowRightLeft,
   SearchCheck,
+  Share2,
   ArrowUpCircle,
   CheckCircle2,
   FolderOpen,
@@ -28,6 +29,7 @@ import ModCollectionsDialog from '../components/ModCollectionsDialog'
 import McmodLink from '../components/McmodLink'
 import ModProfilesDialog from '../components/ModProfilesDialog'
 import ModBisectDialog from '../components/ModBisectDialog'
+import ModSyncDialog from '../components/ModSyncDialog'
 import ModMigrationDialog from '../components/ModMigrationDialog'
 import type {
   InstalledVersion,
@@ -99,6 +101,7 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
   const [migration, setMigration] = useState(false)
   /** 模组二分排查：对话框是否打开、这个版本是否正在排查（第几轮） */
   const [bisect, setBisect] = useState(false)
+  const [sync, setSync] = useState(false)
   const [bisectRound, setBisectRound] = useState<number | null>(null)
   const [checking, setChecking] = useState(false)
   /** 从问题提示跳到「下载模组」时预先填好的搜索词 */
@@ -506,6 +509,17 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
                 迁移
               </button>
             )}
+            {version.loader && version.loader !== 'optifine' && (
+              <button
+                onClick={() => setSync(true)}
+                disabled={pending !== null}
+                title="把模组做成同步码发给朋友，或者粘贴朋友的同步码装齐同样的模组"
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                同步码
+              </button>
+            )}
             {version.loader && version.loader !== 'optifine' && (list?.mods.length ?? 0) > 1 && (
               <button
                 onClick={() => setBisect(true)}
@@ -658,6 +672,7 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
         </div>
       </section>
       {migration && <ModMigrationDialog versionId={version.id} onClose={() => setMigration(false)} />}
+      {sync && <ModSyncDialog versionId={version.id} onClose={() => setSync(false)} onInstalled={() => void load()} />}
       {bisect && (
         <ModBisectDialog versionId={version.id} onClose={() => setBisect(false)} onChanged={() => void load()} />
       )}

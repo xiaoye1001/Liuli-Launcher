@@ -359,6 +359,10 @@ const api = {
   hostServerRoom: (mode: 'p2p' | 'direct') => ipcRenderer.invoke('serverRoom:host', mode),
   listExtraInstances: () => ipcRenderer.invoke('extraInstances:list'),
   compareVersions: (a: string, b: string) => ipcRenderer.invoke('versions:compare', a, b),
+  createModSyncCode: (versionId: string) => ipcRenderer.invoke('modSync:create', versionId),
+  previewModSyncCode: (versionId: string, code: string) => ipcRenderer.invoke('modSync:preview', versionId, code),
+  applyModSyncCode: (versionId: string, code: string, replace: boolean) =>
+    ipcRenderer.invoke('modSync:apply', versionId, code, replace),
   launchExtraInstance: (versionId: string, name: string) =>
     ipcRenderer.invoke('extraInstances:launch', versionId, name),
   killExtraInstance: (id: string) => ipcRenderer.invoke('extraInstances:kill', id),

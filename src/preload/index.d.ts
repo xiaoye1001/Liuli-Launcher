@@ -68,6 +68,8 @@ import type {
   ModBisectState,
   ExtraInstance,
   VersionDiff,
+  ModSyncPreview,
+  ModSyncResult,
   SchematicDetails,
   SkinModel,
   CloudBackupConfig,
@@ -573,6 +575,10 @@ declare global {
       openMicrosoftLoginPage: () => Promise<void>
       /** 读取正版账号的皮肤与披风 */
       getMsSkinProfile: (uuid: string) => Promise<MsSkinProfile>
+      /** 模组同步码 */
+      createModSyncCode: (versionId: string) => Promise<{ code: string; count: number; unknown: string[] }>
+      previewModSyncCode: (versionId: string, code: string) => Promise<ModSyncPreview>
+      applyModSyncCode: (versionId: string, code: string, replace: boolean) => Promise<ModSyncResult>
       /** 版本差异对比 */
       compareVersions: (a: string, b: string) => Promise<VersionDiff>
       /** 多开：再开几个游戏窗口（离线名字） */

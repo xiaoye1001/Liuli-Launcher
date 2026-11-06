@@ -1253,6 +1253,41 @@ export interface WardrobeSkin {
   addedAt: number
 }
 
+/** 模组同步码里的一个模组 */
+export interface ModSyncItem {
+  versionId: string
+  projectId: string
+  title: string
+  versionNumber: string
+  /** new：这个版本没装；same：装了同一个版本；different：装了别的版本 */
+  status: 'new' | 'same' | 'different'
+  /** 已经装了的文件 */
+  currentFile?: string
+  /** Modrinth 上标记适用于这个版本的游戏版本和加载器 */
+  fits: boolean
+}
+
+export interface ModSyncPreview {
+  /** 生成同步码的版本 */
+  minecraftVersion: string
+  loader: string
+  /** 要装到的版本 */
+  targetMinecraftVersion: string
+  targetLoader: string
+  items: ModSyncItem[]
+  /** Modrinth 上查不到的（被作者删掉了） */
+  missing: number
+  /** 这个版本有、同步码里没有的模组文件 */
+  extra: string[]
+}
+
+export interface ModSyncResult {
+  installed: string[]
+  replaced: string[]
+  failed: { title: string; error: string }[]
+  skipped: number
+}
+
 /** 版本差异对比里的一个模组 */
 export interface VersionDiffMod {
   fileName: string
