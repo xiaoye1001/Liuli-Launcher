@@ -97,13 +97,18 @@ interface DownloadPageProps {
   /** 从「版本」页跳转过来：打开某个资源分类，并把安装目标设为该版本 */
   request?: { section: ResourceType; versionId: string; world?: string } | null
   onRequestConsumed?: () => void
+  /** 从主页的新版本提醒跳转过来：打开这个 Minecraft 版本的安装设置 */
+  installRequest?: string | null
+  onInstallRequestConsumed?: () => void
 }
 
 function DownloadPage({
   incomingModpack,
   onModpackConsumed,
   request,
-  onRequestConsumed
+  onRequestConsumed,
+  installRequest,
+  onInstallRequestConsumed
 }: DownloadPageProps = {}): JSX.Element {
   const [manifest, setManifest] = useState<VersionManifest | null>(null)
   const [installed, setInstalled] = useState<InstalledVersion[]>([])
@@ -146,6 +151,28 @@ function DownloadPage({
     onRequestConsumed?.()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request, onRequestConsumed])
+
+  // 新版本提醒：等版本列表加载好后打开这个版本的安装设置；列表里没有时（清单还是旧的）刷新一次再找
+  const refreshedFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (!installRequest || !manifest) return
+    const entry = manifest.versions.find((v) => v.id === installRequest)
+    if (!entry && refreshedFor.current !== installRequest) {
+      refreshedFor.current = installRequest
+      void load(true)
+      return
+    }
+    setModpack(null)
+    openSection('vanilla')
+    if (entry) {
+      setFilter(matchFilter(entry, 'snapshot') ? 'snapshot' : 'release')
+      setSetupFor(entry)
+    } else {
+      setKeyword(installRequest)
+    }
+    onInstallRequestConsumed?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [installRequest, manifest, onInstallRequestConsumed])
 
   // 拖入的整合包：关闭其他子页面，直接进入安装确认页
   useEffect(() => {

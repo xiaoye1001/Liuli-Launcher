@@ -21,6 +21,7 @@ import ClickEffects from './components/ClickEffects'
 import AchievementToast from './components/AchievementToast'
 import CommandPalette from './components/CommandPalette'
 import GameLaunchOverlay from './components/GameLaunchOverlay'
+import OnboardingWizard from './components/OnboardingWizard'
 import type { ModpackInfo, ResourceType } from '../../shared/types'
 import { DEFAULT_TITLE, useAppearance, useAppearanceLoaded } from './utils/appearance'
 import DynamicBackground from './components/DynamicBackground'
@@ -36,6 +37,10 @@ interface PageContext {
   downloadRequest: { section: ResourceType; versionId: string; world?: string } | null
   openDownload: (section: ResourceType, versionId: string, world?: string) => void
   clearDownloadRequest: () => void
+  /** 去下载页打开某个 Minecraft 版本的安装设置 */
+  installRequest: string | null
+  installVersion: (versionId: string) => void
+  clearInstallRequest: () => void
   openVersionSettings: (versionId: string) => void
   clearVersionSettings: () => void
 }
@@ -52,6 +57,7 @@ function renderPage(key: PageKey, ctx: PageContext): JSX.Element {
           requestJump({ target: 'more', key: tool })
           ctx.navigate('more')
         }}
+        onInstallVersion={ctx.installVersion}
       />
     )
   }
@@ -73,6 +79,8 @@ function renderPage(key: PageKey, ctx: PageContext): JSX.Element {
         onModpackConsumed={ctx.clearDroppedModpack}
         request={ctx.downloadRequest}
         onRequestConsumed={ctx.clearDownloadRequest}
+        installRequest={ctx.installRequest}
+        onInstallRequestConsumed={ctx.clearInstallRequest}
       />
     )
   }
@@ -93,6 +101,12 @@ function App(): JSX.Element {
   const [versionSettings, setVersionSettings] = useState<string | null>(null)
   const [downloadRequest, setDownloadRequest] = useState<PageContext['downloadRequest']>(null)
   const clearDownloadRequest = useCallback(() => setDownloadRequest(null), [])
+  const [installRequest, setInstallRequest] = useState<string | null>(null)
+  const clearInstallRequest = useCallback(() => setInstallRequest(null), [])
+  const installVersion = useCallback((versionId: string) => {
+    setInstallRequest(versionId)
+    setPage('download')
+  }, [])
   const openDownload = useCallback((section: ResourceType, versionId: string, world?: string) => {
     setDownloadRequest({ section, versionId, world })
     setPage('download')
@@ -162,6 +176,9 @@ function App(): JSX.Element {
                     downloadRequest,
                     openDownload,
                     clearDownloadRequest,
+                    installRequest,
+                    installVersion,
+                    clearInstallRequest,
                     openVersionSettings,
                     clearVersionSettings
                   })}
@@ -178,6 +195,8 @@ function App(): JSX.Element {
           <CommandPalette navigate={setPage} openVersionSettings={openVersionSettings} />
           {/* 解锁成就时的「达成进度！」提示 */}
           <AchievementToast />
+          {/* 新手引导：第一次打开（还没装游戏）时，开屏动画结束后显示 */}
+          {!splash && <OnboardingWizard onInstall={installVersion} onOpenAccount={() => setPage('account')} />}
           {/* 读到外观设置之前先用纯背景盖住（只有一瞬间），避免主界面闪一下或按默认设置播放开屏动画 */}
           {splash && !appearanceLoaded && <div className="app-background fixed inset-0 z-[70]" />}
           <AnimatePresence>

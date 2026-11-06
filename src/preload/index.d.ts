@@ -59,6 +59,16 @@ import type {
   SeedFavorite,
   DailyGoalStatus,
   ModUpdateSummary,
+  GameReleaseNews,
+  WardrobeSkin,
+  SettingsTransferPart,
+  SettingsImportPreview,
+  SettingsImportResult,
+  SchematicList,
+  ModBisectState,
+  ExtraInstance,
+  SchematicDetails,
+  SkinModel,
   CloudBackupConfig,
   CloudBackupInput,
   CloudBackupItem,
@@ -126,6 +136,10 @@ declare global {
       downloadJava: (component: string) => Promise<string>
       getSettings: () => Promise<AppSettings>
       updateSettings: (patch: Partial<AppSettings>) => Promise<AppSettings>
+      /** 启动器设置导出 / 导入 */
+      exportLauncherSettings: () => Promise<{ path: string; counts: Record<SettingsTransferPart, number> } | null>
+      readSettingsImport: () => Promise<SettingsImportPreview | null>
+      applySettingsImport: (token: string, parts: SettingsTransferPart[]) => Promise<SettingsImportResult>
       getSystemInfo: () => Promise<SystemInfo>
       /** 测试常用服务器能否连接（使用当前的代理设置） */
       checkNetwork: () => Promise<NetworkCheck>
@@ -298,6 +312,10 @@ declare global {
       /** 后台检查到的各个版本可以更新的模组 */
       getModUpdateSummary: () => Promise<Record<string, ModUpdateSummary>>
       onModUpdatesChanged: (callback: (summary: Record<string, ModUpdateSummary>) => void) => () => void
+      /** Minecraft 新版本发布提醒 */
+      getGameReleaseNews: () => Promise<GameReleaseNews | null>
+      dismissGameReleaseNews: () => Promise<void>
+      onGameReleaseNews: (callback: (news: GameReleaseNews | null) => void) => () => void
       /** 每日小目标 */
       getDailyGoal: () => Promise<DailyGoalStatus>
       /** 打卡（false 取消今天的打卡） */
@@ -554,6 +572,38 @@ declare global {
       openMicrosoftLoginPage: () => Promise<void>
       /** 读取正版账号的皮肤与披风 */
       getMsSkinProfile: (uuid: string) => Promise<MsSkinProfile>
+      /** 多开：再开几个游戏窗口（离线名字） */
+      listExtraInstances: () => Promise<ExtraInstance[]>
+      launchExtraInstance: (versionId: string, name: string) => Promise<ExtraInstance[]>
+      killExtraInstance: (id: string) => Promise<ExtraInstance[]>
+      clearExtraInstance: (id: string) => Promise<ExtraInstance[]>
+      onExtraInstances: (callback: (list: ExtraInstance[]) => void) => () => void
+      /** 一键开服的联机房间码（让外网的朋友加入） */
+      hostServerRoom: (mode: 'p2p' | 'direct') => Promise<MultiplayerStatus>
+      getServerRoom: () => Promise<MultiplayerStatus | null>
+      stopServerRoom: () => Promise<void>
+      /** 新手引导要不要显示 */
+      shouldShowOnboarding: () => Promise<boolean>
+      /** 模组二分排查 */
+      getModBisect: (versionId: string) => Promise<ModBisectState | null>
+      startModBisect: (versionId: string) => Promise<ModBisectState>
+      answerModBisect: (versionId: string, result: 'bad' | 'good') => Promise<ModBisectState>
+      finishModBisect: (versionId: string, disableFound: boolean) => Promise<void>
+      /** 投影文件管理（Litematica） */
+      listSchematics: (versionId: string) => Promise<SchematicList>
+      getSchematicDetails: (versionId: string, name: string) => Promise<SchematicDetails>
+      addSchematics: (versionId: string) => Promise<number>
+      deleteSchematic: (versionId: string, name: string) => Promise<void>
+      openSchematicsDir: (versionId: string) => Promise<void>
+      showSchematic: (versionId: string, name: string) => Promise<void>
+      /** 皮肤衣柜 */
+      listWardrobe: () => Promise<WardrobeSkin[]>
+      addToWardrobe: (image: string, name: string, model: SkinModel) => Promise<WardrobeSkin[]>
+      updateWardrobeSkin: (id: string, patch: { name?: string; model?: SkinModel }) => Promise<WardrobeSkin[]>
+      removeFromWardrobe: (id: string) => Promise<WardrobeSkin[]>
+      wearWardrobeSkin: (
+        id: string
+      ) => Promise<{ kind: 'offline'; settings: AppSettings } | { kind: 'microsoft'; profile: MsSkinProfile }>
       /** 选择 PNG 上传为正版皮肤；取消时返回 null */
       uploadMsSkin: (uuid: string, variant: 'classic' | 'slim') => Promise<MsSkinProfile | null>
       /** 恢复默认皮肤 */

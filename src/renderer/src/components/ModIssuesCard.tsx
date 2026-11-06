@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, ChevronDown, Copy, Power, Search } from 'lucide-react'
+import { AlertTriangle, ChevronDown, Copy, Power, Search, Swords } from 'lucide-react'
 import type { ModIssue } from '../../../shared/types'
 
 /** 版本范围写成人能看懂的样子；任意版本时不显示 */
@@ -8,7 +8,7 @@ function rangeLabel(range: string): string {
   return !value || value === '*' ? '' : `（${value}）`
 }
 
-/** 模组列表上方的问题提示：缺少前置模组、前置被禁用、重复模组 */
+/** 模组列表上方的问题提示：缺少前置模组、前置被禁用、重复模组、互相冲突的模组 */
 function ModIssuesCard({
   issues,
   busy,
@@ -25,10 +25,17 @@ function ModIssuesCard({
   const [open, setOpen] = useState(true)
   if (issues.length === 0) return null
   const missing = issues.filter((i) => i.kind === 'missing').length
-  const duplicate = issues.length - missing
-  const summary = [missing > 0 && `缺少 ${missing} 个前置模组`, duplicate > 0 && `${duplicate} 个模组重复`]
+  const duplicate = issues.filter((i) => i.kind === 'duplicate').length
+  const conflicts = issues.filter((i) => i.kind === 'conflict')
+  const summary = [
+    missing > 0 && `缺少 ${missing} 个前置模组`,
+    duplicate > 0 && `${duplicate} 个模组重复`,
+    conflicts.length > 0 && `${conflicts.length} 处模组冲突`
+  ]
     .filter(Boolean)
     .join('，')
+  // 只有「可能出问题」的冲突时语气轻一些
+  const severe = missing > 0 || duplicate > 0 || conflicts.some((c) => c.hard)
 
   const button =
     'flex shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-white/10 px-2.5 py-1 text-xs hover:bg-white/20 disabled:opacity-50'
@@ -37,7 +44,9 @@ function ModIssuesCard({
     <div className="mt-3 shrink-0 rounded-xl border border-amber-400/20 bg-amber-500/10 text-sm">
       <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-2 px-4 py-2.5 text-left">
         <AlertTriangle className="h-4 w-4 shrink-0 text-amber-300" />
-        <span className="flex-1 font-medium text-amber-200">{summary}，游戏可能无法启动</span>
+        <span className="flex-1 font-medium text-amber-200">
+          {summary}，{severe ? '游戏可能无法启动' : '可能会出问题'}
+        </span>
         <ChevronDown className={`h-4 w-4 text-white/50 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
@@ -70,6 +79,45 @@ function ModIssuesCard({
                     搜索下载
                   </button>
                 )}
+              </div>
+            ) : issue.kind === 'conflict' ? (
+              <div
+                key={`c:${issue.mods.map((m) => m.fileName).join('|')}`}
+                data-testid="mod-conflict"
+                className="rounded-lg bg-black/20 px-3 py-2"
+              >
+                <div className="flex items-start gap-1.5">
+                  <Swords className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/50" />
+                  <div className="min-w-0 flex-1">
+                    <div>
+                      {issue.hard ? '模组冲突：' : '可能冲突：'}
+                      <span className="font-semibold">{issue.mods.map((m) => m.name).join('、')}</span>
+                    </div>
+                    <div className="text-xs text-white/50">
+                      {issue.reason}
+                      {issue.source === 'declared' ? '（模组作者声明）' : ''}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-1.5 space-y-1">
+                  {issue.mods.map((m) => (
+                    <div key={m.fileName} className="flex items-center gap-2 text-xs">
+                      <span className="min-w-0 flex-1 truncate font-mono text-white/70" title={m.fileName}>
+                        {m.fileName}
+                      </span>
+                      {m.version && <span className="shrink-0 text-white/50">{m.version}</span>}
+                      <button
+                        onClick={() => onToggle(m.fileName)}
+                        disabled={busy}
+                        className={button}
+                        aria-label={`禁用 ${m.fileName}`}
+                      >
+                        <Power className="h-3.5 w-3.5" />
+                        禁用
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <div key={`d:${issue.modId}`} className="rounded-lg bg-black/20 px-3 py-2">

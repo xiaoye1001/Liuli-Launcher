@@ -91,6 +91,8 @@ function defaultSettings(): AppSettings {
     showDailyGoal: true,
     autoSnapshots: true,
     modUpdateCheck: true,
+    gameReleaseAlerts: 'release',
+    onboardingDone: false,
     cloudBackupEnabled: false,
     cloudBackupUrl: '',
     cloudBackupUser: '',
@@ -176,6 +178,11 @@ const MANAGED_KEYS = new Set<string>([
   'cloudBackupFolder'
 ])
 
+/** 是不是只能由专门接口修改的设置项（设置导出时不包含） */
+export function isManagedSetting(key: string): boolean {
+  return MANAGED_KEYS.has(key)
+}
+
 /** 取值固定的设置项 */
 const ENUM_VALUES: Partial<Record<keyof AppSettings, readonly string[]>> = {
   downloadSource: ['mojang', 'bmclapi'],
@@ -190,7 +197,8 @@ const ENUM_VALUES: Partial<Record<keyof AppSettings, readonly string[]>> = {
   afterLaunch: ['keep', 'minimize', 'hide'],
   updateSource: ['auto', 'official', 'github'],
   aiProvider: AI_PROVIDER_IDS,
-  particleDensity: ['low', 'normal', 'high']
+  particleDensity: ['low', 'normal', 'high'],
+  gameReleaseAlerts: ['off', 'release', 'all']
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

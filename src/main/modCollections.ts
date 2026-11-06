@@ -103,6 +103,53 @@ export async function saveModCollection(
   })
 }
 
+/**
+ * 导入合集（启动器设置导入用）：逐个检查后加进来，名字和模组都相同的合集跳过；返回加入的个数
+ */
+export function importModCollections(raw: unknown): Promise<{ added: number; skipped: number }> {
+  return serialized(async () => {
+    const list = await load()
+    let added = 0
+    let skipped = 0
+    for (const item of Array.isArray(raw) ? raw.slice(0, MAX_COLLECTIONS) : []) {
+      if (!item || typeof item !== 'object') continue
+      const c = item as Record<string, unknown>
+      const mods = (Array.isArray(c.mods) ? c.mods : [])
+        .filter(
+          (m): m is { projectId: string; title?: unknown } =>
+            !!m && typeof m.projectId === 'string' && /^[A-Za-z0-9]{1,32}$/.test(m.projectId)
+        )
+        .map((m) => ({
+          projectId: m.projectId,
+          title: typeof m.title === 'string' ? m.title.slice(0, 100) : m.projectId
+        }))
+        .slice(0, MAX_MODS)
+      const name = cleanName(c.name) || '模组合集'
+      if (mods.length === 0) continue
+      const key = mods.map((m) => m.projectId).join(',')
+      if (list.some((e) => e.name === name && e.mods.map((m) => m.projectId).join(',') === key)) {
+        skipped++
+        continue
+      }
+      if (list.length >= MAX_COLLECTIONS) {
+        skipped++
+        continue
+      }
+      list.push({
+        id: randomUUID(),
+        name,
+        createdAt: Number.isFinite(c.createdAt) ? Number(c.createdAt) : Date.now(),
+        minecraftVersion: typeof c.minecraftVersion === 'string' ? c.minecraftVersion.slice(0, 32) : '',
+        loader: typeof c.loader === 'string' ? c.loader.slice(0, 16) : '',
+        mods
+      })
+      added++
+    }
+    if (added > 0) await save(list)
+    return { added, skipped }
+  })
+}
+
 export function deleteModCollection(id: string): Promise<void> {
   return serialized(async () => {
     const list = await load()

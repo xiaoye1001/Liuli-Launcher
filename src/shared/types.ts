@@ -109,6 +109,10 @@ export interface AppSettings {
   autoSnapshots: boolean
   /** 后台定期检查模组更新 */
   modUpdateCheck: boolean
+  /** Minecraft 新版本发布提醒：off 不提醒，release 只提醒正式版，all 正式版和快照都提醒 */
+  gameReleaseAlerts: 'off' | 'release' | 'all'
+  /** 新手引导已经走完（或跳过） */
+  onboardingDone: boolean
   /** 存档云备份（WebDAV）：备份后自动上传 */
   cloudBackupEnabled: boolean
   /** WebDAV 地址（只能是 https，本机地址可以用 http） */
@@ -795,6 +799,17 @@ export type ModIssue =
       modId: string
       mods: { fileName: string; name: string; version: string }[]
     }
+  | {
+      /** 模组之间互相冲突 */
+      kind: 'conflict'
+      /** declared：模组自己在描述文件里声明的；known：启动器内置的常见冲突 */
+      source: 'declared' | 'known'
+      /** 必定出问题（通常无法启动）；false 表示可能出问题 */
+      hard: boolean
+      /** 冲突的原因（给人看的） */
+      reason: string
+      mods: { fileName: string; name: string; version: string }[]
+    }
 
 /** 版本游戏目录里的本地资源：资源包或光影包 */
 export type LocalResourceKind = 'resourcepack' | 'shader'
@@ -1210,6 +1225,127 @@ export interface LocalServerStatus {
   port: number
   /** 在线玩家（从服务器输出里的加入、离开记录得到） */
   players: string[]
+}
+
+/** 皮肤衣柜里的一件皮肤 */
+export interface WardrobeSkin {
+  id: string
+  name: string
+  model: SkinModel
+  /** PNG 的 data URL（预览用） */
+  image: string
+  addedAt: number
+}
+
+/** 多开的游戏窗口 */
+export interface ExtraInstance {
+  id: string
+  versionId: string
+  /** 离线玩家名 */
+  name: string
+  pid: number
+  maxMemory: number
+  startedAt: number
+  state: 'running' | 'exited'
+  exitCode: number | null
+  /** 最后几行输出（退出时看原因） */
+  tail: string[]
+}
+
+/** 模组二分排查的进度 */
+export interface ModBisectState {
+  versionId: string
+  /** 第几轮 */
+  round: number
+  /** 一共有多少个模组参与 */
+  total: number
+  /** 还可疑的模组 */
+  suspects: { fileName: string; name: string }[]
+  /** 这一轮启用的可疑模组 */
+  testing: { fileName: string; name: string }[]
+  /** 最多还要几轮 */
+  roundsLeft: number
+  /** 找到的模组 */
+  found: { fileName: string; name: string } | null
+  /** 剩下的模组互相依赖，没法再缩小范围 */
+  stuck: boolean
+}
+
+/** 投影文件（Litematica 等） */
+export interface SchematicFile {
+  /** schematics 文件夹里的相对路径 */
+  name: string
+  /** litematic、schem、schematic、nbt */
+  format: string
+  size: number
+  modified: number
+  /** 以下只有 .litematic 有 */
+  title?: string
+  author?: string
+  description?: string
+  /** 外框大小（方块） */
+  dims?: { x: number; y: number; z: number } | null
+  totalBlocks?: number
+  regions?: number
+  created?: number
+  /** 读不出来 */
+  broken?: boolean
+}
+
+export interface SchematicList {
+  dir: string
+  files: SchematicFile[]
+  /** 这个版本有没有装 Litematica；没有模组加载器时为 null */
+  litematica: boolean | null
+  /** 文件太多，只列出了一部分 */
+  truncated: boolean
+}
+
+export interface SchematicMaterial {
+  id: string
+  /** 游戏里的中文名；找不到时为空 */
+  name: string
+  count: number
+}
+
+export interface SchematicDetails {
+  name: string
+  title: string
+  author: string
+  description: string
+  size: { x: number; y: number; z: number } | null
+  totalBlocks: number
+  regions: number
+  created: number
+  volume: number
+  materials: SchematicMaterial[]
+  /** 方块太多时没有统计材料 */
+  counted: boolean
+  /** 预览图（data URL），没有时为空 */
+  preview: string
+}
+
+/** 启动器设置导出 / 导入的各个部分 */
+export type SettingsTransferPart = 'settings' | 'themes' | 'servers' | 'seeds' | 'collections' | 'skins'
+
+/** 选好设置文件后、导入前看到的内容 */
+export interface SettingsImportPreview {
+  token: string
+  exportedAt: number
+  launcherVersion: string
+  counts: Record<SettingsTransferPart, number>
+}
+
+export interface SettingsImportResult {
+  added: Partial<Record<SettingsTransferPart, number>>
+  skipped: Partial<Record<SettingsTransferPart, number>>
+}
+
+/** 刚发布、还没被看过的 Minecraft 新版本 */
+export interface GameReleaseNews {
+  id: string
+  type: 'release' | 'snapshot'
+  releaseTime: string
 }
 
 /** 一键开服的玩家名单 */

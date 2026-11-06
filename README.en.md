@@ -52,6 +52,7 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 
 ### Game installation
 - Release, snapshot and old versions with search; choose the **BMCLAPI mirror** or the **official Mojang source**, with automatic fallback
+- **New version alerts**: the home screen tells you when a new Minecraft release (optionally snapshots) comes out, with a one-click install
 - One-click install of **Forge**, **NeoForge**, **Fabric**, **Quilt** and **OptiFine**
 - Multi-threaded chunked downloads with cancel and retry; "Check and repair" for installed versions
 - Import and export Modrinth (`.mrpack`), CurseForge, MultiMC / Prism and MCBBS modpacks; modpacks installed from the download page can be **updated in one click**, keeping worlds and edited configs
@@ -69,6 +70,7 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - **AI assistant**: add your own API key (Claude, or OpenAI-compatible services such as DeepSeek, Qwen, Kimi and local Ollama) to analyze crashes and launch failures automatically; the key is encrypted on this computer, and sign-in tokens and other private data are removed before anything is sent
 - **Repair wizard** for games that won't start: repair game files, switch to automatic Java, clear custom launch arguments, temporarily disable recently added mods and lower the graphics settings
 - Per-version memory, Java, window size, JVM arguments, pre-launch / post-exit commands and more
+- **Multiple instances**: open extra game windows next to the main game with different offline names, to test multiplayer yourself or run two accounts
 - **In-game settings**: switch graphics presets (smooth / balanced / high), copy settings or just key bindings from another version, find **key binding conflicts** (unbind one or reset all), with an automatic backup before each change
 - Multiple game directories, version isolation, favorites and custom icons, playtime statistics
 - **Continue**: jump straight into your last world, skipping the title screen (1.20+); new versions start in Simplified Chinese
@@ -78,6 +80,8 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 ### Version and world management
 - Mods: enable / disable, dependency checks, update checks, a one-click link to each mod's **MC百科 (MCMod)** page; **roll back** an update that causes problems (the crash screen suggests rolling back recently updated mods)
 - **Mod update reminders**: mod updates are checked in the background and the version list shows how many mods can be updated
+- **Mod conflict detection**: reads the incompatibilities mods declare themselves (respecting version ranges) and flags well-known conflicts (such as Sodium with OptiFine, or two shader loaders), with one-click disable
+- **Mod bisect**: when the game crashes and you don't know which mod is to blame, each round turns on half of the suspects; play, answer "still broken" or "fixed", and the culprit is found in a few rounds. Required dependencies stay on, and everything is restored at the end
 - **Mod profiles**: save which mods are on and off (for example "survival" or "shaders") and switch in one click
 - **Mod migration helper**: when moving to a new game version, check which mods have a build for it and install them in one click
 - **Version snapshots**: save a copy of the mods, mod configs and game settings, and restore it in one click if something breaks; **automatic snapshots** are taken before updating mods or modpacks, one-click optimization and similar actions, and the crash screen can go back to the latest snapshot
@@ -87,21 +91,24 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - **Cloud world backup (WebDAV)**: backups are uploaded to your own cloud drive (Jianguoyun, Nextcloud, Synology and more) and can be downloaded on another computer; the password is stored encrypted
 - Per-world statistics (play time, deaths, diamonds mined and more), a **world map preview** (top-down view of the Overworld), a one-click seed map and saving seeds to your favorites
 - Resource packs, shader packs and screenshots; **one-click shaders** installs Iris / Oculus and a rendering mod, downloads a shader pack and turns it on
+- **Schematic manager** (Litematica): list the schematics in the schematics folder with size and author, and see a **material list** (in-game names, counted in stacks and shulker boxes) you can copy
 
 ### Servers and multiplayer
 - Save servers with player count, ping and MOTD; join directly; turn on **online alerts** to get a notification when a server comes online or someone joins
 - Three ways to play together, all with a single room code: **direct connection**, **P2P networking** (powered by [EasyTier](https://github.com/EasyTier/EasyTier)) and **tunnels**
-- **One-click server**: host a vanilla server on your own computer (the official server is downloaded from Mojang, and you must agree to the Minecraft EULA) that friends on the same network can join; view the output, send commands, manage online players, operators and the whitelist with buttons, and it is saved and stopped automatically when the launcher quits
+- **One-click server**: host a vanilla server on your own computer (the official server is downloaded from Mojang, and you must agree to the Minecraft EULA) that friends on the same network can join; view the output, send commands, manage online players, operators and the whitelist with buttons, and it is saved and stopped automatically when the launcher quits; generate a **room code** so friends outside your network can join too
 
 ### Toolbox
 - **Seed favorites**: keep track of interesting world seeds (text seeds supported), copy them or open a seed map
 - **Minecraft tools**: Nether / Overworld coordinates, chunk coordinates and game time conversion (copy the /time set command)
 - **Slime chunk finder** (Java Edition): enter a seed and see which chunks around a position spawn slimes, using the same algorithm as the game
 - **Command generator** (Java Edition): build /give (enchantments, names), /effect, /summon and /tellraw commands from a form, using the right syntax for your game version
+- **Enchanting calculator**: pick an item and the enchantments you want to get the cheapest anvil order, with no step hitting "Too Expensive!" (Java Edition 1.21+ rules and game data)
 
 ### Accounts
 - Offline accounts, **Microsoft accounts** and authlib-injector skin sites such as LittleSkin
 - 3D skin preview; change skins and capes for Microsoft accounts
+- **Skin wardrobe**: keep several skins and switch with one click (applied directly for offline accounts, uploaded for Microsoft accounts)
 
 ### Appearance
 - Dark / light / system themes, theme presets and animated particle backgrounds
@@ -113,6 +120,8 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - 23 **launcher achievements** (including hidden ones) with an in-game style toast
 - Background music player, click effects and official Minecraft news
 - Automatic updates with signature verification and one-click restart
+- A **first-run guide** sets up your name, look and download source and installs your first game
+- **Export / import settings**: save settings, custom themes, servers, seeds, mod collections and the skin wardrobe to one file and restore them on another computer (accounts, keys, passwords and local paths are never included)
 
 ## Microsoft Account Login
 
@@ -135,7 +144,7 @@ Game files (versions, mods, worlds, resource packs) are kept apart from launcher
 
 The installed version uses the system `.minecraft`, shared with the official launcher. You can add more game directories and switch between them in Settings → Game Directory.
 
-Servers created with the one-click server (including their worlds) are stored in `local-servers` in the launcher folder; version snapshots are stored in `liuli-snapshots` in the version's game folder.
+Servers created with the one-click server (including their worlds) are stored in `local-servers` in the launcher folder, and the skin wardrobe in `skin-wardrobe`; version snapshots are stored in `liuli-snapshots` in the version's game folder, and schematics in the version's `schematics` folder.
 
 Versions 0.5.1 and earlier kept game files in `.minecraft` inside the launcher folder. They are moved to the location above the first time the new version starts (a rename only — nothing is copied or deleted). If a `.minecraft` already exists there, the old folder stays where it is and appears as "旧的默认目录" (old default directory) in the list.
 

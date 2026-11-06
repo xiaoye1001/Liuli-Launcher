@@ -46,6 +46,9 @@ const api = {
   downloadJava: (component: string) => ipcRenderer.invoke('java:download', component),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (patch: Partial<AppSettings>) => ipcRenderer.invoke('settings:update', patch),
+  exportLauncherSettings: () => ipcRenderer.invoke('settings:export'),
+  readSettingsImport: () => ipcRenderer.invoke('settings:readImport'),
+  applySettingsImport: (token: string, parts: string[]) => ipcRenderer.invoke('settings:applyImport', token, parts),
   getSystemInfo: () => ipcRenderer.invoke('system:info'),
   checkNetwork: () => ipcRenderer.invoke('network:check'),
   getNews: (force?: boolean) => ipcRenderer.invoke('news:get', force),
@@ -151,6 +154,13 @@ const api = {
   listSeedFavorites: () => ipcRenderer.invoke('seeds:list'),
   getDailyGoal: () => ipcRenderer.invoke('dailyGoal:get'),
   getModUpdateSummary: () => ipcRenderer.invoke('modUpdates:summary'),
+  getGameReleaseNews: () => ipcRenderer.invoke('gameRelease:news'),
+  dismissGameReleaseNews: () => ipcRenderer.invoke('gameRelease:dismiss'),
+  onGameReleaseNews: (callback: (news: unknown) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, news: unknown): void => callback(news)
+    ipcRenderer.on('gameRelease:changed', listener)
+    return () => ipcRenderer.removeListener('gameRelease:changed', listener)
+  },
   getCloudBackupConfig: () => ipcRenderer.invoke('cloudBackup:config'),
   configureCloudBackup: (input: Record<string, unknown>) => ipcRenderer.invoke('cloudBackup:configure', input),
   testCloudBackup: () => ipcRenderer.invoke('cloudBackup:test'),
@@ -345,6 +355,38 @@ const api = {
   getMicrosoftLoginStatus: () => ipcRenderer.invoke('ms:status'),
   openMicrosoftLoginPage: () => ipcRenderer.invoke('ms:openLoginPage'),
   getMsSkinProfile: (uuid: string) => ipcRenderer.invoke('ms:skinProfile', uuid),
+  listWardrobe: () => ipcRenderer.invoke('wardrobe:list'),
+  hostServerRoom: (mode: 'p2p' | 'direct') => ipcRenderer.invoke('serverRoom:host', mode),
+  listExtraInstances: () => ipcRenderer.invoke('extraInstances:list'),
+  launchExtraInstance: (versionId: string, name: string) =>
+    ipcRenderer.invoke('extraInstances:launch', versionId, name),
+  killExtraInstance: (id: string) => ipcRenderer.invoke('extraInstances:kill', id),
+  clearExtraInstance: (id: string) => ipcRenderer.invoke('extraInstances:clear', id),
+  onExtraInstances: (callback: (list: unknown) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, list: unknown): void => callback(list)
+    ipcRenderer.on('extraInstances:changed', listener)
+    return () => ipcRenderer.removeListener('extraInstances:changed', listener)
+  },
+  getServerRoom: () => ipcRenderer.invoke('serverRoom:get'),
+  stopServerRoom: () => ipcRenderer.invoke('serverRoom:stop'),
+  shouldShowOnboarding: () => ipcRenderer.invoke('onboarding:shouldShow'),
+  getModBisect: (versionId: string) => ipcRenderer.invoke('bisect:get', versionId),
+  startModBisect: (versionId: string) => ipcRenderer.invoke('bisect:start', versionId),
+  answerModBisect: (versionId: string, result: 'bad' | 'good') =>
+    ipcRenderer.invoke('bisect:answer', versionId, result),
+  finishModBisect: (versionId: string, disableFound: boolean) =>
+    ipcRenderer.invoke('bisect:finish', versionId, disableFound),
+  listSchematics: (versionId: string) => ipcRenderer.invoke('schematics:list', versionId),
+  getSchematicDetails: (versionId: string, name: string) => ipcRenderer.invoke('schematics:details', versionId, name),
+  addSchematics: (versionId: string) => ipcRenderer.invoke('schematics:add', versionId),
+  deleteSchematic: (versionId: string, name: string) => ipcRenderer.invoke('schematics:delete', versionId, name),
+  openSchematicsDir: (versionId: string) => ipcRenderer.invoke('schematics:open', versionId),
+  showSchematic: (versionId: string, name: string) => ipcRenderer.invoke('schematics:show', versionId, name),
+  addToWardrobe: (image: string, name: string, model: string) => ipcRenderer.invoke('wardrobe:add', image, name, model),
+  updateWardrobeSkin: (id: string, patch: { name?: string; model?: string }) =>
+    ipcRenderer.invoke('wardrobe:update', id, patch),
+  removeFromWardrobe: (id: string) => ipcRenderer.invoke('wardrobe:remove', id),
+  wearWardrobeSkin: (id: string) => ipcRenderer.invoke('wardrobe:wear', id),
   uploadMsSkin: (uuid: string, variant: 'classic' | 'slim') => ipcRenderer.invoke('ms:uploadSkin', uuid, variant),
   resetMsSkin: (uuid: string) => ipcRenderer.invoke('ms:resetSkin', uuid),
   setMsCape: (uuid: string, capeId: string | null) => ipcRenderer.invoke('ms:setCape', uuid, capeId),

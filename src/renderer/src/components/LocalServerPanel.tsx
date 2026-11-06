@@ -17,6 +17,7 @@ import {
   X
 } from 'lucide-react'
 import ServerPlayersPanel from './ServerPlayersPanel'
+import ServerRoomShare from './ServerRoomShare'
 import type { InstalledVersion, LocalServer, LocalServerStatus } from '../../../shared/types'
 
 function cleanError(e: unknown): string {
@@ -572,11 +573,11 @@ function LocalServerPanel(): JSX.Element {
                         ))}
                       </div>
                       <div className="mt-1 text-white/40">
-                        自己用这台电脑玩时地址填 localhost{server.port === 25565 ? '' : `:${server.port}`}；
-                        不在一起的朋友可以用「联机」页
+                        自己用这台电脑玩时地址填 localhost{server.port === 25565 ? '' : `:${server.port}`}
                       </div>
                     </div>
                   )}
+                  {state === 'running' && <ServerRoomShare />}
                   {state === 'running' && <ServerPlayersPanel serverId={server.id} online={status.players} />}
                   <div
                     ref={logRef}
