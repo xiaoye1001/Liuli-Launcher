@@ -795,6 +795,17 @@ export type ModIssue =
       modId: string
       mods: { fileName: string; name: string; version: string }[]
     }
+  | {
+      /** 模组之间互相冲突 */
+      kind: 'conflict'
+      /** declared：模组自己在描述文件里声明的；known：启动器内置的常见冲突 */
+      source: 'declared' | 'known'
+      /** 必定出问题（通常无法启动）；false 表示可能出问题 */
+      hard: boolean
+      /** 冲突的原因（给人看的） */
+      reason: string
+      mods: { fileName: string; name: string; version: string }[]
+    }
 
 /** 版本游戏目录里的本地资源：资源包或光影包 */
 export type LocalResourceKind = 'resourcepack' | 'shader'

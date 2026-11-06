@@ -1,6 +1,7 @@
 import { readFabricMod, readForgeModManifest, readForgeModToml, readQuiltMod } from '@xmcl/mod-parser'
 import { openFileSystem, type FileSystem } from '@xmcl/system'
 import type { ModIssue, ModLoader } from '../shared/types'
+import { versionInRange } from './versionRange'
 
 /** 一个依赖：ids 中任意一个存在即可 */
 export interface ModDependency {
@@ -9,12 +10,38 @@ export interface ModDependency {
   range: string
 }
 
+/** 声明的不兼容模组 */
+export interface ModBreak {
+  id: string
+  /** 哪些版本不兼容 */
+  range: string
+  /** 范围的写法：Fabric / Quilt 是 semver，Forge / NeoForge 是 maven */
+  format: 'semver' | 'maven'
+  /** true：一起装会出错（Fabric breaks、Quilt breaks、NeoForge incompatible）；false：可能出问题 */
+  hard: boolean
+}
+
 /** 一种加载器的描述文件里声明的内容 */
 export interface ModMeta {
   /** 这个文件提供的模组 ID：自身、provides 声明的别名、内嵌的模组 */
   ids: string[]
   /** 必需的前置 */
   depends: ModDependency[]
+  /** 声明不兼容的模组 */
+  breaks?: ModBreak[]
+}
+
+/** Fabric 的 breaks / conflicts：值可以是字符串或字符串数组（数组表示任意一个范围） */
+function fabricBreaks(map: unknown, hard: boolean): ModBreak[] {
+  if (!map || typeof map !== 'object') return []
+  const result: ModBreak[] = []
+  for (const [id, value] of Object.entries(map as Record<string, unknown>)) {
+    if (!id) continue
+    const ranges = Array.isArray(value) ? value.filter((v) => typeof v === 'string') : [value]
+    const range = ranges.every((r) => typeof r === 'string') ? (ranges as string[]).join(' || ') : '*'
+    result.push({ id, range: range || '*', format: 'semver', hard })
+  }
+  return result
 }
 
 /** 模组 jar 里各加载器的描述（同一个 jar 可能同时支持多个加载器） */
@@ -129,7 +156,8 @@ export async function readRelations(fs: FileSystem, depth = 0): Promise<ModRelat
         ))
       )
       const depends = Object.entries(mod.depends ?? {}).map(([id, range]) => ({ ids: [id], range: rangeText(range) }))
-      result.fabric = { ids, depends }
+      const breaks = [...fabricBreaks(mod.breaks, true), ...fabricBreaks(mod.conflicts, false)]
+      result.fabric = { ids, depends, breaks }
     } catch {
       // 描述文件损坏
     }
@@ -158,7 +186,18 @@ export async function readRelations(fs: FileSystem, depth = 0): Promise<ModRelat
           range: typeof required[0] === 'string' ? '' : rangeText(required[0].versions)
         })
       }
-      result.quilt = { ids, depends }
+      const breaks: ModBreak[] = []
+      for (const item of (loader.breaks ?? []) as unknown[]) {
+        const entry = (typeof item === 'string' ? { id: item } : item) as { id?: unknown; versions?: unknown }
+        if (typeof entry?.id !== 'string' || !entry.id) continue
+        const versions = Array.isArray(entry.versions)
+          ? entry.versions.filter((v) => typeof v === 'string').join(' || ')
+          : typeof entry.versions === 'string'
+            ? entry.versions
+            : '*'
+        breaks.push({ id: plainId(entry.id), range: versions || '*', format: 'semver', hard: true })
+      }
+      result.quilt = { ids, depends, breaks }
     } catch {
       // 描述文件损坏
     }
@@ -177,16 +216,28 @@ export async function readRelations(fs: FileSystem, depth = 0): Promise<ModRelat
       nested ??= await nestedIds(fs, await jarJarPaths(fs), depth)
       const ids = [...mods.flatMap((m) => [m.modid, ...(m.provides ?? [])]), ...nested].filter(Boolean)
       const depends: ModDependency[] = []
+      const breaks: ModBreak[] = []
       for (const mod of mods) {
         for (const dep of mod.dependencies ?? []) {
           // 旧格式用 mandatory = true，NeoForge 新格式用 type = "required"；只在服务端需要的不检查
           const type = String((dep as { type?: unknown }).type ?? '').toLowerCase()
+          if (String(dep.side ?? 'BOTH').toUpperCase() === 'SERVER' || !dep.modId) continue
+          // NeoForge：incompatible 表示不能一起装，discouraged 表示不建议一起装
+          if (type === 'incompatible' || type === 'discouraged') {
+            breaks.push({
+              id: dep.modId,
+              range: dep.versionRange ?? '',
+              format: 'maven',
+              hard: type === 'incompatible'
+            })
+            continue
+          }
           const required = dep.mandatory === true || type === 'required'
-          if (!required || String(dep.side ?? 'BOTH').toUpperCase() === 'SERVER' || !dep.modId) continue
+          if (!required) continue
           depends.push({ ids: [dep.modId], range: dep.versionRange ?? '' })
         }
       }
-      result[kind] = { ids, depends }
+      result[kind] = { ids, depends, breaks }
     } catch {
       // 描述文件损坏
     }
@@ -212,7 +263,116 @@ export interface CheckedMod {
   relations: ModRelations
 }
 
-/** 检查模组之间的问题：缺少前置模组（或前置被禁用了）、同一个模组装了多个 */
+/** 启动器内置的常见冲突：同一组里的模组替换的是游戏的同一部分，只能装一个 */
+interface KnownMember {
+  /** 同一个 key 算同一个东西（例如 OptiFine 本体和 OptiFabric） */
+  key: string
+  ids: string[]
+  /** 没有模组描述文件时按文件名识别（OptiFine 本体） */
+  file?: RegExp
+}
+
+const OPTIFINE: KnownMember = { key: 'optifine', ids: ['optifabric', 'optiforge'], file: /^(preview_)?optifine[_-]/i }
+
+export const KNOWN_CONFLICT_GROUPS: { reason: string; members: KnownMember[] }[] = [
+  {
+    reason: '它们都会替换游戏的渲染引擎，同时装通常无法启动或画面出错，只保留一个',
+    members: [
+      { key: 'sodium', ids: ['sodium'] },
+      { key: 'embeddium', ids: ['embeddium'] },
+      { key: 'rubidium', ids: ['rubidium'] },
+      { key: 'magnesium', ids: ['magnesium'] },
+      { key: 'canvas', ids: ['canvas'] },
+      { key: 'vulkanmod', ids: ['vulkanmod'] },
+      OPTIFINE
+    ]
+  },
+  {
+    reason: '它们都是光影加载器，同时装会冲突，只保留一个',
+    members: [{ key: 'iris', ids: ['iris'] }, { key: 'oculus', ids: ['oculus'] }, OPTIFINE]
+  },
+  {
+    reason: '它们都会替换游戏的光照引擎，同时装会冲突，只保留一个',
+    members: [
+      { key: 'starlight', ids: ['starlight'] },
+      { key: 'phosphor', ids: ['phosphor'] }
+    ]
+  }
+]
+
+function knownKey(mod: CheckedMod, members: KnownMember[]): string | undefined {
+  const id = mod.modId.toLowerCase()
+  for (const member of members) {
+    if (id && member.ids.includes(id)) return member.key
+    if (!id && member.file?.test(mod.fileName)) return member.key
+  }
+  return undefined
+}
+
+type ConflictIssue = Extract<ModIssue, { kind: 'conflict' }>
+
+function brief(mod: CheckedMod): { fileName: string; name: string; version: string } {
+  return { fileName: mod.fileName, name: mod.name, version: mod.version }
+}
+
+/** 已知冲突和模组自己声明的不兼容 */
+function findConflicts(enabled: CheckedMod[], loader: ModLoader): ConflictIssue[] {
+  const result: ConflictIssue[] = []
+  for (const group of KNOWN_CONFLICT_GROUPS) {
+    const hits = enabled
+      .map((mod) => ({ mod, key: knownKey(mod, group.members) }))
+      .filter((h): h is { mod: CheckedMod; key: string } => !!h.key)
+    if (new Set(hits.map((h) => h.key)).size < 2) continue
+    result.push({
+      kind: 'conflict',
+      source: 'known',
+      hard: true,
+      reason: group.reason,
+      mods: hits.map((h) => brief(h.mod))
+    })
+  }
+  const covered = (a: string, b: string): boolean =>
+    result.some((issue) => issue.mods.some((m) => m.fileName === a) && issue.mods.some((m) => m.fileName === b))
+
+  const declared = new Map<string, ConflictIssue>()
+  for (const mod of enabled) {
+    for (const item of metaFor(mod.relations, loader)?.breaks ?? []) {
+      for (const other of enabled) {
+        if (other === mod) continue
+        const ids = metaFor(other.relations, loader)?.ids ?? []
+        if (!ids.includes(item.id)) continue
+        // 别名或内嵌模组的版本号不一定是这个 jar 的版本号：只有「任意版本」时才算
+        const inRange =
+          item.id === other.modId
+            ? versionInRange(item.range, other.version, item.format)
+            : versionInRange(item.range, '', item.format)
+        if (inRange !== true) continue
+        if (covered(mod.fileName, other.fileName)) continue
+        const key = [mod.fileName, other.fileName].sort().join('\u0000')
+        const existing = declared.get(key)
+        if (existing) {
+          if (item.hard && !existing.hard) {
+            existing.hard = true
+            existing.reason = `${mod.name} 声明不能和 ${other.name} 一起使用`
+          }
+          continue
+        }
+        declared.set(key, {
+          kind: 'conflict',
+          source: 'declared',
+          hard: item.hard,
+          reason: item.hard
+            ? `${mod.name} 声明不能和 ${other.name} 一起使用`
+            : `${mod.name} 声明和 ${other.name} 一起使用可能出问题`,
+          mods: [brief(mod), brief(other)]
+        })
+      }
+    }
+  }
+  return [...result, ...declared.values()]
+}
+
+/** 检查模组之间的问题：缺少前置模组（或前置被禁用了）、同一个模组装了多个、互相冲突 */
 export function findModIssues(mods: CheckedMod[], loader: ModLoader | undefined): ModIssue[] {
   if (!loader || loader === 'optifine') return []
   const enabled = mods.filter((m) => m.enabled)
@@ -263,5 +423,5 @@ export function findModIssues(mods: CheckedMod[], loader: ModLoader | undefined)
       mods: list.map((m) => ({ fileName: m.fileName, name: m.name, version: m.version }))
     }))
 
-  return [...missing.values(), ...duplicates]
+  return [...missing.values(), ...duplicates, ...findConflicts(enabled, loader)]
 }
