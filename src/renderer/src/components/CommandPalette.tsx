@@ -17,6 +17,7 @@ import {
   Sprout,
   Terminal,
   TerminalSquare,
+  Anvil,
   Trash2,
   Trophy,
   Zap,
@@ -196,6 +197,14 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
         icon: TerminalSquare,
         keywords: '命令 指令 give 附魔 effect summon tellraw 召唤 作弊',
         run: tool('commands')
+      },
+      {
+        id: 'tool:enchant',
+        title: '附魔计算器',
+        group: '百宝箱',
+        icon: Anvil,
+        keywords: '附魔 铁砧 经验 顺序 过于昂贵 附魔书 enchant anvil',
+        run: tool('enchant')
       },
       {
         id: 'action:log',
