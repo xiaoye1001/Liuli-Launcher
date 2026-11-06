@@ -15,6 +15,7 @@ import { applyModMigration, checkModMigration } from './modMigration'
 import { getModUpdateSummary, markModUpdated, recordModUpdates, setupModUpdateWatch } from './modUpdateWatch'
 import { dismissGameReleaseNews, getGameReleaseNews, setupGameReleaseWatch } from './gameReleaseWatch'
 import { addToWardrobe, listWardrobe, removeFromWardrobe, updateWardrobeSkin, wearWardrobeSkin } from './skinWardrobe'
+import { applySettingsImport, exportLauncherSettings, readSettingsFile } from './settingsTransfer'
 import {
   configureCloudBackup,
   downloadCloudBackup,
@@ -303,6 +304,76 @@ function broadcastSettings(settings: AppSettings): AppSettings {
   return settings
 }
 
+/**
+ * 检查并保存界面（或导入的设置文件）发来的设置修改：只接受已知的设置项，类型与取值不对的丢弃；
+ * 游戏目录、背景库、账号由专门的接口修改
+ */
+async function applySettingsInput(input: unknown): Promise<AppSettings> {
+  // 只接受已知的设置项，类型与取值不对的丢弃；游戏目录、背景库、账号由专门的接口修改
+  let patch = sanitizeSettingsPatch(input)
+  // 修改主题时同步给 Electron，所有窗口的 prefers-color-scheme 会随之变化
+  if (patch.theme) nativeTheme.themeSource = patch.theme
+  if (typeof patch.proxyUrl === 'string' && patch.proxyUrl.trim()) {
+    patch = { ...patch, proxyUrl: validateProxyUrl(patch.proxyUrl) }
+  }
+  if (patch.downloadThreads !== undefined) {
+    const threads = Number(patch.downloadThreads)
+    patch = { ...patch, downloadThreads: Number.isInteger(threads) ? Math.min(64, Math.max(1, threads)) : 16 }
+  }
+  if ('uiScale' in patch) patch = { ...patch, uiScale: normalizeScale(patch.uiScale) }
+  // 生日：MM-DD 或空
+  if (typeof patch.birthday === 'string' && patch.birthday && !isBirthday(patch.birthday)) {
+    patch = { ...patch, birthday: '' }
+  }
+  if ('playReminderMinutes' in patch) {
+    // 健康游戏提醒：0（不提醒）或 15 分钟到 10 小时
+    const minutes = Number(patch.playReminderMinutes)
+    patch = {
+      ...patch,
+      playReminderMinutes: Number.isInteger(minutes) && minutes >= 15 && minutes <= 600 ? minutes : 0
+    }
+  }
+  if ('musicVolume' in patch) {
+    const volume = Number(patch.musicVolume)
+    patch = { ...patch, musicVolume: Number.isFinite(volume) ? Math.round(Math.min(100, Math.max(0, volume))) : 40 }
+  }
+  // 自定义文字：去掉换行等控制字符并限制长度
+  for (const [key, max] of [
+    ['launcherTitle', 20],
+    ['launcherSubtitle', 30],
+    ['welcomeTitle', 60],
+    ['welcomeSubtitle', 120]
+  ] as const) {
+    if (key in patch) patch = { ...patch, [key]: limitText(patch[key], max) }
+  }
+  if ('themePreset' in patch && !THEME_PRESETS.includes(patch.themePreset as ThemePreset)) {
+    patch = { ...patch, themePreset: 'aurora' }
+  }
+  if ('particleEffect' in patch && !PARTICLE_EFFECTS.includes(patch.particleEffect as ParticleEffect)) {
+    patch = { ...patch, particleEffect: 'auto' }
+  }
+  if ('particleDensity' in patch && !['low', 'normal', 'high'].includes(String(patch.particleDensity))) {
+    patch = { ...patch, particleDensity: 'normal' }
+  }
+  if ('particleSpeed' in patch) {
+    const speed = Number(patch.particleSpeed)
+    patch = { ...patch, particleSpeed: Number.isFinite(speed) ? Math.round(Math.min(200, Math.max(50, speed))) : 100 }
+  }
+  if ('particleInteract' in patch) patch = { ...patch, particleInteract: patch.particleInteract === true }
+  if ('parallax' in patch) patch = { ...patch, parallax: patch.parallax === true }
+  if ('customThemes' in patch) patch = { ...patch, customThemes: sanitizeCustomThemes(patch.customThemes) }
+  if ('autoTheme' in patch) patch = { ...patch, autoTheme: sanitizeAutoTheme(patch.autoTheme) }
+  if ('hiddenPages' in patch) {
+    const pages = Array.isArray(patch.hiddenPages) ? patch.hiddenPages : []
+    patch = { ...patch, hiddenPages: HIDEABLE_PAGES.filter((p) => pages.includes(p)) }
+  }
+  if ('fontFamily' in patch) patch = { ...patch, fontFamily: sanitizeFontFamily(patch.fontFamily) }
+  const next = await updateSettings(patch)
+  // 代理与下载线程数立即生效
+  if ('proxyMode' in patch || 'proxyUrl' in patch || 'downloadThreads' in patch) await applyNetworkSettings()
+  return broadcastSettings(next)
+}
+
 /** 切换游戏目录后通知所有窗口（选中的版本也随之改变） */
 async function afterGameDirChange(info: GameDirInfo): Promise<GameDirInfo> {
   broadcastSettings(await getSettings())
@@ -358,71 +429,12 @@ function registerIpc(): void {
   ipcMain.handle('java:runtimes', () => listJavaRuntimes())
   ipcMain.handle('java:download', (_, component: string) => startJavaInstall(component))
   ipcMain.handle('settings:get', () => getSettings())
-  ipcMain.handle('settings:update', async (_, input: unknown) => {
-    // 只接受已知的设置项，类型与取值不对的丢弃；游戏目录、背景库、账号由专门的接口修改
-    let patch = sanitizeSettingsPatch(input)
-    // 修改主题时同步给 Electron，所有窗口的 prefers-color-scheme 会随之变化
-    if (patch.theme) nativeTheme.themeSource = patch.theme
-    if (typeof patch.proxyUrl === 'string' && patch.proxyUrl.trim()) {
-      patch = { ...patch, proxyUrl: validateProxyUrl(patch.proxyUrl) }
-    }
-    if (patch.downloadThreads !== undefined) {
-      const threads = Number(patch.downloadThreads)
-      patch = { ...patch, downloadThreads: Number.isInteger(threads) ? Math.min(64, Math.max(1, threads)) : 16 }
-    }
-    if ('uiScale' in patch) patch = { ...patch, uiScale: normalizeScale(patch.uiScale) }
-    // 生日：MM-DD 或空
-    if (typeof patch.birthday === 'string' && patch.birthday && !isBirthday(patch.birthday)) {
-      patch = { ...patch, birthday: '' }
-    }
-    if ('playReminderMinutes' in patch) {
-      // 健康游戏提醒：0（不提醒）或 15 分钟到 10 小时
-      const minutes = Number(patch.playReminderMinutes)
-      patch = {
-        ...patch,
-        playReminderMinutes: Number.isInteger(minutes) && minutes >= 15 && minutes <= 600 ? minutes : 0
-      }
-    }
-    if ('musicVolume' in patch) {
-      const volume = Number(patch.musicVolume)
-      patch = { ...patch, musicVolume: Number.isFinite(volume) ? Math.round(Math.min(100, Math.max(0, volume))) : 40 }
-    }
-    // 自定义文字：去掉换行等控制字符并限制长度
-    for (const [key, max] of [
-      ['launcherTitle', 20],
-      ['launcherSubtitle', 30],
-      ['welcomeTitle', 60],
-      ['welcomeSubtitle', 120]
-    ] as const) {
-      if (key in patch) patch = { ...patch, [key]: limitText(patch[key], max) }
-    }
-    if ('themePreset' in patch && !THEME_PRESETS.includes(patch.themePreset as ThemePreset)) {
-      patch = { ...patch, themePreset: 'aurora' }
-    }
-    if ('particleEffect' in patch && !PARTICLE_EFFECTS.includes(patch.particleEffect as ParticleEffect)) {
-      patch = { ...patch, particleEffect: 'auto' }
-    }
-    if ('particleDensity' in patch && !['low', 'normal', 'high'].includes(String(patch.particleDensity))) {
-      patch = { ...patch, particleDensity: 'normal' }
-    }
-    if ('particleSpeed' in patch) {
-      const speed = Number(patch.particleSpeed)
-      patch = { ...patch, particleSpeed: Number.isFinite(speed) ? Math.round(Math.min(200, Math.max(50, speed))) : 100 }
-    }
-    if ('particleInteract' in patch) patch = { ...patch, particleInteract: patch.particleInteract === true }
-    if ('parallax' in patch) patch = { ...patch, parallax: patch.parallax === true }
-    if ('customThemes' in patch) patch = { ...patch, customThemes: sanitizeCustomThemes(patch.customThemes) }
-    if ('autoTheme' in patch) patch = { ...patch, autoTheme: sanitizeAutoTheme(patch.autoTheme) }
-    if ('hiddenPages' in patch) {
-      const pages = Array.isArray(patch.hiddenPages) ? patch.hiddenPages : []
-      patch = { ...patch, hiddenPages: HIDEABLE_PAGES.filter((p) => pages.includes(p)) }
-    }
-    if ('fontFamily' in patch) patch = { ...patch, fontFamily: sanitizeFontFamily(patch.fontFamily) }
-    const next = await updateSettings(patch)
-    // 代理与下载线程数立即生效
-    if ('proxyMode' in patch || 'proxyUrl' in patch || 'downloadThreads' in patch) await applyNetworkSettings()
-    return broadcastSettings(next)
-  })
+  ipcMain.handle('settings:update', (_, input: unknown) => applySettingsInput(input))
+  ipcMain.handle('settings:export', (event) => exportLauncherSettings(BrowserWindow.fromWebContents(event.sender)))
+  ipcMain.handle('settings:readImport', (event) => readSettingsFile(BrowserWindow.fromWebContents(event.sender)))
+  ipcMain.handle('settings:applyImport', (_, token: unknown, parts: unknown) =>
+    applySettingsImport(token, parts, applySettingsInput)
+  )
   ipcMain.handle('network:check', () => checkNetwork())
   ipcMain.handle('news:get', (_, force?: boolean) => getNews(force === true))
   ipcMain.handle('appearance:pickBackground', (event) =>

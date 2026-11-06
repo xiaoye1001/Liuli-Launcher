@@ -41,6 +41,7 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import CloudBackupSettings from '../components/CloudBackupSettings'
+import SettingsTransferSection from '../components/SettingsTransferSection'
 import { backgroundUrl } from '../utils/appearance'
 import { ReleaseNotes, UpdateActions } from '../components/UpdateNotice'
 import GameDirSection from '../components/GameDirSection'
@@ -1637,6 +1638,9 @@ function SettingsPage(): JSX.Element {
 
           {/* 下载与网络 */}
           <NetworkSection settings={settings} onSettings={setSettings} />
+
+          {/* 导出 / 导入设置 */}
+          <SettingsTransferSection onSettings={setSettings} />
 
           {/* 关于与更新 */}
           <AboutSection

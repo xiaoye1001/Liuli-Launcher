@@ -61,6 +61,9 @@ import type {
   ModUpdateSummary,
   GameReleaseNews,
   WardrobeSkin,
+  SettingsTransferPart,
+  SettingsImportPreview,
+  SettingsImportResult,
   SkinModel,
   CloudBackupConfig,
   CloudBackupInput,
@@ -129,6 +132,10 @@ declare global {
       downloadJava: (component: string) => Promise<string>
       getSettings: () => Promise<AppSettings>
       updateSettings: (patch: Partial<AppSettings>) => Promise<AppSettings>
+      /** 启动器设置导出 / 导入 */
+      exportLauncherSettings: () => Promise<{ path: string; counts: Record<SettingsTransferPart, number> } | null>
+      readSettingsImport: () => Promise<SettingsImportPreview | null>
+      applySettingsImport: (token: string, parts: SettingsTransferPart[]) => Promise<SettingsImportResult>
       getSystemInfo: () => Promise<SystemInfo>
       /** 测试常用服务器能否连接（使用当前的代理设置） */
       checkNetwork: () => Promise<NetworkCheck>

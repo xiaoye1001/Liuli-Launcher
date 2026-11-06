@@ -1235,6 +1235,22 @@ export interface WardrobeSkin {
   addedAt: number
 }
 
+/** 启动器设置导出 / 导入的各个部分 */
+export type SettingsTransferPart = 'settings' | 'themes' | 'servers' | 'seeds' | 'collections' | 'skins'
+
+/** 选好设置文件后、导入前看到的内容 */
+export interface SettingsImportPreview {
+  token: string
+  exportedAt: number
+  launcherVersion: string
+  counts: Record<SettingsTransferPart, number>
+}
+
+export interface SettingsImportResult {
+  added: Partial<Record<SettingsTransferPart, number>>
+  skipped: Partial<Record<SettingsTransferPart, number>>
+}
+
 /** 刚发布、还没被看过的 Minecraft 新版本 */
 export interface GameReleaseNews {
   id: string
