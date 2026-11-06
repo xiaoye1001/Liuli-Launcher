@@ -359,6 +359,11 @@ const api = {
   hostServerRoom: (mode: 'p2p' | 'direct') => ipcRenderer.invoke('serverRoom:host', mode),
   listExtraInstances: () => ipcRenderer.invoke('extraInstances:list'),
   compareVersions: (a: string, b: string) => ipcRenderer.invoke('versions:compare', a, b),
+  listWaypoints: (versionId: string, folder: string) => ipcRenderer.invoke('waypoints:list', versionId, folder),
+  saveWaypoint: (versionId: string, folder: string, input: Record<string, unknown>) =>
+    ipcRenderer.invoke('waypoints:save', versionId, folder, input),
+  deleteWaypoint: (versionId: string, folder: string, id: string) =>
+    ipcRenderer.invoke('waypoints:delete', versionId, folder, id),
   createModSyncCode: (versionId: string) => ipcRenderer.invoke('modSync:create', versionId),
   listConfigFiles: (versionId: string) => ipcRenderer.invoke('configs:list', versionId),
   readConfigFile: (versionId: string, name: string) => ipcRenderer.invoke('configs:read', versionId, name),

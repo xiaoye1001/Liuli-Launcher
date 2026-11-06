@@ -19,6 +19,7 @@ import { applySettingsImport, exportLauncherSettings, readSettingsFile } from '.
 import { answerModBisect, finishModBisect, getModBisect, startModBisect } from './modBisect'
 import { getServerRoom, hostServerRoom, setupServerRoom, stopServerRoom } from './serverRoom'
 import { compareVersions } from './versionDiff'
+import { deleteWaypoint, listWaypoints, saveWaypoint } from './worldWaypoints'
 import { applyModSyncCode, createModSyncCode, previewModSyncCode } from './modSync'
 import { listConfigFiles, readConfigFile, restoreConfigFile, saveConfigEntries, saveConfigText } from './modConfigs'
 import { clearExtraInstance, killExtraInstance, launchExtraInstance, listExtraInstances } from './extraInstances'
@@ -747,6 +748,15 @@ function registerIpc(): void {
   ipcMain.handle('serverRoom:host', (_, mode: unknown) => hostServerRoom(mode))
   ipcMain.handle('extraInstances:list', () => listExtraInstances())
   ipcMain.handle('versions:compare', (_, a: unknown, b: unknown) => compareVersions(a, b))
+  ipcMain.handle('waypoints:list', (_, versionId: string, folder: string) =>
+    listWaypoints(String(versionId), String(folder))
+  )
+  ipcMain.handle('waypoints:save', (_, versionId: string, folder: string, input: unknown) =>
+    saveWaypoint(String(versionId), String(folder), input)
+  )
+  ipcMain.handle('waypoints:delete', (_, versionId: string, folder: string, id: unknown) =>
+    deleteWaypoint(String(versionId), String(folder), id)
+  )
   ipcMain.handle('modSync:create', (_, versionId: string) => createModSyncCode(String(versionId)))
   ipcMain.handle('configs:list', (_, versionId: string) => listConfigFiles(String(versionId)))
   ipcMain.handle('configs:read', (_, versionId: string, name: unknown) => readConfigFile(String(versionId), name))

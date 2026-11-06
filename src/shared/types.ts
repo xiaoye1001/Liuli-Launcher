@@ -1253,6 +1253,22 @@ export interface WardrobeSkin {
   addedAt: number
 }
 
+export type WaypointDimension = 'overworld' | 'the_nether' | 'the_end'
+
+/** 坐标笔记本里的一个地点 */
+export interface Waypoint {
+  id: string
+  name: string
+  x: number
+  y: number
+  z: number
+  dimension: WaypointDimension
+  note: string
+  /** 地图上的颜色 */
+  color: string
+  createdAt: number
+}
+
 /** config 文件夹里的一个配置文件 */
 export interface ConfigFileInfo {
   /** config 文件夹里的相对路径 */

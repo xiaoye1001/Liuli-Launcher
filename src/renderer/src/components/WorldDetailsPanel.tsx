@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Check, ChevronDown, Copy, Loader2, Map as MapIcon, Search, Star } from 'lucide-react'
 import { seedMapUrl as mapUrlOf } from '../utils/seed'
 import WorldMapView from './WorldMapView'
-import type { WorldDetails, WorldDifficulty, WorldStats } from '../../../shared/types'
+import WaypointsPanel from './WaypointsPanel'
+import type { Waypoint, WorldDetails, WorldDifficulty, WorldStats } from '../../../shared/types'
 
 /**
  * Chunkbase 的种子地图（第三方网站，在系统浏览器里打开）：
@@ -200,6 +201,8 @@ function WorldDetailsPanel({
   gameVersion?: string
 }): JSX.Element {
   const [details, setDetails] = useState<WorldDetails | null>(null)
+  /** 坐标笔记本里的地点（地图上标出来） */
+  const [waypoints, setWaypoints] = useState<Waypoint[]>([])
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const [keyword, setKeyword] = useState('')
@@ -335,6 +338,8 @@ function WorldDetailsPanel({
 
       {details.stats && <WorldStatsGrid stats={details.stats} />}
 
+      <WaypointsPanel versionId={versionId} folder={folder} player={p} onChange={setWaypoints} />
+
       {/* 地图预览：点开时才读取区域文件 */}
       <div>
         <button
@@ -352,6 +357,7 @@ function WorldDetailsPanel({
               folder={folder}
               player={p && /overworld|^0$/.test(p.dimension) ? { x: p.x, z: p.z } : undefined}
               spawn={details.spawn ? { x: details.spawn.x, z: details.spawn.z } : undefined}
+              waypoints={waypoints.filter((w) => w.dimension === 'overworld')}
             />
           </div>
         )}

@@ -72,6 +72,7 @@ import type {
   ModSyncResult,
   ConfigFileInfo,
   ConfigFileView,
+  Waypoint,
   SchematicDetails,
   SkinModel,
   CloudBackupConfig,
@@ -587,6 +588,10 @@ declare global {
       createModSyncCode: (versionId: string) => Promise<{ code: string; count: number; unknown: string[] }>
       previewModSyncCode: (versionId: string, code: string) => Promise<ModSyncPreview>
       applyModSyncCode: (versionId: string, code: string, replace: boolean) => Promise<ModSyncResult>
+      /** 坐标笔记本 */
+      listWaypoints: (versionId: string, folder: string) => Promise<Waypoint[]>
+      saveWaypoint: (versionId: string, folder: string, input: Record<string, unknown>) => Promise<Waypoint[]>
+      deleteWaypoint: (versionId: string, folder: string, id: string) => Promise<Waypoint[]>
       /** 版本差异对比 */
       compareVersions: (a: string, b: string) => Promise<VersionDiff>
       /** 多开：再开几个游戏窗口（离线名字） */
