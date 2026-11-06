@@ -1,5 +1,6 @@
 import type { AchievementStatus } from '../shared/achievements'
 import type {
+  RecipeBook,
   CleanCategory,
   LocalAddresses,
   MultiplayerMod,
@@ -592,6 +593,7 @@ declare global {
       applyModSyncCode: (versionId: string, code: string, replace: boolean) => Promise<ModSyncResult>
       /** 地图画导出成投影 */
       exportMapArt: (versionId: string, input: Record<string, unknown>) => Promise<{ path: string; blocks: number }>
+      getRecipeBook: (versionId: string) => Promise<RecipeBook>
       /** 存档体积分析与瘦身 */
       analyzeWorldSize: (versionId: string, folder: string) => Promise<WorldSizeReport>
       planWorldTrim: (versionId: string, folder: string, minutes: number, radius: number) => Promise<WorldTrimPlan>

@@ -6,6 +6,7 @@ import {
   CircuitBoard,
   FileDiff,
   Paintbrush,
+  BookOpen,
   BarChart3,
   Bug,
   Calculator,
@@ -37,6 +38,7 @@ import MultiInstancePanel from '../components/MultiInstancePanel'
 import RedstoneToolsPanel from '../components/RedstoneToolsPanel'
 import VersionDiffPanel from '../components/VersionDiffPanel'
 import MapArtPanel from '../components/MapArtPanel'
+import RecipeLookupPanel from '../components/RecipeLookupPanel'
 import PageHeader from '../components/PageHeader'
 
 type ToolKey =
@@ -57,6 +59,7 @@ type ToolKey =
   | 'redstone'
   | 'diff'
   | 'mapart'
+  | 'recipes'
 
 interface Tool {
   key: ToolKey
@@ -109,7 +112,14 @@ const TOOLS: Tool[] = [
   { key: 'multi', title: '多开', desc: '同时开几个游戏窗口', icon: CopyPlus, tint: 'text-sky-300' },
   { key: 'redstone', title: '红石计算器', desc: '漏斗、熔炉、比较器、刻', icon: CircuitBoard, tint: 'text-red-300' },
   { key: 'diff', title: '版本差异对比', desc: '两个版本的模组和配置', icon: FileDiff, tint: 'text-sky-300' },
-  { key: 'mapart', title: '地图画生成器', desc: '图片变成方块清单和投影', icon: Paintbrush, tint: 'text-violet-300' }
+  { key: 'mapart', title: '地图画生成器', desc: '图片变成方块清单和投影', icon: Paintbrush, tint: 'text-violet-300' },
+  {
+    key: 'recipes',
+    title: '合成与交易查询',
+    desc: '怎么做、能做什么、村民交易',
+    icon: BookOpen,
+    tint: 'text-amber-300'
+  }
 ]
 
 const LAST_TOOL_KEY = TOOLBOX_KEY
@@ -194,6 +204,7 @@ function MorePage(): JSX.Element {
       {current === 'redstone' && <RedstoneToolsPanel />}
       {current === 'diff' && <VersionDiffPanel />}
       {current === 'mapart' && <MapArtPanel />}
+      {current === 'recipes' && <RecipeLookupPanel />}
     </div>
   )
 }

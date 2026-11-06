@@ -346,7 +346,7 @@ function itemFor(name: string, props: { [key: string]: Tag }): { id: string; cou
 /** 游戏语言文件里的中文名（从已经下载的游戏资源里读，没有时显示 ID） */
 let zhNames: { dir: string; names: Map<string, string> } | null = null
 
-async function chineseNames(): Promise<Map<string, string>> {
+export async function chineseNames(): Promise<Map<string, string>> {
   const assets = join((await getSettings()).gameDir, 'assets')
   if (zhNames?.dir === assets) return zhNames.names
   const names = new Map<string, string>()

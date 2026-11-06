@@ -361,6 +361,7 @@ const api = {
   compareVersions: (a: string, b: string) => ipcRenderer.invoke('versions:compare', a, b),
   exportMapArt: (versionId: string, input: Record<string, unknown>) =>
     ipcRenderer.invoke('mapArt:export', versionId, input),
+  getRecipeBook: (versionId: string) => ipcRenderer.invoke('recipes:book', versionId),
   analyzeWorldSize: (versionId: string, folder: string) => ipcRenderer.invoke('worldTrim:analyze', versionId, folder),
   planWorldTrim: (versionId: string, folder: string, minutes: number, radius: number) =>
     ipcRenderer.invoke('worldTrim:plan', versionId, folder, minutes, radius),

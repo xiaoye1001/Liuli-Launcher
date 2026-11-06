@@ -22,6 +22,7 @@ import {
   CircuitBoard,
   FileDiff,
   Paintbrush,
+  BookOpen,
   Trash2,
   Trophy,
   Zap,
@@ -241,6 +242,14 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
         icon: Paintbrush,
         keywords: '地图画 像素画 图片 地图 map art 投影',
         run: tool('mapart')
+      },
+      {
+        id: 'tool:recipes',
+        title: '合成与交易查询',
+        group: '百宝箱',
+        icon: BookOpen,
+        keywords: '合成 配方 合成表 熔炉 切石机 锻造 村民 交易 绿宝石 工作站 recipe craft trade villager',
+        run: tool('recipes')
       },
       {
         id: 'action:log',

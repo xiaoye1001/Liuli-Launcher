@@ -22,6 +22,7 @@ import { compareVersions } from './versionDiff'
 import { deleteWaypoint, listWaypoints, saveWaypoint } from './worldWaypoints'
 import { analyzeWorldSize, applyWorldTrim, planWorldTrim } from './worldTrim'
 import { exportMapArt } from './mapArtExport'
+import { getRecipeBook } from './recipes'
 import { applyModSyncCode, createModSyncCode, previewModSyncCode } from './modSync'
 import { listConfigFiles, readConfigFile, restoreConfigFile, saveConfigEntries, saveConfigText } from './modConfigs'
 import { clearExtraInstance, killExtraInstance, launchExtraInstance, listExtraInstances } from './extraInstances'
@@ -751,6 +752,7 @@ function registerIpc(): void {
   ipcMain.handle('extraInstances:list', () => listExtraInstances())
   ipcMain.handle('versions:compare', (_, a: unknown, b: unknown) => compareVersions(a, b))
   ipcMain.handle('mapArt:export', (_, versionId: string, input: unknown) => exportMapArt(String(versionId), input))
+  ipcMain.handle('recipes:book', (_, versionId: string) => getRecipeBook(String(versionId)))
   ipcMain.handle('worldTrim:analyze', (_, versionId: string, folder: string) =>
     analyzeWorldSize(String(versionId), String(folder))
   )

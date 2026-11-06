@@ -2210,3 +2210,36 @@ export interface MultiplayerStatus {
 
 /** 可以一键安装的联机模组 */
 export type MultiplayerMod = 'e4mc' | 'world-host'
+
+/** 配方里的一个材料格：可以用其中任意一种物品（物品 ID，原版物品不带 minecraft:） */
+export interface RecipeIngredient {
+  items: string[]
+  /** 来自物品标签（例如 planks）时的标签名 */
+  tag?: string
+}
+
+export type RecipeKind = 'crafting' | 'smelting' | 'blasting' | 'smoking' | 'campfire' | 'stonecutting' | 'smithing'
+
+export interface GameRecipe {
+  /** 配方文件名 */
+  id: string
+  kind: RecipeKind
+  ingredients: RecipeIngredient[]
+  /** 有形状的合成：格子里放 ingredients 的第几个，空格为 -1 */
+  shape?: { width: number; height: number; cells: number[] }
+  result: { item: string; count: number }
+  /** 烧炼得到的经验 */
+  experience?: number
+  /** 烧炼用时（游戏刻） */
+  time?: number
+}
+
+export interface RecipeBook {
+  versionId: string
+  minecraftVersion: string
+  recipes: GameRecipe[]
+  /** 物品 ID → 名字（中文；没有下载中文语言文件时是英文，再没有时不在这里） */
+  names: Record<string, string>
+  /** 名字是不是中文 */
+  chinese: boolean
+}
