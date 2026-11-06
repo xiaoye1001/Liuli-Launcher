@@ -18,6 +18,7 @@ import {
   Terminal,
   TerminalSquare,
   Anvil,
+  CopyPlus,
   Trash2,
   Trophy,
   Zap,
@@ -205,6 +206,14 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
         icon: Anvil,
         keywords: '附魔 铁砧 经验 顺序 过于昂贵 附魔书 enchant anvil',
         run: tool('enchant')
+      },
+      {
+        id: 'tool:multi',
+        title: '多开',
+        group: '百宝箱',
+        icon: CopyPlus,
+        keywords: '多开 多窗口 双开 两个号 小号 测试联机 multi instance',
+        run: tool('multi')
       },
       {
         id: 'action:log',

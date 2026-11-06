@@ -1237,6 +1237,21 @@ export interface WardrobeSkin {
   addedAt: number
 }
 
+/** 多开的游戏窗口 */
+export interface ExtraInstance {
+  id: string
+  versionId: string
+  /** 离线玩家名 */
+  name: string
+  pid: number
+  maxMemory: number
+  startedAt: number
+  state: 'running' | 'exited'
+  exitCode: number | null
+  /** 最后几行输出（退出时看原因） */
+  tail: string[]
+}
+
 /** 模组二分排查的进度 */
 export interface ModBisectState {
   versionId: string

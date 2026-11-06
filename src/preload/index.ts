@@ -357,6 +357,16 @@ const api = {
   getMsSkinProfile: (uuid: string) => ipcRenderer.invoke('ms:skinProfile', uuid),
   listWardrobe: () => ipcRenderer.invoke('wardrobe:list'),
   hostServerRoom: (mode: 'p2p' | 'direct') => ipcRenderer.invoke('serverRoom:host', mode),
+  listExtraInstances: () => ipcRenderer.invoke('extraInstances:list'),
+  launchExtraInstance: (versionId: string, name: string) =>
+    ipcRenderer.invoke('extraInstances:launch', versionId, name),
+  killExtraInstance: (id: string) => ipcRenderer.invoke('extraInstances:kill', id),
+  clearExtraInstance: (id: string) => ipcRenderer.invoke('extraInstances:clear', id),
+  onExtraInstances: (callback: (list: unknown) => void) => {
+    const listener = (_: Electron.IpcRendererEvent, list: unknown): void => callback(list)
+    ipcRenderer.on('extraInstances:changed', listener)
+    return () => ipcRenderer.removeListener('extraInstances:changed', listener)
+  },
   getServerRoom: () => ipcRenderer.invoke('serverRoom:get'),
   stopServerRoom: () => ipcRenderer.invoke('serverRoom:stop'),
   shouldShowOnboarding: () => ipcRenderer.invoke('onboarding:shouldShow'),

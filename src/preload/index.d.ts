@@ -66,6 +66,7 @@ import type {
   SettingsImportResult,
   SchematicList,
   ModBisectState,
+  ExtraInstance,
   SchematicDetails,
   SkinModel,
   CloudBackupConfig,
@@ -571,6 +572,12 @@ declare global {
       openMicrosoftLoginPage: () => Promise<void>
       /** 读取正版账号的皮肤与披风 */
       getMsSkinProfile: (uuid: string) => Promise<MsSkinProfile>
+      /** 多开：再开几个游戏窗口（离线名字） */
+      listExtraInstances: () => Promise<ExtraInstance[]>
+      launchExtraInstance: (versionId: string, name: string) => Promise<ExtraInstance[]>
+      killExtraInstance: (id: string) => Promise<ExtraInstance[]>
+      clearExtraInstance: (id: string) => Promise<ExtraInstance[]>
+      onExtraInstances: (callback: (list: ExtraInstance[]) => void) => () => void
       /** 一键开服的联机房间码（让外网的朋友加入） */
       hostServerRoom: (mode: 'p2p' | 'direct') => Promise<MultiplayerStatus>
       getServerRoom: () => Promise<MultiplayerStatus | null>

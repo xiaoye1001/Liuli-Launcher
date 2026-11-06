@@ -18,6 +18,7 @@ import { addToWardrobe, listWardrobe, removeFromWardrobe, updateWardrobeSkin, we
 import { applySettingsImport, exportLauncherSettings, readSettingsFile } from './settingsTransfer'
 import { answerModBisect, finishModBisect, getModBisect, startModBisect } from './modBisect'
 import { getServerRoom, hostServerRoom, setupServerRoom, stopServerRoom } from './serverRoom'
+import { clearExtraInstance, killExtraInstance, launchExtraInstance, listExtraInstances } from './extraInstances'
 import {
   addSchematics,
   deleteSchematic,
@@ -741,6 +742,12 @@ function registerIpc(): void {
   ipcMain.handle('wardrobe:list', () => listWardrobe())
   ipcMain.handle('bisect:get', (_, versionId: string) => getModBisect(String(versionId)))
   ipcMain.handle('serverRoom:host', (_, mode: unknown) => hostServerRoom(mode))
+  ipcMain.handle('extraInstances:list', () => listExtraInstances())
+  ipcMain.handle('extraInstances:launch', (_, versionId: unknown, name: unknown) =>
+    launchExtraInstance(versionId, name)
+  )
+  ipcMain.handle('extraInstances:kill', (_, id: unknown) => killExtraInstance(id))
+  ipcMain.handle('extraInstances:clear', (_, id: unknown) => clearExtraInstance(id))
   ipcMain.handle('serverRoom:get', () => getServerRoom())
   ipcMain.handle('serverRoom:stop', () => stopServerRoom())
   // 新手引导：还没走完、而且还没有装任何游戏版本时显示（老用户升级后不会突然弹出来）
