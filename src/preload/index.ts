@@ -233,6 +233,9 @@ const api = {
   createDesktopShortcut: (versionId: string) => ipcRenderer.invoke('versions:shortcut', versionId),
   listScreenshots: (versionId: string) => ipcRenderer.invoke('screenshots:list', versionId),
   screenshotsOnThisDay: () => ipcRenderer.invoke('screenshots:onThisDay'),
+  listScreenshotAlbums: (versionId: string) => ipcRenderer.invoke('screenshots:albums', versionId),
+  getScreenshotImages: (versionId: string, fileNames: string[], width: number) =>
+    ipcRenderer.invoke('screenshots:images', versionId, fileNames, width),
   deleteScreenshot: (versionId: string, fileName: string) =>
     ipcRenderer.invoke('screenshots:delete', versionId, fileName),
   copyScreenshot: (versionId: string, fileName: string) => ipcRenderer.invoke('screenshots:copy', versionId, fileName),

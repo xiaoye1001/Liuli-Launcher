@@ -23,6 +23,7 @@ import { deleteWaypoint, listWaypoints, saveWaypoint } from './worldWaypoints'
 import { analyzeWorldSize, applyWorldTrim, planWorldTrim } from './worldTrim'
 import { exportMapArt } from './mapArtExport'
 import { getRecipeBook } from './recipes'
+import { listScreenshotAlbums, screenshotImages, setupScreenshotSessions } from './screenshotAlbums'
 import { applyModSyncCode, createModSyncCode, previewModSyncCode } from './modSync'
 import { listConfigFiles, readConfigFile, restoreConfigFile, saveConfigEntries, saveConfigText } from './modConfigs'
 import { clearExtraInstance, killExtraInstance, launchExtraInstance, listExtraInstances } from './extraInstances'
@@ -710,6 +711,10 @@ function registerIpc(): void {
   )
   ipcMain.handle('screenshots:list', (_, versionId: string) => listScreenshots(versionId))
   ipcMain.handle('screenshots:onThisDay', () => screenshotsOnThisDay())
+  ipcMain.handle('screenshots:albums', (_, versionId: string) => listScreenshotAlbums(String(versionId)))
+  ipcMain.handle('screenshots:images', (_, versionId: string, fileNames: unknown, width: unknown) =>
+    screenshotImages(String(versionId), fileNames, width)
+  )
   ipcMain.handle('screenshots:delete', (_, versionId: string, fileName: string) =>
     deleteScreenshot(versionId, fileName)
   )
@@ -1054,6 +1059,7 @@ app.whenReady().then(async () => {
   syncTray((await getSettings()).showTray)
   setupPlayReminder()
   setupAutoBackup()
+  setupScreenshotSessions()
   setupLaunchTiming()
   setupGameMonitor()
   setupNotifications()

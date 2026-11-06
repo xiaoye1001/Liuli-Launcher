@@ -114,6 +114,7 @@ import type {
   ExternalLoginResult,
   ModUpdate,
   ScreenshotList,
+  ScreenshotAlbum,
   OnThisDayShot,
   PlayStats,
   ModpackExportInfo,
@@ -379,6 +380,8 @@ declare global {
       listScreenshots: (versionId: string) => Promise<ScreenshotList>
       /** 那年今日：往年的今天拍的截图（新的在前） */
       screenshotsOnThisDay: () => Promise<OnThisDayShot[]>
+      listScreenshotAlbums: (versionId: string) => Promise<ScreenshotAlbum[]>
+      getScreenshotImages: (versionId: string, fileNames: string[], width: number) => Promise<string[]>
       /** 删除截图（移到回收站） */
       deleteScreenshot: (versionId: string, fileName: string) => Promise<void>
       /** 复制截图到剪贴板 */

@@ -2243,3 +2243,19 @@ export interface RecipeBook {
   /** 名字是不是中文 */
   chinese: boolean
 }
+
+/** 截图按游玩分组：一次游玩拍的截图 */
+export interface ScreenshotAlbum {
+  /** 第一张、最后一张截图的时间 */
+  start: number
+  end: number
+  /** 那次玩的版本（没有记录时是当前查看的版本） */
+  versionId: string
+  /** 那次进入的存档（文件夹名） */
+  worlds: string[]
+  /** 那次连接的服务器 */
+  servers: string[]
+  /** 是不是启动器记下来的游玩（不是的话只是按时间分的组） */
+  recorded: boolean
+  shots: { fileName: string; time: number }[]
+}
