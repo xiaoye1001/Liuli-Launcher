@@ -60,6 +60,8 @@ import type {
   DailyGoalStatus,
   ModUpdateSummary,
   GameReleaseNews,
+  WardrobeSkin,
+  SkinModel,
   CloudBackupConfig,
   CloudBackupInput,
   CloudBackupItem,
@@ -559,6 +561,14 @@ declare global {
       openMicrosoftLoginPage: () => Promise<void>
       /** 读取正版账号的皮肤与披风 */
       getMsSkinProfile: (uuid: string) => Promise<MsSkinProfile>
+      /** 皮肤衣柜 */
+      listWardrobe: () => Promise<WardrobeSkin[]>
+      addToWardrobe: (image: string, name: string, model: SkinModel) => Promise<WardrobeSkin[]>
+      updateWardrobeSkin: (id: string, patch: { name?: string; model?: SkinModel }) => Promise<WardrobeSkin[]>
+      removeFromWardrobe: (id: string) => Promise<WardrobeSkin[]>
+      wearWardrobeSkin: (
+        id: string
+      ) => Promise<{ kind: 'offline'; settings: AppSettings } | { kind: 'microsoft'; profile: MsSkinProfile }>
       /** 选择 PNG 上传为正版皮肤；取消时返回 null */
       uploadMsSkin: (uuid: string, variant: 'classic' | 'slim') => Promise<MsSkinProfile | null>
       /** 恢复默认皮肤 */

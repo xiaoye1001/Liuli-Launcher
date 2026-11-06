@@ -4,6 +4,7 @@ import { RotateCcw, RotateCw, Shirt, Upload, UserRound } from 'lucide-react'
 import SkinViewer3D, { type SkinAnimation } from '../components/SkinViewer3D'
 import AccountList from '../components/AccountList'
 import MsSkinPanel from '../components/MsSkinPanel'
+import SkinWardrobe from '../components/SkinWardrobe'
 import type { AccountsInfo, AppSettings, MsSkinProfile, SkinModel } from '../../../shared/types'
 import PageHeader from '../components/PageHeader'
 
@@ -59,6 +60,8 @@ function AccountPage(): JSX.Element {
   const [error, setError] = useState('')
   const [msProfile, setMsProfile] = useState<MsSkinProfile | null>(null)
   const [tokenEncryption, setTokenEncryption] = useState(true)
+  /** 衣柜换了正版皮肤后，让皮肤面板重新读取档案 */
+  const [msPanelKey, setMsPanelKey] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -188,6 +191,7 @@ function AccountPage(): JSX.Element {
               </p>
             ) : microsoft ? (
               <MsSkinPanel
+                key={`${microsoft.uuid}:${msPanelKey}`}
                 account={microsoft}
                 onProfile={setMsProfile}
                 onChanged={() => window.api.getAccounts().then(setAccounts)}
@@ -244,6 +248,31 @@ function AccountPage(): JSX.Element {
               </>
             )}
           </section>
+
+          {!external && (
+            <SkinWardrobe
+              microsoft={!!microsoft}
+              current={
+                microsoft
+                  ? liveProfile?.skin
+                    ? { image: liveProfile.skin, model: liveProfile.skinModel, name: `${microsoft.name} 的皮肤` }
+                    : null
+                  : settings.skinDataUrl
+                    ? { image: settings.skinDataUrl, model: settings.skinModel, name: `${settings.offlineName} 的皮肤` }
+                    : null
+              }
+              offlineSkin={microsoft ? undefined : settings.skinDataUrl}
+              onWorn={(result) => {
+                if (result.kind === 'offline') {
+                  setSettings(result.settings)
+                } else {
+                  setMsProfile(result.profile)
+                  setMsPanelKey((k) => k + 1)
+                  window.api.getAccounts().then(setAccounts)
+                }
+              }}
+            />
+          )}
         </div>
       </div>
     </div>

@@ -647,6 +647,24 @@ export async function uploadMsSkin(
   return profileDetails(uuid, profile ?? (await services<ServicesProfile>(uuid, '/minecraft/profile'))!)
 }
 
+/** 把一张已经检查过的皮肤图片上传为正版皮肤（皮肤衣柜用） */
+export async function uploadMsSkinData(
+  uuid: string,
+  variant: 'classic' | 'slim',
+  data: Buffer
+): Promise<MsSkinProfile> {
+  if (data.length > MAX_IMAGE_BYTES) throw new Error('皮肤文件太大')
+  const size = nativeImage.createFromBuffer(data).getSize()
+  if (size.width !== 64 || (size.height !== 64 && size.height !== 32)) {
+    throw new Error(`皮肤图片应为 64×64 或 64×32，这张是 ${size.width}×${size.height}`)
+  }
+  const form = new FormData()
+  form.append('variant', variant)
+  form.append('file', new Blob([new Uint8Array(data)], { type: 'image/png' }), 'skin.png')
+  const profile = await services<ServicesProfile>(uuid, '/minecraft/profile/skins', { method: 'POST', body: form })
+  return profileDetails(uuid, profile ?? (await services<ServicesProfile>(uuid, '/minecraft/profile'))!)
+}
+
 /** 恢复默认皮肤（Steve / Alex 等） */
 export async function resetMsSkin(uuid: string): Promise<MsSkinProfile> {
   await services(uuid, '/minecraft/profile/skins/active', { method: 'DELETE' })

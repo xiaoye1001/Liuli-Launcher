@@ -1225,6 +1225,16 @@ export interface LocalServerStatus {
   players: string[]
 }
 
+/** 皮肤衣柜里的一件皮肤 */
+export interface WardrobeSkin {
+  id: string
+  name: string
+  model: SkinModel
+  /** PNG 的 data URL（预览用） */
+  image: string
+  addedAt: number
+}
+
 /** 刚发布、还没被看过的 Minecraft 新版本 */
 export interface GameReleaseNews {
   id: string

@@ -14,6 +14,7 @@ import { autoSnapshot, createSnapshot, deleteSnapshot, listSnapshots, restoreSna
 import { applyModMigration, checkModMigration } from './modMigration'
 import { getModUpdateSummary, markModUpdated, recordModUpdates, setupModUpdateWatch } from './modUpdateWatch'
 import { dismissGameReleaseNews, getGameReleaseNews, setupGameReleaseWatch } from './gameReleaseWatch'
+import { addToWardrobe, listWardrobe, removeFromWardrobe, updateWardrobeSkin, wearWardrobeSkin } from './skinWardrobe'
 import {
   configureCloudBackup,
   downloadCloudBackup,
@@ -715,6 +716,19 @@ function registerIpc(): void {
   )
   ipcMain.handle('ms:resetSkin', (_, uuid: string) => resetMsSkin(uuid))
   ipcMain.handle('ms:setCape', (_, uuid: string, capeId: string | null) => setMsCape(uuid, capeId))
+  ipcMain.handle('wardrobe:list', () => listWardrobe())
+  ipcMain.handle('wardrobe:add', (_, image: unknown, name: unknown, model: unknown) =>
+    addToWardrobe(image, name, model)
+  )
+  ipcMain.handle('wardrobe:update', (_, id: unknown, patch: unknown) =>
+    updateWardrobeSkin(id, patch && typeof patch === 'object' ? (patch as { name?: unknown; model?: unknown }) : {})
+  )
+  ipcMain.handle('wardrobe:remove', (_, id: unknown) => removeFromWardrobe(id))
+  ipcMain.handle('wardrobe:wear', async (_, id: unknown) => {
+    const result = await wearWardrobeSkin(id)
+    if (result.kind === 'offline') broadcastSettings(result.settings)
+    return result
+  })
   ipcMain.handle('modpack:pick', (event) => pickModpack(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('modpack:install', (_, name: string) => installModpack(name))
   ipcMain.handle('modpack:loadFile', (_, path: string) => loadModpackFile(path))
