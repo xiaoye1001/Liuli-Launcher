@@ -1235,6 +1235,60 @@ export interface WardrobeSkin {
   addedAt: number
 }
 
+/** 投影文件（Litematica 等） */
+export interface SchematicFile {
+  /** schematics 文件夹里的相对路径 */
+  name: string
+  /** litematic、schem、schematic、nbt */
+  format: string
+  size: number
+  modified: number
+  /** 以下只有 .litematic 有 */
+  title?: string
+  author?: string
+  description?: string
+  /** 外框大小（方块） */
+  dims?: { x: number; y: number; z: number } | null
+  totalBlocks?: number
+  regions?: number
+  created?: number
+  /** 读不出来 */
+  broken?: boolean
+}
+
+export interface SchematicList {
+  dir: string
+  files: SchematicFile[]
+  /** 这个版本有没有装 Litematica；没有模组加载器时为 null */
+  litematica: boolean | null
+  /** 文件太多，只列出了一部分 */
+  truncated: boolean
+}
+
+export interface SchematicMaterial {
+  id: string
+  /** 游戏里的中文名；找不到时为空 */
+  name: string
+  count: number
+}
+
+export interface SchematicDetails {
+  name: string
+  title: string
+  author: string
+  description: string
+  size: { x: number; y: number; z: number } | null
+  totalBlocks: number
+  regions: number
+  created: number
+  volume: number
+  materials: SchematicMaterial[]
+  /** 方块太多时没有统计材料 */
+  counted: boolean
+  /** 预览图（data URL），没有时为空 */
+  preview: string
+}
+
 /** 启动器设置导出 / 导入的各个部分 */
 export type SettingsTransferPart = 'settings' | 'themes' | 'servers' | 'seeds' | 'collections' | 'skins'
 

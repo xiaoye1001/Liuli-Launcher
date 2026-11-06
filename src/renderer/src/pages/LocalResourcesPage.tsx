@@ -16,6 +16,7 @@ import {
   Trash2
 } from 'lucide-react'
 import ScreenshotsPanel from '../components/ScreenshotsPanel'
+import SchematicsPanel from '../components/SchematicsPanel'
 import ShaderSetupDialog from '../components/ShaderSetupDialog'
 import PageHeader from '../components/PageHeader'
 import { EmptyState, LoadingState } from '../components/EmptyState'
@@ -62,6 +63,8 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
   const [shaderSetup, setShaderSetup] = useState(false)
   /** 是否显示「截图」标签 */
   const [showShots, setShowShots] = useState(false)
+  /** 投影文件（Litematica） */
+  const [showSchematics, setShowSchematics] = useState(false)
   const [list, setList] = useState<LocalResourceList | null>(null)
   const [loading, setLoading] = useState(true)
   const [keyword, setKeyword] = useState('')
@@ -193,11 +196,15 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
         titleHint={version.id}
         subtitle={
           <span className="truncate" title={list?.dir}>
-            {showShots ? '资源包、光影与截图' : `资源包与光影 · ${list?.dir ?? '…'}`}
+            {showShots
+              ? '资源包、光影与截图'
+              : showSchematics
+                ? '投影文件（Litematica）'
+                : `资源包与光影 · ${list?.dir ?? '…'}`}
           </span>
         }
         actions={
-          showShots ? undefined : (
+          showShots || showSchematics ? undefined : (
             <>
               <button
                 onClick={() => window.api.openLocalResourceDir(version.id, kind).catch((e) => setError(cleanError(e)))}
@@ -223,24 +230,41 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
               onClick={() => {
                 setKind(key)
                 setShowShots(false)
+                setShowSchematics(false)
               }}
               className={`rounded-lg px-4 py-1.5 text-sm transition-colors ${
-                !showShots && kind === key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
+                !showShots && !showSchematics && kind === key
+                  ? 'bg-white/15 text-white'
+                  : 'text-white/50 hover:text-white'
               }`}
             >
               {text}
             </button>
           ))}
           <button
-            onClick={() => setShowShots(true)}
+            onClick={() => {
+              setShowShots(true)
+              setShowSchematics(false)
+            }}
             className={`rounded-lg px-4 py-1.5 text-sm transition-colors ${
               showShots ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
             }`}
           >
             截图
           </button>
+          <button
+            onClick={() => {
+              setShowSchematics(true)
+              setShowShots(false)
+            }}
+            className={`rounded-lg px-4 py-1.5 text-sm transition-colors ${
+              showSchematics ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
+            }`}
+          >
+            投影
+          </button>
         </div>
-        <div className={`ml-auto flex gap-3 ${showShots ? 'hidden' : ''}`}>
+        <div className={`ml-auto flex gap-3 ${showShots || showSchematics ? 'hidden' : ''}`}>
           {kind === 'shader' && (
             <button
               onClick={() => setShaderSetup(true)}
@@ -292,6 +316,8 @@ function LocalResourcesPage({ version, onBack, onDownloadMore }: LocalResourcesP
 
       {showShots ? (
         <ScreenshotsPanel versionId={version.id} />
+      ) : showSchematics ? (
+        <SchematicsPanel versionId={version.id} />
       ) : (
         <>
           {/* 光影加载器状态 */}

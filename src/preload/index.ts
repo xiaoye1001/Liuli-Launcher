@@ -356,6 +356,12 @@ const api = {
   openMicrosoftLoginPage: () => ipcRenderer.invoke('ms:openLoginPage'),
   getMsSkinProfile: (uuid: string) => ipcRenderer.invoke('ms:skinProfile', uuid),
   listWardrobe: () => ipcRenderer.invoke('wardrobe:list'),
+  listSchematics: (versionId: string) => ipcRenderer.invoke('schematics:list', versionId),
+  getSchematicDetails: (versionId: string, name: string) => ipcRenderer.invoke('schematics:details', versionId, name),
+  addSchematics: (versionId: string) => ipcRenderer.invoke('schematics:add', versionId),
+  deleteSchematic: (versionId: string, name: string) => ipcRenderer.invoke('schematics:delete', versionId, name),
+  openSchematicsDir: (versionId: string) => ipcRenderer.invoke('schematics:open', versionId),
+  showSchematic: (versionId: string, name: string) => ipcRenderer.invoke('schematics:show', versionId, name),
   addToWardrobe: (image: string, name: string, model: string) => ipcRenderer.invoke('wardrobe:add', image, name, model),
   updateWardrobeSkin: (id: string, patch: { name?: string; model?: string }) =>
     ipcRenderer.invoke('wardrobe:update', id, patch),

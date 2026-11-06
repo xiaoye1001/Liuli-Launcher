@@ -64,6 +64,8 @@ import type {
   SettingsTransferPart,
   SettingsImportPreview,
   SettingsImportResult,
+  SchematicList,
+  SchematicDetails,
   SkinModel,
   CloudBackupConfig,
   CloudBackupInput,
@@ -568,6 +570,13 @@ declare global {
       openMicrosoftLoginPage: () => Promise<void>
       /** 读取正版账号的皮肤与披风 */
       getMsSkinProfile: (uuid: string) => Promise<MsSkinProfile>
+      /** 投影文件管理（Litematica） */
+      listSchematics: (versionId: string) => Promise<SchematicList>
+      getSchematicDetails: (versionId: string, name: string) => Promise<SchematicDetails>
+      addSchematics: (versionId: string) => Promise<number>
+      deleteSchematic: (versionId: string, name: string) => Promise<void>
+      openSchematicsDir: (versionId: string) => Promise<void>
+      showSchematic: (versionId: string, name: string) => Promise<void>
       /** 皮肤衣柜 */
       listWardrobe: () => Promise<WardrobeSkin[]>
       addToWardrobe: (image: string, name: string, model: SkinModel) => Promise<WardrobeSkin[]>

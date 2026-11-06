@@ -17,6 +17,14 @@ import { dismissGameReleaseNews, getGameReleaseNews, setupGameReleaseWatch } fro
 import { addToWardrobe, listWardrobe, removeFromWardrobe, updateWardrobeSkin, wearWardrobeSkin } from './skinWardrobe'
 import { applySettingsImport, exportLauncherSettings, readSettingsFile } from './settingsTransfer'
 import {
+  addSchematics,
+  deleteSchematic,
+  listSchematics,
+  openSchematicsDir,
+  schematicDetails,
+  showSchematic
+} from './schematics'
+import {
   configureCloudBackup,
   downloadCloudBackup,
   getCloudBackupConfig,
@@ -729,6 +737,16 @@ function registerIpc(): void {
   ipcMain.handle('ms:resetSkin', (_, uuid: string) => resetMsSkin(uuid))
   ipcMain.handle('ms:setCape', (_, uuid: string, capeId: string | null) => setMsCape(uuid, capeId))
   ipcMain.handle('wardrobe:list', () => listWardrobe())
+  ipcMain.handle('schematics:list', (_, versionId: string) => listSchematics(String(versionId)))
+  ipcMain.handle('schematics:details', (_, versionId: string, name: unknown) =>
+    schematicDetails(String(versionId), name)
+  )
+  ipcMain.handle('schematics:add', (event, versionId: string) =>
+    addSchematics(String(versionId), BrowserWindow.fromWebContents(event.sender))
+  )
+  ipcMain.handle('schematics:delete', (_, versionId: string, name: unknown) => deleteSchematic(String(versionId), name))
+  ipcMain.handle('schematics:open', (_, versionId: string) => openSchematicsDir(String(versionId)))
+  ipcMain.handle('schematics:show', (_, versionId: string, name: unknown) => showSchematic(String(versionId), name))
   ipcMain.handle('wardrobe:add', (_, image: unknown, name: unknown, model: unknown) =>
     addToWardrobe(image, name, model)
   )
