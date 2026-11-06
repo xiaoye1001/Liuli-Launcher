@@ -50,9 +50,23 @@ function broadcast(channel: string, payload: unknown): void {
   }
 }
 
+/** 主进程里关心服务器状态的地方（例如开服的联机房间：服务器停了就关房间） */
+const statusListeners: ((status: LocalServerStatus) => void)[] = []
+
+export function onLocalServerStatus(listener: (status: LocalServerStatus) => void): void {
+  statusListeners.push(listener)
+}
+
 function setStatus(next: Partial<LocalServerStatus>): void {
   status = { ...status, ...next }
   broadcast('localServer:status', status)
+  for (const listener of statusListeners) {
+    try {
+      listener(status)
+    } catch {
+      // 监听出错不影响服务器
+    }
+  }
 }
 
 function pushLog(line: string): void {

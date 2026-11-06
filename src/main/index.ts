@@ -17,6 +17,7 @@ import { dismissGameReleaseNews, getGameReleaseNews, setupGameReleaseWatch } fro
 import { addToWardrobe, listWardrobe, removeFromWardrobe, updateWardrobeSkin, wearWardrobeSkin } from './skinWardrobe'
 import { applySettingsImport, exportLauncherSettings, readSettingsFile } from './settingsTransfer'
 import { answerModBisect, finishModBisect, getModBisect, startModBisect } from './modBisect'
+import { getServerRoom, hostServerRoom, setupServerRoom, stopServerRoom } from './serverRoom'
 import {
   addSchematics,
   deleteSchematic,
@@ -739,6 +740,9 @@ function registerIpc(): void {
   ipcMain.handle('ms:setCape', (_, uuid: string, capeId: string | null) => setMsCape(uuid, capeId))
   ipcMain.handle('wardrobe:list', () => listWardrobe())
   ipcMain.handle('bisect:get', (_, versionId: string) => getModBisect(String(versionId)))
+  ipcMain.handle('serverRoom:host', (_, mode: unknown) => hostServerRoom(mode))
+  ipcMain.handle('serverRoom:get', () => getServerRoom())
+  ipcMain.handle('serverRoom:stop', () => stopServerRoom())
   // 新手引导：还没走完、而且还没有装任何游戏版本时显示（老用户升级后不会突然弹出来）
   ipcMain.handle('onboarding:shouldShow', async () => {
     if ((await getSettings()).onboardingDone) return false
@@ -1005,6 +1009,7 @@ app.whenReady().then(async () => {
   setupCrashHistory()
   setupServerWatch()
   setupLocalServerShutdown()
+  setupServerRoom()
   setupModUpdateWatch()
   setupGameReleaseWatch()
   setupAchievements()

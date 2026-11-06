@@ -571,6 +571,10 @@ declare global {
       openMicrosoftLoginPage: () => Promise<void>
       /** 读取正版账号的皮肤与披风 */
       getMsSkinProfile: (uuid: string) => Promise<MsSkinProfile>
+      /** 一键开服的联机房间码（让外网的朋友加入） */
+      hostServerRoom: (mode: 'p2p' | 'direct') => Promise<MultiplayerStatus>
+      getServerRoom: () => Promise<MultiplayerStatus | null>
+      stopServerRoom: () => Promise<void>
       /** 新手引导要不要显示 */
       shouldShowOnboarding: () => Promise<boolean>
       /** 模组二分排查 */
