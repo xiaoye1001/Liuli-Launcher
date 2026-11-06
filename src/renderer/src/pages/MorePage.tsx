@@ -3,6 +3,7 @@ import { onJump, TOOLBOX_KEY } from '../utils/jump'
 import {
   Anvil,
   CopyPlus,
+  CircuitBoard,
   BarChart3,
   Bug,
   Calculator,
@@ -31,6 +32,7 @@ import LocalServerPanel from '../components/LocalServerPanel'
 import CommandGeneratorPanel from '../components/CommandGeneratorPanel'
 import EnchantCalculatorPanel from '../components/EnchantCalculatorPanel'
 import MultiInstancePanel from '../components/MultiInstancePanel'
+import RedstoneToolsPanel from '../components/RedstoneToolsPanel'
 import PageHeader from '../components/PageHeader'
 
 type ToolKey =
@@ -48,6 +50,7 @@ type ToolKey =
   | 'commands'
   | 'enchant'
   | 'multi'
+  | 'redstone'
 
 interface Tool {
   key: ToolKey
@@ -97,7 +100,8 @@ const TOOLS: Tool[] = [
     tint: 'text-emerald-300'
   },
   { key: 'enchant', title: '附魔计算器', desc: '铁砧上最省经验的顺序', icon: Anvil, tint: 'text-violet-300' },
-  { key: 'multi', title: '多开', desc: '同时开几个游戏窗口', icon: CopyPlus, tint: 'text-sky-300' }
+  { key: 'multi', title: '多开', desc: '同时开几个游戏窗口', icon: CopyPlus, tint: 'text-sky-300' },
+  { key: 'redstone', title: '红石计算器', desc: '漏斗、熔炉、比较器、刻', icon: CircuitBoard, tint: 'text-red-300' }
 ]
 
 const LAST_TOOL_KEY = TOOLBOX_KEY
@@ -132,7 +136,7 @@ function MorePage(): JSX.Element {
     <div className="page-scroll flex h-full flex-col gap-4">
       <PageHeader
         title="更多"
-        subtitle="百宝箱：高速下载、清理缓存、Java 检测、测速、游玩报告、成就、崩溃记录、种子、小工具、史莱姆区块、一键开服、命令生成器、附魔计算器、多开"
+        subtitle="百宝箱：高速下载、清理缓存、Java 检测、测速、游玩报告、成就、崩溃记录、种子、小工具、史莱姆区块、一键开服、命令生成器、附魔计算器、多开、红石计算器"
       />
 
       {/* 小工具入口 */}
@@ -179,6 +183,7 @@ function MorePage(): JSX.Element {
       {current === 'commands' && <CommandGeneratorPanel />}
       {current === 'enchant' && <EnchantCalculatorPanel />}
       {current === 'multi' && <MultiInstancePanel />}
+      {current === 'redstone' && <RedstoneToolsPanel />}
     </div>
   )
 }

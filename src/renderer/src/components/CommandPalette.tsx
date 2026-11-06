@@ -19,6 +19,7 @@ import {
   TerminalSquare,
   Anvil,
   CopyPlus,
+  CircuitBoard,
   Trash2,
   Trophy,
   Zap,
@@ -214,6 +215,14 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
         icon: CopyPlus,
         keywords: '多开 多窗口 双开 两个号 小号 测试联机 multi instance',
         run: tool('multi')
+      },
+      {
+        id: 'tool:redstone',
+        title: '红石计算器',
+        group: '百宝箱',
+        icon: CircuitBoard,
+        keywords: '红石 漏斗 熔炉 燃料 比较器 信号 中继器 刻 生电 redstone hopper',
+        run: tool('redstone')
       },
       {
         id: 'action:log',
