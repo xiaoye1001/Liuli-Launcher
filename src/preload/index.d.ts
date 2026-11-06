@@ -65,6 +65,7 @@ import type {
   SettingsImportPreview,
   SettingsImportResult,
   SchematicList,
+  ModBisectState,
   SchematicDetails,
   SkinModel,
   CloudBackupConfig,
@@ -570,6 +571,11 @@ declare global {
       openMicrosoftLoginPage: () => Promise<void>
       /** 读取正版账号的皮肤与披风 */
       getMsSkinProfile: (uuid: string) => Promise<MsSkinProfile>
+      /** 模组二分排查 */
+      getModBisect: (versionId: string) => Promise<ModBisectState | null>
+      startModBisect: (versionId: string) => Promise<ModBisectState>
+      answerModBisect: (versionId: string, result: 'bad' | 'good') => Promise<ModBisectState>
+      finishModBisect: (versionId: string, disableFound: boolean) => Promise<void>
       /** 投影文件管理（Litematica） */
       listSchematics: (versionId: string) => Promise<SchematicList>
       getSchematicDetails: (versionId: string, name: string) => Promise<SchematicDetails>

@@ -356,6 +356,12 @@ const api = {
   openMicrosoftLoginPage: () => ipcRenderer.invoke('ms:openLoginPage'),
   getMsSkinProfile: (uuid: string) => ipcRenderer.invoke('ms:skinProfile', uuid),
   listWardrobe: () => ipcRenderer.invoke('wardrobe:list'),
+  getModBisect: (versionId: string) => ipcRenderer.invoke('bisect:get', versionId),
+  startModBisect: (versionId: string) => ipcRenderer.invoke('bisect:start', versionId),
+  answerModBisect: (versionId: string, result: 'bad' | 'good') =>
+    ipcRenderer.invoke('bisect:answer', versionId, result),
+  finishModBisect: (versionId: string, disableFound: boolean) =>
+    ipcRenderer.invoke('bisect:finish', versionId, disableFound),
   listSchematics: (versionId: string) => ipcRenderer.invoke('schematics:list', versionId),
   getSchematicDetails: (versionId: string, name: string) => ipcRenderer.invoke('schematics:details', versionId, name),
   addSchematics: (versionId: string) => ipcRenderer.invoke('schematics:add', versionId),

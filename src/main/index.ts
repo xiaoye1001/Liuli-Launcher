@@ -16,6 +16,7 @@ import { getModUpdateSummary, markModUpdated, recordModUpdates, setupModUpdateWa
 import { dismissGameReleaseNews, getGameReleaseNews, setupGameReleaseWatch } from './gameReleaseWatch'
 import { addToWardrobe, listWardrobe, removeFromWardrobe, updateWardrobeSkin, wearWardrobeSkin } from './skinWardrobe'
 import { applySettingsImport, exportLauncherSettings, readSettingsFile } from './settingsTransfer'
+import { answerModBisect, finishModBisect, getModBisect, startModBisect } from './modBisect'
 import {
   addSchematics,
   deleteSchematic,
@@ -737,6 +738,12 @@ function registerIpc(): void {
   ipcMain.handle('ms:resetSkin', (_, uuid: string) => resetMsSkin(uuid))
   ipcMain.handle('ms:setCape', (_, uuid: string, capeId: string | null) => setMsCape(uuid, capeId))
   ipcMain.handle('wardrobe:list', () => listWardrobe())
+  ipcMain.handle('bisect:get', (_, versionId: string) => getModBisect(String(versionId)))
+  ipcMain.handle('bisect:start', (_, versionId: string) => startModBisect(String(versionId)))
+  ipcMain.handle('bisect:answer', (_, versionId: string, result: unknown) => answerModBisect(String(versionId), result))
+  ipcMain.handle('bisect:finish', (_, versionId: string, disableFound: unknown) =>
+    finishModBisect(String(versionId), disableFound === true)
+  )
   ipcMain.handle('schematics:list', (_, versionId: string) => listSchematics(String(versionId)))
   ipcMain.handle('schematics:details', (_, versionId: string, name: unknown) =>
     schematicDetails(String(versionId), name)

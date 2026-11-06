@@ -1235,6 +1235,25 @@ export interface WardrobeSkin {
   addedAt: number
 }
 
+/** 模组二分排查的进度 */
+export interface ModBisectState {
+  versionId: string
+  /** 第几轮 */
+  round: number
+  /** 一共有多少个模组参与 */
+  total: number
+  /** 还可疑的模组 */
+  suspects: { fileName: string; name: string }[]
+  /** 这一轮启用的可疑模组 */
+  testing: { fileName: string; name: string }[]
+  /** 最多还要几轮 */
+  roundsLeft: number
+  /** 找到的模组 */
+  found: { fileName: string; name: string } | null
+  /** 剩下的模组互相依赖，没法再缩小范围 */
+  stuck: boolean
+}
+
 /** 投影文件（Litematica 等） */
 export interface SchematicFile {
   /** schematics 文件夹里的相对路径 */
