@@ -21,6 +21,7 @@ import {
   CopyPlus,
   CircuitBoard,
   FileDiff,
+  Paintbrush,
   Trash2,
   Trophy,
   Zap,
@@ -232,6 +233,14 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
         icon: FileDiff,
         keywords: '对比 差异 比较 整合包更新 改了什么 diff compare',
         run: tool('diff')
+      },
+      {
+        id: 'tool:mapart',
+        title: '地图画生成器',
+        group: '百宝箱',
+        icon: Paintbrush,
+        keywords: '地图画 像素画 图片 地图 map art 投影',
+        run: tool('mapart')
       },
       {
         id: 'action:log',

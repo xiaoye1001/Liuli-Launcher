@@ -21,6 +21,7 @@ import { getServerRoom, hostServerRoom, setupServerRoom, stopServerRoom } from '
 import { compareVersions } from './versionDiff'
 import { deleteWaypoint, listWaypoints, saveWaypoint } from './worldWaypoints'
 import { analyzeWorldSize, applyWorldTrim, planWorldTrim } from './worldTrim'
+import { exportMapArt } from './mapArtExport'
 import { applyModSyncCode, createModSyncCode, previewModSyncCode } from './modSync'
 import { listConfigFiles, readConfigFile, restoreConfigFile, saveConfigEntries, saveConfigText } from './modConfigs'
 import { clearExtraInstance, killExtraInstance, launchExtraInstance, listExtraInstances } from './extraInstances'
@@ -749,6 +750,7 @@ function registerIpc(): void {
   ipcMain.handle('serverRoom:host', (_, mode: unknown) => hostServerRoom(mode))
   ipcMain.handle('extraInstances:list', () => listExtraInstances())
   ipcMain.handle('versions:compare', (_, a: unknown, b: unknown) => compareVersions(a, b))
+  ipcMain.handle('mapArt:export', (_, versionId: string, input: unknown) => exportMapArt(String(versionId), input))
   ipcMain.handle('worldTrim:analyze', (_, versionId: string, folder: string) =>
     analyzeWorldSize(String(versionId), String(folder))
   )

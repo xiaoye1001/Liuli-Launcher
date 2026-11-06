@@ -359,6 +359,8 @@ const api = {
   hostServerRoom: (mode: 'p2p' | 'direct') => ipcRenderer.invoke('serverRoom:host', mode),
   listExtraInstances: () => ipcRenderer.invoke('extraInstances:list'),
   compareVersions: (a: string, b: string) => ipcRenderer.invoke('versions:compare', a, b),
+  exportMapArt: (versionId: string, input: Record<string, unknown>) =>
+    ipcRenderer.invoke('mapArt:export', versionId, input),
   analyzeWorldSize: (versionId: string, folder: string) => ipcRenderer.invoke('worldTrim:analyze', versionId, folder),
   planWorldTrim: (versionId: string, folder: string, minutes: number, radius: number) =>
     ipcRenderer.invoke('worldTrim:plan', versionId, folder, minutes, radius),

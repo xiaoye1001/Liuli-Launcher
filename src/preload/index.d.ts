@@ -590,6 +590,8 @@ declare global {
       createModSyncCode: (versionId: string) => Promise<{ code: string; count: number; unknown: string[] }>
       previewModSyncCode: (versionId: string, code: string) => Promise<ModSyncPreview>
       applyModSyncCode: (versionId: string, code: string, replace: boolean) => Promise<ModSyncResult>
+      /** 地图画导出成投影 */
+      exportMapArt: (versionId: string, input: Record<string, unknown>) => Promise<{ path: string; blocks: number }>
       /** 存档体积分析与瘦身 */
       analyzeWorldSize: (versionId: string, folder: string) => Promise<WorldSizeReport>
       planWorldTrim: (versionId: string, folder: string, minutes: number, radius: number) => Promise<WorldTrimPlan>
