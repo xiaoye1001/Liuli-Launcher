@@ -20,6 +20,7 @@ import { answerModBisect, finishModBisect, getModBisect, startModBisect } from '
 import { getServerRoom, hostServerRoom, setupServerRoom, stopServerRoom } from './serverRoom'
 import { compareVersions } from './versionDiff'
 import { applyModSyncCode, createModSyncCode, previewModSyncCode } from './modSync'
+import { listConfigFiles, readConfigFile, restoreConfigFile, saveConfigEntries, saveConfigText } from './modConfigs'
 import { clearExtraInstance, killExtraInstance, launchExtraInstance, listExtraInstances } from './extraInstances'
 import {
   addSchematics,
@@ -747,6 +748,15 @@ function registerIpc(): void {
   ipcMain.handle('extraInstances:list', () => listExtraInstances())
   ipcMain.handle('versions:compare', (_, a: unknown, b: unknown) => compareVersions(a, b))
   ipcMain.handle('modSync:create', (_, versionId: string) => createModSyncCode(String(versionId)))
+  ipcMain.handle('configs:list', (_, versionId: string) => listConfigFiles(String(versionId)))
+  ipcMain.handle('configs:read', (_, versionId: string, name: unknown) => readConfigFile(String(versionId), name))
+  ipcMain.handle('configs:save', (_, versionId: string, name: unknown, changes: unknown) =>
+    saveConfigEntries(String(versionId), name, changes)
+  )
+  ipcMain.handle('configs:saveText', (_, versionId: string, name: unknown, text: unknown) =>
+    saveConfigText(String(versionId), name, text)
+  )
+  ipcMain.handle('configs:restore', (_, versionId: string, name: unknown) => restoreConfigFile(String(versionId), name))
   ipcMain.handle('modSync:preview', (_, versionId: string, code: unknown) =>
     previewModSyncCode(String(versionId), code)
   )

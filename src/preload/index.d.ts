@@ -70,6 +70,8 @@ import type {
   VersionDiff,
   ModSyncPreview,
   ModSyncResult,
+  ConfigFileInfo,
+  ConfigFileView,
   SchematicDetails,
   SkinModel,
   CloudBackupConfig,
@@ -575,6 +577,12 @@ declare global {
       openMicrosoftLoginPage: () => Promise<void>
       /** 读取正版账号的皮肤与披风 */
       getMsSkinProfile: (uuid: string) => Promise<MsSkinProfile>
+      /** 模组配置可视化编辑 */
+      listConfigFiles: (versionId: string) => Promise<ConfigFileInfo[]>
+      readConfigFile: (versionId: string, name: string) => Promise<ConfigFileView>
+      saveConfigEntries: (versionId: string, name: string, changes: Record<string, unknown>) => Promise<ConfigFileView>
+      saveConfigText: (versionId: string, name: string, text: string) => Promise<ConfigFileView>
+      restoreConfigFile: (versionId: string, name: string) => Promise<ConfigFileView>
       /** 模组同步码 */
       createModSyncCode: (versionId: string) => Promise<{ code: string; count: number; unknown: string[] }>
       previewModSyncCode: (versionId: string, code: string) => Promise<ModSyncPreview>

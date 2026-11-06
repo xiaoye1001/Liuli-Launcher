@@ -1253,6 +1253,41 @@ export interface WardrobeSkin {
   addedAt: number
 }
 
+/** config 文件夹里的一个配置文件 */
+export interface ConfigFileInfo {
+  /** config 文件夹里的相对路径 */
+  name: string
+  size: number
+  modified: number
+  /** 能不能用表单编辑（否则只能改文本） */
+  editable: boolean
+  /** 改过（有第一次修改前的备份） */
+  hasBackup: boolean
+}
+
+/** 配置文件里的一个设置项 */
+export interface ConfigEntry {
+  id: string
+  section: string
+  key: string
+  type: 'boolean' | 'number' | 'string'
+  value: boolean | number | string
+  /** 设置项上面的注释 */
+  comment: string
+  min?: number
+  max?: number
+  /** 只能选这些值 */
+  options?: string[]
+}
+
+export interface ConfigFileView {
+  name: string
+  text: string
+  /** 读不出设置项（格式不支持或 JSON 带注释）时为 null，只能改文本 */
+  entries: ConfigEntry[] | null
+  hasBackup: boolean
+}
+
 /** 模组同步码里的一个模组 */
 export interface ModSyncItem {
   versionId: string

@@ -360,6 +360,13 @@ const api = {
   listExtraInstances: () => ipcRenderer.invoke('extraInstances:list'),
   compareVersions: (a: string, b: string) => ipcRenderer.invoke('versions:compare', a, b),
   createModSyncCode: (versionId: string) => ipcRenderer.invoke('modSync:create', versionId),
+  listConfigFiles: (versionId: string) => ipcRenderer.invoke('configs:list', versionId),
+  readConfigFile: (versionId: string, name: string) => ipcRenderer.invoke('configs:read', versionId, name),
+  saveConfigEntries: (versionId: string, name: string, changes: Record<string, unknown>) =>
+    ipcRenderer.invoke('configs:save', versionId, name, changes),
+  saveConfigText: (versionId: string, name: string, text: string) =>
+    ipcRenderer.invoke('configs:saveText', versionId, name, text),
+  restoreConfigFile: (versionId: string, name: string) => ipcRenderer.invoke('configs:restore', versionId, name),
   previewModSyncCode: (versionId: string, code: string) => ipcRenderer.invoke('modSync:preview', versionId, code),
   applyModSyncCode: (versionId: string, code: string, replace: boolean) =>
     ipcRenderer.invoke('modSync:apply', versionId, code, replace),
