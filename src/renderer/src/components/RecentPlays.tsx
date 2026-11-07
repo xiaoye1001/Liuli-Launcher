@@ -3,6 +3,7 @@ import { ChevronDown, Clock, EyeOff, Play } from 'lucide-react'
 import VersionIcon from './VersionIcon'
 import { formatDuration, formatRelative } from '../utils/format'
 import type { GameStatus, InstalledVersion, PlayStats } from '../../../shared/types'
+import { t } from '../utils/i18n'
 
 interface RecentPlaysProps {
   versions: InstalledVersion[]
@@ -53,18 +54,20 @@ function RecentPlays({
         <button
           onClick={onToggleCollapsed}
           aria-expanded={!collapsed}
-          title={collapsed ? '展开' : '收起'}
+          title={collapsed ? t('展开') : t('收起')}
           className="-ml-1 flex items-center gap-2 rounded-lg px-1 py-0.5 hover:bg-white/10 hover:text-white"
         >
           <Clock className="h-4 w-4" />
-          最近游玩
+          {t('最近游玩')}
           <ChevronDown className={`h-4 w-4 transition-transform ${collapsed ? '-rotate-90' : ''}`} />
         </button>
-        {collapsed && <span className="truncate text-xs text-white/40">{recent.join('、')}</span>}
-        <span className="ml-auto shrink-0 text-xs text-white/40">累计游玩 {formatDuration(total)}</span>
+        {collapsed && <span className="truncate text-xs text-white/40">{recent.join(t('、'))}</span>}
+        <span className="ml-auto shrink-0 text-xs text-white/40">
+          {t('累计游玩 {0}', { 0: formatDuration(total) })}
+        </span>
         <button
           onClick={onHide}
-          title="不再显示最近游玩（可以在「设置 → 个性化」中重新打开）"
+          title={t('不再显示最近游玩（可以在「设置 → 个性化」中重新打开）')}
           className="rounded-lg p-1 text-white/50 hover:bg-white/10 hover:text-white"
         >
           <EyeOff className="h-3.5 w-3.5" />
@@ -79,7 +82,7 @@ function RecentPlays({
               key={id}
               onClick={() => onLaunch(id)}
               disabled={busy}
-              title={busy ? '游戏正在运行' : `启动 ${id}`}
+              title={busy ? t('游戏正在运行') : t('启动 {0}', { 0: id })}
               className="group flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/10 p-4 text-left shadow-xl backdrop-blur-xl transition-colors hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <div className="flex items-center gap-2">
@@ -92,7 +95,7 @@ function RecentPlays({
                 {id}
               </div>
               <div className="text-xs text-white/50">
-                {formatRelative(v?.lastPlayed ?? 0)} · 已玩 {formatDuration(v?.totalMs ?? 0)}
+                {formatRelative(v?.lastPlayed ?? 0)} · {t('已玩 {0}', { 0: formatDuration(v?.totalMs ?? 0) })}
               </div>
             </button>
           )

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle, HardDrive, MemoryStick, Package, Play, Settings2, X } from 'lucide-react'
 import type { LaunchCheckIssue } from '../../../shared/types'
+import { t } from '../utils/i18n'
 
 const ICONS: Record<LaunchCheckIssue['kind'], typeof MemoryStick> = {
   memory: MemoryStick,
@@ -48,7 +49,7 @@ function LaunchCheckDialog({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="启动前检查"
+        aria-label={t('启动前检查')}
         data-testid="launch-check"
         className="w-full max-w-lg space-y-4 rounded-2xl border border-white/15 popover-background p-5 shadow-2xl backdrop-blur-xl"
       >
@@ -58,13 +59,13 @@ function LaunchCheckDialog({
           </div>
           <div className="min-w-0 flex-1">
             <div className="font-semibold">
-              启动 {versionId} 之前发现了 {issues.length} 个问题
+              {t('启动 {0} 之前发现了 {1} 个问题', { 0: versionId, 1: issues.length })}
             </div>
-            <div className="text-xs text-white/50">可以先处理再启动，也可以直接启动</div>
+            <div className="text-xs text-white/50">{t('可以先处理再启动，也可以直接启动')}</div>
           </div>
           <button
             onClick={onCancel}
-            aria-label="取消启动"
+            aria-label={t('取消启动')}
             className="rounded-lg p-1 text-white/50 hover:bg-white/10 hover:text-white"
           >
             <X className="h-4 w-4" />
@@ -97,7 +98,7 @@ function LaunchCheckDialog({
             onChange={(e) => setDontAsk(e.target.checked)}
             className="accent-emerald-500"
           />
-          以后不再检查（可以在「设置 → 启动」里重新打开）
+          {t('以后不再检查（可以在「设置 → 启动」里重新打开）')}
         </label>
 
         <div className="flex flex-wrap justify-end gap-2">
@@ -107,14 +108,14 @@ function LaunchCheckDialog({
               className="mr-auto flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20"
             >
               <Settings2 className="h-4 w-4" />
-              去版本设置
+              {t('去版本设置')}
             </button>
           )}
           <button
             onClick={() => void remember().then(onCancel)}
             className="rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20"
           >
-            取消
+            {t('取消')}
           </button>
           <button
             autoFocus
@@ -122,7 +123,7 @@ function LaunchCheckDialog({
             className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-1.5 text-sm font-medium text-white"
           >
             <Play className="h-4 w-4 fill-current" />
-            仍然启动
+            {t('仍然启动')}
           </button>
         </div>
       </div>

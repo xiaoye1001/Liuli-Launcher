@@ -77,6 +77,8 @@ export interface AppSettings {
   optimizeGc: boolean
   /** 启动前检查游戏文件，自动补全缺失或损坏的文件 */
   checkFiles: boolean
+  /** 界面语言：简体中文或英文（英文目前翻译了主要页面） */
+  language: 'zh-CN' | 'en'
   /** 点启动前检查容易出错的情况（内存分配太多、模组不适合这个版本、磁盘快满了），有问题时先提示 */
   preLaunchCheck: boolean
   /** 启动游戏时自动打开日志窗口（默认关闭，可以随时在主页点「日志」打开） */

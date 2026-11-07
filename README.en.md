@@ -127,6 +127,7 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - Original built-in themes (HD wallpapers and background music); custom wallpapers (images or video), accent colors, fonts and UI scale
 - Home-screen splash text and a daily Minecraft fact; set a screenshot as the launcher wallpaper; a small surprise on your birthday if you set it
 - A **daily goal** on the home screen (a small in-game challenge each day; keep a streak to unlock an achievement) and **on this day** (screenshots you took on today's date in earlier years)
+- **English interface**: switch between Simplified Chinese and English under Settings → Personalize → Language (the English interface currently covers the main pages: sidebar, home, settings, toolbox, plugin manager and more)
 - **Ctrl+K quick search** for pages, settings, tools and versions
 - **Custom layout**: put the navigation bar on the left, right or top and reorder its pages; put the home screen's launch area on the left or right, reorder recent plays, news and the welcome card, and align the content to the bottom or top
 - **Page layout editor**: on settings, account, version settings, download, servers, multiplayer, AI assistant, toolbox and other pages, click "Edit layout" in the title bar to drag or move blocks, hide the ones you don't use and put them full width or in the left / right column; each page is saved separately and can be reset

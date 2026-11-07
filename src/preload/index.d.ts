@@ -498,6 +498,8 @@ declare global {
       launchGame: (versionId: string, server?: string, world?: string) => Promise<void>
       /** 启动前检查：内存、模组、磁盘空间（关掉检查时返回空列表） */
       preLaunchCheck: (versionId: string) => Promise<LaunchCheckIssue[]>
+      /** 重新加载这个窗口（换界面语言后） */
+      reloadWindow: () => Promise<void>
       /** 查询 GitHub 上的最新版本 */
       checkUpdate: () => Promise<UpdateInfo>
       /** 在浏览器中打开新版本的安装包或发布页面 */

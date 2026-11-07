@@ -50,6 +50,7 @@ import type {
   VersionDisplay,
   ModUpdateSummary
 } from '../../../shared/types'
+import { t } from '../utils/i18n'
 
 const LOADER_LABELS: Record<ModLoader, { label: string; className: string }> = {
   fabric: { label: 'Fabric', className: 'bg-amber-500/20 text-amber-300' },
@@ -485,10 +486,10 @@ function VersionsPage({
       >
         <PageHeader
           layoutPage="versions"
-          title="版本"
+          title={t('版本')}
           subtitle={
             <>
-              <span className="shrink-0">已安装 {installed?.length ?? 0} 个版本 · 游戏目录：</span>
+              <span className="shrink-0">{t('已安装 {0} 个版本 · 游戏目录：', { 0: installed?.length ?? 0 })}</span>
               {dirs.length > 1 ? (
                 <select
                   value={dirs.find((d) => d.current)?.path ?? gameDir}

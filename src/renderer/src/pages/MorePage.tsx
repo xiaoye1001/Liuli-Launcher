@@ -49,6 +49,7 @@ import PluginHost from '../components/PluginHost'
 import { hasDroppedPlugin, onDroppedPlugin } from '../utils/plugins'
 import type { PluginInfo } from '../../../shared/types'
 import { BlockLayout, LayoutBlock } from '../components/BlockLayout'
+import { IS_EN, t } from '../utils/i18n'
 
 type ToolKey =
   | 'download'
@@ -75,11 +76,11 @@ type ToolKey =
 
 /** 百宝箱的分类（按显示顺序） */
 const GROUPS = [
-  { key: 'play', title: '游戏工具', desc: '玩的时候查、算、生成', icon: Gamepad2 },
-  { key: 'together', title: '开服与多开', desc: '和朋友一起玩', icon: Users },
-  { key: 'maintain', title: '维护与排查', desc: '下载、Java、清理、找问题', icon: Wrench },
-  { key: 'records', title: '我的记录', desc: '游玩时长和成就', icon: BarChart3 },
-  { key: 'plugins', title: '插件', desc: '装上别人做的小工具（运行在沙箱里）', icon: Puzzle }
+  { key: 'play', title: t('游戏工具'), desc: t('玩的时候查、算、生成'), icon: Gamepad2 },
+  { key: 'together', title: t('开服与多开'), desc: t('和朋友一起玩'), icon: Users },
+  { key: 'maintain', title: t('维护与排查'), desc: t('下载、Java、清理、找问题'), icon: Wrench },
+  { key: 'records', title: t('我的记录'), desc: t('游玩时长和成就'), icon: BarChart3 },
+  { key: 'plugins', title: t('插件'), desc: t('装上别人做的小工具（运行在沙箱里）'), icon: Puzzle }
 ] as const
 
 type GroupKey = (typeof GROUPS)[number]['key']
@@ -99,138 +100,152 @@ const TOOLS: Tool[] = [
   {
     key: 'download',
     group: 'maintain',
-    title: '高速多线程下载器',
-    desc: '直链分块加速下载',
+    title: t('高速多线程下载器'),
+    desc: t('直链分块加速下载'),
     icon: Zap,
     tint: 'text-amber-300'
   },
   {
     key: 'clean',
     group: 'maintain',
-    title: '清理游戏垃圾缓存',
-    desc: '日志、崩溃报告、旧缓存',
+    title: t('清理游戏垃圾缓存'),
+    desc: t('日志、崩溃报告、旧缓存'),
     icon: Trash2,
     tint: 'text-rose-300'
   },
   {
     key: 'java',
     group: 'maintain',
-    title: 'Java 环境深度检测',
-    desc: '版本、位数、兼容性',
+    title: t('Java 环境深度检测'),
+    desc: t('版本、位数、兼容性'),
     icon: Coffee,
     tint: 'text-orange-300'
   },
-  { key: 'speed', group: 'maintain', title: '下载源测速', desc: '官方源与镜像对比', icon: Gauge, tint: 'text-sky-300' },
+  {
+    key: 'speed',
+    group: 'maintain',
+    title: t('下载源测速'),
+    desc: t('官方源与镜像对比'),
+    icon: Gauge,
+    tint: 'text-sky-300'
+  },
   {
     key: 'report',
     group: 'records',
-    title: '我的游玩报告',
-    desc: '游玩时长、最常玩的版本',
+    title: t('我的游玩报告'),
+    desc: t('游玩时长、最常玩的版本'),
     icon: BarChart3,
     tint: 'text-emerald-300'
   },
   {
     key: 'achievements',
     group: 'records',
-    title: '启动器成就',
-    desc: '玩游戏时自动解锁',
+    title: t('启动器成就'),
+    desc: t('玩游戏时自动解锁'),
     icon: Trophy,
     tint: 'text-amber-300'
   },
   {
     key: 'crashes',
     group: 'maintain',
-    title: '崩溃记录',
-    desc: '每次崩溃的原因和次数',
+    title: t('崩溃记录'),
+    desc: t('每次崩溃的原因和次数'),
     icon: Bug,
     tint: 'text-rose-300'
   },
   {
     key: 'seeds',
     group: 'play',
-    title: '种子收藏夹',
-    desc: '记下好玩的世界种子',
+    title: t('种子收藏夹'),
+    desc: t('记下好玩的世界种子'),
     icon: Sprout,
     tint: 'text-emerald-300'
   },
   {
     key: 'calc',
     group: 'play',
-    title: 'Minecraft 小工具',
-    desc: '下界坐标、区块、游戏时间',
+    title: t('Minecraft 小工具'),
+    desc: t('下界坐标、区块、游戏时间'),
     icon: Calculator,
     tint: 'text-sky-300'
   },
   {
     key: 'slime',
     group: 'play',
-    title: '史莱姆区块',
-    desc: '输入种子，看哪里刷史莱姆',
+    title: t('史莱姆区块'),
+    desc: t('输入种子，看哪里刷史莱姆'),
     icon: Grid2x2Check,
     tint: 'text-emerald-300'
   },
   {
     key: 'server',
     group: 'together',
-    title: '一键开服',
-    desc: '开个服务器和朋友一起玩',
+    title: t('一键开服'),
+    desc: t('开个服务器和朋友一起玩'),
     icon: Server,
     tint: 'text-rose-300'
   },
   {
     key: 'commands',
     group: 'play',
-    title: '命令生成器',
-    desc: '给物品、状态效果、召唤',
+    title: t('命令生成器'),
+    desc: t('给物品、状态效果、召唤'),
     icon: TerminalSquare,
     tint: 'text-emerald-300'
   },
   {
     key: 'enchant',
     group: 'play',
-    title: '附魔计算器',
-    desc: '铁砧上最省经验的顺序',
+    title: t('附魔计算器'),
+    desc: t('铁砧上最省经验的顺序'),
     icon: Anvil,
     tint: 'text-violet-300'
   },
-  { key: 'multi', group: 'together', title: '多开', desc: '同时开几个游戏窗口', icon: CopyPlus, tint: 'text-sky-300' },
+  {
+    key: 'multi',
+    group: 'together',
+    title: t('多开'),
+    desc: t('同时开几个游戏窗口'),
+    icon: CopyPlus,
+    tint: 'text-sky-300'
+  },
   {
     key: 'redstone',
     group: 'play',
-    title: '红石计算器',
-    desc: '漏斗、熔炉、比较器、刻',
+    title: t('红石计算器'),
+    desc: t('漏斗、熔炉、比较器、刻'),
     icon: CircuitBoard,
     tint: 'text-red-300'
   },
   {
     key: 'diff',
     group: 'maintain',
-    title: '版本差异对比',
-    desc: '两个版本的模组和配置',
+    title: t('版本差异对比'),
+    desc: t('两个版本的模组和配置'),
     icon: FileDiff,
     tint: 'text-sky-300'
   },
   {
     key: 'mapart',
     group: 'play',
-    title: '地图画生成器',
-    desc: '图片变成方块清单和投影',
+    title: t('地图画生成器'),
+    desc: t('图片变成方块清单和投影'),
     icon: Paintbrush,
     tint: 'text-violet-300'
   },
   {
     key: 'recipes',
     group: 'play',
-    title: '合成与交易查询',
-    desc: '怎么做、能做什么、村民交易',
+    title: t('合成与交易查询'),
+    desc: t('怎么做、能做什么、村民交易'),
     icon: BookOpen,
     tint: 'text-amber-300'
   },
   {
     key: 'plugins',
     group: 'plugins',
-    title: '插件管理',
-    desc: '安装、启用、卸载插件',
+    title: t('插件管理'),
+    desc: t('安装、启用、卸载插件'),
     icon: Puzzle,
     tint: 'text-violet-300'
   }
@@ -353,7 +368,7 @@ function MorePage(): JSX.Element {
     key: `plugin:${p.id}`,
     group: 'plugins',
     title: p.name,
-    desc: p.description || `插件 · v${p.version}`,
+    desc: p.description || t('插件 · v{0}', { 0: p.version }),
     icon: Puzzle,
     tint: 'text-violet-300'
   }))
@@ -362,11 +377,11 @@ function MorePage(): JSX.Element {
   return (
     <div className="page-scroll flex h-full flex-col gap-4">
       <PageHeader
-        title="更多"
-        subtitle="百宝箱：按分类放好的小工具"
+        title={t('更多')}
+        subtitle={t('百宝箱：按分类放好的小工具')}
         layoutPage="more"
         actions={
-          <div className="flex rounded-xl bg-black/20 p-1" role="tablist" aria-label="百宝箱分类">
+          <div className="flex rounded-xl bg-black/20 p-1" role="tablist" aria-label={t('百宝箱分类')}>
             {GROUPS.map((g) => (
               <button
                 key={g.key}
@@ -379,12 +394,12 @@ function MorePage(): JSX.Element {
                   group === g.key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
                 }`}
               >
-                <g.icon className="hidden h-4 w-4 lg:block" />
+                <g.icon className={`hidden h-4 w-4 ${IS_EN ? 'xl:block' : 'lg:block'}`} />
                 {g.title}
                 {g.key === 'plugins' && pluginUpdates > 0 && (
                   <span
                     className="h-1.5 w-1.5 rounded-full bg-emerald-400"
-                    title={`${pluginUpdates} 个插件有新版本`}
+                    title={t('{0} 个插件有新版本', { 0: pluginUpdates })}
                     data-testid="plugin-update-dot"
                   />
                 )}
@@ -395,7 +410,7 @@ function MorePage(): JSX.Element {
       />
 
       <BlockLayout page="more" gap="gap-4">
-        <LayoutBlock id="tools" title="工具卡片">
+        <LayoutBlock id="tools" title={t('工具卡片')}>
           {/* 这个分类的工具 */}
           <div className="grid shrink-0 grid-cols-3 gap-3" role="tablist" aria-label={groupInfo.title}>
             {tools.map((tool) => {
@@ -427,7 +442,7 @@ function MorePage(): JSX.Element {
           </div>
         </LayoutBlock>
 
-        <LayoutBlock id="panel" title="打开的工具">
+        <LayoutBlock id="panel" title={t('打开的工具')}>
           {current === 'download' && <FastDownloadPanel />}
           {current === 'clean' && <CleanerPanel />}
           {current === 'java' && <JavaCheckPanel />}

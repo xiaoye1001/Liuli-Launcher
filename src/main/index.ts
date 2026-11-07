@@ -942,6 +942,8 @@ function registerIpc(): void {
     await autoSnapshot(versionId, '安装模组')
     return installFromModrinth(versionId, projectId)
   })
+  // 换界面语言后重新加载页面（页面自己发起的跳转、刷新都被安全设置拦下了，这里由主进程刷新发起请求的窗口）
+  ipcMain.handle('window:reload', (event) => event.sender.reload())
   ipcMain.handle('game:preLaunchCheck', (_, versionId: unknown) => preLaunchCheck(String(versionId)))
   ipcMain.handle('game:launch', (_, versionId: string, server?: string, world?: string) => {
     // 「多人游戏」「无缝衔接」成就在游戏窗口出现后才解锁（启动失败不算）

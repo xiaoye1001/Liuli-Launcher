@@ -12,6 +12,7 @@ import {
   X
 } from 'lucide-react'
 import type { UpdateDownload, UpdateInfo, UpdateResult } from '../../../shared/types'
+import { t } from '../utils/i18n'
 
 function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(0)} MB`
@@ -27,14 +28,14 @@ export function ReleaseNotes({ notes }: { notes: string }): JSX.Element {
     .trim()
   return (
     <div className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-lg bg-black/20 px-3 py-2 text-xs leading-5 text-white/70">
-      {text || '这个版本没有填写更新说明，可以在发布页面查看。'}
+      {text || t('这个版本没有填写更新说明，可以在发布页面查看。')}
     </div>
   )
 }
 
 /** 下载按钮的说明文字 */
 export function downloadLabel(info: UpdateInfo): string {
-  return info.assetName ? `下载 ${info.assetName}（${formatSize(info.assetSize)}）` : '打开下载页面'
+  return info.assetName ? t('下载 {0}（{1}）', { 0: info.assetName, 1: formatSize(info.assetSize) }) : t('打开下载页面')
 }
 
 function cleanError(e: unknown): string {
@@ -78,7 +79,7 @@ export function UpdateActions({ info }: { info: UpdateInfo }): JSX.Element {
         className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 px-3 py-2 text-sm font-medium"
       >
         <Download className="h-4 w-4" />
-        在浏览器中下载新版本
+        {t('在浏览器中下载新版本')}
       </button>
     )
   }
@@ -93,7 +94,7 @@ export function UpdateActions({ info }: { info: UpdateInfo }): JSX.Element {
           <div className="flex items-center justify-between text-xs text-white/60">
             <span className="flex items-center gap-1.5">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              正在下载 v{info.latest}
+              {t('正在下载 v{0}', { 0: info.latest })}
             </span>
             <span className="font-mono">
               {formatBytes(current.progress)} / {formatBytes(current.total)} · {formatBytes(current.speed)}/s
@@ -109,7 +110,7 @@ export function UpdateActions({ info }: { info: UpdateInfo }): JSX.Element {
             onClick={() => window.api.cancelUpdateDownload()}
             className="mt-2 text-xs text-white/50 hover:text-white"
           >
-            取消下载
+            {t('取消下载')}
           </button>
         </div>
       ) : current?.state === 'ready' ? (
@@ -129,30 +130,30 @@ export function UpdateActions({ info }: { info: UpdateInfo }): JSX.Element {
           className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 px-3 py-2 text-sm font-medium disabled:opacity-60"
         >
           {installing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
-          {installing ? '正在重启…' : '重启并更新'}
+          {installing ? t('正在重启…') : t('重启并更新')}
         </button>
       ) : (
         <button
           onClick={() => run(() => window.api.downloadUpdate())}
-          title={`下载 ${info.assetName}`}
+          title={t('下载 {0}', { 0: info.assetName })}
           className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-500 px-3 py-2 text-sm font-medium"
         >
           <Download className="h-4 w-4" />
-          下载并更新（{formatBytes(info.assetSize)}）
+          {t('下载并更新（{0}）', { 0: formatBytes(info.assetSize) })}
         </button>
       )}
       {(error || current?.state === 'failed') && (
         <div className="rounded-lg bg-red-500/20 px-3 py-2 text-xs text-red-200">
           {error || current?.error}
           <button onClick={() => window.api.openUpdateLink('asset')} className="ml-2 underline hover:text-white">
-            在浏览器中下载
+            {t('在浏览器中下载')}
           </button>
         </div>
       )}
       <p className="text-xs leading-5 text-white/40">
         {current?.state === 'ready'
-          ? '已下载并校验完成。点击后启动器会关闭，替换为新版本后自动重新打开。'
-          : '下载完成后点「重启并更新」即可，不用自己替换文件；设置、账号和游戏文件都会保留。'}
+          ? t('已下载并校验完成。点击后启动器会关闭，替换为新版本后自动重新打开。')
+          : t('下载完成后点「重启并更新」即可，不用自己替换文件；设置、账号和游戏文件都会保留。')}
       </p>
     </div>
   )
@@ -192,15 +193,17 @@ function UpdateResultNotice(): JSX.Element {
             )}
             <div className="min-w-0 flex-1">
               <div className="font-semibold">
-                {result.ok ? `已更新到 v${result.version}` : `自动更新到 v${result.version} 没有完成`}
+                {result.ok
+                  ? t('已更新到 v{0}', { 0: result.version })
+                  : t('自动更新到 v{0} 没有完成', { 0: result.version })}
               </div>
               {!result.ok && (
                 <>
                   <div className="mt-1 break-all text-xs text-white/60">{result.error}</div>
                   <div className="mt-1 text-xs text-white/50">
-                    可以再试一次，或者到发布页面下载新版本手动替换。
+                    {t('可以再试一次，或者到发布页面下载新版本手动替换。')}
                     <button onClick={() => window.api.showUpdateLog()} className="ml-1 text-sky-300 hover:underline">
-                      查看更新日志
+                      {t('查看更新日志')}
                     </button>
                   </div>
                 </>
@@ -208,7 +211,7 @@ function UpdateResultNotice(): JSX.Element {
             </div>
             <button
               onClick={() => setResult(null)}
-              title="关闭"
+              title={t('关闭')}
               className="rounded-lg p-1 text-white/50 hover:bg-white/10 hover:text-white"
             >
               <X className="h-4 w-4" />
@@ -256,12 +259,12 @@ function UpdateNotice(): JSX.Element {
                 <Sparkles className="h-5 w-5 text-emerald-300" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-semibold">发现新版本 v{info.latest}</div>
-                <div className="text-xs text-white/50">当前版本 v{info.current}</div>
+                <div className="font-semibold">{t('发现新版本 v{0}', { 0: info.latest })}</div>
+                <div className="text-xs text-white/50">{t('当前版本 v{0}', { 0: info.current })}</div>
               </div>
               <button
                 onClick={() => setInfo(null)}
-                title="稍后提醒（下次启动时再提示）"
+                title={t('稍后提醒（下次启动时再提示）')}
                 className="rounded-lg p-1 text-white/50 hover:bg-white/10 hover:text-white"
               >
                 <X className="h-4 w-4" />
@@ -272,7 +275,7 @@ function UpdateNotice(): JSX.Element {
               onClick={() => setOpen((o) => !o)}
               className="mt-3 flex items-center gap-1 text-xs text-white/60 hover:text-white"
             >
-              更新内容
+              {t('更新内容')}
               <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
             {open && (
@@ -287,7 +290,7 @@ function UpdateNotice(): JSX.Element {
             <div className="mt-2 flex items-center justify-end gap-2">
               <button
                 onClick={() => window.api.openUpdateLink('page')}
-                title="打开 GitHub 发布页面"
+                title={t('打开 GitHub 发布页面')}
                 className="rounded-lg border border-white/10 bg-white/10 p-2 hover:bg-white/20"
               >
                 <ExternalLink className="h-4 w-4" />
@@ -300,7 +303,7 @@ function UpdateNotice(): JSX.Element {
                 }}
                 className="rounded-lg px-2 py-2 text-xs text-white/50 hover:bg-white/10 hover:text-white"
               >
-                忽略此版本
+                {t('忽略此版本')}
               </button>
             </div>
           </motion.div>

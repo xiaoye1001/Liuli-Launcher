@@ -6,6 +6,7 @@ import type {
   SettingsImportResult,
   SettingsTransferPart
 } from '../../../shared/types'
+import { t } from '../utils/i18n'
 
 function errorText(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e)
@@ -13,18 +14,18 @@ function errorText(e: unknown): string {
 }
 
 const PARTS: { key: SettingsTransferPart; label: string; unit: string }[] = [
-  { key: 'settings', label: '设置', unit: '项' },
-  { key: 'themes', label: '我的主题', unit: '个' },
-  { key: 'servers', label: '服务器', unit: '个' },
-  { key: 'seeds', label: '种子收藏', unit: '个' },
-  { key: 'collections', label: '模组合集', unit: '个' },
-  { key: 'skins', label: '皮肤衣柜', unit: '套' }
+  { key: 'settings', label: t('设置'), unit: t('项') },
+  { key: 'themes', label: t('我的主题'), unit: t('个') },
+  { key: 'servers', label: t('服务器'), unit: t('个') },
+  { key: 'seeds', label: t('种子收藏'), unit: t('个') },
+  { key: 'collections', label: t('模组合集'), unit: t('个') },
+  { key: 'skins', label: t('皮肤衣柜'), unit: t('套') }
 ]
 
 function countsText(counts: Partial<Record<SettingsTransferPart, number>>): string {
   return PARTS.filter((p) => (counts[p.key] ?? 0) > 0)
     .map((p) => `${p.label} ${counts[p.key]} ${p.unit}`)
-    .join('、')
+    .join(t('、'))
 }
 
 /** 设置页「其它」：导出 / 导入启动器设置 */
@@ -53,7 +54,7 @@ function SettingsTransferSection({ onSettings }: { onSettings: (settings: AppSet
     run('export', async () => {
       setResult(null)
       const r = await window.api.exportLauncherSettings()
-      if (r) setExported(`已导出到 ${r.path}（${countsText(r.counts) || '没有内容'}）`)
+      if (r) setExported(t('已导出到 {0}（{1}）', { 0: r.path, 1: countsText(r.counts) || t('没有内容') }))
     })
 
   const pick = (): Promise<void> =>
@@ -86,20 +87,20 @@ function SettingsTransferSection({ onSettings }: { onSettings: (settings: AppSet
       <div className="flex items-center gap-3">
         <ArrowLeftRight className="h-5 w-5 text-sky-300" />
         <div>
-          <h2 className="text-lg font-semibold">导出 / 导入设置</h2>
+          <h2 className="text-lg font-semibold">{t('导出 / 导入设置')}</h2>
           <p className="text-xs text-white/50">
-            换电脑或重装后一键恢复：设置、我的主题、服务器、种子收藏、模组合集、皮肤衣柜。不包含账号、密钥和密码
+            {t('换电脑或重装后一键恢复：设置、我的主题、服务器、种子收藏、模组合集、皮肤衣柜。不包含账号、密钥和密码')}
           </p>
         </div>
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <button onClick={() => void doExport()} disabled={!!busy} className={button}>
           {busy === 'export' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-          导出设置
+          {t('导出设置')}
         </button>
         <button onClick={() => void pick()} disabled={!!busy} className={button}>
           {busy === 'pick' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
-          导入设置
+          {t('导入设置')}
         </button>
       </div>
 
@@ -112,11 +113,11 @@ function SettingsTransferSection({ onSettings }: { onSettings: (settings: AppSet
 
       {preview && (
         <div className="mt-4 rounded-xl bg-black/20 p-4" data-testid="settings-import-preview">
-          <div className="text-sm font-medium">选择要导入的内容</div>
+          <div className="text-sm font-medium">{t('选择要导入的内容')}</div>
           <div className="mt-0.5 text-xs text-white/50">
-            {preview.launcherVersion ? `来自 v${preview.launcherVersion}` : '来自琉璃启动器'}
-            {preview.exportedAt ? ` · ${new Date(preview.exportedAt).toLocaleString('zh-CN')} 导出` : ''}
-            。已经有的服务器、种子、合集、皮肤会跳过，不会删除现有的内容
+            {preview.launcherVersion ? t('来自 v{0}', { 0: preview.launcherVersion }) : t('来自琉璃启动器')}
+            {preview.exportedAt ? t(' · {0} 导出', { 0: new Date(preview.exportedAt).toLocaleString() }) : ''}
+            {t('。已经有的服务器、种子、合集、皮肤会跳过，不会删除现有的内容')}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-3">
             {PARTS.map((p) => {
@@ -156,10 +157,10 @@ function SettingsTransferSection({ onSettings }: { onSettings: (settings: AppSet
               className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               {busy === 'import' && <Loader2 className="h-4 w-4 animate-spin" />}
-              导入所选
+              {t('导入所选')}
             </button>
             <button onClick={() => setPreview(null)} disabled={!!busy} className={button}>
-              取消
+              {t('取消')}
             </button>
           </div>
         </div>
@@ -172,16 +173,24 @@ function SettingsTransferSection({ onSettings }: { onSettings: (settings: AppSet
         >
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
-            <div>导入完成</div>
+            <div>{t('导入完成')}</div>
             <div className="text-xs text-emerald-200/80">
               {PARTS.filter((p) => result.added[p.key] !== undefined)
                 .map((p) => {
                   const added = result.added[p.key] ?? 0
                   const skipped = result.skipped[p.key] ?? 0
-                  const verb = p.key === 'settings' ? '改了' : '加入'
-                  return `${p.label}：${verb} ${added} ${p.unit}${skipped > 0 ? `（${skipped} ${p.unit}${p.key === 'settings' ? '本来就一样' : '已有或无效，跳过'}）` : ''}`
+                  const verb = p.key === 'settings' ? t('改了') : t('加入')
+                  const skip =
+                    skipped > 0
+                      ? t('（{0} {1}{2}）', {
+                          0: skipped,
+                          1: p.unit,
+                          2: p.key === 'settings' ? t('本来就一样') : t('已有或无效，跳过')
+                        })
+                      : ''
+                  return t('{0}：{1} {2} {3}', { 0: p.label, 1: verb, 2: added, 3: p.unit }) + skip
                 })
-                .join('；')}
+                .join(t('；'))}
             </div>
           </div>
         </div>

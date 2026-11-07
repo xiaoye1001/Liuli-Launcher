@@ -1,36 +1,37 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Loader2, Search, Type } from 'lucide-react'
+import { t } from '../utils/i18n'
 
 /** 常见字体的中文名称（系统返回的一般是英文名） */
 const FONT_LABELS: Record<string, string> = {
-  'Microsoft YaHei': '微软雅黑',
-  'Microsoft YaHei UI': '微软雅黑 UI',
-  'Microsoft JhengHei': '微软正黑体',
-  DengXian: '等线',
-  SimSun: '宋体',
-  NSimSun: '新宋体',
-  SimHei: '黑体',
-  KaiTi: '楷体',
-  FangSong: '仿宋',
-  YouYuan: '幼圆',
-  LiSu: '隶书',
-  STXihei: '华文细黑',
-  STKaiti: '华文楷体',
-  STSong: '华文宋体',
-  'PingFang SC': '苹方',
-  'Hiragino Sans GB': '冬青黑体',
-  'Source Han Sans SC': '思源黑体',
-  'Source Han Serif SC': '思源宋体',
-  'Noto Sans SC': '思源黑体',
-  'Noto Sans CJK SC': '思源黑体',
-  'Noto Serif SC': '思源宋体',
-  'Noto Serif CJK SC': '思源宋体',
-  'HarmonyOS Sans SC': '鸿蒙黑体',
-  'LXGW WenKai': '霞鹜文楷',
-  'LXGW WenKai Screen': '霞鹜文楷 屏幕阅读版',
-  'Smiley Sans': '得意黑',
-  'WenQuanYi Micro Hei': '文泉驿微米黑',
-  'Sarasa Gothic SC': '更纱黑体'
+  'Microsoft YaHei': t('微软雅黑'),
+  'Microsoft YaHei UI': t('微软雅黑 UI'),
+  'Microsoft JhengHei': t('微软正黑体'),
+  DengXian: t('等线'),
+  SimSun: t('宋体'),
+  NSimSun: t('新宋体'),
+  SimHei: t('黑体'),
+  KaiTi: t('楷体'),
+  FangSong: t('仿宋'),
+  YouYuan: t('幼圆'),
+  LiSu: t('隶书'),
+  STXihei: t('华文细黑'),
+  STKaiti: t('华文楷体'),
+  STSong: t('华文宋体'),
+  'PingFang SC': t('苹方'),
+  'Hiragino Sans GB': t('冬青黑体'),
+  'Source Han Sans SC': t('思源黑体'),
+  'Source Han Serif SC': t('思源宋体'),
+  'Noto Sans SC': t('思源黑体'),
+  'Noto Sans CJK SC': t('思源黑体'),
+  'Noto Serif SC': t('思源宋体'),
+  'Noto Serif CJK SC': t('思源宋体'),
+  'HarmonyOS Sans SC': t('鸿蒙黑体'),
+  'LXGW WenKai': t('霞鹜文楷'),
+  'LXGW WenKai Screen': t('霞鹜文楷 屏幕阅读版'),
+  'Smiley Sans': t('得意黑'),
+  'WenQuanYi Micro Hei': t('文泉驿微米黑'),
+  'Sarasa Gothic SC': t('更纱黑体')
 }
 
 /** 无法读取系统字体时提供的常用字体 */
@@ -63,7 +64,7 @@ declare global {
 
 function label(family: string): string {
   const zh = FONT_LABELS[family]
-  return zh ? `${zh}（${family}）` : family
+  return zh ? t('{0}（{1}）', { 0: zh, 1: family }) : family
 }
 
 /** 系统字体列表（打开过一次后缓存） */
@@ -141,12 +142,12 @@ function FontPicker({ value, onChange }: { value: string; onChange: (font: strin
         onClick={toggle}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label="界面字体"
+        aria-label={t('界面字体')}
         className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-4 py-2.5 text-left hover:bg-black/30"
       >
         <Type className="h-4 w-4 shrink-0 text-emerald-300" />
         <span className="flex-1 truncate text-sm" style={value ? { fontFamily: `"${value}"` } : undefined}>
-          {value ? label(value) : '默认字体'}
+          {value ? label(value) : t('默认字体')}
         </span>
         <ChevronDown className={`h-4 w-4 text-white/50 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -159,24 +160,24 @@ function FontPicker({ value, onChange }: { value: string; onChange: (font: strin
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="搜索字体，或输入字体名称"
+              placeholder={t('搜索字体，或输入字体名称')}
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-white/30"
             />
           </div>
-          <div className="max-h-72 overflow-y-auto py-1" role="listbox" aria-label="字体列表">
+          <div className="max-h-72 overflow-y-auto py-1" role="listbox" aria-label={t('字体列表')}>
             {!keyword && <FontOption family="" selected={!value} onClick={() => choose('')} />}
             {keyword && !exact && (
               <button
                 onClick={() => choose(query.trim())}
                 className="w-full px-4 py-2 text-left text-sm text-emerald-300 hover:bg-white/10"
               >
-                使用「{query.trim()}」
+                {t('使用「{0}」', { 0: query.trim() })}
               </button>
             )}
             {loading && (
               <div className="flex items-center gap-2 px-4 py-3 text-sm text-white/50">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                正在读取系统字体…
+                {t('正在读取系统字体…')}
               </div>
             )}
             {matches.slice(0, MAX_SHOWN).map((f) => (
@@ -184,13 +185,13 @@ function FontPicker({ value, onChange }: { value: string; onChange: (font: strin
             ))}
             {matches.length > MAX_SHOWN && (
               <div className="px-4 py-2 text-xs text-white/40">
-                还有 {matches.length - MAX_SHOWN} 个字体，输入名称搜索
+                {t('还有 {0} 个字体，输入名称搜索', { 0: matches.length - MAX_SHOWN })}
               </div>
             )}
           </div>
           {fallback && (
             <div className="border-t border-white/10 px-4 py-2 text-xs text-white/40">
-              无法读取系统字体列表，以上是常用字体；没有安装的字体会显示为默认字体
+              {t('无法读取系统字体列表，以上是常用字体；没有安装的字体会显示为默认字体')}
             </div>
           )}
         </div>
@@ -216,10 +217,10 @@ function FontOption({
       className={`flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-white/10 ${selected ? 'bg-emerald-500/15' : ''}`}
     >
       <span className="flex-1 truncate text-sm" style={family ? { fontFamily: `"${family}"` } : undefined}>
-        {family ? label(family) : '默认字体'}
+        {family ? label(family) : t('默认字体')}
       </span>
       <span className="shrink-0 text-xs text-white/40" style={family ? { fontFamily: `"${family}"` } : undefined}>
-        琉璃 Aa 123
+        {t('琉璃 Aa 123')}
       </span>
       {selected && <Check className="h-4 w-4 shrink-0 text-emerald-300" />}
     </button>

@@ -12,6 +12,7 @@ import {
 import { ArrowDown, ArrowUp, Check, Eye, EyeOff, GripVertical, LayoutDashboard, RotateCcw } from 'lucide-react'
 import { useAppearance } from '../utils/appearance'
 import type { BlockWidth, PageLayout } from '../../../shared/types'
+import { t } from '../utils/i18n'
 
 /**
  * 积木式布局：页面由几个区块组成，用户点「编辑布局」后可以拖动或用箭头排顺序、隐藏区块、
@@ -74,7 +75,7 @@ interface Block {
   node: ReactNode
 }
 
-const WIDTH_NAMES: Record<BlockWidth, string> = { full: '整行', left: '左', right: '右' }
+const WIDTH_NAMES: Record<BlockWidth, string> = { full: t('整行'), left: t('左'), right: t('右') }
 
 /** 保存一个页面的布局（其它页面的保持不变） */
 async function saveLayout(page: string, layout: PageLayout): Promise<void> {
@@ -190,8 +191,8 @@ function EditFrame({
           onClick={() => onMove(-1)}
           disabled={index === 0}
           className={icon}
-          title="往前移"
-          aria-label={`${block.title}往前移`}
+          title={t('往前移')}
+          aria-label={t('{0}往前移', { 0: block.title })}
         >
           <ArrowUp className="h-3.5 w-3.5" />
         </button>
@@ -199,13 +200,17 @@ function EditFrame({
           onClick={() => onMove(1)}
           disabled={index === count - 1}
           className={icon}
-          title="往后移"
-          aria-label={`${block.title}往后移`}
+          title={t('往后移')}
+          aria-label={t('{0}往后移', { 0: block.title })}
         >
           <ArrowDown className="h-3.5 w-3.5" />
         </button>
         {widths && (
-          <div className="flex rounded-lg bg-black/20 p-0.5" role="radiogroup" aria-label={`${block.title}的宽度`}>
+          <div
+            className="flex rounded-lg bg-black/20 p-0.5"
+            role="radiogroup"
+            aria-label={t('{0}的宽度', { 0: block.title })}
+          >
             {(['full', 'left', 'right'] as const).map((w) => (
               <button
                 key={w}
@@ -223,14 +228,14 @@ function EditFrame({
         <button
           onClick={onToggle}
           className={icon}
-          title={hidden ? '显示' : '隐藏'}
-          aria-label={`${hidden ? '显示' : '隐藏'}${block.title}`}
+          title={hidden ? t('显示') : t('隐藏')}
+          aria-label={t('{0}{1}', { 0: hidden ? t('显示') : t('隐藏'), 1: block.title })}
         >
           {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
         </button>
       </div>
       {hidden ? (
-        <div className="rounded-xl bg-black/20 px-3 py-2 text-xs text-white/40">已隐藏，点眼睛可以显示回来</div>
+        <div className="rounded-xl bg-black/20 px-3 py-2 text-xs text-white/40">{t('已隐藏，点眼睛可以显示回来')}</div>
       ) : (
         // 编辑时内容只看不点，拖动不会误操作；里面还有一层布局时要能点里面的区块
         <div className={block.nested ? 'min-h-0' : 'pointer-events-none select-none opacity-70'}>{block.node}</div>
@@ -364,21 +369,25 @@ export function BlockLayout({
         >
           <LayoutDashboard className="h-4 w-4 shrink-0 text-emerald-300" />
           <span className="min-w-0 flex-1">
-            拖动区块或者用箭头排顺序；选「整行 / 左 / 右」改宽度（窗口窄时左右两列会上下排）；点眼睛隐藏不用的区块
+            {t(
+              t(
+                '拖动区块或者用箭头排顺序；选「整行 / 左 / 右」改宽度（窗口窄时左右两列会上下排）；点眼睛隐藏不用的区块'
+              )
+            )}
           </span>
           <button
             onClick={() => void resetLayouts(page)}
             className="flex items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1 hover:bg-white/20"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            恢复这个页面的默认布局
+            {t('恢复这个页面的默认布局')}
           </button>
           <button
             onClick={() => setLayoutEditing(null)}
             className="flex items-center gap-1 rounded-lg bg-emerald-500/80 px-2.5 py-1 font-medium text-white hover:bg-emerald-500"
           >
             <Check className="h-3.5 w-3.5" />
-            完成
+            {t('完成')}
           </button>
         </div>
       )}
@@ -429,7 +438,7 @@ export function LayoutEditButton({ page }: { page: string }): JSX.Element {
     <button
       onClick={() => setLayoutEditing(isEditing ? null : page)}
       aria-pressed={isEditing}
-      title={isEditing ? '完成编辑' : '自己排这个页面的布局'}
+      title={isEditing ? t('完成编辑') : t('自己排这个页面的布局')}
       className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs transition-colors ${
         isEditing
           ? 'border-emerald-400/40 bg-emerald-500/20 text-white'
@@ -437,7 +446,7 @@ export function LayoutEditButton({ page }: { page: string }): JSX.Element {
       }`}
     >
       {isEditing ? <Check className="h-3.5 w-3.5" /> : <LayoutDashboard className="h-3.5 w-3.5" />}
-      {isEditing ? '完成' : '编辑布局'}
+      {isEditing ? t('完成') : t('编辑布局')}
     </button>
   )
 }

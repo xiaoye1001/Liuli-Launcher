@@ -53,6 +53,7 @@ import type {
   LaunchTiming,
   VersionPlayStats
 } from '../../../shared/types'
+import { t } from '../utils/i18n'
 
 /** 内存：不到 1 GB 时显示 MB */
 function formatMemoryMb(mb: number): string {
@@ -91,11 +92,11 @@ function lastPlayedText(time: number): string {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const days = Math.max(0, Math.ceil((today.getTime() - time) / 86_400_000))
-  if (days === 0) return '今天'
-  if (days === 1) return '昨天'
-  if (days < 30) return `${days} 天前`
-  if (days < 365) return `${Math.floor(days / 30)} 个月前`
-  return `${Math.floor(days / 365)} 年前`
+  if (days === 0) return t('今天')
+  if (days === 1) return t('昨天')
+  if (days < 30) return t('{0} 天前', { 0: days })
+  if (days < 365) return t('{0} 个月前', { 0: Math.floor(days / 30) })
+  return t('{0} 年前', { 0: Math.floor(days / 365) })
 }
 
 const LOADER_NAMES: Record<string, string> = {
@@ -169,7 +170,7 @@ function VersionSelect({ versions, value, onChange, className = 'w-52', dropDown
         ) : (
           <Box className="h-4 w-4 shrink-0 text-emerald-300" />
         )}
-        <span className="flex-1 truncate font-mono">{value || '尚未安装任何版本'}</span>
+        <span className="flex-1 truncate font-mono">{value || t('尚未安装任何版本')}</span>
         <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       <AnimatePresence>
@@ -284,7 +285,7 @@ function HomePage({
           if (alive) setSettings(next)
         }
       } catch (e) {
-        if (alive) setLaunchError(`读取启动器信息失败：${e instanceof Error ? e.message : String(e)}`)
+        if (alive) setLaunchError(t('读取启动器信息失败：{0}', { 0: e instanceof Error ? e.message : String(e) }))
       }
     }
     void init()
@@ -341,7 +342,7 @@ function HomePage({
     try {
       setSettings(await window.api.updateSettings({ selectedVersion: id }))
     } catch (e) {
-      setLaunchError(`切换版本失败：${e instanceof Error ? e.message : String(e)}`)
+      setLaunchError(t('切换版本失败：{0}', { 0: e instanceof Error ? e.message : String(e) }))
     }
   }
 
@@ -518,7 +519,11 @@ function HomePage({
   const newsFull = useMedia(NEWS_FULL_QUERY)
   const newsRoom = useMedia(NEWS_COMPACT_QUERY)
   const current = versions.find((v) => v.id === selected)
-  const accountLabel = msAccount ? (external ? `外置账号 · ${external.serverName}` : '微软正版账号') : '离线账号'
+  const accountLabel = msAccount
+    ? external
+      ? t('外置账号 · {0}', { 0: external.serverName })
+      : t('微软正版账号')
+    : t('离线账号')
   /** 头像和 3D 角色用的皮肤：正版 / 外置账号用账号的皮肤，离线账号用设置里选的皮肤 */
   const skin = msAccount ? msAccount.skin : (settings?.skinDataUrl ?? '')
   const skinModel = msAccount ? msAccount.skinModel : (settings?.skinModel ?? 'default')
@@ -569,7 +574,7 @@ function HomePage({
           onBlur={saveName}
           maxLength={16}
           placeholder="Steve"
-          aria-label="离线玩家名"
+          aria-label={t('离线玩家名')}
           className={`w-full bg-transparent text-sm outline-none placeholder:text-white/30 ${centered ? 'text-center' : ''}`}
         />
       </div>
@@ -580,7 +585,7 @@ function HomePage({
     <button
       onClick={() => onOpenVersionSettings(selected)}
       disabled={!selected}
-      title="版本设置：单独设置这个版本的内存、Java、窗口大小等"
+      title={t('版本设置：单独设置这个版本的内存、Java、窗口大小等')}
       className="shrink-0 rounded-xl border border-white/10 bg-black/20 px-3 text-white/70 hover:bg-black/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
     >
       <Settings2 className="h-4 w-4" />
@@ -597,8 +602,8 @@ function HomePage({
           .catch(() => undefined)
       }
       aria-pressed={logOpen}
-      aria-label="日志"
-      title={logOpen ? '关闭游戏日志窗口' : '打开游戏日志窗口'}
+      aria-label={t('日志')}
+      title={logOpen ? t('关闭游戏日志窗口') : t('打开游戏日志窗口')}
       className={`flex shrink-0 items-center justify-center gap-2 rounded-xl border text-sm transition-colors ${
         compact ? 'w-14' : 'px-4 py-3'
       } ${
@@ -608,7 +613,7 @@ function HomePage({
       }`}
     >
       <Terminal className="h-4 w-4" />
-      {!compact && '日志'}
+      {!compact && t('日志')}
     </button>
   )
 
@@ -621,8 +626,8 @@ function HomePage({
       onMouseEnter={() => setLaunchHover(true)}
       onMouseLeave={() => setLaunchHover(false)}
       disabled={running ? killing : busy || !selected || !nameValid}
-      aria-label={running ? (killConfirm ? '确认结束游戏' : '结束游戏') : undefined}
-      title={running ? '强制结束游戏：游戏卡死或无法正常关闭时使用，没有保存的进度会丢失' : undefined}
+      aria-label={running ? (killConfirm ? t('确认结束游戏') : t('结束游戏')) : undefined}
+      title={running ? t('强制结束游戏：游戏卡死或无法正常关闭时使用，没有保存的进度会丢失') : undefined}
       className={`flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r font-semibold transition-colors disabled:cursor-not-allowed disabled:from-slate-600 disabled:to-slate-500 disabled:shadow-none ${
         big ? 'h-14 min-w-0 flex-1 text-base' : 'px-8 py-[11px]'
       } ${
@@ -641,16 +646,16 @@ function HomePage({
       {running && !stopStyle && <Gamepad2 className="h-5 w-5" />}
       {!busy && <Play className="h-5 w-5 fill-current" />}
       {game.state === 'launching'
-        ? '正在启动...'
+        ? t('正在启动...')
         : running
           ? killing
-            ? '正在结束…'
+            ? t('正在结束…')
             : killConfirm
-              ? '确认结束？'
+              ? t('确认结束？')
               : launchHover
-                ? '结束游戏'
-                : `游戏运行中${game.startedAt ? ` · ${formatClock(now - game.startedAt)}` : ''}`
-          : '启动游戏'}
+                ? t('结束游戏')
+                : t('游戏运行中') + (game.startedAt ? ` · ${formatClock(now - game.startedAt)}` : '')
+          : t('启动游戏')}
     </motion.button>
   )
 
@@ -660,13 +665,13 @@ function HomePage({
       <button
         onClick={() => void onContinue()}
         disabled={!nameValid}
-        title={`跳过主菜单，直接进入上次玩的存档「${lastWorld.name}」`}
+        title={t('跳过主菜单，直接进入上次玩的存档「{0}」', { 0: lastWorld.name })}
         className={`flex max-w-full items-center gap-1.5 rounded-lg text-xs text-emerald-200 transition-colors hover:bg-emerald-500/15 disabled:cursor-not-allowed disabled:opacity-50 ${
           full ? 'w-full justify-center border border-emerald-400/25 px-3 py-2' : 'px-2.5 py-1'
         }`}
       >
         <Play className="h-3.5 w-3.5 shrink-0 fill-current" />
-        <span className="truncate">继续上次的存档「{lastWorld.name}」</span>
+        <span className="truncate">{t('继续上次的存档「{0}」', { 0: lastWorld.name })}</span>
       </button>
     ) : null
 
@@ -683,8 +688,8 @@ function HomePage({
             {resources && (
               <>
                 <Activity className="h-3.5 w-3.5 shrink-0" />
-                内存 {formatMemoryMb(resources.memoryMb)}
-                {resources.maxMemoryMb > 0 && ` · 分配 ${formatMemoryMb(resources.maxMemoryMb)}`}
+                {t('内存 {0}', { 0: formatMemoryMb(resources.memoryMb) })}
+                {resources.maxMemoryMb > 0 && t(' · 分配 {0}', { 0: formatMemoryMb(resources.maxMemoryMb) })}
                 {resources.cpuPercent !== null && ` · CPU ${resources.cpuPercent}%`}
               </>
             )}
@@ -698,11 +703,14 @@ function HomePage({
             <span className="flex items-start gap-1.5">
               {stacked && <Timer className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
               <span>
-                游戏启动用时 {(timing.current.ms / 1000).toFixed(1)} 秒
+                {t('游戏启动用时 {0} 秒', { 0: (timing.current.ms / 1000).toFixed(1) })}
                 {timing.previous &&
                   Math.abs(timing.current.ms - timing.previous.ms) >= 100 &&
-                  ` · 比上次${timing.current.ms < timing.previous.ms ? '快' : '慢'} ${(Math.abs(timing.current.ms - timing.previous.ms) / 1000).toFixed(1)} 秒`}
-                {timing.best && timing.current.ms < timing.best.ms && ' · 最快的一次！'}
+                  t(' · 比上次{0} {1} 秒', {
+                    0: timing.current.ms < timing.previous.ms ? t('快') : t('慢'),
+                    1: (Math.abs(timing.current.ms - timing.previous.ms) / 1000).toFixed(1)
+                  })}
+                {timing.best && timing.current.ms < timing.best.ms && t(' · 最快的一次！')}
               </span>
             </span>
           )}
@@ -711,7 +719,7 @@ function HomePage({
       {javaTask?.state === 'running' && (
         <div className="flex items-center gap-3 text-xs text-white/60">
           <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-          <span className="shrink-0">正在下载该版本需要的 {javaTask.versionId}</span>
+          <span className="shrink-0">{t('正在下载该版本需要的 {0}', { 0: javaTask.versionId })}</span>
           <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/10">
             <div
               className="h-full rounded-full bg-emerald-400 transition-all"
@@ -720,10 +728,12 @@ function HomePage({
           </div>
         </div>
       )}
-      {killConfirm && <p className="text-xs text-red-300">再点一次「确认结束？」强制结束游戏，没有保存的进度会丢失</p>}
-      {!nameValid && <p className="text-xs text-red-300">玩家名只能包含字母、数字和下划线，长度 3~16</p>}
-      {launchError && <p className="text-xs text-red-300">启动失败：{launchError}</p>}
-      {killError && <p className="text-xs text-red-300">结束游戏失败：{killError}</p>}
+      {killConfirm && (
+        <p className="text-xs text-red-300">{t('再点一次「确认结束？」强制结束游戏，没有保存的进度会丢失')}</p>
+      )}
+      {!nameValid && <p className="text-xs text-red-300">{t('玩家名只能包含字母、数字和下划线，长度 3~16')}</p>}
+      {launchError && <p className="text-xs text-red-300">{t('启动失败：{0}', { 0: launchError })}</p>}
+      {killError && <p className="text-xs text-red-300">{t('结束游戏失败：{0}', { 0: killError })}</p>}
     </>
   )
 
@@ -734,15 +744,16 @@ function HomePage({
       {current.loader && (
         <span className="rounded-md bg-sky-500/15 px-1.5 py-0.5 text-sky-300">{LOADER_NAMES[current.loader]}</span>
       )}
-      {current.isolated && <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-white/60">版本隔离</span>}
+      {current.isolated && <span className="rounded-md bg-white/10 px-1.5 py-0.5 text-white/60">{t('版本隔离')}</span>}
     </div>
   )
 
   /** 选中版本的游玩情况：已玩多久、上次什么时候玩 */
   const versionStats = selected ? summary?.versions[selected] : undefined
   const versionPlayText = versionStats?.totalMs
-    ? `已玩 ${formatDuration(versionStats.totalMs)}${versionStats.lastPlayed ? ` · ${lastPlayedText(versionStats.lastPlayed)}` : ''}`
-    : '还没玩过'
+    ? t('已玩 {0}', { 0: formatDuration(versionStats.totalMs) }) +
+      `${versionStats.lastPlayed ? ` · ${lastPlayedText(versionStats.lastPlayed)}` : ''}`
+    : t('还没玩过')
 
   // ---------- 页面 ----------
 
@@ -750,39 +761,51 @@ function HomePage({
   const hero = (
     <section className="relative shrink-0 rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl lg:p-7">
       {settings?.showSplash && (
-        <SplashText greeting={birthdayToday ? `生日快乐${nameValid ? `，${displayName}` : ''}！` : undefined} />
+        <SplashText
+          greeting={
+            birthdayToday ? (nameValid ? t('生日快乐，{0}！', { 0: displayName }) : t('生日快乐！')) : undefined
+          }
+        />
       )}
       {birthdayToday && appearance.animations && <BirthdayConfetti />}
       <h1 className="text-3xl font-bold tracking-tight">
-        {welcomeTitle ? renderWelcome(welcomeTitle, welcomeValues) : `欢迎回来${nameValid ? `，${displayName}` : ''}`}
+        {welcomeTitle
+          ? renderWelcome(welcomeTitle, welcomeValues)
+          : nameValid
+            ? t('欢迎回来，{0}', { 0: displayName })
+            : t('欢迎回来')}
       </h1>
       <p className="mt-2 text-sm text-white/60">
         {versions.length === 0
-          ? '还没有安装任何版本，请先到「下载」页安装游戏。'
+          ? t('还没有安装任何版本，请先到「下载」页安装游戏。')
           : welcomeSubtitle
             ? renderWelcome(welcomeSubtitle, welcomeValues)
-            : '选择版本后点击启动，开始你的冒险。'}
+            : t('选择版本后点击启动，开始你的冒险。')}
       </p>
       {settings?.showTrivia && <TriviaLine />}
       {settings?.showDailyGoal && <DailyGoalLine />}
       <GameReleaseBanner onInstall={onInstallVersion} />
       <LagReportBanner onOpenVersionSettings={onOpenVersionSettings} />
       <div className="mt-4 flex flex-wrap gap-2">
-        <StatChip icon={Layers} onClick={onManageVersions} title="管理已安装的版本">
-          已安装 {versions.length} 个版本
+        <StatChip icon={Layers} onClick={onManageVersions} title={t('管理已安装的版本')}>
+          {t('已安装 {0} 个版本', { 0: versions.length })}
         </StatChip>
         {summary && summary.playMs > 0 && (
-          <StatChip icon={Clock} onClick={onOpenTool ? () => onOpenTool('report') : undefined} title="查看我的游玩报告">
-            累计游玩 {formatDuration(summary.playMs)}
+          <StatChip
+            icon={Clock}
+            onClick={onOpenTool ? () => onOpenTool('report') : undefined}
+            title={t('查看我的游玩报告')}
+          >
+            {t('累计游玩 {0}', { 0: formatDuration(summary.playMs) })}
           </StatChip>
         )}
         {summary && summary.achievements > 0 && (
           <StatChip
             icon={Trophy}
             onClick={onOpenTool ? () => onOpenTool('achievements') : undefined}
-            title="查看启动器成就"
+            title={t('查看启动器成就')}
           >
-            成就 {summary.achieved} / {summary.achievements}
+            {t('成就 {0} / {1}', { 0: summary.achieved, 1: summary.achievements })}
           </StatChip>
         )}
         <OnThisDay className="rounded-full border border-white/10 bg-black/15 px-3 py-1 text-xs text-white/70 transition-colors hover:bg-black/25 hover:text-white" />
@@ -889,7 +912,7 @@ function HomePage({
 
         {/* 启动坞（默认在右边） */}
         <aside
-          aria-label="启动"
+          aria-label={t('启动')}
           className="relative flex w-[19rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/10 p-5 shadow-2xl backdrop-blur-xl"
         >
           {prism}
@@ -902,10 +925,10 @@ function HomePage({
             {onOpenAccount && (
               <button
                 onClick={onOpenAccount}
-                title="切换账号"
+                title={t('切换账号')}
                 className="ml-auto shrink-0 hover:text-white hover:underline"
               >
-                切换账号
+                {t('切换账号')}
               </button>
             )}
           </div>
@@ -926,7 +949,7 @@ function HomePage({
                 onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
                 maxLength={16}
                 placeholder="Steve"
-                aria-label="离线玩家名"
+                aria-label={t('离线玩家名')}
                 className={`w-full rounded-lg border bg-black/20 px-3 py-1 text-center text-xl font-bold outline-none ${
                   nameValid ? 'border-white/15' : 'border-red-400/60'
                 }`}
@@ -934,7 +957,7 @@ function HomePage({
             ) : (
               <button
                 onClick={() => setEditingName(true)}
-                title="点击修改离线玩家名"
+                title={t('点击修改离线玩家名')}
                 className="group flex min-w-0 items-center gap-2 rounded-lg px-2 py-0.5 hover:bg-white/10"
               >
                 <span className="truncate text-2xl font-bold tracking-tight">{name}</span>
@@ -946,10 +969,10 @@ function HomePage({
             {running ? (
               <>
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                正在玩 {game.versionId}
+                {t('正在玩 {0}', { 0: game.versionId })}
               </>
             ) : (
-              versionPlayText !== '还没玩过' && selected && `${selected} · ${versionPlayText}`
+              versionPlayText !== t('还没玩过') && selected && `${selected} · ${versionPlayText}`
             )}
           </div>
 
@@ -990,7 +1013,7 @@ function HomePage({
               onClick={onManageVersions}
               className="shrink-0 text-xs text-white/50 hover:text-white hover:underline"
             >
-              管理版本
+              {t('管理版本')}
             </button>
           </div>
 
@@ -1013,18 +1036,26 @@ function HomePage({
     <section className="relative shrink-0 rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
       {prism}
       {settings?.showSplash && (
-        <SplashText greeting={birthdayToday ? `生日快乐${nameValid ? `，${displayName}` : ''}！` : undefined} />
+        <SplashText
+          greeting={
+            birthdayToday ? (nameValid ? t('生日快乐，{0}！', { 0: displayName }) : t('生日快乐！')) : undefined
+          }
+        />
       )}
       {birthdayToday && appearance.animations && <BirthdayConfetti />}
       <h1 className="text-3xl font-bold tracking-tight">
-        {welcomeTitle ? renderWelcome(welcomeTitle, welcomeValues) : `欢迎回来${nameValid ? `，${displayName}` : ''}`}
+        {welcomeTitle
+          ? renderWelcome(welcomeTitle, welcomeValues)
+          : nameValid
+            ? t('欢迎回来，{0}', { 0: displayName })
+            : t('欢迎回来')}
       </h1>
       <p className="mt-2 text-sm text-white/60">
         {versions.length === 0
-          ? '还没有安装任何版本，请先到「下载」页安装游戏。'
+          ? t('还没有安装任何版本，请先到「下载」页安装游戏。')
           : welcomeSubtitle
             ? renderWelcome(welcomeSubtitle, welcomeValues)
-            : '选择版本后点击启动，开始你的冒险。'}
+            : t('选择版本后点击启动，开始你的冒险。')}
       </p>
       {settings?.showTrivia && <TriviaLine />}
       {settings?.showDailyGoal && <DailyGoalLine />}
@@ -1033,7 +1064,7 @@ function HomePage({
       <OnThisDay className="mt-2 text-xs text-white/60 hover:text-white" />
       <div className="mt-5 flex flex-wrap items-end gap-4">
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs text-white/50">{msAccount ? accountLabel : '离线玩家名'}</span>
+          <span className="text-xs text-white/50">{msAccount ? accountLabel : t('离线玩家名')}</span>
           <div className="flex w-44 items-center gap-2">
             {msAccount && <SkinHead skin={msAccount.skin} size={28} />}
             <div className="min-w-0 flex-1">{nameField(false)}</div>
@@ -1041,9 +1072,9 @@ function HomePage({
         </div>
         <div className="flex flex-col gap-1.5">
           <span className="flex items-center justify-between text-xs text-white/50">
-            游戏版本
+            {t('游戏版本')}
             <button onClick={onManageVersions} className="text-white/50 hover:text-white hover:underline">
-              管理版本
+              {t('管理版本')}
             </button>
           </span>
           <div className="flex gap-2">

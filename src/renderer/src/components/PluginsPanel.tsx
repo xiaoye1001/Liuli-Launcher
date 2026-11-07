@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import type { PluginInfo, PluginPending, PluginUpdate } from '../../../shared/types'
 import { PERMISSION_TEXT, onDroppedPlugin, takeDroppedPlugin } from '../utils/plugins'
+import { t } from '../utils/i18n'
 
 function cleanError(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e)
@@ -28,26 +29,31 @@ function PermissionList({
   before?: Pick<PluginInfo, 'permissions' | 'hosts'> | null
 }): JSX.Element {
   if (plugin.permissions.length === 0) {
-    return <div className="text-xs text-white/50">不需要任何权限（只能显示自己的页面、保存自己的数据）</div>
+    return <div className="text-xs text-white/50">{t('不需要任何权限（只能显示自己的页面、保存自己的数据）')}</div>
   }
   return (
     <ul className="space-y-1" data-testid="plugin-permissions">
       {plugin.permissions.map((p) => {
-        const t = PERMISSION_TEXT[p]
+        const info = PERMISSION_TEXT[p]
         return (
           <li key={p} className="flex items-start gap-2 text-xs">
             <span
-              className={`mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${t.risky ? 'bg-amber-300' : 'bg-emerald-300'}`}
+              className={`mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full ${info.risky ? 'bg-amber-300' : 'bg-emerald-300'}`}
             />
             <span>
-              <span className="font-medium text-white/85">{t.title}</span>
+              <span className="font-medium text-white/85">{info.title}</span>
               {before && !before.permissions.includes(p) && (
-                <span className="ml-1 rounded bg-amber-500/30 px-1 text-[10px] text-amber-100">新增</span>
+                <span className="ml-1 rounded bg-amber-500/30 px-1 text-[10px] text-amber-100">{t('新增')}</span>
               )}
-              <span className="text-white/50">：{t.desc}</span>
+              <span className="text-white/50">
+                {t('：')}
+                {info.desc}
+              </span>
               {p === 'network' && (
                 <span className="ml-1 font-mono text-amber-200">
-                  {plugin.hosts.map((h) => (before && !before.hosts.includes(h) ? `${h}（新增）` : h)).join('、')}
+                  {plugin.hosts
+                    .map((h) => (before && !before.hosts.includes(h) ? t('{0}（新增）', { 0: h }) : h))
+                    .join(t('、'))}
                 </span>
               )}
             </span>
@@ -133,7 +139,7 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
       <section className="space-y-3 rounded-2xl border border-white/10 bg-white/10 p-4 shadow-xl backdrop-blur-xl">
         <div className="flex items-center gap-2">
           <Puzzle className="h-4 w-4 text-violet-300" />
-          <span className="font-semibold">插件</span>
+          <span className="font-semibold">{t('插件')}</span>
           <button
             onClick={() =>
               void run('pick', async () => {
@@ -145,35 +151,35 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
             className="ml-auto flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
           >
             {busy === 'pick' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            安装插件
+            {t('安装插件')}
           </button>
         </div>
         <div className="flex items-center gap-2 text-xs text-white/50">
           <span data-testid="plugin-update-summary">
             {Object.keys(updates).length > 0
-              ? `${Object.keys(updates).length} 个插件有新版本`
-              : '写了更新地址的插件，启动器每天会帮你看一次有没有新版本'}
+              ? t('{0} 个插件有新版本', { 0: Object.keys(updates).length })
+              : t('写了更新地址的插件，启动器每天会帮你看一次有没有新版本')}
           </span>
           <button
             onClick={() =>
               void run('check', async () => {
                 const next = await window.api.checkPluginUpdates(true)
                 setUpdates(next)
-                return Object.keys(next).length ? '' : '插件都是最新的'
+                return Object.keys(next).length ? '' : t('插件都是最新的')
               })
             }
             disabled={!!busy}
             className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-white/10 hover:text-white disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${busy === 'check' ? 'animate-spin' : ''}`} />
-            检查更新
+            {t('检查更新')}
           </button>
         </div>
         <p className="flex items-start gap-1.5 text-xs text-white/50">
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-300" />
-          {
+          {t(
             '插件是一个 .zip 文件，运行在隔离的沙箱里：碰不到你的账号、登录令牌、密钥和电脑上的文件，只能使用安装时你同意的权限。只安装你信任的人做的插件'
-          }
+          )}
         </p>
         {error && <div className="rounded-lg bg-red-500/20 px-3 py-2 text-xs text-red-200">{error}</div>}
         {notice && <div className="text-xs text-emerald-300">{notice}</div>}
@@ -188,24 +194,24 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-300" />
             <span className="font-semibold">
-              {pending.update ? '更新插件' : '安装插件'}「{pending.manifest.name}」
+              {t(pending.update ? '更新插件「{0}」' : '安装插件「{0}」', { 0: pending.manifest.name })}
             </span>
             <span className="text-xs text-white/50">
               v{pending.manifest.version}
-              {pending.update && `（现在是 v${pending.update.version}）`}
+              {pending.update && t('（现在是 v{0}）', { 0: pending.update.version })}
               {pending.manifest.author && ` · ${pending.manifest.author}`}
             </span>
           </div>
           {pending.manifest.description && <div className="text-sm text-white/70">{pending.manifest.description}</div>}
           {pending.manifest.widget && (
-            <div className="text-xs text-white/60">带一个主页小组件，装好后显示在主页上（可以在这里关掉）</div>
+            <div className="text-xs text-white/60">{t('带一个主页小组件，装好后显示在主页上（可以在这里关掉）')}</div>
           )}
           {pending.update && updates[pending.manifest.id]?.notes && (
             <div className="max-h-32 overflow-y-auto whitespace-pre-wrap rounded-lg bg-black/20 px-3 py-2 text-xs text-white/60">
               {updates[pending.manifest.id].notes}
             </div>
           )}
-          <div className="text-xs font-medium text-white/80">它需要这些权限：</div>
+          <div className="text-xs font-medium text-white/80">{t('它需要这些权限：')}</div>
           <PermissionList plugin={pending.manifest} before={pending.update} />
           <div className="flex justify-end gap-2">
             <button
@@ -217,7 +223,7 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
               className="flex items-center gap-1 rounded-lg bg-white/10 px-3 py-1.5 text-sm hover:bg-white/20"
             >
               <X className="h-4 w-4" />
-              取消
+              {t('取消')}
             </button>
             <button
               onClick={() =>
@@ -229,25 +235,27 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
                     const { [p.manifest.id]: _, ...rest } = u
                     return rest
                   })
-                  return `已${p.update ? '更新' : '安装'}「${p.manifest.name}」，在「插件」里打开`
+                  return t(p.update ? '已更新「{0}」，在「插件」里打开' : '已安装「{0}」，在「插件」里打开', {
+                    0: p.manifest.name
+                  })
                 })
               }
               disabled={!!busy}
               className="flex items-center gap-1 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
             >
               <Check className="h-4 w-4" />
-              同意并{pending.update ? '更新' : '安装'}
+              {pending.update ? t('同意并更新') : t('同意并安装')}
             </button>
           </div>
         </section>
       )}
 
       <section className="space-y-2 rounded-2xl border border-white/10 bg-white/10 p-4 shadow-xl backdrop-blur-xl">
-        <div className="text-sm font-medium text-white/80">已安装的插件</div>
+        <div className="text-sm font-medium text-white/80">{t('已安装的插件')}</div>
         {!plugins ? (
           <Loader2 className="h-4 w-4 animate-spin text-white/50" />
         ) : plugins.length === 0 ? (
-          <div className="text-xs text-white/50">还没有插件</div>
+          <div className="text-xs text-white/50">{t('还没有插件')}</div>
         ) : (
           plugins.map((p) => (
             <div key={p.id} className="space-y-2 rounded-xl bg-black/20 p-3" data-testid="plugin-row">
@@ -260,7 +268,9 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
                 <div className="ml-auto flex items-center gap-1.5">
                   {updates[p.id] && (
                     <span className="flex items-center gap-1.5" data-testid="plugin-update">
-                      <span className="text-xs text-emerald-300">有新版本 v{updates[p.id].version}</span>
+                      <span className="text-xs text-emerald-300">
+                        {t('有新版本 v{0}', { 0: updates[p.id].version })}
+                      </span>
                       {updates[p.id].download ? (
                         <button
                           onClick={() =>
@@ -272,7 +282,7 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
                             })
                           }
                           disabled={!!busy}
-                          aria-label={`更新 ${p.name}`}
+                          aria-label={t('更新 {0}', { 0: p.name })}
                           className="flex items-center gap-1 rounded-lg bg-emerald-500/70 px-2.5 py-1 text-xs text-white hover:bg-emerald-500 disabled:opacity-50"
                         >
                           {busy === `update:${p.id}` ? (
@@ -280,7 +290,7 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
                           ) : (
                             <ArrowUpCircle className="h-3.5 w-3.5" />
                           )}
-                          更新
+                          {t('更新')}
                         </button>
                       ) : (
                         <a
@@ -289,7 +299,7 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
                           rel="noreferrer"
                           className="rounded-lg bg-white/10 px-2.5 py-1 text-xs hover:bg-white/20"
                         >
-                          去发布页面
+                          {t('去发布页面')}
                         </a>
                       )}
                     </span>
@@ -299,11 +309,14 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
                       onClick={() => onOpen(p.id)}
                       className="rounded-lg bg-white/10 px-2.5 py-1 text-xs hover:bg-white/20"
                     >
-                      打开
+                      {t('打开')}
                     </button>
                   )}
                   {p.widget && (
-                    <label className="flex items-center gap-1 text-xs text-white/60" title="把插件的小组件显示在主页上">
+                    <label
+                      className="flex items-center gap-1 text-xs text-white/60"
+                      title={t('把插件的小组件显示在主页上')}
+                    >
                       <input
                         type="checkbox"
                         checked={p.widgetShown}
@@ -313,10 +326,10 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
                             setPlugins(await window.api.setPluginWidgetShown(p.id, e.target.checked))
                           })
                         }
-                        aria-label={`在主页显示 ${p.name}`}
+                        aria-label={t('在主页显示 {0}', { 0: p.name })}
                         className="accent-emerald-500"
                       />
-                      主页小组件
+                      {t('主页小组件')}
                     </label>
                   )}
                   <label className="flex items-center gap-1 text-xs text-white/60">
@@ -329,36 +342,36 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
                           setPlugins(await window.api.setPluginEnabled(p.id, e.target.checked))
                         })
                       }
-                      aria-label={`启用 ${p.name}`}
+                      aria-label={t('启用 {0}', { 0: p.name })}
                       className="accent-emerald-500"
                     />
-                    启用
+                    {t('启用')}
                   </label>
                   <button
                     onClick={() =>
                       askConfirm(`clear:${p.id}`) &&
                       void run(`clear:${p.id}`, async () => {
                         await window.api.clearPluginData(p.id)
-                        return `已清除「${p.name}」保存的数据`
+                        return t('已清除「{0}」保存的数据', { 0: p.name })
                       })
                     }
                     className={`rounded-lg px-2 py-1 text-xs ${confirm === `clear:${p.id}` ? 'bg-amber-500/80 text-white' : 'text-white/50 hover:bg-white/10'}`}
                   >
-                    {confirm === `clear:${p.id}` ? '确认清除？' : '清除数据'}
+                    {confirm === `clear:${p.id}` ? t('确认清除？') : t('清除数据')}
                   </button>
                   <button
                     onClick={() =>
                       askConfirm(`rm:${p.id}`) &&
                       void run(`rm:${p.id}`, async () => {
                         setPlugins(await window.api.uninstallPlugin(p.id))
-                        return `已卸载「${p.name}」`
+                        return t('已卸载「{0}」', { 0: p.name })
                       })
                     }
-                    aria-label={`卸载 ${p.name}`}
+                    aria-label={t('卸载 {0}', { 0: p.name })}
                     className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs ${confirm === `rm:${p.id}` ? 'bg-red-500/80 text-white' : 'text-white/50 hover:bg-red-500/30'}`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                    {confirm === `rm:${p.id}` && '确认卸载？'}
+                    {confirm === `rm:${p.id}` && t('确认卸载？')}
                   </button>
                 </div>
               </div>
