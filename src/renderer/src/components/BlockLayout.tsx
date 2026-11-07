@@ -260,7 +260,12 @@ export function BlockLayout({
   children: ReactNode
 }): JSX.Element {
   const { pageLayouts } = useAppearance()
-  const saved = pageLayouts[page] as PageLayout | undefined
+  /** 刚改的布局：设置保存好、推送回来之前先用它（连着点几下不会互相覆盖） */
+  const [local, setLocal] = useState<PageLayout | null>(null)
+  const stored = pageLayouts[page] as PageLayout | undefined
+  const storedKey = JSON.stringify(stored ?? null)
+  useEffect(() => setLocal(null), [storedKey])
+  const saved = local ?? stored
   const isEditing = useLayoutEditing(page)
   /** 正在编辑的页面名（一个页面里有几块布局时，提示条只在最外面那块显示一次） */
   const editingKey = useSyncExternalStore(subscribe, () => editing)
@@ -285,7 +290,11 @@ export function BlockLayout({
     hidden: [...hidden].filter((id) => blocks.some((b) => b.id === id)),
     width: Object.fromEntries(ordered.map((b) => [b.id, widthOf(b)]))
   })
-  const save = (patch: Partial<PageLayout>): void => void saveLayout(page, { ...current(), ...patch })
+  const save = (patch: Partial<PageLayout>): void => {
+    const next = { ...current(), ...patch }
+    setLocal(next)
+    void saveLayout(page, next)
+  }
 
   const move = (id: string, delta: -1 | 1): void => {
     const order = ordered.map((b) => b.id)
