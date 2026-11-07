@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { onJump, TOOLBOX_KEY } from '../utils/jump'
 import {
   Anvil,
@@ -10,6 +10,9 @@ import {
   BarChart3,
   Bug,
   Calculator,
+  Gamepad2,
+  Users,
+  Wrench,
   Coffee,
   Gauge,
   Grid2x2Check,
@@ -63,10 +66,10 @@ type ToolKey =
 
 /** 百宝箱的分类（按显示顺序） */
 const GROUPS = [
-  { key: 'play', title: '游戏工具', desc: '玩的时候查、算、生成' },
-  { key: 'together', title: '开服与多开', desc: '和朋友一起玩' },
-  { key: 'maintain', title: '维护与排查', desc: '下载、Java、清理、找问题' },
-  { key: 'records', title: '我的记录', desc: '游玩时长和成就' }
+  { key: 'play', title: '游戏工具', desc: '玩的时候查、算、生成', icon: Gamepad2 },
+  { key: 'together', title: '开服与多开', desc: '和朋友一起玩', icon: Users },
+  { key: 'maintain', title: '维护与排查', desc: '下载、Java、清理、找问题', icon: Wrench },
+  { key: 'records', title: '我的记录', desc: '游玩时长和成就', icon: BarChart3 }
 ] as const
 
 type GroupKey = (typeof GROUPS)[number]['key']
@@ -216,6 +219,8 @@ const TOOLS: Tool[] = [
 ]
 
 const LAST_TOOL_KEY = TOOLBOX_KEY
+/** 每个分类上次打开的工具（切换分类时回到它） */
+const GROUP_TOOLS_KEY = 'liuli-toolbox-group-tools'
 
 /** 上次打开的工具（只是方便，读不到时用下载器） */
 function lastTool(): ToolKey {
@@ -227,74 +232,113 @@ function lastTool(): ToolKey {
   }
 }
 
-/** 更多：百宝箱 */
+function groupOf(key: ToolKey): GroupKey {
+  return TOOLS.find((t) => t.key === key)?.group ?? 'play'
+}
+
+/** 每个分类记住的工具（不存在或不属于这个分类时不用） */
+function readGroupTools(): Partial<Record<GroupKey, ToolKey>> {
+  const out: Partial<Record<GroupKey, ToolKey>> = {}
+  try {
+    const raw = JSON.parse(localStorage.getItem(GROUP_TOOLS_KEY) ?? '{}') as Record<string, unknown>
+    for (const g of GROUPS) {
+      const key = raw?.[g.key]
+      const tool = TOOLS.find((t) => t.key === key && t.group === g.key)
+      if (tool) out[g.key] = tool.key
+    }
+  } catch {
+    // 读不到时每个分类打开第一个工具
+  }
+  return out
+}
+
+/** 更多：百宝箱，按分类分成几页 */
 function MorePage(): JSX.Element {
   const [current, setCurrent] = useState<ToolKey>(lastTool)
-
-  // 快速搜索（Ctrl+K）跳到某个工具
-  useEffect(() => onJump('more', (key) => TOOLS.some((t) => t.key === key) && setCurrent(key as ToolKey)), [])
-
-  /** 工具内容的开头：点了工具后滚过去（分类多了，内容在下面比较远） */
-  const panelRef = useRef<HTMLDivElement>(null)
+  const [groupTools, setGroupTools] = useState(readGroupTools)
+  const group = groupOf(current)
+  const groupInfo = GROUPS.find((g) => g.key === group) ?? GROUPS[0]
 
   const select = (key: ToolKey): void => {
     setCurrent(key)
-    requestAnimationFrame(() => panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    const next = { ...groupTools, [groupOf(key)]: key }
+    setGroupTools(next)
     try {
       localStorage.setItem(LAST_TOOL_KEY, key)
+      localStorage.setItem(GROUP_TOOLS_KEY, JSON.stringify(next))
     } catch {
       // 浏览器存储不可用时只是不记住
     }
   }
 
+  /** 切换分类：回到这个分类上次用的工具，没有时打开第一个 */
+  const openGroup = (key: GroupKey): void => {
+    if (key === group) return
+    select(groupTools[key] ?? TOOLS.find((t) => t.group === key)!.key)
+  }
+
+  // 快速搜索（Ctrl+K）跳到某个工具：同时切到它的分类
+  useEffect(() => onJump('more', (key) => TOOLS.some((t) => t.key === key) && setCurrent(key as ToolKey)), [])
+
+  const tools = TOOLS.filter((t) => t.group === group)
+
   return (
     <div className="page-scroll flex h-full flex-col gap-4">
-      <PageHeader title="更多" subtitle="百宝箱：游戏工具、开服与多开、维护与排查、我的记录" />
+      <PageHeader
+        title="更多"
+        subtitle="百宝箱：按分类放好的小工具"
+        after={
+          <div className="flex rounded-xl bg-black/20 p-1" role="tablist" aria-label="百宝箱分类">
+            {GROUPS.map((g) => (
+              <button
+                key={g.key}
+                role="tab"
+                data-tool-group={g.key}
+                aria-selected={group === g.key}
+                title={g.desc}
+                onClick={() => openGroup(g.key)}
+                className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm transition-colors ${
+                  group === g.key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
+                }`}
+              >
+                <g.icon className="h-4 w-4" />
+                {g.title}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
-      {/* 小工具入口：按分类排 */}
-      <div className="shrink-0 space-y-4" aria-label="百宝箱工具">
-        {GROUPS.map((group) => {
-          const tools = TOOLS.filter((t) => t.group === group.key)
+      {/* 这个分类的工具 */}
+      <div className="grid shrink-0 grid-cols-3 gap-3" role="tablist" aria-label={groupInfo.title}>
+        {tools.map((tool) => {
+          const Icon = tool.icon
+          const active = tool.key === current
           return (
-            <section key={group.key} data-tool-group={group.key} aria-label={group.title}>
-              <div className="mb-2 flex items-baseline gap-2 px-1">
-                <h2 className="text-sm font-semibold text-white/80">{group.title}</h2>
-                <span className="text-xs text-white/40">{group.desc}</span>
+            <button
+              key={tool.key}
+              data-tool={tool.key}
+              role="tab"
+              aria-selected={active}
+              onClick={() => select(tool.key)}
+              className={`relative flex items-center gap-3 rounded-2xl border p-3 text-left backdrop-blur-xl transition-colors ${
+                active
+                  ? 'border-emerald-400/40 bg-emerald-500/10 shadow-lg shadow-emerald-500/10'
+                  : 'border-white/10 bg-white/5 hover:bg-white/10'
+              }`}
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/20">
+                <Icon className={`h-5 w-5 ${tool.tint}`} />
               </div>
-              <div className="grid grid-cols-3 gap-3" role="tablist" aria-label={group.title}>
-                {tools.map((tool) => {
-                  const Icon = tool.icon
-                  const active = tool.key === current
-                  return (
-                    <button
-                      key={tool.key}
-                      data-tool={tool.key}
-                      role="tab"
-                      aria-selected={active}
-                      onClick={() => select(tool.key)}
-                      className={`relative flex items-center gap-3 rounded-2xl border p-3 text-left backdrop-blur-xl transition-colors ${
-                        active
-                          ? 'border-emerald-400/40 bg-emerald-500/10 shadow-lg shadow-emerald-500/10'
-                          : 'border-white/10 bg-white/5 hover:bg-white/10'
-                      }`}
-                    >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/20">
-                        <Icon className={`h-5 w-5 ${tool.tint}`} />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium">{tool.title}</div>
-                        <div className="truncate text-xs text-white/50">{tool.desc}</div>
-                      </div>
-                    </button>
-                  )
-                })}
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium">{tool.title}</div>
+                <div className="truncate text-xs text-white/50">{tool.desc}</div>
               </div>
-            </section>
+            </button>
           )
         })}
       </div>
 
-      <div ref={panelRef} className="-mb-4 scroll-mt-2" aria-hidden="true" />
       {current === 'download' && <FastDownloadPanel />}
       {current === 'clean' && <CleanerPanel />}
       {current === 'java' && <JavaCheckPanel />}
