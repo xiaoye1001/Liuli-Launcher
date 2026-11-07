@@ -379,6 +379,8 @@ const api = {
   listPlugins: () => ipcRenderer.invoke('plugins:list'),
   pickPlugin: () => ipcRenderer.invoke('plugins:pick'),
   preparePluginFile: (path: string) => ipcRenderer.invoke('plugins:prepareFile', path),
+  checkPluginUpdates: (force = false) => ipcRenderer.invoke('plugins:checkUpdates', force),
+  preparePluginUpdate: (id: string) => ipcRenderer.invoke('plugins:prepareUpdate', id),
   installPlugin: (token: string) => ipcRenderer.invoke('plugins:install', token),
   discardPlugin: (token: string) => ipcRenderer.invoke('plugins:discard', token),
   setPluginEnabled: (id: string, enabled: boolean) => ipcRenderer.invoke('plugins:setEnabled', id, enabled),

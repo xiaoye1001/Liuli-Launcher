@@ -2460,6 +2460,19 @@ export interface PluginManifest {
   hosts: string[]
   /** 主页小组件：插件里的另一个页面，显示在主页上（没有就是 null） */
   widget: PluginWidget | null
+  /** 检查更新的地方：GitHub 仓库（owner/repo），看它最新的发布（没有就是 null） */
+  updates: { github: string } | null
+}
+
+/** 插件有新版本 */
+export interface PluginUpdate {
+  version: string
+  /** 发布说明（纯文字） */
+  notes: string
+  /** 发布页面 */
+  page: string
+  /** 发布里的插件 zip（没有时只能去发布页面手动下载） */
+  download: string | null
 }
 
 export interface PluginWidget {
@@ -2485,6 +2498,6 @@ export interface PluginInfo extends PluginManifest {
 export interface PluginPending {
   token: string
   manifest: PluginManifest
-  /** 已经装了同一个插件时：原来的版本 */
-  update: { version: string } | null
+  /** 已经装了同一个插件时：原来的版本和权限（用来标出新增的权限） */
+  update: { version: string; permissions: PluginPermission[]; hosts: string[] } | null
 }

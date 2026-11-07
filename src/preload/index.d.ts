@@ -4,6 +4,7 @@ import type {
   RecipeBook,
   PluginInfo,
   PluginPending,
+  PluginUpdate,
   ServerAddonKind,
   ServerAddons,
   ServerModImportResult,
@@ -617,6 +618,10 @@ declare global {
       pickPlugin: () => Promise<PluginPending | null>
       /** 拖进来的 zip 是插件时准备安装（等用户确认），不是插件返回 null */
       preparePluginFile: (path: string) => Promise<PluginPending | null>
+      /** 插件更新：插件 id → 新版本（一天最多查一次，force 时马上查） */
+      checkPluginUpdates: (force?: boolean) => Promise<Record<string, PluginUpdate>>
+      /** 下载插件的新版本并检查，等用户确认后用 installPlugin 装上 */
+      preparePluginUpdate: (id: string) => Promise<PluginPending>
       installPlugin: (token: string) => Promise<PluginInfo[]>
       discardPlugin: (token: string) => Promise<void>
       setPluginEnabled: (id: string, enabled: boolean) => Promise<PluginInfo[]>

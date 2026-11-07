@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, Check, Loader2, Plus, Puzzle, ShieldCheck, Trash2, X } from 'lucide-react'
-import type { PluginInfo, PluginPending } from '../../../shared/types'
+import {
+  AlertTriangle,
+  ArrowUpCircle,
+  Check,
+  Loader2,
+  Plus,
+  Puzzle,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
+  X
+} from 'lucide-react'
+import type { PluginInfo, PluginPending, PluginUpdate } from '../../../shared/types'
 import { PERMISSION_TEXT, onDroppedPlugin, takeDroppedPlugin } from '../utils/plugins'
 
 function cleanError(e: unknown): string {
@@ -8,8 +19,14 @@ function cleanError(e: unknown): string {
   return message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 }
 
-/** 权限列表（安装确认和插件详情共用） */
-function PermissionList({ plugin }: { plugin: Pick<PluginInfo, 'permissions' | 'hosts'> }): JSX.Element {
+/** 权限列表（安装确认和插件详情共用）；before 是更新前的权限，新增的权限和网站会标出来 */
+function PermissionList({
+  plugin,
+  before
+}: {
+  plugin: Pick<PluginInfo, 'permissions' | 'hosts'>
+  before?: Pick<PluginInfo, 'permissions' | 'hosts'> | null
+}): JSX.Element {
   if (plugin.permissions.length === 0) {
     return <div className="text-xs text-white/50">不需要任何权限（只能显示自己的页面、保存自己的数据）</div>
   }
@@ -24,8 +41,15 @@ function PermissionList({ plugin }: { plugin: Pick<PluginInfo, 'permissions' | '
             />
             <span>
               <span className="font-medium text-white/85">{t.title}</span>
+              {before && !before.permissions.includes(p) && (
+                <span className="ml-1 rounded bg-amber-500/30 px-1 text-[10px] text-amber-100">新增</span>
+              )}
               <span className="text-white/50">：{t.desc}</span>
-              {p === 'network' && <span className="ml-1 font-mono text-amber-200">{plugin.hosts.join('、')}</span>}
+              {p === 'network' && (
+                <span className="ml-1 font-mono text-amber-200">
+                  {plugin.hosts.map((h) => (before && !before.hosts.includes(h) ? `${h}（新增）` : h)).join('、')}
+                </span>
+              )}
             </span>
           </li>
         )
@@ -42,6 +66,16 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [confirm, setConfirm] = useState('')
+  /** 有新版本的插件（插件 id → 新版本） */
+  const [updates, setUpdates] = useState<Record<string, PluginUpdate>>({})
+
+  // 打开时看看有没有更新（一天最多真的联网查一次）
+  useEffect(() => {
+    void window.api
+      .checkPluginUpdates()
+      .then(setUpdates)
+      .catch(() => undefined)
+  }, [])
 
   useEffect(() => {
     const load = (): void =>
@@ -114,6 +148,27 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
             安装插件
           </button>
         </div>
+        <div className="flex items-center gap-2 text-xs text-white/50">
+          <span data-testid="plugin-update-summary">
+            {Object.keys(updates).length > 0
+              ? `${Object.keys(updates).length} 个插件有新版本`
+              : '写了更新地址的插件，启动器每天会帮你看一次有没有新版本'}
+          </span>
+          <button
+            onClick={() =>
+              void run('check', async () => {
+                const next = await window.api.checkPluginUpdates(true)
+                setUpdates(next)
+                return Object.keys(next).length ? '' : '插件都是最新的'
+              })
+            }
+            disabled={!!busy}
+            className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-white/10 hover:text-white disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${busy === 'check' ? 'animate-spin' : ''}`} />
+            检查更新
+          </button>
+        </div>
         <p className="flex items-start gap-1.5 text-xs text-white/50">
           <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-300" />
           {
@@ -145,8 +200,13 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
           {pending.manifest.widget && (
             <div className="text-xs text-white/60">带一个主页小组件，装好后显示在主页上（可以在这里关掉）</div>
           )}
+          {pending.update && updates[pending.manifest.id]?.notes && (
+            <div className="max-h-32 overflow-y-auto whitespace-pre-wrap rounded-lg bg-black/20 px-3 py-2 text-xs text-white/60">
+              {updates[pending.manifest.id].notes}
+            </div>
+          )}
           <div className="text-xs font-medium text-white/80">它需要这些权限：</div>
-          <PermissionList plugin={pending.manifest} />
+          <PermissionList plugin={pending.manifest} before={pending.update} />
           <div className="flex justify-end gap-2">
             <button
               onClick={() => {
@@ -165,6 +225,10 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
                   const p = pending
                   setPending(null)
                   setPlugins(await window.api.installPlugin(p.token))
+                  setUpdates((u) => {
+                    const { [p.manifest.id]: _, ...rest } = u
+                    return rest
+                  })
                   return `已${p.update ? '更新' : '安装'}「${p.manifest.name}」，在「插件」里打开`
                 })
               }
@@ -194,6 +258,42 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
                   {p.author && ` · ${p.author}`} · {p.id}
                 </span>
                 <div className="ml-auto flex items-center gap-1.5">
+                  {updates[p.id] && (
+                    <span className="flex items-center gap-1.5" data-testid="plugin-update">
+                      <span className="text-xs text-emerald-300">有新版本 v{updates[p.id].version}</span>
+                      {updates[p.id].download ? (
+                        <button
+                          onClick={() =>
+                            void run(`update:${p.id}`, async () => {
+                              const next = await window.api.preparePluginUpdate(p.id)
+                              const old = pendingRef.current
+                              if (old && old.token !== next.token) void window.api.discardPlugin(old.token)
+                              setPending(next)
+                            })
+                          }
+                          disabled={!!busy}
+                          aria-label={`更新 ${p.name}`}
+                          className="flex items-center gap-1 rounded-lg bg-emerald-500/70 px-2.5 py-1 text-xs text-white hover:bg-emerald-500 disabled:opacity-50"
+                        >
+                          {busy === `update:${p.id}` ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <ArrowUpCircle className="h-3.5 w-3.5" />
+                          )}
+                          更新
+                        </button>
+                      ) : (
+                        <a
+                          href={updates[p.id].page}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-lg bg-white/10 px-2.5 py-1 text-xs hover:bg-white/20"
+                        >
+                          去发布页面
+                        </a>
+                      )}
+                    </span>
+                  )}
                   {p.enabled && !p.error && onOpen && (
                     <button
                       onClick={() => onOpen(p.id)}

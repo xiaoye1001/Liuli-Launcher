@@ -49,6 +49,7 @@ import {
   uninstallPlugin
 } from './plugins'
 import { preLaunchCheck } from './launchCheck'
+import { checkPluginUpdates, preparePluginUpdate, schedulePluginUpdateCheck } from './pluginUpdates'
 import { listConfigFiles, readConfigFile, restoreConfigFile, saveConfigEntries, saveConfigText } from './modConfigs'
 import { clearExtraInstance, killExtraInstance, launchExtraInstance, listExtraInstances } from './extraInstances'
 import {
@@ -834,6 +835,8 @@ function registerIpc(): void {
   ipcMain.handle('plugins:list', () => listPlugins())
   ipcMain.handle('plugins:pick', (event) => pickPlugin(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('plugins:prepareFile', (_, path: unknown) => preparePluginFile(path))
+  ipcMain.handle('plugins:checkUpdates', (_, force: unknown) => checkPluginUpdates(force === true))
+  ipcMain.handle('plugins:prepareUpdate', (_, id: unknown) => preparePluginUpdate(id))
   ipcMain.handle('plugins:install', (_, token: unknown) => installPlugin(token))
   ipcMain.handle('plugins:discard', (_, token: unknown) => discardPlugin(token))
   ipcMain.handle('plugins:setEnabled', (_, id: unknown, enabled: unknown) => setPluginEnabled(id, enabled))
@@ -1126,6 +1129,7 @@ app.whenReady().then(async () => {
   setupAutoBackup()
   setupScreenshotSessions()
   void cleanupPendingPlugins()
+  schedulePluginUpdateCheck()
   setupLagReports()
   setupLaunchTiming()
   setupGameMonitor()

@@ -290,6 +290,17 @@ function MorePage(): JSX.Element {
     load()
     return window.api.onPluginsChanged(load)
   }, [])
+  /** 有新版本的插件数量（「插件」分类上显示一个小点） */
+  const [pluginUpdates, setPluginUpdates] = useState(0)
+  useEffect(() => {
+    const load = (): void =>
+      void window.api
+        .checkPluginUpdates()
+        .then((u) => setPluginUpdates(Object.keys(u).length))
+        .catch(() => undefined)
+    load()
+    return window.api.onPluginsChanged(load)
+  }, [])
   const openPlugin = plugins && isPluginKey(current) ? plugins.find((p) => `plugin:${p.id}` === current) : undefined
   // 记住的插件已经卸载或停用：换成插件管理
   useEffect(() => {
@@ -370,6 +381,13 @@ function MorePage(): JSX.Element {
               >
                 <g.icon className="hidden h-4 w-4 lg:block" />
                 {g.title}
+                {g.key === 'plugins' && pluginUpdates > 0 && (
+                  <span
+                    className="h-1.5 w-1.5 rounded-full bg-emerald-400"
+                    title={`${pluginUpdates} 个插件有新版本`}
+                    data-testid="plugin-update-dot"
+                  />
+                )}
               </button>
             ))}
           </div>

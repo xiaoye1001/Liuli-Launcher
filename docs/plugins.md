@@ -18,7 +18,8 @@
   "entry": "index.html",
   "permissions": ["versions", "launch"],
   "hosts": [],
-  "widget": { "entry": "widget.html", "height": 120 }
+  "widget": { "entry": "widget.html", "height": 120 },
+  "updates": { "github": "your-name/version-notes" }
 }
 ```
 
@@ -31,6 +32,7 @@
 | `entry` | 入口页面，默认 `index.html` |
 | `permissions` | 需要的权限，见下表 |
 | `hosts` | 申请了 `network` 时可以访问的网站（只写域名，例如 `api.example.com`，最多 20 个） |
+| `updates` | 可选，检查更新：`github` 写插件所在的 GitHub 仓库（`owner/repo`），见下面的「更新插件」 |
 | `widget` | 可选，主页小组件：`entry` 是插件里的另一个 .html 页面，`height` 是一开始的高度（48～320 像素） |
 
 zip 里只能有网页、脚本、样式、图片、字体、音频和文字文件，最多 500 个文件、解压后 30 MB。
@@ -85,6 +87,15 @@ liuli.on('game.status', (status) => console.log(status.state))
 | `servers.list` | `servers` | 无 | `[{ name, address, versionId }]` |
 
 有 `game` 权限时，游戏状态变化会收到事件 `{ liuli: 1, event: 'game.status', data: { state, versionId } }`。
+
+## 更新插件
+
+在 manifest 里写了 `updates.github`，启动器每天会看一次这个仓库最新的发布（Releases）：
+
+- 发布的标签（tag）就是版本号，例如 `v1.2.0` 或 `1.2.0`，比装着的版本新时在插件管理里提示「有新版本」
+- 把插件 zip 作为发布的附件上传（文件名里带插件 id 的优先，否则用第一个 .zip），用户点「更新」就会下载它，和手动安装一样列出权限，新增的权限会标出来，同意后才更新
+- 下载的插件 id 必须和装着的一样；发布说明会显示在更新确认里
+- 只访问 GitHub（api.github.com 和放发布附件的网站），发布里没有 zip 时提示用户去发布页面手动下载
 
 ## 主页小组件
 
