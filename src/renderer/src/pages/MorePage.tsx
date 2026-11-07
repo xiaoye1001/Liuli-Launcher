@@ -344,11 +344,11 @@ function MorePage(): JSX.Element {
                 aria-selected={group === g.key}
                 title={g.desc}
                 onClick={() => openGroup(g.key)}
-                className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm transition-colors ${
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors lg:px-4 ${
                   group === g.key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
                 }`}
               >
-                <g.icon className="h-4 w-4" />
+                <g.icon className="hidden h-4 w-4 lg:block" />
                 {g.title}
               </button>
             ))}
