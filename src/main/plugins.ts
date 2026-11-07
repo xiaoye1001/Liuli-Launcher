@@ -8,7 +8,7 @@
  *   联网只能访问 manifest 里写明的 https 网站，不跟随跳转
  * - 插件碰不到账号、登录令牌、密钥和电脑上的文件；每个插件只有自己的一小块存储
  */
-import { app, BrowserWindow, clipboard, dialog, net, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, nativeImage, net, shell } from 'electron'
 import { randomBytes } from 'crypto'
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'fs/promises'
 import { extname, join, resolve, sep } from 'path'
@@ -16,6 +16,10 @@ import { pathToFileURL } from 'url'
 import { open, readAllEntries, readEntry } from '@xmcl/unzip'
 import { getGameStatus, launchGame, listInstalledVersions } from './launch'
 import { notify } from './notify'
+import { listMods } from './mods'
+import { listWorldInfos } from './worlds'
+import { listScreenshots, screenshotPath } from './screenshots'
+import { listServers } from './servers'
 import type { PluginInfo, PluginManifest, PluginPending, PluginPermission } from '../shared/types'
 import { PLUGIN_PERMISSIONS } from '../shared/types'
 
@@ -433,7 +437,19 @@ const METHODS: Record<string, PluginPermission | null> = {
   notify: 'notifications',
   'net.fetch': 'network',
   'clipboard.writeText': 'clipboard',
-  'open.url': 'open-url'
+  'open.url': 'open-url',
+  'mods.list': 'mods',
+  'worlds.list': 'worlds',
+  'screenshots.list': 'screenshots',
+  'screenshots.thumbnail': 'screenshots',
+  'servers.list': 'servers'
+}
+
+/** 只能读已经安装的版本（版本名来自插件，先确认是真实存在的版本） */
+async function installedVersion(value: unknown): Promise<string> {
+  const versionId = typeof value === 'string' ? value : ''
+  if (!versionId || !(await listInstalledVersions()).some((v) => v.id === versionId)) throw new Error('没有这个版本')
+  return versionId
 }
 
 export async function callPlugin(id: unknown, method: unknown, params: unknown): Promise<unknown> {
@@ -493,6 +509,53 @@ export async function callPlugin(id: unknown, method: unknown, params: unknown):
     }
     case 'net.fetch':
       return pluginFetch(manifest, p)
+    // 下面这些只读，不返回电脑上的文件路径
+    case 'mods.list': {
+      const list = await listMods(await installedVersion(p.versionId))
+      return {
+        minecraftVersion: list.minecraftVersion,
+        loader: list.loader ?? null,
+        mods: list.mods.map((m) => ({
+          fileName: m.fileName,
+          name: m.name,
+          zhName: m.zhName ?? null,
+          modId: m.modId,
+          version: m.version,
+          enabled: m.enabled,
+          kind: m.kind
+        }))
+      }
+    }
+    case 'worlds.list': {
+      const list = await listWorldInfos(await installedVersion(p.versionId))
+      return list.worlds.map((w) => ({
+        folder: w.folder,
+        name: w.name,
+        gameMode: w.gameMode,
+        hardcore: w.hardcore,
+        version: w.version,
+        lastPlayed: w.lastPlayed
+      }))
+    }
+    case 'screenshots.list': {
+      const list = await listScreenshots(await installedVersion(p.versionId))
+      const limit = Math.min(500, Math.max(1, Math.floor(Number(p.limit) || 100)))
+      return list.items.slice(0, limit).map((s) => ({ fileName: s.fileName, time: s.time, size: s.size }))
+    }
+    case 'screenshots.thumbnail': {
+      const path = await screenshotPath(await installedVersion(p.versionId), String(p.fileName ?? ''))
+      const info = await stat(path).catch(() => null)
+      if (!info?.isFile()) throw new Error('没有这张截图')
+      if (info.size > 64 * 1024 * 1024) throw new Error('截图太大了')
+      const image = nativeImage.createFromPath(path)
+      if (image.isEmpty()) throw new Error('读不出这张截图')
+      const width = Math.min(1024, Math.max(32, Math.floor(Number(p.width) || 320)))
+      const size = image.getSize()
+      const small = size.width > width ? image.resize({ width, quality: 'good' }) : image
+      return `data:image/jpeg;base64,${small.toJPEG(82).toString('base64')}`
+    }
+    case 'servers.list':
+      return (await listServers()).map((s) => ({ name: s.name, address: s.address, versionId: s.versionId }))
   }
   throw new Error('没有这个接口')
 }

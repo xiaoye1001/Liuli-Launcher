@@ -8,7 +8,11 @@ export const PERMISSION_TEXT: Record<PluginPermission, { title: string; desc: st
   notifications: { title: '系统通知', desc: '在系统里弹出通知' },
   network: { title: '联网', desc: '访问下面列出的网站', risky: true },
   clipboard: { title: '写剪贴板', desc: '把文字复制到剪贴板' },
-  'open-url': { title: '打开网页', desc: '用系统浏览器打开 https 网页' }
+  'open-url': { title: '打开网页', desc: '用系统浏览器打开 https 网页' },
+  mods: { title: '读取模组列表', desc: '看到某个版本装了哪些模组（名字、版本、是否启用）' },
+  worlds: { title: '读取存档列表', desc: '看到某个版本有哪些存档（名字、游戏模式、最后游玩时间）' },
+  screenshots: { title: '查看游戏截图', desc: '看到某个版本的截图和缩略图' },
+  servers: { title: '读取收藏的服务器', desc: '看到你收藏的服务器名字和地址' }
 }
 
 // ---------- 拖进窗口的插件 ----------

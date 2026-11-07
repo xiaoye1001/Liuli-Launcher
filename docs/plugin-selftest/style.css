@@ -119,3 +119,9 @@ select {
   background: var(--field);
   color: inherit;
 }
+#thumb {
+  display: block;
+  max-width: 160px;
+  margin-top: 8px;
+  border-radius: 6px;
+}

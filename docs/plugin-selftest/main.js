@@ -23,6 +23,18 @@ function blocked(action) {
   throw new Error('居然做到了')
 }
 
+// 读取版本列表时记下来，后面的检查用第一个版本
+const state = { versions: [] }
+function firstVersion() {
+  if (!state.versions.length) throw new Error('还没有安装版本，没法检查')
+  return state.versions[0].id
+}
+function showThumbnail(url) {
+  const img = document.getElementById('thumb')
+  img.src = url
+  img.hidden = false
+}
+
 const CHECKS = [
   {
     name: '启动器信息',
@@ -55,9 +67,60 @@ const CHECKS = [
     run: async () => {
       const versions = await liuli.call('versions.list')
       if (!Array.isArray(versions)) throw new Error('返回的不是列表')
+      state.versions = versions
       fillVersions(versions)
       return versions.length ? `${versions.length} 个版本：${versions.map((v) => v.id).join('、')}` : '还没有安装版本'
     }
+  },
+  {
+    name: '读取模组列表',
+    run: async () => {
+      const v = firstVersion()
+      const list = await liuli.call('mods.list', { versionId: v })
+      const on = list.mods.filter((m) => m.enabled).length
+      return `${v}：${list.mods.length} 个模组（${on} 个启用）${list.loader ? '，' + list.loader : ''}`
+    }
+  },
+  {
+    name: '读取存档列表',
+    run: async () => {
+      const v = firstVersion()
+      const worlds = await liuli.call('worlds.list', { versionId: v })
+      return `${v}：${worlds.length} 个存档${worlds.length ? '：' + worlds.map((w) => w.name).join('、') : ''}`
+    }
+  },
+  {
+    name: '查看截图和缩略图',
+    run: async () => {
+      for (const v of state.versions) {
+        const shots = await liuli.call('screenshots.list', { versionId: v.id, limit: 5 })
+        if (!shots.length) continue
+        const url = await liuli.call('screenshots.thumbnail', {
+          versionId: v.id,
+          fileName: shots[0].fileName,
+          width: 160
+        })
+        if (!url.startsWith('data:image/jpeg;base64,')) throw new Error('缩略图格式不对')
+        showThumbnail(url)
+        return `${v.id}：最新一张 ${shots[0].fileName}，缩略图 ${Math.round((url.length * 3) / 4 / 1024)} KB`
+      }
+      return '所有版本都还没有截图'
+    }
+  },
+  {
+    name: '读取收藏的服务器',
+    run: async () => {
+      const servers = await liuli.call('servers.list')
+      return servers.length ? `${servers.length} 个：${servers.map((s) => s.name).join('、')}` : '还没有收藏服务器'
+    }
+  },
+  {
+    name: '不能读不存在的版本',
+    run: () => refused('mods.list', { versionId: '../../' }, '没有这个版本')
+  },
+  {
+    name: '不能读截图文件夹外的文件',
+    run: () => refused('screenshots.thumbnail', { versionId: firstVersion(), fileName: '../options.txt' })
   },
   {
     name: '读取游戏状态',

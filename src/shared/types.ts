@@ -2396,7 +2396,18 @@ export function sanitizePageLayouts(input: unknown): Record<string, PageLayout> 
 }
 
 /** 插件可以申请的权限 */
-export type PluginPermission = 'versions' | 'launch' | 'game' | 'notifications' | 'network' | 'clipboard' | 'open-url'
+export type PluginPermission =
+  | 'versions'
+  | 'launch'
+  | 'game'
+  | 'notifications'
+  | 'network'
+  | 'clipboard'
+  | 'open-url'
+  | 'mods'
+  | 'worlds'
+  | 'screenshots'
+  | 'servers'
 
 export const PLUGIN_PERMISSIONS: PluginPermission[] = [
   'versions',
@@ -2405,7 +2416,11 @@ export const PLUGIN_PERMISSIONS: PluginPermission[] = [
   'notifications',
   'network',
   'clipboard',
-  'open-url'
+  'open-url',
+  'mods',
+  'worlds',
+  'screenshots',
+  'servers'
 ]
 
 /** 插件的 manifest.json（检查过的） */

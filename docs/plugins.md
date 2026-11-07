@@ -44,8 +44,12 @@ zip 里只能有网页、脚本、样式、图片、字体、音频和文字文�
 | `network` | 访问 `hosts` 里写明的 https 网站 |
 | `clipboard` | 把文字复制到剪贴板 |
 | `open-url` | 用系统浏览器打开 https 网页 |
+| `mods` | 读取某个版本的模组列表 |
+| `worlds` | 读取某个版本的存档列表 |
+| `screenshots` | 读取某个版本的截图列表和缩略图 |
+| `servers` | 读取收藏的服务器 |
 
-不申请任何权限也能用：显示自己的页面、保存自己的数据。
+不申请任何权限也能用：显示自己的页面、保存自己的数据。读取类的接口都不会返回电脑上的文件路径；`versionId` 必须是已经安装的版本。
 
 ## 调用接口
 
@@ -72,6 +76,11 @@ liuli.on('game.status', (status) => console.log(status.state))
 | `net.fetch` | `network` | `{ url, method, headers, body }` | `{ status, ok, contentType, text }`；只能访问 `hosts` 里的 https 网站，不跟随跳转，回复最多 2 MB |
 | `clipboard.writeText` | `clipboard` | `{ text }` | 复制文字 |
 | `open.url` | `open-url` | `{ url }` | 用浏览器打开 https 网页 |
+| `mods.list` | `mods` | `{ versionId }` | `{ minecraftVersion, loader, mods: [{ fileName, name, zhName, modId, version, enabled, kind }] }` |
+| `worlds.list` | `worlds` | `{ versionId }` | `[{ folder, name, gameMode, hardcore, version, lastPlayed }]` |
+| `screenshots.list` | `screenshots` | `{ versionId, limit }` | `[{ fileName, time, size }]`，最新的在前，默认 100 张、最多 500 张 |
+| `screenshots.thumbnail` | `screenshots` | `{ versionId, fileName, width }` | JPEG 缩略图的 data URL（宽 32～1024，默认 320），可以直接放进 `<img src>` |
+| `servers.list` | `servers` | 无 | `[{ name, address, versionId }]` |
 
 有 `game` 权限时，游戏状态变化会收到事件 `{ liuli: 1, event: 'game.status', data: { state, versionId } }`。
 
