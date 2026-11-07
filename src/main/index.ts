@@ -43,6 +43,7 @@ import {
   installPlugin,
   listPlugins,
   pickPlugin,
+  preparePluginFile,
   setPluginEnabled,
   uninstallPlugin
 } from './plugins'
@@ -830,6 +831,7 @@ function registerIpc(): void {
   ipcMain.handle('modSync:create', (_, versionId: string) => createModSyncCode(String(versionId)))
   ipcMain.handle('plugins:list', () => listPlugins())
   ipcMain.handle('plugins:pick', (event) => pickPlugin(BrowserWindow.fromWebContents(event.sender)))
+  ipcMain.handle('plugins:prepareFile', (_, path: unknown) => preparePluginFile(path))
   ipcMain.handle('plugins:install', (_, token: unknown) => installPlugin(token))
   ipcMain.handle('plugins:discard', (_, token: unknown) => discardPlugin(token))
   ipcMain.handle('plugins:setEnabled', (_, id: unknown, enabled: unknown) => setPluginEnabled(id, enabled))

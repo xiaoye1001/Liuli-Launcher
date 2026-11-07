@@ -377,6 +377,7 @@ const api = {
   getRecipeBook: (versionId: string) => ipcRenderer.invoke('recipes:book', versionId),
   listPlugins: () => ipcRenderer.invoke('plugins:list'),
   pickPlugin: () => ipcRenderer.invoke('plugins:pick'),
+  preparePluginFile: (path: string) => ipcRenderer.invoke('plugins:prepareFile', path),
   installPlugin: (token: string) => ipcRenderer.invoke('plugins:install', token),
   discardPlugin: (token: string) => ipcRenderer.invoke('plugins:discard', token),
   setPluginEnabled: (id: string, enabled: boolean) => ipcRenderer.invoke('plugins:setEnabled', id, enabled),

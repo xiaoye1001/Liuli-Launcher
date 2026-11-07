@@ -195,6 +195,40 @@ export async function pickPlugin(win: BrowserWindow | null): Promise<PluginPendi
   return preparePlugin(picked.filePaths[0])
 }
 
+/**
+ * 拖进启动器的 zip：只看 manifest.json 判断是不是插件。是插件就和「安装插件」一样检查、等用户确认；
+ * 不是插件（例如整合包，CurseForge 整合包也有 manifest.json，但里面写的是 minecraft、files）返回 null
+ */
+export async function preparePluginFile(zipPath: unknown): Promise<PluginPending | null> {
+  if (typeof zipPath !== 'string' || !/\.zip$/i.test(zipPath)) return null
+  const info = await stat(zipPath).catch(() => null)
+  if (!info?.isFile() || info.size > MAX_TOTAL) return null
+  const zip = await open(zipPath).catch(() => null)
+  if (!zip) return null
+  let looksLikePlugin = false
+  try {
+    const entries = await readAllEntries(zip)
+    const names = entries.map((e) => e.fileName)
+    const top = names.includes('manifest.json') ? 'manifest.json' : names.find((n) => /^[^/]+\/manifest\.json$/.test(n))
+    const entry = top ? entries.find((e) => e.fileName === top) : undefined
+    if (entry && entry.uncompressedSize <= 64 * 1024) {
+      const raw = JSON.parse((await readEntry(zip, entry)).toString('utf-8')) as Record<string, unknown>
+      looksLikePlugin =
+        !!raw &&
+        typeof raw === 'object' &&
+        typeof raw.id === 'string' &&
+        !('minecraft' in raw) &&
+        !('manifestType' in raw) &&
+        !('files' in raw)
+    }
+  } catch {
+    // 读不出来就当作不是插件，交给整合包导入去报错
+  } finally {
+    zip.close()
+  }
+  return looksLikePlugin ? preparePlugin(zipPath) : null
+}
+
 export async function preparePlugin(zipPath: string): Promise<PluginPending> {
   const info = await stat(zipPath)
   if (!info.isFile() || info.size > MAX_TOTAL) throw new Error('插件文件太大或者不是文件')
@@ -329,6 +363,20 @@ function pluginCsp(id: string): string {
   ].join('; ')
 }
 
+/**
+ * 插件页面最前面加的一段脚本：拖进插件页面的文件不交给插件（拖放由启动器处理：安装插件、导入整合包），
+ * 插件读不到用户拖进来的文件。它比插件自己的脚本先运行，在最外层先拦下拖放事件
+ */
+const DROP_GUARD =
+  '<script>(()=>{const s=(e)=>{e.preventDefault();e.stopImmediatePropagation();if(e.dataTransfer)e.dataTransfer.dropEffect="none"};' +
+  'for(const t of ["dragenter","dragover","drop"])window.addEventListener(t,s,true)})()</script>'
+
+function withDropGuard(html: string): string {
+  // 放在 <!doctype> 后面（放在它前面会让页面进入怪异模式），没有 doctype 时放在最前面
+  const doctype = /^\uFEFF?\s*<!doctype[^>]*>/i.exec(html)
+  return doctype ? doctype[0] + DROP_GUARD + html.slice(doctype[0].length) : DROP_GUARD + html
+}
+
 export async function pluginResponse(url: URL): Promise<Response> {
   try {
     const [id, ...rest] = url.pathname.replace(/^\//, '').split('/').map(decodeURIComponent)
@@ -342,9 +390,15 @@ export async function pluginResponse(url: URL): Promise<Response> {
     if (!type || !path.startsWith(base + sep) || !(await stat(path).catch(() => null))?.isFile()) {
       return new Response('Not found', { status: 404 })
     }
-    const file = await net.fetch(pathToFileURL(path).toString())
     const headers: Record<string, string> = { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff' }
-    if (ext === '.html' || ext === '.svg') headers['Content-Security-Policy'] = pluginCsp(id)
+    if (ext === '.html') {
+      headers['Content-Security-Policy'] = pluginCsp(id)
+      return new Response(withDropGuard(await readFile(path, 'utf-8')), { status: 200, headers })
+    }
+    // 直接打开的 SVG 不能运行脚本（当图片用时本来就不会运行）
+    if (ext === '.svg')
+      headers['Content-Security-Policy'] = "default-src 'none'; style-src 'unsafe-inline'; img-src data:"
+    const file = await net.fetch(pathToFileURL(path).toString())
     return new Response(file.body, { status: 200, headers })
   } catch {
     return new Response('Not found', { status: 404 })

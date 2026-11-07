@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { onJump, TOOLBOX_KEY } from '../utils/jump'
 import {
   Anvil,
@@ -46,6 +46,7 @@ import RecipeLookupPanel from '../components/RecipeLookupPanel'
 import PageHeader from '../components/PageHeader'
 import PluginsPanel from '../components/PluginsPanel'
 import PluginHost from '../components/PluginHost'
+import { hasDroppedPlugin, onDroppedPlugin } from '../utils/plugins'
 import type { PluginInfo } from '../../../shared/types'
 import { BlockLayout, LayoutBlock } from '../components/BlockLayout'
 
@@ -314,6 +315,17 @@ function MorePage(): JSX.Element {
     if (key === group) return
     select(groupTools[key] ?? TOOLS.find((t) => t.group === key)!.key)
   }
+
+  // 拖进窗口的插件：打开插件管理，在那里显示安装确认
+  const selectRef = useRef(select)
+  selectRef.current = select
+  useEffect(() => {
+    const open = (): void => {
+      if (hasDroppedPlugin()) selectRef.current('plugins')
+    }
+    open()
+    return onDroppedPlugin(open)
+  }, [])
 
   // 快速搜索（Ctrl+K）跳到某个工具：同时切到它的分类
   useEffect(() => onJump('more', (key) => TOOLS.some((t) => t.key === key) && setCurrent(key as ToolKey)), [])

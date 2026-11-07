@@ -612,6 +612,8 @@ declare global {
       getRecipeBook: (versionId: string) => Promise<RecipeBook>
       listPlugins: () => Promise<PluginInfo[]>
       pickPlugin: () => Promise<PluginPending | null>
+      /** 拖进来的 zip 是插件时准备安装（等用户确认），不是插件返回 null */
+      preparePluginFile: (path: string) => Promise<PluginPending | null>
       installPlugin: (token: string) => Promise<PluginInfo[]>
       discardPlugin: (token: string) => Promise<void>
       setPluginEnabled: (id: string, enabled: boolean) => Promise<PluginInfo[]>

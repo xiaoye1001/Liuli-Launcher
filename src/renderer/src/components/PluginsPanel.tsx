@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Check, Loader2, Plus, Puzzle, ShieldCheck, Trash2, X } from 'lucide-react'
 import type { PluginInfo, PluginPending } from '../../../shared/types'
-import { PERMISSION_TEXT } from '../utils/plugins'
+import { PERMISSION_TEXT, onDroppedPlugin, takeDroppedPlugin } from '../utils/plugins'
 
 function cleanError(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e)
@@ -51,6 +51,23 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
         .catch((e) => setError(cleanError(e)))
     load()
     return window.api.onPluginsChanged(load)
+  }, [])
+
+  // 拖进窗口的插件：显示安装确认（还没确认的上一个丢掉）
+  const pendingRef = useRef(pending)
+  pendingRef.current = pending
+  useEffect(() => {
+    const take = (): void => {
+      const dropped = takeDroppedPlugin()
+      if (!dropped) return
+      const old = pendingRef.current
+      if (old && old.token !== dropped.token) void window.api.discardPlugin(old.token)
+      setError('')
+      setNotice('')
+      setPending(dropped)
+    }
+    take()
+    return onDroppedPlugin(take)
   }, [])
 
   const run = async (key: string, action: () => Promise<string | void>): Promise<void> => {
