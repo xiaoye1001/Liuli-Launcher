@@ -20,8 +20,8 @@ import { listMods } from './mods'
 import { listWorldInfos } from './worlds'
 import { listScreenshots, screenshotPath } from './screenshots'
 import { listServers } from './servers'
-import type { PluginInfo, PluginManifest, PluginPending, PluginPermission } from '../shared/types'
-import { PLUGIN_PERMISSIONS } from '../shared/types'
+import type { PluginInfo, PluginManifest, PluginPending, PluginPermission, PluginWidget } from '../shared/types'
+import { PLUGIN_PERMISSIONS, PLUGIN_WIDGET_HEIGHT } from '../shared/types'
 
 const ROOT = join(app.getPath('userData'), 'plugins')
 const PENDING_DIR = join(ROOT, '.pending')
@@ -61,6 +61,8 @@ interface PluginState {
   id: string
   enabled: boolean
   installedAt: number
+  /** 小组件是不是显示在主页上（没写就是显示） */
+  widgetShown: boolean
 }
 
 // ---------- manifest ----------
@@ -110,6 +112,20 @@ export function parseManifest(raw: unknown): PluginManifest {
     throw new Error('申请了联网权限，但没有写要访问的网站（hosts）')
   if (!permissions.includes('network') && hosts.length > 0)
     throw new Error('写了要访问的网站（hosts），但没有申请联网权限（network）')
+  let widget: PluginWidget | null = null
+  if (m.widget !== undefined && m.widget !== null) {
+    const w = (typeof m.widget === 'object' && !Array.isArray(m.widget) ? m.widget : {}) as Record<string, unknown>
+    const widgetEntry = safeRelative(w.entry)
+    if (!widgetEntry || extname(widgetEntry).toLowerCase() !== '.html')
+      throw new Error('主页小组件（widget.entry）要是插件里的 .html 文件')
+    const height = Number(w.height ?? 120)
+    widget = {
+      entry: widgetEntry,
+      height: Number.isFinite(height)
+        ? Math.round(Math.min(PLUGIN_WIDGET_HEIGHT.max, Math.max(PLUGIN_WIDGET_HEIGHT.min, height)))
+        : 120
+    }
+  }
   return {
     id,
     name,
@@ -118,7 +134,8 @@ export function parseManifest(raw: unknown): PluginManifest {
     author: text(m.author, 40),
     entry,
     permissions,
-    hosts
+    hosts,
+    widget
   }
 }
 
@@ -129,7 +146,12 @@ async function readState(): Promise<PluginState[]> {
     const raw = JSON.parse(await readFile(STATE_FILE, 'utf-8')) as unknown
     return (Array.isArray(raw) ? raw : [])
       .filter((s): s is Record<string, unknown> => !!s && typeof s === 'object' && ID_RE.test(String(s.id)))
-      .map((s) => ({ id: String(s.id), enabled: s.enabled !== false, installedAt: Number(s.installedAt) || 0 }))
+      .map((s) => ({
+        id: String(s.id),
+        enabled: s.enabled !== false,
+        installedAt: Number(s.installedAt) || 0,
+        widgetShown: s.widgetShown !== false
+      }))
   } catch {
     return []
   }
@@ -153,7 +175,12 @@ export async function listPlugins(): Promise<PluginInfo[]> {
   const out: PluginInfo[] = []
   for (const s of await readState()) {
     try {
-      out.push({ ...(await manifestOf(s.id)), enabled: s.enabled, installedAt: s.installedAt })
+      out.push({
+        ...(await manifestOf(s.id)),
+        enabled: s.enabled,
+        installedAt: s.installedAt,
+        widgetShown: s.widgetShown
+      })
     } catch (e) {
       out.push({
         id: s.id,
@@ -164,8 +191,10 @@ export async function listPlugins(): Promise<PluginInfo[]> {
         entry: 'index.html',
         permissions: [],
         hosts: [],
+        widget: null,
         enabled: false,
         installedAt: s.installedAt,
+        widgetShown: false,
         error: `插件文件损坏：${e instanceof Error ? e.message : String(e)}`
       })
     }
@@ -278,6 +307,9 @@ export async function preparePlugin(zipPath: string): Promise<PluginPending> {
     if (!(await stat(join(dir, ...manifest.entry.split('/'))).catch(() => null))?.isFile()) {
       throw new Error(`插件里没有入口文件 ${manifest.entry}`)
     }
+    if (manifest.widget && !(await stat(join(dir, ...manifest.widget.entry.split('/'))).catch(() => null))?.isFile()) {
+      throw new Error(`插件里没有小组件页面 ${manifest.widget.entry}`)
+    }
     const installed = (await readState()).find((s) => s.id === manifest.id)
     const old = installed ? await manifestOf(manifest.id).catch(() => null) : null
     if (!installed && (await readState()).length >= MAX_PLUGINS) throw new Error(`最多装 ${MAX_PLUGINS} 个插件`)
@@ -299,8 +331,11 @@ export async function installPlugin(token: unknown): Promise<PluginInfo[]> {
   const target = join(ROOT, item.manifest.id)
   await rm(target, { recursive: true, force: true })
   await rename(item.dir, target)
-  const state = (await readState()).filter((s) => s.id !== item.manifest.id)
-  state.push({ id: item.manifest.id, enabled: true, installedAt: Date.now() })
+  const state = await readState()
+  const old = state.find((s) => s.id === item.manifest.id)
+  // 更新时位置和「在主页显示小组件」的选择不变
+  if (old) Object.assign(old, { enabled: true, installedAt: Date.now() })
+  else state.push({ id: item.manifest.id, enabled: true, installedAt: Date.now(), widgetShown: true })
   await writeState(state)
   broadcast()
   return listPlugins()
@@ -318,6 +353,17 @@ export async function setPluginEnabled(id: unknown, enabled: unknown): Promise<P
   const s = list.find((x) => x.id === id)
   if (!s) throw new Error('找不到这个插件')
   s.enabled = enabled === true
+  await writeState(list)
+  broadcast()
+  return listPlugins()
+}
+
+/** 小组件在不在主页上显示 */
+export async function setPluginWidgetShown(id: unknown, shown: unknown): Promise<PluginInfo[]> {
+  const list = await readState()
+  const s = list.find((x) => x.id === id)
+  if (!s) throw new Error('找不到这个插件')
+  s.widgetShown = shown === true
   await writeState(list)
   broadcast()
   return listPlugins()

@@ -17,7 +17,8 @@
   "author": "你的名字",
   "entry": "index.html",
   "permissions": ["versions", "launch"],
-  "hosts": []
+  "hosts": [],
+  "widget": { "entry": "widget.html", "height": 120 }
 }
 ```
 
@@ -30,6 +31,7 @@
 | `entry` | 入口页面，默认 `index.html` |
 | `permissions` | 需要的权限，见下表 |
 | `hosts` | 申请了 `network` 时可以访问的网站（只写域名，例如 `api.example.com`，最多 20 个） |
+| `widget` | 可选，主页小组件：`entry` 是插件里的另一个 .html 页面，`height` 是一开始的高度（48～320 像素） |
 
 zip 里只能有网页、脚本、样式、图片、字体、音频和文字文件，最多 500 个文件、解压后 30 MB。
 
@@ -83,6 +85,16 @@ liuli.on('game.status', (status) => console.log(status.state))
 | `servers.list` | `servers` | 无 | `[{ name, address, versionId }]` |
 
 有 `game` 权限时，游戏状态变化会收到事件 `{ liuli: 1, event: 'game.status', data: { state, versionId } }`。
+
+## 主页小组件
+
+在 manifest 里写了 `widget`，插件装好后会在主页上显示一张小卡片（`widget.entry` 那个页面）。小组件和插件页面一样运行在沙箱里，能用同样的接口和权限，也会收到游戏状态事件。
+
+- 用 `ui.resize` 调整高度，范围是 48～320 像素。按内容高度设置时用 `document.body.getBoundingClientRect().height`（`document.documentElement.scrollHeight` 至少是当前高度，只会变高不会变矮）
+- 卡片右上角可以打开插件的完整页面，或者不在主页显示；在插件管理里勾选「主页小组件」可以再显示出来
+- 小组件在主页上的位置可以在「设置 → 个性化 → 导航栏、主页与布局」里和最近游玩、新闻、欢迎卡片一起排
+
+例子里的 `widget.html` 显示写了便签的版本和「启动」按钮。
 
 ## 深色和浅色主题
 

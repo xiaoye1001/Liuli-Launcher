@@ -328,7 +328,14 @@ function MorePage(): JSX.Element {
   }, [])
 
   // 快速搜索（Ctrl+K）跳到某个工具：同时切到它的分类
-  useEffect(() => onJump('more', (key) => TOOLS.some((t) => t.key === key) && setCurrent(key as ToolKey)), [])
+  useEffect(
+    () =>
+      onJump(
+        'more',
+        (key) => (TOOLS.some((t) => t.key === key) || isPluginKey(key)) && selectRef.current(key as ToolKey)
+      ),
+    []
+  )
 
   const pluginTools: Tool[] = (plugins ?? []).map((p) => ({
     key: `plugin:${p.id}`,

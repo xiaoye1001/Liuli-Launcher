@@ -73,3 +73,35 @@ button {
   color: #fff;
   cursor: pointer;
 }
+/* 主页小组件：更紧凑 */
+body.widget {
+  padding: 4px 12px 10px;
+  font-size: 12px;
+}
+body.widget #status {
+  margin-bottom: 4px;
+}
+body.widget li {
+  padding: 3px 0;
+}
+body.widget li:first-child {
+  border-top: 0;
+}
+body.widget li b {
+  width: 90px;
+}
+body.widget .note {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body.widget li.empty {
+  border: 0;
+  color: var(--muted);
+}
+body.widget button {
+  padding: 2px 8px;
+}

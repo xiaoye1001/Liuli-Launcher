@@ -381,6 +381,7 @@ const api = {
   installPlugin: (token: string) => ipcRenderer.invoke('plugins:install', token),
   discardPlugin: (token: string) => ipcRenderer.invoke('plugins:discard', token),
   setPluginEnabled: (id: string, enabled: boolean) => ipcRenderer.invoke('plugins:setEnabled', id, enabled),
+  setPluginWidgetShown: (id: string, shown: boolean) => ipcRenderer.invoke('plugins:setWidgetShown', id, shown),
   uninstallPlugin: (id: string) => ipcRenderer.invoke('plugins:uninstall', id),
   clearPluginData: (id: string) => ipcRenderer.invoke('plugins:clearData', id),
   callPlugin: (id: string, method: string, params: unknown) => ipcRenderer.invoke('plugins:call', id, method, params),

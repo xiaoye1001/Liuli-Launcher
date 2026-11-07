@@ -142,6 +142,9 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
             </span>
           </div>
           {pending.manifest.description && <div className="text-sm text-white/70">{pending.manifest.description}</div>}
+          {pending.manifest.widget && (
+            <div className="text-xs text-white/60">带一个主页小组件，装好后显示在主页上（可以在这里关掉）</div>
+          )}
           <div className="text-xs font-medium text-white/80">它需要这些权限：</div>
           <PermissionList plugin={pending.manifest} />
           <div className="flex justify-end gap-2">
@@ -198,6 +201,23 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
                     >
                       打开
                     </button>
+                  )}
+                  {p.widget && (
+                    <label className="flex items-center gap-1 text-xs text-white/60" title="把插件的小组件显示在主页上">
+                      <input
+                        type="checkbox"
+                        checked={p.widgetShown}
+                        disabled={!p.enabled || !!p.error || !!busy}
+                        onChange={(e) =>
+                          void run(`widget:${p.id}`, async () => {
+                            setPlugins(await window.api.setPluginWidgetShown(p.id, e.target.checked))
+                          })
+                        }
+                        aria-label={`在主页显示 ${p.name}`}
+                        className="accent-emerald-500"
+                      />
+                      主页小组件
+                    </label>
                   )}
                   <label className="flex items-center gap-1 text-xs text-white/60">
                     <input
