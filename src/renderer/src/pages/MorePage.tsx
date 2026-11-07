@@ -332,7 +332,8 @@ function MorePage(): JSX.Element {
     () =>
       onJump(
         'more',
-        (key) => (TOOLS.some((t) => t.key === key) || isPluginKey(key)) && selectRef.current(key as ToolKey)
+        // 只切过去，不改各分类记住的工具（和以前一样）
+        (key) => (TOOLS.some((t) => t.key === key) || isPluginKey(key)) && setCurrent(key as ToolKey)
       ),
     []
   )
