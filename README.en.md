@@ -92,7 +92,7 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - One-click **performance mods** (Sodium, Lithium, FerriteCore and more) and **mod translations** (CFPA's I18nUpdateMod, updated automatically in game)
 - **Mod collections**: save your favorite mods as a collection and install it into another version in one click (matching versions are picked automatically)
 - Worlds: backup and restore, import, seed and game rules, data packs; worlds you played are **backed up automatically** after the game exits (latest 3 per world), to a backup folder of your choice
-- **Cloud world backup (WebDAV)**: backups are uploaded to your own cloud drive (Jianguoyun, Nextcloud, Synology and more) and can be downloaded on another computer; the password is stored encrypted
+- **Cloud world backup (WebDAV)**: backups are uploaded to your own cloud drive (Jianguoyun, Nextcloud, Synology and more; **Baidu Netdisk and Quark** work through [OpenList](https://github.com/OpenListTeam/OpenList) / AList running on your computer, with presets and step-by-step instructions in settings) and can be downloaded on another computer; the password is stored encrypted
 - Per-world statistics (play time, deaths, diamonds mined and more), a **world map preview** (top-down view of the Overworld that you can drag and zoom, with coordinates under the cursor), a one-click seed map and saving seeds to your favorites
 - **Coordinate notebook**: note places in each world (base, village, stronghold) with automatic Nether / Overworld conversion and a copyable teleport command; saved places appear on the world map
 - **World version warnings**: a heads-up to back up first when a world was saved by a newer game version or would be upgraded when opened
