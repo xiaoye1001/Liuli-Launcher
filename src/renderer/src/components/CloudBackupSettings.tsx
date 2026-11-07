@@ -7,6 +7,48 @@ function cleanError(e: unknown): string {
   return message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 }
 
+type Provider = 'jianguoyun' | 'baidu' | 'quark' | 'other'
+
+/** 网盘预设：百度、夸克没有 WebDAV，通过这台电脑上运行的 OpenList / AList 挂成 WebDAV */
+const PROVIDERS: { key: Provider; label: string; url: string; mount?: string; driver?: string }[] = [
+  { key: 'jianguoyun', label: '坚果云', url: 'https://dav.jianguoyun.com/dav/' },
+  {
+    key: 'baidu',
+    label: '百度网盘',
+    url: 'http://127.0.0.1:5244/dav/百度网盘',
+    mount: '/百度网盘',
+    driver: '百度网盘（BaiduNetdisk）'
+  },
+  {
+    key: 'quark',
+    label: '夸克网盘',
+    url: 'http://127.0.0.1:5244/dav/夸克网盘',
+    mount: '/夸克网盘',
+    driver: '夸克网盘（Quark）'
+  },
+  { key: 'other', label: '其他 WebDAV', url: '' }
+]
+
+/** 地址里的中文显示成原样（保存时会转成 %E7… 这样的写法） */
+function readable(url: string): string {
+  try {
+    return decodeURI(url)
+  } catch {
+    return url
+  }
+}
+
+/** 根据地址猜是哪个网盘 */
+function providerOf(url: string): Provider {
+  const text = readable(url).toLowerCase()
+  if (text.includes('jianguoyun.com')) return 'jianguoyun'
+  if (/:5244\b/.test(text)) {
+    if (text.includes('夸克') || text.includes('quark')) return 'quark'
+    if (text.includes('百度') || text.includes('baidu')) return 'baidu'
+  }
+  return 'other'
+}
+
 const INPUT =
   'w-full min-w-0 rounded-lg border border-white/15 bg-black/20 px-3 py-1.5 text-sm outline-none placeholder:text-white/30 focus:border-sky-400/60'
 
@@ -21,11 +63,15 @@ function CloudBackupSettings(): JSX.Element {
   const [busy, setBusy] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [provider, setProvider] = useState<Provider>('other')
+  const preset = PROVIDERS.find((p) => p.key === provider)!
+  const viaOpenList = !!preset.mount
 
   useEffect(() => {
     void window.api.getCloudBackupConfig().then((c) => {
       setConfig(c)
-      setUrl(c.url)
+      setUrl(readable(c.url))
+      setProvider(providerOf(c.url))
       setUser(c.user)
       setFolder(c.folder)
     })
@@ -46,10 +92,19 @@ function CloudBackupSettings(): JSX.Element {
     }
   }
 
+  /** 选网盘：填上它的地址（选「其他」时清掉预设的地址） */
+  const pick = (key: Provider): void => {
+    setProvider(key)
+    const next = PROVIDERS.find((p) => p.key === key)!
+    if (next.url) setUrl(next.url)
+    else if (PROVIDERS.some((p) => p.url && p.url === url)) setUrl('')
+  }
+
   const save = (enabled: boolean): Promise<void> =>
     run('save', async () => {
       const next = await window.api.configureCloudBackup({ enabled, url, user, password, folder })
       setConfig(next)
+      setUrl(readable(next.url))
       setFolder(next.folder)
       setPassword('')
       return enabled ? '已保存，之后的存档备份会自动上传到网盘' : '已保存'
@@ -64,7 +119,8 @@ function CloudBackupSettings(): JSX.Element {
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium">存档云备份（WebDAV）</div>
           <div className="text-xs text-white/50">
-            存档备份做好后自动上传到自己的网盘（坚果云、Nextcloud、群晖等支持 WebDAV 的网盘），换电脑也能下载回来接着玩
+            存档备份做好后自动上传到自己的网盘（坚果云、Nextcloud、群晖等支持 WebDAV 的网盘；百度网盘、夸克网盘通过
+            OpenList 使用），换电脑也能下载回来接着玩
           </div>
         </div>
         {config.enabled && config.hasPassword && (
@@ -72,12 +128,56 @@ function CloudBackupSettings(): JSX.Element {
         )}
       </div>
 
+      <div className="mt-3 flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="选择网盘">
+        <span className="mr-1 text-xs text-white/50">网盘</span>
+        {PROVIDERS.map((p) => (
+          <button
+            key={p.key}
+            role="radio"
+            aria-checked={provider === p.key}
+            onClick={() => pick(p.key)}
+            className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${
+              provider === p.key
+                ? 'bg-sky-500/30 text-white'
+                : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {viaOpenList && (
+        <div className="mt-2 rounded-lg bg-sky-500/10 px-3 py-2 text-xs text-white/70" data-testid="openlist-guide">
+          <div className="font-medium text-white/85">
+            {`${preset.label}没有 WebDAV，要先在这台电脑上用 OpenList（或 AList，用法一样）把它挂成 WebDAV：`}
+          </div>
+          <ol className="mt-1 list-decimal space-y-0.5 pl-5">
+            <li>
+              下载并运行 OpenList（开源免费，GitHub 上的 OpenListTeam/OpenList），在浏览器打开 http://127.0.0.1:5244
+              进入后台
+            </li>
+            <li>{`「存储」→「添加」，驱动选「${preset.driver}」，按页面说明登录网盘；「挂载路径」填 ${preset.mount}`}</li>
+            <li>用管理员账号就可以；新建的用户要在「用户」里勾上 WebDAV 读取和管理权限</li>
+            <li>回到这里填 OpenList 的用户名和密码，点「测试连接」</li>
+          </ol>
+          <div className="mt-1 text-white/50">
+            上传、下载备份时 OpenList 要开着：备份先传给 OpenList，再由它传到{preset.label}，大的存档要多等一会儿
+          </div>
+        </div>
+      )}
+
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <label className="block min-w-0 sm:col-span-2">
-          <span className="text-xs text-white/50">WebDAV 地址</span>
+          <span className="text-xs text-white/50">
+            {viaOpenList ? 'WebDAV 地址（OpenList，最后是挂载路径）' : 'WebDAV 地址'}
+          </span>
           <input
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={(e) => {
+              setUrl(e.target.value)
+              setProvider(providerOf(e.target.value))
+            }}
             placeholder="例如 https://dav.jianguoyun.com/dav/"
             spellCheck={false}
             aria-label="WebDAV 地址"
@@ -85,7 +185,7 @@ function CloudBackupSettings(): JSX.Element {
           />
         </label>
         <label className="block min-w-0">
-          <span className="text-xs text-white/50">用户名</span>
+          <span className="text-xs text-white/50">{viaOpenList ? '用户名（OpenList 的）' : '用户名'}</span>
           <input
             value={user}
             onChange={(e) => setUser(e.target.value)}
@@ -96,7 +196,13 @@ function CloudBackupSettings(): JSX.Element {
           />
         </label>
         <label className="block min-w-0">
-          <span className="text-xs text-white/50">密码（坚果云要用「应用密码」）</span>
+          <span className="text-xs text-white/50">
+            {viaOpenList
+              ? '密码（OpenList 的）'
+              : provider === 'jianguoyun'
+                ? '密码（坚果云要用「应用密码」）'
+                : '密码'}
+          </span>
           <input
             type="password"
             value={password}
@@ -131,7 +237,7 @@ function CloudBackupSettings(): JSX.Element {
         <button
           onClick={() =>
             void run('test', async () => {
-              if (password || url !== config.url || user !== config.user || folder !== config.folder) {
+              if (password || url !== readable(config.url) || user !== config.user || folder !== config.folder) {
                 setConfig(
                   await window.api.configureCloudBackup({ enabled: config.enabled, url, user, password, folder })
                 )

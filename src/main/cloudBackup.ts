@@ -12,7 +12,8 @@ import { backupFile, backupFolderName, backupsDirFor, gameDirOf, parseBackupName
 import type { CloudBackupConfig, CloudBackupInput, CloudBackupItem, CloudBackupStatus } from '../shared/types'
 
 /**
- * 存档云备份（WebDAV，例如坚果云、Nextcloud、群晖）：存档备份做好后上传到网盘的
+ * 存档云备份（WebDAV，例如坚果云、Nextcloud、群晖；百度网盘、夸克网盘没有 WebDAV，通过本机运行的
+ * OpenList / AList 挂成 WebDAV 后使用）：存档备份做好后上传到网盘的
  * 「文件夹/游戏目录名-哈希/」里；可以列出网盘里的备份（包括别的电脑上传的），下载回本地后用原来的还原功能还原。
  *
  * 安全：网盘地址只能是 https（本机地址可以用 http），不跟随跳转；密码用系统安全存储加密，单独保存，
@@ -187,10 +188,31 @@ async function active(): Promise<Active> {
   return { url, user: s.cloudBackupUser, password, folder: checkFolder(s.cloudBackupFolder).split('/') }
 }
 
-function friendly(status: number): string {
-  if (status === 401) return '用户名或密码不对'
-  if (status === 403) return '没有权限（坚果云等网盘要用「应用密码」，不是登录密码）'
-  if (status === 404 || status === 409) return '网盘里找不到这个文件夹'
+/** OpenList / AList 的默认端口（百度网盘、夸克网盘通过它们挂成 WebDAV） */
+const OPENLIST_PORT = '5244'
+
+/** 地址看起来是 OpenList / AList：报错时给出它的设置方法 */
+export function isOpenListUrl(url: string): boolean {
+  try {
+    return new URL(url).port === OPENLIST_PORT
+  } catch {
+    return false
+  }
+}
+
+function friendly(status: number, url = ''): string {
+  const openList = isOpenListUrl(url)
+  if (status === 401) return openList ? 'OpenList 的用户名或密码不对' : '用户名或密码不对'
+  if (status === 403) {
+    return openList
+      ? '没有权限：在 OpenList 后台的「用户」里给这个用户勾上 WebDAV 读取和管理权限'
+      : '没有权限（坚果云等网盘要用「应用密码」，不是登录密码）'
+  }
+  if (status === 404 || status === 409) {
+    return openList
+      ? '找不到这个文件夹：检查地址最后的挂载路径和 OpenList 里添加网盘时填的「挂载路径」是否一样'
+      : '网盘里找不到这个文件夹'
+  }
   if (status === 507) return '网盘空间不够了'
   return `网盘返回了错误（HTTP ${status}）`
 }
@@ -228,7 +250,11 @@ async function dav(
       .map((x) => (x instanceof Error ? x.message : x ? String(x) : ''))
       .filter(Boolean)
       .join('：')
-    throw new Error(/redirect/i.test(message) ? '网盘地址发生了跳转，请填写跳转后的地址' : `连不上网盘：${message}`)
+    if (/redirect/i.test(message)) throw new Error('网盘地址发生了跳转，请填写跳转后的地址')
+    if (isOpenListUrl(cfg.url) && /ECONNREFUSED|fetch failed/i.test(message)) {
+      throw new Error('连不上 OpenList：请确认 OpenList 正在这台电脑上运行（上传、下载备份时都要开着）')
+    }
+    throw new Error(`连不上网盘：${message}`)
   }
 }
 
@@ -242,7 +268,8 @@ async function ensureDirs(cfg: Active, segments: string[]): Promise<void> {
     const response = await dav(cfg, 'MKCOL', segments.slice(0, i), { collection: true })
     await discard(response)
     // 201 新建，405 已经有了
-    if (response.status !== 201 && response.status !== 405 && !response.ok) throw new Error(friendly(response.status))
+    if (response.status !== 201 && response.status !== 405 && !response.ok)
+      throw new Error(friendly(response.status, cfg.url))
   }
 }
 
@@ -266,7 +293,7 @@ async function listDir(cfg: Active, segments: string[]): Promise<DavEntry[]> {
   }
   if (response.status !== 207 && !response.ok) {
     await discard(response)
-    throw new Error(friendly(response.status))
+    throw new Error(friendly(response.status, cfg.url))
   }
   const xml = (await response.text()).slice(0, 8 * 1024 * 1024)
   const strip = (p: string): string => p.replace(/\/+$/, '').toLowerCase()
@@ -339,7 +366,7 @@ async function uploadNow(versionId: string, path: string): Promise<void> {
     timeoutMs: Math.min(6 * 3600_000, 120_000 + Math.ceil(size / 50_000) * 1000)
   })
   await discard(response)
-  if (!response.ok) throw new Error(friendly(response.status))
+  if (!response.ok) throw new Error(friendly(response.status, cfg.url))
   // 网盘里每个存档只留最近几份自动备份
   const parsed = parseBackupName(file)
   if (parsed?.auto) {
@@ -430,7 +457,7 @@ export async function downloadCloudBackup(versionId: string, source: string, fil
   const response = await dav(cfg, 'GET', [...cfg.folder, source, file], { timeoutMs: 6 * 3600_000 })
   if (!response.ok || !response.body) {
     await discard(response)
-    throw new Error(friendly(response.status))
+    throw new Error(friendly(response.status, cfg.url))
   }
   const temp = `${target}.part`
   try {
