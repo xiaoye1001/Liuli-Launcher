@@ -31,6 +31,7 @@ import {
   Rocket,
   RotateCcw,
   ShieldCheck,
+  ListChecks,
   SlidersHorizontal,
   Sparkles,
   Sun,
@@ -1479,6 +1480,32 @@ function SettingsPage(): JSX.Element {
                   <span
                     className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
                       settings.checkFiles ? 'left-6' : 'left-1'
+                    }`}
+                  />
+                </button>
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-4 rounded-xl bg-black/20 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <ListChecks className="h-4 w-4 text-amber-300" />
+                  <div>
+                    <div className="text-sm font-medium">启动前检查常见问题</div>
+                    <div className="text-xs text-white/50">
+                      点启动时先看看内存是不是分配太多、模组适不适合这个版本、磁盘是不是快满了，有问题时先提醒你
+                    </div>
+                  </div>
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={settings.preLaunchCheck}
+                  aria-label="启动前检查常见问题"
+                  onClick={() => update({ preLaunchCheck: !settings.preLaunchCheck })}
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                    settings.preLaunchCheck ? 'bg-emerald-500' : 'bg-white/20'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                      settings.preLaunchCheck ? 'left-6' : 'left-1'
                     }`}
                   />
                 </button>

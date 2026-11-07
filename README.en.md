@@ -134,6 +134,7 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - 23 **launcher achievements** (including hidden ones) with an in-game style toast
 - Background music player, click effects and official Minecraft news
 - Automatic updates with signature verification and one-click restart
+- **Pre-launch check**: before launching, the launcher checks for too much allocated memory, mods that do not fit the version and a nearly full disk, and lets you fix them or launch anyway
 - A **first-run guide** sets up your name, look and download source and installs your first game
 - **Export / import settings**: save settings, custom themes, servers, seeds, mod collections and the skin wardrobe to one file and restore them on another computer (accounts, keys, passwords and local paths are never included)
 

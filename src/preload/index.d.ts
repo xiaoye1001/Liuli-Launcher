@@ -1,5 +1,6 @@
 import type { AchievementStatus } from '../shared/achievements'
 import type {
+  LaunchCheckIssue,
   RecipeBook,
   PluginInfo,
   PluginPending,
@@ -494,6 +495,8 @@ declare global {
       installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>
       /** 启动游戏；server 不为空时进入游戏后直接连接该服务器，world 不为空时直接进入这个存档（1.20 起） */
       launchGame: (versionId: string, server?: string, world?: string) => Promise<void>
+      /** 启动前检查：内存、模组、磁盘空间（关掉检查时返回空列表） */
+      preLaunchCheck: (versionId: string) => Promise<LaunchCheckIssue[]>
       /** 查询 GitHub 上的最新版本 */
       checkUpdate: () => Promise<UpdateInfo>
       /** 在浏览器中打开新版本的安装包或发布页面 */

@@ -48,6 +48,7 @@ import {
   setPluginWidgetShown,
   uninstallPlugin
 } from './plugins'
+import { preLaunchCheck } from './launchCheck'
 import { listConfigFiles, readConfigFile, restoreConfigFile, saveConfigEntries, saveConfigText } from './modConfigs'
 import { clearExtraInstance, killExtraInstance, launchExtraInstance, listExtraInstances } from './extraInstances'
 import {
@@ -938,6 +939,7 @@ function registerIpc(): void {
     await autoSnapshot(versionId, '安装模组')
     return installFromModrinth(versionId, projectId)
   })
+  ipcMain.handle('game:preLaunchCheck', (_, versionId: unknown) => preLaunchCheck(String(versionId)))
   ipcMain.handle('game:launch', (_, versionId: string, server?: string, world?: string) => {
     // 「多人游戏」「无缝衔接」成就在游戏窗口出现后才解锁（启动失败不算）
     noteLaunchRequest(server, world)

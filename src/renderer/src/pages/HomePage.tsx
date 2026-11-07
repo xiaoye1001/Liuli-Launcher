@@ -23,6 +23,7 @@ import {
 import CrashCard from '../components/CrashCard'
 import RecentPlays from '../components/RecentPlays'
 import PluginWidgets from '../components/PluginWidgets'
+import LaunchCheckDialog from '../components/LaunchCheckDialog'
 import VersionIcon from '../components/VersionIcon'
 import DailyGoalLine from '../components/DailyGoalLine'
 import OnThisDay from '../components/OnThisDay'
@@ -43,6 +44,7 @@ import SkinViewer3D from '../components/SkinViewer3D'
 import { closeGameLaunchOverlay, openGameLaunchOverlay } from '../components/GameLaunchOverlay'
 import type {
   AccountsInfo,
+  LaunchCheckIssue,
   AppSettings,
   GameStatus,
   InstallStatus,
@@ -343,14 +345,32 @@ function HomePage({
     }
   }
 
-  /** 启动游戏：同一时间只发起一次，失败时在下方显示原因；world 不为空时直接进入这个存档 */
-  const startGame = async (prepare: () => Promise<string>, world?: string): Promise<void> => {
+  /** 启动前检查发现的问题：先弹出提示，用户选「仍然启动」后再启动 */
+  const [preCheck, setPreCheck] = useState<{
+    versionId: string
+    world?: string
+    issues: LaunchCheckIssue[]
+  } | null>(null)
+
+  /**
+   * 启动游戏：同一时间只发起一次，失败时在下方显示原因；world 不为空时直接进入这个存档。
+   * 启动前先检查内存、模组、磁盘空间（checked 为 true 时表示已经看过检查结果，不再检查）
+   */
+  const startGame = async (prepare: () => Promise<string>, world?: string, checked = false): Promise<void> => {
     if (launching.current) return
     launching.current = true
     setLaunchError('')
     try {
       await saveName()
       const versionId = await prepare()
+      if (!checked) {
+        // 检查出错时不挡住启动
+        const issues = await window.api.preLaunchCheck(versionId).catch(() => [])
+        if (issues.length > 0) {
+          setPreCheck({ versionId, world, issues })
+          return
+        }
+      }
       // 立即播放启动动画，不等主进程（动画会跟随真实的启动进度）
       openGameLaunchOverlay(versionId)
       await window.api.launchGame(versionId, undefined, world)
@@ -822,6 +842,24 @@ function HomePage({
     <PluginWidgets onOpenPlugin={onOpenTool ? (id) => onOpenTool(`plugin:${id}`) : undefined} />
   )
 
+  const launchCheck = preCheck && (
+    <LaunchCheckDialog
+      versionId={preCheck.versionId}
+      issues={preCheck.issues}
+      onCancel={() => setPreCheck(null)}
+      onContinue={() => {
+        const { versionId, world } = preCheck
+        setPreCheck(null)
+        void startGame(async () => versionId, world, true)
+      }}
+      onOpenSettings={() => {
+        const { versionId } = preCheck
+        setPreCheck(null)
+        onOpenVersionSettings(versionId)
+      }}
+    />
+  )
+
   if (wide) {
     const modules = order.map((key) => {
       if (key === 'recent') return <Fragment key="recent">{recentPlays}</Fragment>
@@ -841,6 +879,7 @@ function HomePage({
     return (
       <div className={`flex h-full gap-5 ${appearance.homeLaunchSide === 'left' ? 'flex-row-reverse' : ''}`}>
         {/* 一边是最近游玩、新闻、问候（顺序可以在个性化里改），另一边是启动坞 */}
+        {launchCheck}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4" data-testid="home-modules">
           {crash}
           {!alignTop && <div className="min-h-0 flex-1" />}
@@ -1040,6 +1079,7 @@ function HomePage({
   const filler = newsShown ? null : <div className="flex-1" />
   return (
     <div className="flex h-full flex-col justify-end gap-4" data-testid="home-modules">
+      {launchCheck}
       {!alignTop && filler}
       {narrowModules}
       {alignTop && filler}

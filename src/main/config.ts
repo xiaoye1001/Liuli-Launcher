@@ -75,6 +75,7 @@ function defaultSettings(): AppSettings {
     memoryAuto: true,
     optimizeGc: true,
     checkFiles: true,
+    preLaunchCheck: true,
     openLogOnLaunch: false,
     launchSplash: true,
     darkLoadingScreen: true,
