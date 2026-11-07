@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto'
 import { homedir, totalmem } from 'os'
 import { basename, dirname, join, resolve } from 'path'
 import type { AppSettings, GameDirEntry, OfflineAccount } from '../shared/types'
+import { HOME_MODULES, NAV_PAGES, normalizeOrder } from '../shared/types'
 import { AI_PROVIDERS, AI_PROVIDER_IDS } from '../shared/aiProviders'
 import { portableDir } from './paths'
 
@@ -144,6 +145,11 @@ function defaultSettings(): AppSettings {
     launcherTitle: '',
     launcherSubtitle: '',
     hiddenPages: [],
+    navPosition: 'left',
+    navOrder: [...NAV_PAGES],
+    homeLaunchSide: 'right',
+    homeModuleOrder: [...HOME_MODULES],
+    homeAlign: 'bottom',
     welcomeTitle: '',
     welcomeSubtitle: '',
     afterLaunch: 'keep',
@@ -185,6 +191,9 @@ export function isManagedSetting(key: string): boolean {
 
 /** 取值固定的设置项 */
 const ENUM_VALUES: Partial<Record<keyof AppSettings, readonly string[]>> = {
+  navPosition: ['left', 'right', 'top'],
+  homeLaunchSide: ['left', 'right'],
+  homeAlign: ['bottom', 'top'],
   downloadSource: ['mojang', 'bmclapi'],
   proxyMode: ['none', 'system', 'custom'],
   skinModel: ['default', 'slim'],
@@ -223,6 +232,10 @@ function checkedSettings(input: unknown, defaults: AppSettings, allowManaged: bo
     if (allowed && !allowed.includes(value as string)) continue
     result[key] = value
   }
+  // 导航和主页模块的顺序：只留认识的页面、模块，少了的补上
+  if (Array.isArray(result.navOrder)) result.navOrder = normalizeOrder(result.navOrder, NAV_PAGES)
+  if (Array.isArray(result.homeModuleOrder))
+    result.homeModuleOrder = normalizeOrder(result.homeModuleOrder, HOME_MODULES)
   if (typeof result.skinDataUrl === 'string' && result.skinDataUrl !== '') {
     // 皮肤只能是不超过 1 MB 的 PNG
     if (!result.skinDataUrl.startsWith('data:image/png;base64,') || result.skinDataUrl.length > 1_500_000) {

@@ -41,6 +41,7 @@ import {
   type LucideIcon
 } from 'lucide-react'
 import CloudBackupSettings from '../components/CloudBackupSettings'
+import LayoutPlacementSettings from '../components/LayoutPlacementSettings'
 import SettingsTransferSection from '../components/SettingsTransferSection'
 import { backgroundUrl } from '../utils/appearance'
 import { ReleaseNotes, UpdateActions } from '../components/UpdateNotice'
@@ -770,6 +771,9 @@ function SettingsPage(): JSX.Element {
 
             {/* 侧边栏与主页 */}
             <LayoutSettings settings={settings} update={update} updateSlider={updateSlider} />
+
+            {/* 布局：导航栏、主页启动区、主页模块放在哪里 */}
+            <LayoutPlacementSettings settings={settings} update={update} />
 
             {/* 背景音乐 */}
             <MusicSettings settings={settings} update={update} updateSlider={updateSlider} />

@@ -216,6 +216,16 @@ export interface AppSettings {
   launcherSubtitle: string
   /** 侧边栏隐藏的页面（取值见 HIDEABLE_PAGES） */
   hiddenPages: string[]
+  /** 导航栏放在哪里：左边、右边、顶部 */
+  navPosition: NavPosition
+  /** 导航栏里页面的顺序（取值见 NAV_PAGES；少了的按默认顺序补在后面） */
+  navOrder: string[]
+  /** 主页的启动区（账号、版本、启动游戏）放在哪边（窗口够宽时） */
+  homeLaunchSide: 'left' | 'right'
+  /** 主页模块从上到下的顺序（取值见 HOME_MODULES） */
+  homeModuleOrder: string[]
+  /** 主页内容靠下（露出上面的背景）还是靠上 */
+  homeAlign: 'bottom' | 'top'
   /** 主页欢迎语标题，支持 {name} {greeting} {version} {tip}；空字符串为默认 */
   welcomeTitle: string
   /** 主页欢迎语副标题，同上 */
@@ -410,6 +420,21 @@ export const PARTICLE_EFFECTS: ParticleEffect[] = ['auto', 'none', 'sakura', 'en
 
 /** 可以在侧边栏隐藏的页面（主页和设置始终显示） */
 export const HIDEABLE_PAGES = ['account', 'versions', 'servers', 'download', 'multiplayer', 'ai', 'more']
+
+export type NavPosition = 'left' | 'right' | 'top'
+
+/** 导航栏里的所有页面（默认顺序） */
+export const NAV_PAGES = ['home', 'account', 'versions', 'servers', 'download', 'multiplayer', 'ai', 'more', 'settings']
+
+/** 主页可以排顺序的模块（默认顺序）：最近游玩、Minecraft 新闻、欢迎卡片 */
+export const HOME_MODULES = ['recent', 'news', 'hero']
+
+/** 整理用户排的顺序：只留认识的、不重复的，少了的按默认顺序补在后面 */
+export function normalizeOrder(input: unknown, all: readonly string[]): string[] {
+  const list = Array.isArray(input) ? input.filter((x): x is string => typeof x === 'string' && all.includes(x)) : []
+  const unique = [...new Set(list)]
+  return [...unique, ...all.filter((x) => !unique.includes(x))]
+}
 
 /** 可选的界面缩放比例（%） */
 export const UI_SCALES = [80, 90, 100, 110, 125, 150]

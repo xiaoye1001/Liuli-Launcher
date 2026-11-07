@@ -136,7 +136,11 @@ function App(): JSX.Element {
     // 关闭动画时，framer-motion 的位移、缩放等动画也一并关闭
     <ThemeProvider>
       <MotionConfig reducedMotion={appearance.animations ? 'never' : 'always'}>
-        <div className="relative isolate flex h-full overflow-hidden app-background text-white">
+        <div
+          className={`relative isolate flex h-full overflow-hidden app-background text-white ${
+            appearance.navPosition === 'top' ? 'flex-col' : appearance.navPosition === 'right' ? 'flex-row-reverse' : ''
+          }`}
+        >
           {/* 动态背景：主题方案的动态图层 + 自定义壁纸 + 粒子特效 */}
           <DynamicBackground />
           {/* 窗口顶部的拖动区域（Windows、Linux 隐藏了系统标题栏） */}
@@ -151,7 +155,9 @@ function App(): JSX.Element {
               setPage('download')
             }}
           />
-          <main className="relative flex-1 overflow-hidden p-8">
+          <main
+            className={`relative min-h-0 flex-1 overflow-hidden p-8 ${appearance.navPosition === 'top' ? 'pt-6' : ''}`}
+          >
             {/*
               页面切换：等上一页的退场动画播完再显示下一页。
               注意：页面里不要用 framer-motion 的 layout / layoutId（布局动画），这类元素在页面里卸载后
