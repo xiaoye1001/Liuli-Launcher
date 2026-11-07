@@ -1,10 +1,32 @@
+:root {
+  /* 启动器是深色还是浅色主题，插件页面的 prefers-color-scheme 会跟着变 */
+  color-scheme: light dark;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --line: rgba(255, 255, 255, 0.08);
+  --field: rgba(0, 0, 0, 0.2);
+  --field-border: rgba(255, 255, 255, 0.15);
+  --good: #6ee7b7;
+  --bad: #fca5a5;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --text: #1f2937;
+    --muted: #6b7280;
+    --line: rgba(0, 0, 0, 0.08);
+    --field: rgba(255, 255, 255, 0.6);
+    --field-border: rgba(0, 0, 0, 0.15);
+    --good: #059669;
+    --bad: #dc2626;
+  }
+}
 body {
   margin: 0;
   padding: 16px;
   font:
     14px system-ui,
     sans-serif;
-  color: #e5e7eb;
+  color: var(--text);
   background: transparent;
 }
 h1 {
@@ -13,7 +35,7 @@ h1 {
 }
 #status {
   margin: 0 0 12px;
-  color: #9ca3af;
+  color: var(--muted);
   font-size: 12px;
 }
 ul {
@@ -26,7 +48,7 @@ li {
   gap: 8px;
   align-items: center;
   padding: 6px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--line);
 }
 li b {
   width: 140px;
@@ -38,9 +60,9 @@ input {
   flex: 1;
   min-width: 0;
   padding: 4px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--field-border);
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--field);
   color: inherit;
 }
 button {

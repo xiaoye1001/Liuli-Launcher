@@ -1,0 +1,121 @@
+:root {
+  /* 启动器是深色还是浅色主题，插件页面的 prefers-color-scheme 会跟着变 */
+  color-scheme: light dark;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --line: rgba(255, 255, 255, 0.08);
+  --field: rgba(0, 0, 0, 0.2);
+  --field-border: rgba(255, 255, 255, 0.15);
+  --good: #6ee7b7;
+  --bad: #fca5a5;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --text: #1f2937;
+    --muted: #6b7280;
+    --line: rgba(0, 0, 0, 0.08);
+    --field: rgba(255, 255, 255, 0.6);
+    --field-border: rgba(0, 0, 0, 0.15);
+    --good: #059669;
+    --bad: #dc2626;
+  }
+}
+body {
+  margin: 0;
+  padding: 16px;
+  font:
+    13px system-ui,
+    sans-serif;
+  color: var(--text);
+  background: transparent;
+}
+header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+h1 {
+  margin: 0;
+  font-size: 16px;
+}
+h2 {
+  margin: 18px 0 4px;
+  font-size: 14px;
+}
+#summary {
+  color: var(--muted);
+}
+#summary.ok {
+  color: var(--good);
+}
+#summary.bad {
+  color: var(--bad);
+}
+header button {
+  margin-left: auto;
+}
+.hint {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+#checks li {
+  display: grid;
+  grid-template-columns: 20px 220px 1fr;
+  gap: 8px;
+  padding: 5px 0;
+  border-top: 1px solid var(--line);
+}
+#checks .mark {
+  font-weight: 700;
+}
+#checks .pass .mark {
+  color: var(--good);
+}
+#checks .fail .mark {
+  color: var(--bad);
+}
+#checks .wait .mark {
+  color: var(--muted);
+}
+#checks .detail {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#events li {
+  padding: 3px 0;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+button {
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: #10b981;
+  color: #fff;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+}
+select {
+  min-width: 160px;
+  padding: 4px 8px;
+  border: 1px solid var(--field-border);
+  border-radius: 6px;
+  background: var(--field);
+  color: inherit;
+}

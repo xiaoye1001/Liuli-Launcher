@@ -4,7 +4,7 @@
 
 插件运行在隔离的沙箱里：它的页面在一个独立来源的 iframe 中，碰不到启动器的页面、账号、登录令牌、密钥和电脑上的文件，不能直接联网，只能通过下面列出的接口做事。
 
-完整的例子见 [plugin-example](plugin-example/)（版本便签：列出版本、记便签、一键启动）。把整个文件夹压缩成 zip 就能安装。
+完整的例子见 [plugin-example](plugin-example/)（版本便签：列出版本、记便签、一键启动）。[plugin-selftest](plugin-selftest/)（插件自检）把所有接口和沙箱限制挨个试一遍，装上它可以确认插件系统是不是正常。把整个文件夹里的文件压缩成 zip 就能安装。
 
 ## manifest.json
 
@@ -74,6 +74,26 @@ liuli.on('game.status', (status) => console.log(status.state))
 | `open.url` | `open-url` | `{ url }` | 用浏览器打开 https 网页 |
 
 有 `game` 权限时，游戏状态变化会收到事件 `{ liuli: 1, event: 'game.status', data: { state, versionId } }`。
+
+## 深色和浅色主题
+
+启动器切换深色 / 浅色主题时，插件页面里的 `prefers-color-scheme` 会跟着变。用 CSS 变量写两套颜色，插件就能和启动器的主题保持一致（例子里的 `style.css` 就是这样写的）：
+
+```css
+:root {
+  color-scheme: light dark;
+  --text: #e5e7eb;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --text: #1f2937;
+  }
+}
+body {
+  color: var(--text);
+  background: transparent;
+}
+```
 
 ## 限制
 
