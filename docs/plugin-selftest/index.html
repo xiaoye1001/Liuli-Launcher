@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="style.css" />
+    <script src="liuli.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>插件自检</h1>
+      <span id="summary">还没开始</span>
+      <button id="run">重新检查</button>
+    </header>
+
+    <h2>自动检查</h2>
+    <p class="hint">不会改动任何东西：只读信息、读写插件自己的数据，并确认不该做到的事情做不到</p>
+    <ul id="checks"></ul>
+    <img id="thumb" alt="最新的截图" hidden />
+
+    <h2>手动试一下</h2>
+    <p class="hint">这些会真的弹通知、复制文字、打开浏览器或启动游戏，点了才会做</p>
+    <div class="actions">
+      <button data-action="notify">弹一个系统通知</button>
+      <button data-action="clipboard">复制一句话</button>
+      <button data-action="open">打开启动器的 GitHub 页面</button>
+    </div>
+    <div class="actions">
+      <select id="version" aria-label="要启动的版本"></select>
+      <button data-action="launch">启动这个版本</button>
+    </div>
+    <p id="manual" class="hint"></p>
+
+    <h2>游戏状态事件</h2>
+    <ul id="events">
+      <li class="hint">启动或关闭游戏时会显示在这里</li>
+    </ul>
+
+    <script src="main.js"></script>
+  </body>
+</html>

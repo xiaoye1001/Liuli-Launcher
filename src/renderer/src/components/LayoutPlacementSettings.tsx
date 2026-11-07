@@ -11,6 +11,7 @@ interface Props {
 const HOME_MODULE_NAMES: Record<string, string> = {
   recent: '最近游玩',
   news: 'Minecraft 新闻',
+  plugins: '插件小组件',
   hero: '欢迎卡片'
 }
 

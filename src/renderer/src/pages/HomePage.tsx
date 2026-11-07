@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import CrashCard from '../components/CrashCard'
 import RecentPlays from '../components/RecentPlays'
+import PluginWidgets from '../components/PluginWidgets'
 import VersionIcon from '../components/VersionIcon'
 import DailyGoalLine from '../components/DailyGoalLine'
 import OnThisDay from '../components/OnThisDay'
@@ -816,9 +817,15 @@ function HomePage({
   const order = appearance.homeModuleOrder
   const alignTop = appearance.homeAlign === 'top'
 
+  /** 插件的主页小组件（崩溃提示显示着的时候不显示，给原因分析留出空间） */
+  const pluginWidgets = !crashShown && (
+    <PluginWidgets onOpenPlugin={onOpenTool ? (id) => onOpenTool(`plugin:${id}`) : undefined} />
+  )
+
   if (wide) {
     const modules = order.map((key) => {
       if (key === 'recent') return <Fragment key="recent">{recentPlays}</Fragment>
+      if (key === 'plugins') return <Fragment key="plugins">{pluginWidgets}</Fragment>
       if (key === 'news') {
         // 崩溃提示显示着的时候不显示新闻，给原因分析留出空间
         return settings?.showNews && newsRoom && !crashShown ? (
@@ -1019,6 +1026,7 @@ function HomePage({
   const newsShown = !!settings?.showNews && tall
   const narrowModules = order.map((key) => {
     if (key === 'recent') return <Fragment key="recent">{recentPlays}</Fragment>
+    if (key === 'plugins') return <Fragment key="plugins">{pluginWidgets}</Fragment>
     if (key === 'news') return newsShown ? <Fragment key="news">{news}</Fragment> : null
     // 崩溃提示放在问候和启动卡片的上面
     return (

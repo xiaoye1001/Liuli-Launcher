@@ -1,0 +1,22 @@
+{
+  "id": "plugin-selftest",
+  "name": "插件自检",
+  "version": "1.1.0",
+  "description": "把插件接口和沙箱限制挨个试一遍，看看插件系统是不是正常",
+  "author": "琉璃启动器",
+  "entry": "index.html",
+  "permissions": [
+    "versions",
+    "launch",
+    "game",
+    "notifications",
+    "network",
+    "clipboard",
+    "open-url",
+    "mods",
+    "worlds",
+    "screenshots",
+    "servers"
+  ],
+  "hosts": ["api.github.com"]
+}

@@ -43,7 +43,9 @@ import {
   installPlugin,
   listPlugins,
   pickPlugin,
+  preparePluginFile,
   setPluginEnabled,
+  setPluginWidgetShown,
   uninstallPlugin
 } from './plugins'
 import { listConfigFiles, readConfigFile, restoreConfigFile, saveConfigEntries, saveConfigText } from './modConfigs'
@@ -830,9 +832,11 @@ function registerIpc(): void {
   ipcMain.handle('modSync:create', (_, versionId: string) => createModSyncCode(String(versionId)))
   ipcMain.handle('plugins:list', () => listPlugins())
   ipcMain.handle('plugins:pick', (event) => pickPlugin(BrowserWindow.fromWebContents(event.sender)))
+  ipcMain.handle('plugins:prepareFile', (_, path: unknown) => preparePluginFile(path))
   ipcMain.handle('plugins:install', (_, token: unknown) => installPlugin(token))
   ipcMain.handle('plugins:discard', (_, token: unknown) => discardPlugin(token))
   ipcMain.handle('plugins:setEnabled', (_, id: unknown, enabled: unknown) => setPluginEnabled(id, enabled))
+  ipcMain.handle('plugins:setWidgetShown', (_, id: unknown, shown: unknown) => setPluginWidgetShown(id, shown))
   ipcMain.handle('plugins:uninstall', (_, id: unknown) => uninstallPlugin(id))
   ipcMain.handle('plugins:clearData', (_, id: unknown) => clearPluginData(id))
   ipcMain.handle('plugins:call', (_, id: unknown, method: unknown, params: unknown) => callPlugin(id, method, params))

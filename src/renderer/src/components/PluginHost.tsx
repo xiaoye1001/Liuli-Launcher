@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Puzzle } from 'lucide-react'
+import { ExternalLink, EyeOff, Puzzle } from 'lucide-react'
 import type { PluginInfo } from '../../../shared/types'
+import { PLUGIN_WIDGET_HEIGHT } from '../../../shared/types'
 
 function cleanError(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e)
@@ -13,12 +14,28 @@ function cleanError(e: unknown): string {
  *   发：{ liuli: 1, id, method, params }    收：{ liuli: 1, id, result } 或 { liuli: 1, id, error }
  *   事件：{ liuli: 1, event: 'game.status', data }（有 game 权限时）
  * 界面相关的 ui.resize（设置高度）、ui.toast（显示一句提示）在这里直接处理
+ *
+ * widget：显示插件的主页小组件（manifest 里的 widget 页面），高度限制在 48～320，标题栏更小
  */
-function PluginHost({ plugin }: { plugin: PluginInfo }): JSX.Element {
+function PluginHost({
+  plugin,
+  widget = false,
+  onOpen,
+  onHide
+}: {
+  plugin: PluginInfo
+  widget?: boolean
+  /** 小组件：打开插件的完整页面 */
+  onOpen?: () => void
+  /** 小组件：不在主页显示 */
+  onHide?: () => void
+}): JSX.Element {
   const frameRef = useRef<HTMLIFrameElement>(null)
-  const [height, setHeight] = useState(480)
+  const range = widget ? PLUGIN_WIDGET_HEIGHT : { min: 120, max: 4000 }
+  const [height, setHeight] = useState(widget ? (plugin.widget?.height ?? 120) : 480)
   const [toast, setToast] = useState('')
-  const src = `liuli://plugin/${encodeURIComponent(plugin.id)}/${plugin.entry
+  const entry = widget && plugin.widget ? plugin.widget.entry : plugin.entry
+  const src = `liuli://plugin/${encodeURIComponent(plugin.id)}/${entry
     .split('/')
     .map(encodeURIComponent)
     .join('/')}?v=${encodeURIComponent(plugin.version)}`
@@ -38,7 +55,7 @@ function PluginHost({ plugin }: { plugin: PluginInfo }): JSX.Element {
       const params = (data.params && typeof data.params === 'object' ? data.params : {}) as Record<string, unknown>
       if (data.method === 'ui.resize') {
         const h = Number(params.height)
-        if (Number.isFinite(h)) setHeight(Math.round(Math.min(4000, Math.max(120, h))))
+        if (Number.isFinite(h)) setHeight(Math.round(Math.min(range.max, Math.max(range.min, h))))
         reply(true)
         return
       }
@@ -64,24 +81,53 @@ function PluginHost({ plugin }: { plugin: PluginInfo }): JSX.Element {
       window.removeEventListener('message', onMessage)
       off?.()
     }
-  }, [plugin.id, plugin.permissions])
+  }, [plugin.id, plugin.permissions, range.min, range.max])
 
   return (
     <section
-      className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/10 shadow-xl backdrop-blur-xl"
-      data-testid="plugin-host"
+      className="relative shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/10 shadow-xl backdrop-blur-xl"
+      data-testid={widget ? 'plugin-widget' : 'plugin-host'}
     >
-      <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2 text-xs text-white/50">
-        <Puzzle className="h-3.5 w-3.5 text-violet-300" />
-        <span className="font-medium text-white/80">{plugin.name}</span>
-        <span>v{plugin.version}</span>
-        {plugin.author && <span>· {plugin.author}</span>}
-        <span className="ml-auto">插件运行在沙箱里，碰不到你的账号和文件</span>
-      </div>
+      {widget ? (
+        <div className="flex items-center gap-1.5 px-3 pt-2 text-xs text-white/50">
+          <Puzzle className="h-3 w-3 text-violet-300" />
+          <span className="truncate font-medium text-white/70">{plugin.name}</span>
+          <div className="ml-auto flex items-center gap-0.5">
+            {onOpen && (
+              <button
+                onClick={onOpen}
+                title="打开插件"
+                aria-label={`打开 ${plugin.name}`}
+                className="rounded p-1 hover:bg-white/10 hover:text-white"
+              >
+                <ExternalLink className="h-3 w-3" />
+              </button>
+            )}
+            {onHide && (
+              <button
+                onClick={onHide}
+                title="不在主页显示（可以在插件管理里再打开）"
+                aria-label={`在主页隐藏 ${plugin.name}`}
+                className="rounded p-1 hover:bg-white/10 hover:text-white"
+              >
+                <EyeOff className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2 text-xs text-white/50">
+          <Puzzle className="h-3.5 w-3.5 text-violet-300" />
+          <span className="font-medium text-white/80">{plugin.name}</span>
+          <span>v{plugin.version}</span>
+          {plugin.author && <span>· {plugin.author}</span>}
+          <span className="ml-auto">插件运行在沙箱里，碰不到你的账号和文件</span>
+        </div>
+      )}
       <iframe
         ref={frameRef}
-        key={`${plugin.id}@${plugin.version}`}
-        title={plugin.name}
+        key={`${plugin.id}@${plugin.version}:${entry}`}
+        title={widget ? `${plugin.name}（小组件）` : plugin.name}
         src={src}
         sandbox="allow-scripts"
         referrerPolicy="no-referrer"

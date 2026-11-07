@@ -14,6 +14,7 @@ import MorePage from './pages/MorePage'
 import MultiplayerPage from './pages/MultiplayerPage'
 import AiPage from './pages/AiPage'
 import DropOverlay from './components/DropOverlay'
+import { setDroppedPlugin } from './utils/plugins'
 import PageErrorBoundary from './components/PageErrorBoundary'
 import UpdateNotice from './components/UpdateNotice'
 import AppSplashScreen, { shouldShowSplash } from './components/AppSplashScreen'
@@ -156,6 +157,10 @@ function App(): JSX.Element {
             onModpack={(info) => {
               setDroppedModpack(info)
               setPage('download')
+            }}
+            onPlugin={(pending) => {
+              setDroppedPlugin(pending)
+              setPage('more')
             }}
           />
           <main

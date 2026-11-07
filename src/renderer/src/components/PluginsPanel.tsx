@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Check, Loader2, Plus, Puzzle, ShieldCheck, Trash2, X } from 'lucide-react'
 import type { PluginInfo, PluginPending } from '../../../shared/types'
-import { PERMISSION_TEXT } from '../utils/plugins'
+import { PERMISSION_TEXT, onDroppedPlugin, takeDroppedPlugin } from '../utils/plugins'
 
 function cleanError(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e)
@@ -51,6 +51,23 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
         .catch((e) => setError(cleanError(e)))
     load()
     return window.api.onPluginsChanged(load)
+  }, [])
+
+  // 拖进窗口的插件：显示安装确认（还没确认的上一个丢掉）
+  const pendingRef = useRef(pending)
+  pendingRef.current = pending
+  useEffect(() => {
+    const take = (): void => {
+      const dropped = takeDroppedPlugin()
+      if (!dropped) return
+      const old = pendingRef.current
+      if (old && old.token !== dropped.token) void window.api.discardPlugin(old.token)
+      setError('')
+      setNotice('')
+      setPending(dropped)
+    }
+    take()
+    return onDroppedPlugin(take)
   }, [])
 
   const run = async (key: string, action: () => Promise<string | void>): Promise<void> => {
@@ -125,6 +142,9 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
             </span>
           </div>
           {pending.manifest.description && <div className="text-sm text-white/70">{pending.manifest.description}</div>}
+          {pending.manifest.widget && (
+            <div className="text-xs text-white/60">带一个主页小组件，装好后显示在主页上（可以在这里关掉）</div>
+          )}
           <div className="text-xs font-medium text-white/80">它需要这些权限：</div>
           <PermissionList plugin={pending.manifest} />
           <div className="flex justify-end gap-2">
@@ -181,6 +201,23 @@ function PluginsPanel({ onOpen }: { onOpen?: (id: string) => void }): JSX.Elemen
                     >
                       打开
                     </button>
+                  )}
+                  {p.widget && (
+                    <label className="flex items-center gap-1 text-xs text-white/60" title="把插件的小组件显示在主页上">
+                      <input
+                        type="checkbox"
+                        checked={p.widgetShown}
+                        disabled={!p.enabled || !!p.error || !!busy}
+                        onChange={(e) =>
+                          void run(`widget:${p.id}`, async () => {
+                            setPlugins(await window.api.setPluginWidgetShown(p.id, e.target.checked))
+                          })
+                        }
+                        aria-label={`在主页显示 ${p.name}`}
+                        className="accent-emerald-500"
+                      />
+                      主页小组件
+                    </label>
                   )}
                   <label className="flex items-center gap-1 text-xs text-white/60">
                     <input

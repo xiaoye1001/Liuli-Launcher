@@ -115,7 +115,7 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - **Version diff**: compare the mods and config files of two versions (for example before and after a modpack update)
 - **Map art generator**: convert an image to map colors, get the block list (in stacks and shulker boxes) and save it as a Litematica schematic to build from
 - **Recipe and trade lookup**: reads the recipes from the version's own game files to show how an item is made and what it is used for, plus common vanilla villager trades and job site blocks
-- **Plugins**: install .zip plugins under Toolbox → Plugins to add small tools to the launcher. Plugins run in an isolated sandbox with no access to accounts, login tokens, keys or files on your computer; the permissions a plugin asks for are listed before you agree to install it, and you can disable it, clear its data or uninstall it at any time. To make your own, see the [plugin guide](docs/plugins.md) (Chinese) and the [example plugin](docs/plugin-example/)
+- **Plugins**: install .zip plugins under Toolbox → Plugins (or drop them onto the launcher window); a plugin can add a **home screen widget** that you can place alongside recent plays and news to add small tools to the launcher. Plugins run in an isolated sandbox with no access to accounts, login tokens, keys or files on your computer; the permissions a plugin asks for are listed before you agree to install it, and you can disable it, clear its data or uninstall it at any time. To make your own, see the [plugin guide](docs/plugins.md) (Chinese) and the [example plugin](docs/plugin-example/)
 
 ### Accounts
 - Offline accounts, **Microsoft accounts** and authlib-injector skin sites such as LittleSkin

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Loader2, PackagePlus } from 'lucide-react'
-import type { ModpackInfo } from '../../../shared/types'
+import type { ModpackInfo, PluginPending } from '../../../shared/types'
 
 function cleanError(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e)
@@ -10,13 +10,16 @@ function cleanError(e: unknown): string {
 interface DropOverlayProps {
   /** 拖入的整合包读取成功 */
   onModpack: (info: ModpackInfo) => void
+  /** 拖入的是插件：已检查好，等用户在插件管理里确认权限 */
+  onPlugin: (pending: PluginPending) => void
 }
 
 /**
- * 全窗口拖放：把整合包（.mrpack / .zip）拖进启动器任意位置即可导入。
+ * 全窗口拖放：把整合包（.mrpack / .zip）拖进启动器任意位置即可导入；
+ * 拖入的 .zip 是插件（manifest.json 里写着插件 id）时改为安装插件。
  * 同时阻止浏览器默认的「打开拖入的文件」行为。
  */
-function DropOverlay({ onModpack }: DropOverlayProps): JSX.Element | null {
+function DropOverlay({ onModpack, onPlugin }: DropOverlayProps): JSX.Element | null {
   const [dragging, setDragging] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -24,6 +27,8 @@ function DropOverlay({ onModpack }: DropOverlayProps): JSX.Element | null {
   const depth = useRef(0)
   const onModpackRef = useRef(onModpack)
   onModpackRef.current = onModpack
+  const onPluginRef = useRef(onPlugin)
+  onPluginRef.current = onPlugin
 
   useEffect(() => {
     // 从文件管理器拖入时类型里有 Files；部分程序拖出的文件在拖动过程中类型为空，也按文件处理。
@@ -67,7 +72,7 @@ function DropOverlay({ onModpack }: DropOverlayProps): JSX.Element | null {
         return
       }
       if (!/\.(mrpack|zip)$/i.test(file.name)) {
-        showError('只支持拖入整合包（.mrpack 或 .zip 文件）')
+        showError('只支持拖入整合包（.mrpack 或 .zip 文件）或插件（.zip 文件）')
         return
       }
       const path = window.api.getPathForFile(file)
@@ -77,7 +82,10 @@ function DropOverlay({ onModpack }: DropOverlayProps): JSX.Element | null {
       }
       setLoading(true)
       try {
-        onModpackRef.current(await window.api.loadModpackFile(path))
+        // .zip 先看是不是插件，不是插件再按整合包读取
+        const plugin = /\.zip$/i.test(file.name) ? await window.api.preparePluginFile(path) : null
+        if (plugin) onPluginRef.current(plugin)
+        else onModpackRef.current(await window.api.loadModpackFile(path))
       } catch (err) {
         showError(cleanError(err))
       } finally {
@@ -101,7 +109,8 @@ function DropOverlay({ onModpack }: DropOverlayProps): JSX.Element | null {
   if (!dragging && !loading && !error) return null
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
+    // 拖动文件时盖住整个窗口（包括插件页面），放下的文件交给启动器，不会落到插件里
+    <div className={`fixed inset-0 z-50 flex items-center justify-center ${dragging ? '' : 'pointer-events-none'}`}>
       {(dragging || loading) && (
         <div className="absolute inset-3 flex flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-emerald-400/70 bg-black/60 backdrop-blur-sm">
           {loading ? (
@@ -109,10 +118,10 @@ function DropOverlay({ onModpack }: DropOverlayProps): JSX.Element | null {
           ) : (
             <PackagePlus className="h-12 w-12 text-emerald-300" />
           )}
-          <div className="text-lg font-semibold">{loading ? '正在读取整合包…' : '松开以导入整合包'}</div>
+          <div className="text-lg font-semibold">{loading ? '正在读取…' : '松开以导入整合包或安装插件'}</div>
           {!loading && (
             <div className="text-sm text-white/60">
-              支持 Modrinth（.mrpack）、CurseForge、MultiMC / Prism、MCBBS 整合包（.zip）
+              支持 Modrinth（.mrpack）、CurseForge、MultiMC / Prism、MCBBS 整合包（.zip）和启动器插件（.zip）
             </div>
           )}
         </div>

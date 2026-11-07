@@ -8,7 +8,7 @@
  *   联网只能访问 manifest 里写明的 https 网站，不跟随跳转
  * - 插件碰不到账号、登录令牌、密钥和电脑上的文件；每个插件只有自己的一小块存储
  */
-import { app, BrowserWindow, clipboard, dialog, net, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, nativeImage, net, shell } from 'electron'
 import { randomBytes } from 'crypto'
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'fs/promises'
 import { extname, join, resolve, sep } from 'path'
@@ -16,8 +16,12 @@ import { pathToFileURL } from 'url'
 import { open, readAllEntries, readEntry } from '@xmcl/unzip'
 import { getGameStatus, launchGame, listInstalledVersions } from './launch'
 import { notify } from './notify'
-import type { PluginInfo, PluginManifest, PluginPending, PluginPermission } from '../shared/types'
-import { PLUGIN_PERMISSIONS } from '../shared/types'
+import { listMods } from './mods'
+import { listWorldInfos } from './worlds'
+import { listScreenshots, screenshotPath } from './screenshots'
+import { listServers } from './servers'
+import type { PluginInfo, PluginManifest, PluginPending, PluginPermission, PluginWidget } from '../shared/types'
+import { PLUGIN_PERMISSIONS, PLUGIN_WIDGET_HEIGHT } from '../shared/types'
 
 const ROOT = join(app.getPath('userData'), 'plugins')
 const PENDING_DIR = join(ROOT, '.pending')
@@ -57,6 +61,8 @@ interface PluginState {
   id: string
   enabled: boolean
   installedAt: number
+  /** 小组件是不是显示在主页上（没写就是显示） */
+  widgetShown: boolean
 }
 
 // ---------- manifest ----------
@@ -106,6 +112,20 @@ export function parseManifest(raw: unknown): PluginManifest {
     throw new Error('申请了联网权限，但没有写要访问的网站（hosts）')
   if (!permissions.includes('network') && hosts.length > 0)
     throw new Error('写了要访问的网站（hosts），但没有申请联网权限（network）')
+  let widget: PluginWidget | null = null
+  if (m.widget !== undefined && m.widget !== null) {
+    const w = (typeof m.widget === 'object' && !Array.isArray(m.widget) ? m.widget : {}) as Record<string, unknown>
+    const widgetEntry = safeRelative(w.entry)
+    if (!widgetEntry || extname(widgetEntry).toLowerCase() !== '.html')
+      throw new Error('主页小组件（widget.entry）要是插件里的 .html 文件')
+    const height = Number(w.height ?? 120)
+    widget = {
+      entry: widgetEntry,
+      height: Number.isFinite(height)
+        ? Math.round(Math.min(PLUGIN_WIDGET_HEIGHT.max, Math.max(PLUGIN_WIDGET_HEIGHT.min, height)))
+        : 120
+    }
+  }
   return {
     id,
     name,
@@ -114,7 +134,8 @@ export function parseManifest(raw: unknown): PluginManifest {
     author: text(m.author, 40),
     entry,
     permissions,
-    hosts
+    hosts,
+    widget
   }
 }
 
@@ -125,7 +146,12 @@ async function readState(): Promise<PluginState[]> {
     const raw = JSON.parse(await readFile(STATE_FILE, 'utf-8')) as unknown
     return (Array.isArray(raw) ? raw : [])
       .filter((s): s is Record<string, unknown> => !!s && typeof s === 'object' && ID_RE.test(String(s.id)))
-      .map((s) => ({ id: String(s.id), enabled: s.enabled !== false, installedAt: Number(s.installedAt) || 0 }))
+      .map((s) => ({
+        id: String(s.id),
+        enabled: s.enabled !== false,
+        installedAt: Number(s.installedAt) || 0,
+        widgetShown: s.widgetShown !== false
+      }))
   } catch {
     return []
   }
@@ -149,7 +175,12 @@ export async function listPlugins(): Promise<PluginInfo[]> {
   const out: PluginInfo[] = []
   for (const s of await readState()) {
     try {
-      out.push({ ...(await manifestOf(s.id)), enabled: s.enabled, installedAt: s.installedAt })
+      out.push({
+        ...(await manifestOf(s.id)),
+        enabled: s.enabled,
+        installedAt: s.installedAt,
+        widgetShown: s.widgetShown
+      })
     } catch (e) {
       out.push({
         id: s.id,
@@ -160,8 +191,10 @@ export async function listPlugins(): Promise<PluginInfo[]> {
         entry: 'index.html',
         permissions: [],
         hosts: [],
+        widget: null,
         enabled: false,
         installedAt: s.installedAt,
+        widgetShown: false,
         error: `插件文件损坏：${e instanceof Error ? e.message : String(e)}`
       })
     }
@@ -193,6 +226,40 @@ export async function pickPlugin(win: BrowserWindow | null): Promise<PluginPendi
   const picked = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
   if (picked.canceled || !picked.filePaths[0]) return null
   return preparePlugin(picked.filePaths[0])
+}
+
+/**
+ * 拖进启动器的 zip：只看 manifest.json 判断是不是插件。是插件就和「安装插件」一样检查、等用户确认；
+ * 不是插件（例如整合包，CurseForge 整合包也有 manifest.json，但里面写的是 minecraft、files）返回 null
+ */
+export async function preparePluginFile(zipPath: unknown): Promise<PluginPending | null> {
+  if (typeof zipPath !== 'string' || !/\.zip$/i.test(zipPath)) return null
+  const info = await stat(zipPath).catch(() => null)
+  if (!info?.isFile() || info.size > MAX_TOTAL) return null
+  const zip = await open(zipPath).catch(() => null)
+  if (!zip) return null
+  let looksLikePlugin = false
+  try {
+    const entries = await readAllEntries(zip)
+    const names = entries.map((e) => e.fileName)
+    const top = names.includes('manifest.json') ? 'manifest.json' : names.find((n) => /^[^/]+\/manifest\.json$/.test(n))
+    const entry = top ? entries.find((e) => e.fileName === top) : undefined
+    if (entry && entry.uncompressedSize <= 64 * 1024) {
+      const raw = JSON.parse((await readEntry(zip, entry)).toString('utf-8')) as Record<string, unknown>
+      looksLikePlugin =
+        !!raw &&
+        typeof raw === 'object' &&
+        typeof raw.id === 'string' &&
+        !('minecraft' in raw) &&
+        !('manifestType' in raw) &&
+        !('files' in raw)
+    }
+  } catch {
+    // 读不出来就当作不是插件，交给整合包导入去报错
+  } finally {
+    zip.close()
+  }
+  return looksLikePlugin ? preparePlugin(zipPath) : null
 }
 
 export async function preparePlugin(zipPath: string): Promise<PluginPending> {
@@ -240,6 +307,9 @@ export async function preparePlugin(zipPath: string): Promise<PluginPending> {
     if (!(await stat(join(dir, ...manifest.entry.split('/'))).catch(() => null))?.isFile()) {
       throw new Error(`插件里没有入口文件 ${manifest.entry}`)
     }
+    if (manifest.widget && !(await stat(join(dir, ...manifest.widget.entry.split('/'))).catch(() => null))?.isFile()) {
+      throw new Error(`插件里没有小组件页面 ${manifest.widget.entry}`)
+    }
     const installed = (await readState()).find((s) => s.id === manifest.id)
     const old = installed ? await manifestOf(manifest.id).catch(() => null) : null
     if (!installed && (await readState()).length >= MAX_PLUGINS) throw new Error(`最多装 ${MAX_PLUGINS} 个插件`)
@@ -261,8 +331,11 @@ export async function installPlugin(token: unknown): Promise<PluginInfo[]> {
   const target = join(ROOT, item.manifest.id)
   await rm(target, { recursive: true, force: true })
   await rename(item.dir, target)
-  const state = (await readState()).filter((s) => s.id !== item.manifest.id)
-  state.push({ id: item.manifest.id, enabled: true, installedAt: Date.now() })
+  const state = await readState()
+  const old = state.find((s) => s.id === item.manifest.id)
+  // 更新时位置和「在主页显示小组件」的选择不变
+  if (old) Object.assign(old, { enabled: true, installedAt: Date.now() })
+  else state.push({ id: item.manifest.id, enabled: true, installedAt: Date.now(), widgetShown: true })
   await writeState(state)
   broadcast()
   return listPlugins()
@@ -280,6 +353,17 @@ export async function setPluginEnabled(id: unknown, enabled: unknown): Promise<P
   const s = list.find((x) => x.id === id)
   if (!s) throw new Error('找不到这个插件')
   s.enabled = enabled === true
+  await writeState(list)
+  broadcast()
+  return listPlugins()
+}
+
+/** 小组件在不在主页上显示 */
+export async function setPluginWidgetShown(id: unknown, shown: unknown): Promise<PluginInfo[]> {
+  const list = await readState()
+  const s = list.find((x) => x.id === id)
+  if (!s) throw new Error('找不到这个插件')
+  s.widgetShown = shown === true
   await writeState(list)
   broadcast()
   return listPlugins()
@@ -329,6 +413,20 @@ function pluginCsp(id: string): string {
   ].join('; ')
 }
 
+/**
+ * 插件页面最前面加的一段脚本：拖进插件页面的文件不交给插件（拖放由启动器处理：安装插件、导入整合包），
+ * 插件读不到用户拖进来的文件。它比插件自己的脚本先运行，在最外层先拦下拖放事件
+ */
+const DROP_GUARD =
+  '<script>(()=>{const s=(e)=>{e.preventDefault();e.stopImmediatePropagation();if(e.dataTransfer)e.dataTransfer.dropEffect="none"};' +
+  'for(const t of ["dragenter","dragover","drop"])window.addEventListener(t,s,true)})()</script>'
+
+function withDropGuard(html: string): string {
+  // 放在 <!doctype> 后面（放在它前面会让页面进入怪异模式），没有 doctype 时放在最前面
+  const doctype = /^\uFEFF?\s*<!doctype[^>]*>/i.exec(html)
+  return doctype ? doctype[0] + DROP_GUARD + html.slice(doctype[0].length) : DROP_GUARD + html
+}
+
 export async function pluginResponse(url: URL): Promise<Response> {
   try {
     const [id, ...rest] = url.pathname.replace(/^\//, '').split('/').map(decodeURIComponent)
@@ -342,9 +440,15 @@ export async function pluginResponse(url: URL): Promise<Response> {
     if (!type || !path.startsWith(base + sep) || !(await stat(path).catch(() => null))?.isFile()) {
       return new Response('Not found', { status: 404 })
     }
-    const file = await net.fetch(pathToFileURL(path).toString())
     const headers: Record<string, string> = { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff' }
-    if (ext === '.html' || ext === '.svg') headers['Content-Security-Policy'] = pluginCsp(id)
+    if (ext === '.html') {
+      headers['Content-Security-Policy'] = pluginCsp(id)
+      return new Response(withDropGuard(await readFile(path, 'utf-8')), { status: 200, headers })
+    }
+    // 直接打开的 SVG 不能运行脚本（当图片用时本来就不会运行）
+    if (ext === '.svg')
+      headers['Content-Security-Policy'] = "default-src 'none'; style-src 'unsafe-inline'; img-src data:"
+    const file = await net.fetch(pathToFileURL(path).toString())
     return new Response(file.body, { status: 200, headers })
   } catch {
     return new Response('Not found', { status: 404 })
@@ -379,7 +483,19 @@ const METHODS: Record<string, PluginPermission | null> = {
   notify: 'notifications',
   'net.fetch': 'network',
   'clipboard.writeText': 'clipboard',
-  'open.url': 'open-url'
+  'open.url': 'open-url',
+  'mods.list': 'mods',
+  'worlds.list': 'worlds',
+  'screenshots.list': 'screenshots',
+  'screenshots.thumbnail': 'screenshots',
+  'servers.list': 'servers'
+}
+
+/** 只能读已经安装的版本（版本名来自插件，先确认是真实存在的版本） */
+async function installedVersion(value: unknown): Promise<string> {
+  const versionId = typeof value === 'string' ? value : ''
+  if (!versionId || !(await listInstalledVersions()).some((v) => v.id === versionId)) throw new Error('没有这个版本')
+  return versionId
 }
 
 export async function callPlugin(id: unknown, method: unknown, params: unknown): Promise<unknown> {
@@ -439,6 +555,53 @@ export async function callPlugin(id: unknown, method: unknown, params: unknown):
     }
     case 'net.fetch':
       return pluginFetch(manifest, p)
+    // 下面这些只读，不返回电脑上的文件路径
+    case 'mods.list': {
+      const list = await listMods(await installedVersion(p.versionId))
+      return {
+        minecraftVersion: list.minecraftVersion,
+        loader: list.loader ?? null,
+        mods: list.mods.map((m) => ({
+          fileName: m.fileName,
+          name: m.name,
+          zhName: m.zhName ?? null,
+          modId: m.modId,
+          version: m.version,
+          enabled: m.enabled,
+          kind: m.kind
+        }))
+      }
+    }
+    case 'worlds.list': {
+      const list = await listWorldInfos(await installedVersion(p.versionId))
+      return list.worlds.map((w) => ({
+        folder: w.folder,
+        name: w.name,
+        gameMode: w.gameMode,
+        hardcore: w.hardcore,
+        version: w.version,
+        lastPlayed: w.lastPlayed
+      }))
+    }
+    case 'screenshots.list': {
+      const list = await listScreenshots(await installedVersion(p.versionId))
+      const limit = Math.min(500, Math.max(1, Math.floor(Number(p.limit) || 100)))
+      return list.items.slice(0, limit).map((s) => ({ fileName: s.fileName, time: s.time, size: s.size }))
+    }
+    case 'screenshots.thumbnail': {
+      const path = await screenshotPath(await installedVersion(p.versionId), String(p.fileName ?? ''))
+      const info = await stat(path).catch(() => null)
+      if (!info?.isFile()) throw new Error('没有这张截图')
+      if (info.size > 64 * 1024 * 1024) throw new Error('截图太大了')
+      const image = nativeImage.createFromPath(path)
+      if (image.isEmpty()) throw new Error('读不出这张截图')
+      const width = Math.min(1024, Math.max(32, Math.floor(Number(p.width) || 320)))
+      const size = image.getSize()
+      const small = size.width > width ? image.resize({ width, quality: 'good' }) : image
+      return `data:image/jpeg;base64,${small.toJPEG(82).toString('base64')}`
+    }
+    case 'servers.list':
+      return (await listServers()).map((s) => ({ name: s.name, address: s.address, versionId: s.versionId }))
   }
   throw new Error('没有这个接口')
 }

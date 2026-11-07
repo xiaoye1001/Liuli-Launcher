@@ -429,13 +429,25 @@ export type NavPosition = 'left' | 'right' | 'top'
 export const NAV_PAGES = ['home', 'account', 'versions', 'servers', 'download', 'multiplayer', 'ai', 'more', 'settings']
 
 /** 主页可以排顺序的模块（默认顺序）：最近游玩、Minecraft 新闻、欢迎卡片 */
-export const HOME_MODULES = ['recent', 'news', 'hero']
+export const HOME_MODULES = ['recent', 'news', 'plugins', 'hero']
 
-/** 整理用户排的顺序：只留认识的、不重复的，少了的按默认顺序补在后面 */
+/**
+ * 整理用户排的顺序：只留认识的、不重复的；少了的（例如新版本新加的）放在默认顺序里它前面那一项的后面，
+ * 前面没有已排好的项时放在最后（用户排好的顺序不变）
+ */
 export function normalizeOrder(input: unknown, all: readonly string[]): string[] {
   const list = Array.isArray(input) ? input.filter((x): x is string => typeof x === 'string' && all.includes(x)) : []
-  const unique = [...new Set(list)]
-  return [...unique, ...all.filter((x) => !unique.includes(x))]
+  const out = [...new Set(list)]
+  all.forEach((x, i) => {
+    if (out.includes(x)) return
+    const prev = all
+      .slice(0, i)
+      .reverse()
+      .find((y) => out.includes(y))
+    if (prev) out.splice(out.indexOf(prev) + 1, 0, x)
+    else out.push(x)
+  })
+  return out
 }
 
 /** 可选的界面缩放比例（%） */
@@ -2396,7 +2408,18 @@ export function sanitizePageLayouts(input: unknown): Record<string, PageLayout> 
 }
 
 /** 插件可以申请的权限 */
-export type PluginPermission = 'versions' | 'launch' | 'game' | 'notifications' | 'network' | 'clipboard' | 'open-url'
+export type PluginPermission =
+  | 'versions'
+  | 'launch'
+  | 'game'
+  | 'notifications'
+  | 'network'
+  | 'clipboard'
+  | 'open-url'
+  | 'mods'
+  | 'worlds'
+  | 'screenshots'
+  | 'servers'
 
 export const PLUGIN_PERMISSIONS: PluginPermission[] = [
   'versions',
@@ -2405,7 +2428,11 @@ export const PLUGIN_PERMISSIONS: PluginPermission[] = [
   'notifications',
   'network',
   'clipboard',
-  'open-url'
+  'open-url',
+  'mods',
+  'worlds',
+  'screenshots',
+  'servers'
 ]
 
 /** 插件的 manifest.json（检查过的） */
@@ -2420,11 +2447,25 @@ export interface PluginManifest {
   permissions: PluginPermission[]
   /** 联网可以访问的网站（申请了 network 权限时） */
   hosts: string[]
+  /** 主页小组件：插件里的另一个页面，显示在主页上（没有就是 null） */
+  widget: PluginWidget | null
 }
+
+export interface PluginWidget {
+  /** 小组件页面（插件里的 .html） */
+  entry: string
+  /** 一开始的高度（像素），之后可以用 ui.resize 调整 */
+  height: number
+}
+
+/** 主页小组件的高度范围 */
+export const PLUGIN_WIDGET_HEIGHT = { min: 48, max: 320 }
 
 export interface PluginInfo extends PluginManifest {
   enabled: boolean
   installedAt: number
+  /** 有小组件时：是不是显示在主页上（默认显示） */
+  widgetShown: boolean
   /** 插件文件坏了时的原因 */
   error?: string
 }
