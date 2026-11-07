@@ -28,6 +28,7 @@ import type {
   P2PCoreStatus
 } from '../../../shared/types'
 import PageHeader from '../components/PageHeader'
+import { BlockLayout, LayoutBlock } from '../components/BlockLayout'
 
 const MODES: { key: MultiplayerMode; title: string; desc: string; icon: LucideIcon; tint: string }[] = [
   {
@@ -437,182 +438,194 @@ function MultiplayerPage(): JSX.Element {
 
   return (
     <div className="page-scroll flex h-full flex-col gap-4">
-      <PageHeader title="联机" subtitle="和好友一起玩：创建房间把房间码发给好友，或者粘贴好友的房间码加入" />
+      <PageHeader
+        title="联机"
+        subtitle="和好友一起玩：创建房间把房间码发给好友，或者粘贴好友的房间码加入"
+        layoutPage="multiplayer"
+      />
 
-      {active && status && <RoomCard status={status} core={core} onCoreChange={refreshCore} />}
+      <BlockLayout page="multiplayer" gap="gap-4">
+        <LayoutBlock id="room" title="房间（创建、加入、当前房间）">
+          {active && status && <RoomCard status={status} core={core} onCoreChange={refreshCore} />}
 
-      {!active && (
-        <section className="rounded-2xl border border-white/10 bg-white/10 p-5 shadow-2xl backdrop-blur-xl">
-          {/* 创建 / 加入 */}
-          <div className="flex gap-2" role="tablist">
-            {(
-              [
-                { key: 'host', label: '创建房间', icon: Plus },
-                { key: 'join', label: '加入房间', icon: LogIn }
-              ] as const
-            ).map((item) => (
-              <button
-                key={item.key}
-                role="tab"
-                aria-selected={tab === item.key}
-                onClick={() => {
-                  setTab(item.key)
-                  setError('')
-                }}
-                className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm transition-colors ${
-                  tab === item.key ? 'bg-emerald-500 font-medium text-white' : 'bg-white/10 hover:bg-white/20'
-                }`}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          {tab === 'host' ? (
-            <div className="mt-4 space-y-4">
-              {/* 本机对局域网开放的世界 */}
-              <div className="flex items-center gap-3 rounded-xl bg-black/20 px-4 py-3">
-                <Radio className={`h-5 w-5 shrink-0 ${lanGame ? 'text-emerald-300' : 'text-white/40'}`} />
-                <div className="min-w-0 flex-1 text-sm">
-                  {lanGame ? (
-                    <>
-                      已检测到对局域网开放的世界：<span className="font-medium">{lanGame.motd || '未命名世界'}</span>
-                      <span className="ml-2 text-xs text-white/50">端口 {lanGame.port}</span>
-                    </>
-                  ) : (
-                    <span className="text-white/60">
-                      进入游戏后按 Esc，点「对局域网开放」，这里会自动识别端口
-                      {mode !== 'tunnel' && '；也可以在右边手动填写端口'}
-                    </span>
-                  )}
-                </div>
-                {mode !== 'tunnel' && (
-                  <input
-                    value={manualPort}
-                    onChange={(e) => setManualPort(e.target.value.replace(/\D/g, '').slice(0, 5))}
-                    placeholder={lanGame ? String(lanGame.port) : '端口'}
-                    className="w-24 shrink-0 rounded-lg bg-black/30 px-3 py-1.5 text-sm outline-none placeholder:text-white/30 focus:ring-1 focus:ring-emerald-400"
-                  />
-                )}
+          {!active && (
+            <section className="rounded-2xl border border-white/10 bg-white/10 p-5 shadow-2xl backdrop-blur-xl">
+              {/* 创建 / 加入 */}
+              <div className="flex gap-2" role="tablist">
+                {(
+                  [
+                    { key: 'host', label: '创建房间', icon: Plus },
+                    { key: 'join', label: '加入房间', icon: LogIn }
+                  ] as const
+                ).map((item) => (
+                  <button
+                    key={item.key}
+                    role="tab"
+                    aria-selected={tab === item.key}
+                    onClick={() => {
+                      setTab(item.key)
+                      setError('')
+                    }}
+                    className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm transition-colors ${
+                      tab === item.key ? 'bg-emerald-500 font-medium text-white' : 'bg-white/10 hover:bg-white/20'
+                    }`}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </button>
+                ))}
               </div>
 
-              {/* 三种联机方式 */}
-              <div className="grid grid-cols-3 gap-3">
-                {MODES.map((item) => {
-                  const selected = mode === item.key
-                  return (
-                    <button
-                      key={item.key}
-                      onClick={() => setMode(item.key)}
-                      // 内容从顶部排列：说明行数不同的卡片，标题也在同一高度
-                      className={`flex flex-col justify-start rounded-xl border p-3 text-left transition-colors ${
-                        selected
-                          ? 'border-emerald-400/50 bg-emerald-500/15'
-                          : 'border-white/5 bg-black/20 hover:bg-black/30'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 text-sm font-medium">
-                        <item.icon className={`h-4 w-4 ${item.tint}`} />
-                        {item.title}
-                      </div>
-                      <div className="mt-1 text-xs text-white/50">{item.desc}</div>
-                      {item.key === 'direct' && addresses && (
-                        <div
-                          className={`mt-2 text-xs ${addresses.ipv6.length > 0 ? 'text-emerald-300' : 'text-amber-300'}`}
+              {tab === 'host' ? (
+                <div className="mt-4 space-y-4">
+                  {/* 本机对局域网开放的世界 */}
+                  <div className="flex items-center gap-3 rounded-xl bg-black/20 px-4 py-3">
+                    <Radio className={`h-5 w-5 shrink-0 ${lanGame ? 'text-emerald-300' : 'text-white/40'}`} />
+                    <div className="min-w-0 flex-1 text-sm">
+                      {lanGame ? (
+                        <>
+                          已检测到对局域网开放的世界：
+                          <span className="font-medium">{lanGame.motd || '未命名世界'}</span>
+                          <span className="ml-2 text-xs text-white/50">端口 {lanGame.port}</span>
+                        </>
+                      ) : (
+                        <span className="text-white/60">
+                          进入游戏后按 Esc，点「对局域网开放」，这里会自动识别端口
+                          {mode !== 'tunnel' && '；也可以在右边手动填写端口'}
+                        </span>
+                      )}
+                    </div>
+                    {mode !== 'tunnel' && (
+                      <input
+                        value={manualPort}
+                        onChange={(e) => setManualPort(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                        placeholder={lanGame ? String(lanGame.port) : '端口'}
+                        className="w-24 shrink-0 rounded-lg bg-black/30 px-3 py-1.5 text-sm outline-none placeholder:text-white/30 focus:ring-1 focus:ring-emerald-400"
+                      />
+                    )}
+                  </div>
+
+                  {/* 三种联机方式 */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {MODES.map((item) => {
+                      const selected = mode === item.key
+                      return (
+                        <button
+                          key={item.key}
+                          onClick={() => setMode(item.key)}
+                          // 内容从顶部排列：说明行数不同的卡片，标题也在同一高度
+                          className={`flex flex-col justify-start rounded-xl border p-3 text-left transition-colors ${
+                            selected
+                              ? 'border-emerald-400/50 bg-emerald-500/15'
+                              : 'border-white/5 bg-black/20 hover:bg-black/30'
+                          }`}
                         >
-                          {addresses.ipv6.length > 0
-                            ? '本机有公网 IPv6'
-                            : addresses.ipv4Public.length > 0
-                              ? '本机有公网 IPv4'
-                              : '本机没有公网地址，仅限同一局域网'}
-                        </div>
-                      )}
-                      {item.key === 'p2p' && core && (
-                        <div className={`mt-2 text-xs ${core.installed ? 'text-emerald-300' : 'text-amber-300'}`}>
-                          {core.installed ? '联机内核已就绪' : '首次使用需下载联机内核'}
-                        </div>
-                      )}
+                          <div className="flex items-center gap-2 text-sm font-medium">
+                            <item.icon className={`h-4 w-4 ${item.tint}`} />
+                            {item.title}
+                          </div>
+                          <div className="mt-1 text-xs text-white/50">{item.desc}</div>
+                          {item.key === 'direct' && addresses && (
+                            <div
+                              className={`mt-2 text-xs ${addresses.ipv6.length > 0 ? 'text-emerald-300' : 'text-amber-300'}`}
+                            >
+                              {addresses.ipv6.length > 0
+                                ? '本机有公网 IPv6'
+                                : addresses.ipv4Public.length > 0
+                                  ? '本机有公网 IPv4'
+                                  : '本机没有公网地址，仅限同一局域网'}
+                            </div>
+                          )}
+                          {item.key === 'p2p' && core && (
+                            <div className={`mt-2 text-xs ${core.installed ? 'text-emerald-300' : 'text-amber-300'}`}>
+                              {core.installed ? '联机内核已就绪' : '首次使用需下载联机内核'}
+                            </div>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {mode === 'p2p' && (
+                    <div className="space-y-3 rounded-xl bg-black/20 px-4 py-3">
+                      <CoreDownload core={core} onChange={refreshCore} />
+                      <label className="block text-xs text-white/50">
+                        自定义中继服务器（可选，留空使用默认的公共节点；房间码会带上它，好友自动使用同一个）
+                        <input
+                          value={relay}
+                          onChange={(e) => setRelay(e.target.value)}
+                          placeholder="tcp://example.com:11010"
+                          className="mt-1 w-full rounded-lg bg-black/30 px-3 py-1.5 text-sm text-white outline-none placeholder:text-white/30 focus:ring-1 focus:ring-emerald-400"
+                        />
+                      </label>
+                    </div>
+                  )}
+
+                  {mode === 'tunnel' && (
+                    <label className="block rounded-xl bg-black/20 px-4 py-3 text-xs text-white/50">
+                      穿透地址：在樱花穿透、ChmlFrp、Cloudflare Tunnel
+                      等工具里，把本机游戏的局域网端口映射出去后得到的地址
+                      <input
+                        value={tunnelAddress}
+                        onChange={(e) => setTunnelAddress(e.target.value)}
+                        placeholder="例如 frp-abc.example.com:12345"
+                        className="mt-1 w-full rounded-lg bg-black/30 px-3 py-1.5 text-sm text-white outline-none placeholder:text-white/30 focus:ring-1 focus:ring-emerald-400"
+                      />
+                    </label>
+                  )}
+
+                  <div className="flex items-center justify-end gap-3">
+                    {error && <span className="mr-auto text-sm text-rose-300">{error}</span>}
+                    <button
+                      onClick={create}
+                      disabled={!canCreate}
+                      className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                      创建房间
                     </button>
-                  )
-                })}
-              </div>
-
-              {mode === 'p2p' && (
-                <div className="space-y-3 rounded-xl bg-black/20 px-4 py-3">
-                  <CoreDownload core={core} onChange={refreshCore} />
-                  <label className="block text-xs text-white/50">
-                    自定义中继服务器（可选，留空使用默认的公共节点；房间码会带上它，好友自动使用同一个）
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  <div className="flex gap-3">
                     <input
-                      value={relay}
-                      onChange={(e) => setRelay(e.target.value)}
-                      placeholder="tcp://example.com:11010"
-                      className="mt-1 w-full rounded-lg bg-black/30 px-3 py-1.5 text-sm text-white outline-none placeholder:text-white/30 focus:ring-1 focus:ring-emerald-400"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && code.trim() && !busy && join()}
+                      placeholder="粘贴好友发来的房间码，例如 MCL-P2P-XXXX-XXXX-XXXX"
+                      className="min-w-0 flex-1 rounded-xl bg-black/30 px-4 py-2.5 font-mono text-sm outline-none placeholder:font-sans placeholder:text-white/30 focus:ring-1 focus:ring-emerald-400"
                     />
-                  </label>
+                    <button
+                      onClick={join}
+                      disabled={!code.trim() || busy}
+                      className="flex shrink-0 items-center gap-1.5 rounded-xl bg-emerald-500 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+                      加入
+                    </button>
+                  </div>
+                  <div className="text-xs text-white/50">
+                    {joinMode
+                      ? `识别为「${MODE_LABELS[joinMode]}」房间码`
+                      : '支持三种房间码：MCL-D-（极速直连）、MCL-P2P-（P2P 组网）、MCL-T-（内网穿透）'}
+                  </div>
+                  {joinMode === 'p2p' && core && !core.installed && (
+                    <div className="rounded-xl bg-black/20 px-4 py-3">
+                      <CoreDownload core={core} onChange={refreshCore} />
+                    </div>
+                  )}
+                  {error && <div className="text-sm text-rose-300">{error}</div>}
                 </div>
               )}
-
-              {mode === 'tunnel' && (
-                <label className="block rounded-xl bg-black/20 px-4 py-3 text-xs text-white/50">
-                  穿透地址：在樱花穿透、ChmlFrp、Cloudflare Tunnel 等工具里，把本机游戏的局域网端口映射出去后得到的地址
-                  <input
-                    value={tunnelAddress}
-                    onChange={(e) => setTunnelAddress(e.target.value)}
-                    placeholder="例如 frp-abc.example.com:12345"
-                    className="mt-1 w-full rounded-lg bg-black/30 px-3 py-1.5 text-sm text-white outline-none placeholder:text-white/30 focus:ring-1 focus:ring-emerald-400"
-                  />
-                </label>
-              )}
-
-              <div className="flex items-center justify-end gap-3">
-                {error && <span className="mr-auto text-sm text-rose-300">{error}</span>}
-                <button
-                  onClick={create}
-                  disabled={!canCreate}
-                  className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  创建房间
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-4 space-y-3">
-              <div className="flex gap-3">
-                <input
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && code.trim() && !busy && join()}
-                  placeholder="粘贴好友发来的房间码，例如 MCL-P2P-XXXX-XXXX-XXXX"
-                  className="min-w-0 flex-1 rounded-xl bg-black/30 px-4 py-2.5 font-mono text-sm outline-none placeholder:font-sans placeholder:text-white/30 focus:ring-1 focus:ring-emerald-400"
-                />
-                <button
-                  onClick={join}
-                  disabled={!code.trim() || busy}
-                  className="flex shrink-0 items-center gap-1.5 rounded-xl bg-emerald-500 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
-                  加入
-                </button>
-              </div>
-              <div className="text-xs text-white/50">
-                {joinMode
-                  ? `识别为「${MODE_LABELS[joinMode]}」房间码`
-                  : '支持三种房间码：MCL-D-（极速直连）、MCL-P2P-（P2P 组网）、MCL-T-（内网穿透）'}
-              </div>
-              {joinMode === 'p2p' && core && !core.installed && (
-                <div className="rounded-xl bg-black/20 px-4 py-3">
-                  <CoreDownload core={core} onChange={refreshCore} />
-                </div>
-              )}
-              {error && <div className="text-sm text-rose-300">{error}</div>}
-            </div>
+            </section>
           )}
-        </section>
-      )}
+        </LayoutBlock>
 
-      <ModInstaller />
+        <LayoutBlock id="mods" title="联机模组">
+          <ModInstaller />
+        </LayoutBlock>
+      </BlockLayout>
     </div>
   )
 }

@@ -33,6 +33,7 @@ export type Appearance = Pick<
   | 'homeLaunchSide'
   | 'homeModuleOrder'
   | 'homeAlign'
+  | 'pageLayouts'
   | 'welcomeTitle'
   | 'welcomeSubtitle'
 >
@@ -67,6 +68,7 @@ let current: Appearance = {
   homeLaunchSide: 'right',
   homeModuleOrder: [...HOME_MODULES],
   homeAlign: 'bottom',
+  pageLayouts: {},
   welcomeTitle: '',
   welcomeSubtitle: ''
 }
@@ -102,6 +104,7 @@ function apply(settings: AppSettings): void {
     homeLaunchSide: settings.homeLaunchSide === 'left' ? 'left' : 'right',
     homeModuleOrder: normalizeOrder(settings.homeModuleOrder, HOME_MODULES),
     homeAlign: settings.homeAlign === 'top' ? 'top' : 'bottom',
+    pageLayouts: settings.pageLayouts && typeof settings.pageLayouts === 'object' ? settings.pageLayouts : {},
     welcomeTitle: settings.welcomeTitle ?? '',
     welcomeSubtitle: settings.welcomeSubtitle ?? ''
   }

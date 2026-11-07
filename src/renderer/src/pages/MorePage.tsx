@@ -43,6 +43,7 @@ import VersionDiffPanel from '../components/VersionDiffPanel'
 import MapArtPanel from '../components/MapArtPanel'
 import RecipeLookupPanel from '../components/RecipeLookupPanel'
 import PageHeader from '../components/PageHeader'
+import { BlockLayout, LayoutBlock } from '../components/BlockLayout'
 
 type ToolKey =
   | 'download'
@@ -287,6 +288,7 @@ function MorePage(): JSX.Element {
       <PageHeader
         title="更多"
         subtitle="百宝箱：按分类放好的小工具"
+        layoutPage="more"
         actions={
           <div className="flex rounded-xl bg-black/20 p-1" role="tablist" aria-label="百宝箱分类">
             {GROUPS.map((g) => (
@@ -309,54 +311,60 @@ function MorePage(): JSX.Element {
         }
       />
 
-      {/* 这个分类的工具 */}
-      <div className="grid shrink-0 grid-cols-3 gap-3" role="tablist" aria-label={groupInfo.title}>
-        {tools.map((tool) => {
-          const Icon = tool.icon
-          const active = tool.key === current
-          return (
-            <button
-              key={tool.key}
-              data-tool={tool.key}
-              role="tab"
-              aria-selected={active}
-              onClick={() => select(tool.key)}
-              className={`relative flex items-center gap-3 rounded-2xl border p-3 text-left backdrop-blur-xl transition-colors ${
-                active
-                  ? 'border-emerald-400/40 bg-emerald-500/10 shadow-lg shadow-emerald-500/10'
-                  : 'border-white/10 bg-white/5 hover:bg-white/10'
-              }`}
-            >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/20">
-                <Icon className={`h-5 w-5 ${tool.tint}`} />
-              </div>
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium">{tool.title}</div>
-                <div className="truncate text-xs text-white/50">{tool.desc}</div>
-              </div>
-            </button>
-          )
-        })}
-      </div>
+      <BlockLayout page="more" gap="gap-4">
+        <LayoutBlock id="tools" title="工具卡片">
+          {/* 这个分类的工具 */}
+          <div className="grid shrink-0 grid-cols-3 gap-3" role="tablist" aria-label={groupInfo.title}>
+            {tools.map((tool) => {
+              const Icon = tool.icon
+              const active = tool.key === current
+              return (
+                <button
+                  key={tool.key}
+                  data-tool={tool.key}
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => select(tool.key)}
+                  className={`relative flex items-center gap-3 rounded-2xl border p-3 text-left backdrop-blur-xl transition-colors ${
+                    active
+                      ? 'border-emerald-400/40 bg-emerald-500/10 shadow-lg shadow-emerald-500/10'
+                      : 'border-white/10 bg-white/5 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-black/20">
+                    <Icon className={`h-5 w-5 ${tool.tint}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{tool.title}</div>
+                    <div className="truncate text-xs text-white/50">{tool.desc}</div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </LayoutBlock>
 
-      {current === 'download' && <FastDownloadPanel />}
-      {current === 'clean' && <CleanerPanel />}
-      {current === 'java' && <JavaCheckPanel />}
-      {current === 'speed' && <SpeedTestPanel />}
-      {current === 'report' && <PlayReportPanel />}
-      {current === 'achievements' && <AchievementsPanel />}
-      {current === 'crashes' && <CrashHistoryPanel />}
-      {current === 'seeds' && <SeedFavoritesPanel />}
-      {current === 'calc' && <MinecraftToolsPanel />}
-      {current === 'slime' && <SlimeChunksPanel />}
-      {current === 'server' && <LocalServerPanel />}
-      {current === 'commands' && <CommandGeneratorPanel />}
-      {current === 'enchant' && <EnchantCalculatorPanel />}
-      {current === 'multi' && <MultiInstancePanel />}
-      {current === 'redstone' && <RedstoneToolsPanel />}
-      {current === 'diff' && <VersionDiffPanel />}
-      {current === 'mapart' && <MapArtPanel />}
-      {current === 'recipes' && <RecipeLookupPanel />}
+        <LayoutBlock id="panel" title="打开的工具">
+          {current === 'download' && <FastDownloadPanel />}
+          {current === 'clean' && <CleanerPanel />}
+          {current === 'java' && <JavaCheckPanel />}
+          {current === 'speed' && <SpeedTestPanel />}
+          {current === 'report' && <PlayReportPanel />}
+          {current === 'achievements' && <AchievementsPanel />}
+          {current === 'crashes' && <CrashHistoryPanel />}
+          {current === 'seeds' && <SeedFavoritesPanel />}
+          {current === 'calc' && <MinecraftToolsPanel />}
+          {current === 'slime' && <SlimeChunksPanel />}
+          {current === 'server' && <LocalServerPanel />}
+          {current === 'commands' && <CommandGeneratorPanel />}
+          {current === 'enchant' && <EnchantCalculatorPanel />}
+          {current === 'multi' && <MultiInstancePanel />}
+          {current === 'redstone' && <RedstoneToolsPanel />}
+          {current === 'diff' && <VersionDiffPanel />}
+          {current === 'mapart' && <MapArtPanel />}
+          {current === 'recipes' && <RecipeLookupPanel />}
+        </LayoutBlock>
+      </BlockLayout>
     </div>
   )
 }

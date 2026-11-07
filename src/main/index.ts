@@ -314,6 +314,7 @@ import type {
 } from '../shared/types'
 import {
   HIDEABLE_PAGES,
+  sanitizePageLayouts,
   HOME_MODULES,
   NAV_PAGES,
   normalizeOrder,
@@ -406,6 +407,7 @@ async function applySettingsInput(input: unknown): Promise<AppSettings> {
   if ('navOrder' in patch) patch = { ...patch, navOrder: normalizeOrder(patch.navOrder, NAV_PAGES) }
   if ('homeModuleOrder' in patch)
     patch = { ...patch, homeModuleOrder: normalizeOrder(patch.homeModuleOrder, HOME_MODULES) }
+  if ('pageLayouts' in patch) patch = { ...patch, pageLayouts: sanitizePageLayouts(patch.pageLayouts) }
   if ('fontFamily' in patch) patch = { ...patch, fontFamily: sanitizeFontFamily(patch.fontFamily) }
   const next = await updateSettings(patch)
   // 代理与下载线程数立即生效

@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto'
 import { homedir, totalmem } from 'os'
 import { basename, dirname, join, resolve } from 'path'
 import type { AppSettings, GameDirEntry, OfflineAccount } from '../shared/types'
-import { HOME_MODULES, NAV_PAGES, normalizeOrder } from '../shared/types'
+import { HOME_MODULES, NAV_PAGES, normalizeOrder, sanitizePageLayouts } from '../shared/types'
 import { AI_PROVIDERS, AI_PROVIDER_IDS } from '../shared/aiProviders'
 import { portableDir } from './paths'
 
@@ -150,6 +150,7 @@ function defaultSettings(): AppSettings {
     homeLaunchSide: 'right',
     homeModuleOrder: [...HOME_MODULES],
     homeAlign: 'bottom',
+    pageLayouts: {},
     welcomeTitle: '',
     welcomeSubtitle: '',
     afterLaunch: 'keep',
@@ -236,6 +237,7 @@ function checkedSettings(input: unknown, defaults: AppSettings, allowManaged: bo
   if (Array.isArray(result.navOrder)) result.navOrder = normalizeOrder(result.navOrder, NAV_PAGES)
   if (Array.isArray(result.homeModuleOrder))
     result.homeModuleOrder = normalizeOrder(result.homeModuleOrder, HOME_MODULES)
+  if (isPlainObject(result.pageLayouts)) result.pageLayouts = sanitizePageLayouts(result.pageLayouts)
   if (typeof result.skinDataUrl === 'string' && result.skinDataUrl !== '') {
     // 皮肤只能是不超过 1 MB 的 PNG
     if (!result.skinDataUrl.startsWith('data:image/png;base64,') || result.skinDataUrl.length > 1_500_000) {

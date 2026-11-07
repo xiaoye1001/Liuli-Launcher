@@ -26,6 +26,7 @@ import type { ModpackInfo, ResourceType } from '../../shared/types'
 import { DEFAULT_TITLE, useAppearance, useAppearanceLoaded } from './utils/appearance'
 import DynamicBackground from './components/DynamicBackground'
 import { ThemeProvider } from './context/ThemeContext'
+import { setLayoutEditing } from './components/BlockLayout'
 
 interface PageContext {
   droppedModpack: ModpackInfo | null
@@ -124,6 +125,8 @@ function App(): JSX.Element {
   useEffect(() => {
     if (!appearance.animations) setSplash(false)
   }, [appearance.animations])
+  // 换页面时退出「编辑布局」
+  useEffect(() => setLayoutEditing(null), [page])
   // 在设置里隐藏了当前所在的页面时回到主页（从其它页面跳转过去仍然可以打开）
   // 依赖用字符串：其它设置变化时数组会重新生成，不能因此跳走
   const hiddenKey = appearance.hiddenPages.join(',')

@@ -128,6 +128,7 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - A **daily goal** on the home screen (a small in-game challenge each day; keep a streak to unlock an achievement) and **on this day** (screenshots you took on today's date in earlier years)
 - **Ctrl+K quick search** for pages, settings, tools and versions
 - **Custom layout**: put the navigation bar on the left, right or top and reorder its pages; put the home screen's launch area on the left or right, reorder recent plays, news and the welcome card, and align the content to the bottom or top
+- **Page layout editor**: on settings, account, version settings, download, servers, multiplayer, AI assistant, toolbox and other pages, click "Edit layout" in the title bar to drag or move blocks, hide the ones you don't use and put them full width or in the left / right column; each page is saved separately and can be reset
 - **Play report** (weekly play time, most-played versions) with a shareable **yearly report image**
 - 23 **launcher achievements** (including hidden ones) with an in-game style toast
 - Background music player, click effects and official Minecraft news

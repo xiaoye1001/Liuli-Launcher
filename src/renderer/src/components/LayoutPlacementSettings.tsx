@@ -201,7 +201,8 @@ function LayoutPlacementSettings({ settings, update }: Props): JSX.Element {
         />
       </div>
       <div className="mt-1.5 text-xs text-white/40">
-        窗口比较窄时，主页的欢迎卡片和启动区会合成一张卡片，按「欢迎卡片」的位置摆放
+        窗口比较窄时，主页的欢迎卡片和启动区会合成一张卡片，按「欢迎卡片」的位置摆放。
+        其他页面（设置、账号、版本设置、下载、服务器、联机、AI 助手、更多……）点标题栏右边的「编辑布局」自己排
       </div>
     </div>
   )

@@ -30,6 +30,7 @@ import {
 import VersionIconPicker from '../components/VersionIconPicker'
 import ModpackUpdateDialog from '../components/ModpackUpdateDialog'
 import PageHeader from '../components/PageHeader'
+import { BlockLayout, LayoutBlock } from '../components/BlockLayout'
 import { EmptyState, LoadingState } from '../components/EmptyState'
 import { formatDuration } from '../utils/format'
 import InstallProgressCard from '../components/InstallProgressCard'
@@ -483,6 +484,7 @@ function VersionsPage({
         className={`flex h-full flex-col gap-4 ${settingsFor || modsFor || resourcesFor || worldsFor || exportFor ? 'hidden' : ''}`}
       >
         <PageHeader
+          layoutPage="versions"
           title="版本"
           subtitle={
             <>
@@ -536,253 +538,263 @@ function VersionsPage({
           }
         />
 
-        {/* 检查修复的进度 */}
-        <AnimatePresence>
-          {install && (
-            <InstallProgressCard
-              status={install}
-              onCancel={() => window.api.cancelInstall()}
-              onRetry={() =>
-                install.kind === 'repair' ? repair(install.versionId) : run(() => window.api.retryInstall())
-              }
-              onDismiss={() => setInstall(null)}
-            />
-          )}
-        </AnimatePresence>
-        <ShareStatus control={share} />
-        {notice && (
-          <div className="flex items-start gap-3 rounded-xl bg-emerald-500/15 px-4 py-3 text-sm text-emerald-200">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-            <span className="break-all">{notice}</span>
-          </div>
-        )}
-        {actionError && (
-          <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span className="break-all">{actionError}</span>
-          </div>
-        )}
-
-        <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-center gap-3">
-            <div className="flex rounded-xl bg-black/20 p-1">
-              {FILTERS.map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setFilter(key)}
-                  className={`rounded-lg px-4 py-1.5 text-sm transition-colors ${
-                    filter === key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-1 items-center gap-2 rounded-xl bg-black/20 px-3 py-2">
-              <Search className="h-4 w-4 text-white/40" />
-              <input
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                placeholder="搜索版本名或 Minecraft 版本"
-                className="flex-1 bg-transparent text-sm outline-none placeholder:text-white/30"
-              />
-            </div>
-          </div>
-
-          <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-            {installed === null && <LoadingState />}
-            {installed?.length === 0 && (
-              <EmptyState
-                icon={Layers}
-                action={
-                  <button
-                    onClick={onInstallNew}
-                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-white hover:bg-white/20"
-                  >
-                    <Download className="h-4 w-4" />
-                    去下载
-                  </button>
-                }
-              >
-                还没有安装任何版本
-              </EmptyState>
+        <BlockLayout page="versions" widths={false}>
+          <LayoutBlock id="messages" title="进度和提示">
+            {/* 检查修复的进度 */}
+            <AnimatePresence>
+              {install && (
+                <InstallProgressCard
+                  status={install}
+                  onCancel={() => window.api.cancelInstall()}
+                  onRetry={() =>
+                    install.kind === 'repair' ? repair(install.versionId) : run(() => window.api.retryInstall())
+                  }
+                  onDismiss={() => setInstall(null)}
+                />
+              )}
+            </AnimatePresence>
+            <ShareStatus control={share} />
+            {notice && (
+              <div className="flex items-start gap-3 rounded-xl bg-emerald-500/15 px-4 py-3 text-sm text-emerald-200">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                <span className="break-all">{notice}</span>
+              </div>
             )}
-            {installed && installed.length > 0 && visible.length === 0 && <EmptyState>没有匹配的版本</EmptyState>}
-            {visible.map((version) => {
-              const info = typeInfo(version)
-              const current = version.id === selected
-              const repairing = busy && install?.versionId === version.id
-              const actionClass =
-                'flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20'
-              return (
-                <div
-                  key={version.id}
-                  className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
-                    current
-                      ? 'border-emerald-400/40 bg-emerald-500/10'
-                      : 'border-transparent bg-black/20 hover:bg-black/30'
-                  }`}
-                >
-                  <VersionIconPicker
-                    version={version}
-                    onChanged={(display) => updateDisplay(version.id, display)}
-                    onError={setActionError}
-                  />
-                  {/* 点击名称设为启动版本 */}
-                  <button
-                    onClick={() => !current && select(version.id)}
-                    title={current ? '主页的「启动游戏」会启动这个版本' : '点击设为启动版本'}
-                    className={`group flex min-w-0 flex-1 items-center gap-3 text-left ${current ? 'cursor-default' : ''}`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate font-semibold">{version.id}</span>
-                        {current ? (
-                          <span className="flex shrink-0 items-center gap-1 text-xs text-emerald-300">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            启动版本
-                          </span>
-                        ) : (
-                          <span className="hidden shrink-0 items-center gap-1 text-xs text-white/50 group-hover:flex">
-                            <CircleDot className="h-3.5 w-3.5" />
-                            设为启动版本
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-1 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs">
-                        <span className={`shrink-0 rounded-md px-2 py-0.5 ${info.className}`}>{info.label}</span>
-                        <span className="shrink-0 text-white/50">{version.minecraftVersion}</span>
-                        {isModded(version) && (modUpdates[version.id]?.mods.length ?? 0) > 0 && (
-                          <span
-                            title={`可以更新：${modUpdates[version.id].mods
-                              .slice(0, 8)
-                              .map((m) => m.title)
-                              .join('、')}${modUpdates[version.id].mods.length > 8 ? ' 等' : ''}（点「模组」查看）`}
-                            className="shrink-0 rounded-md bg-amber-500/15 px-2 py-0.5 text-amber-300"
-                            data-testid="mod-update-badge"
-                          >
-                            {modUpdates[version.id].mods.length} 个模组可更新
-                          </span>
-                        )}
-                        {version.modpack && (
-                          <span
-                            title={`用启动器安装的整合包：${version.modpack.name} ${version.modpack.version}`}
-                            className="min-w-0 max-w-40 truncate rounded-md bg-emerald-500/15 px-2 py-0.5 text-emerald-300"
-                          >
-                            整合包 {version.modpack.version}
-                          </span>
-                        )}
-                        {version.isolated && (
-                          <span
-                            title="模组、存档、配置放在该版本自己的文件夹里"
-                            className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 text-white/60"
-                          >
-                            隔离
-                          </span>
-                        )}
-                        {stats?.versions[version.id] && (
-                          <span
-                            title={`启动 ${stats.versions[version.id].launches} 次`}
-                            className="shrink-0 text-white/40"
-                          >
-                            已玩 {formatDuration(stats.versions[version.id].totalMs)}
-                          </span>
-                        )}
-                        {version.customized && (
-                          <span
-                            title="该版本有自己的设置（内存、Java 等）"
-                            className="shrink-0 rounded-md bg-sky-500/15 px-2 py-0.5 text-sky-300"
-                          >
-                            独立设置
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => toggleFavorite(version)}
-                    title={version.favorite ? '取消收藏' : '收藏：排在列表前面，主页的版本列表里也排在前面'}
-                    aria-pressed={version.favorite}
-                    className={`shrink-0 rounded-lg p-1.5 hover:bg-white/10 ${
-                      version.favorite ? 'text-amber-300' : 'text-white/30 hover:text-white/70'
-                    }`}
-                  >
-                    <Star className={`h-4 w-4 ${version.favorite ? 'fill-current' : ''}`} />
-                  </button>
-                  {isModded(version) ? (
+            {actionError && (
+              <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span className="break-all">{actionError}</span>
+              </div>
+            )}
+          </LayoutBlock>
+
+          <LayoutBlock id="list" title="版本列表">
+            <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
+              <div className="flex items-center gap-3">
+                <div className="flex rounded-xl bg-black/20 p-1">
+                  {FILTERS.map(([key, label]) => (
                     <button
-                      onClick={() => setModsFor(version)}
-                      title="管理该版本的模组"
-                      className={`relative ${actionClass}`}
+                      key={key}
+                      onClick={() => setFilter(key)}
+                      className={`rounded-lg px-4 py-1.5 text-sm transition-colors ${
+                        filter === key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
+                      }`}
                     >
-                      <Puzzle className="h-3.5 w-3.5" />
-                      模组
-                      {(modUpdates[version.id]?.mods.length ?? 0) > 0 && (
-                        <span
-                          aria-label={`${modUpdates[version.id].mods.length} 个模组可更新`}
-                          className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold leading-none text-white"
-                        >
-                          {modUpdates[version.id].mods.length}
-                        </span>
-                      )}
+                      {label}
                     </button>
-                  ) : (
-                    // 原版没有「模组」按钮：留出同样宽的空位，每一行的按钮都上下对齐
-                    <span aria-hidden className={`${actionClass} invisible`}>
-                      <Puzzle className="h-3.5 w-3.5" />
-                      模组
-                    </span>
-                  )}
-                  <button
-                    onClick={() => setWorldsFor(version)}
-                    title="管理该版本的存档与数据包"
-                    className={actionClass}
-                  >
-                    <Globe className="h-3.5 w-3.5" />
-                    存档
-                  </button>
-                  <button
-                    onClick={() => setResourcesFor(version)}
-                    title="管理该版本的资源包和光影包"
-                    className={actionClass}
-                  >
-                    <ImageIcon className="h-3.5 w-3.5" />
-                    资源
-                  </button>
-                  <button
-                    onClick={() => setSettingsFor(version)}
-                    title="版本设置：单独设置内存、Java、窗口大小等"
-                    className={actionClass}
-                  >
-                    <Settings2 className="h-3.5 w-3.5" />
-                    设置
-                  </button>
-                  <MoreMenu
-                    busy={busy}
-                    repairing={repairing}
-                    onRename={() => setNaming({ mode: 'rename', version })}
-                    onCopy={() => setNaming({ mode: 'copy', version })}
-                    onShortcut={() =>
-                      run(async () => {
-                        const path = await window.api.createDesktopShortcut(version.id)
-                        setNotice(`已在桌面创建快捷方式：${path.split(/[\\/]/).pop()}，双击即可直接启动 ${version.id}`)
-                      })
-                    }
-                    onExport={() => setExportFor(version)}
-                    onShareLog={() => {
-                      shareTarget.current = version.id
-                      share.ask()
-                    }}
-                    onOpenFolder={() => window.api.openVersionDir(version.id)}
-                    onRepair={() => repair(version.id)}
-                    onDelete={() => remove(version.id)}
-                    onUpdateModpack={isModded(version) || version.modpack ? () => setUpdatingFor(version) : undefined}
+                  ))}
+                </div>
+                <div className="flex flex-1 items-center gap-2 rounded-xl bg-black/20 px-3 py-2">
+                  <Search className="h-4 w-4 text-white/40" />
+                  <input
+                    value={keyword}
+                    onChange={(e) => setKeyword(e.target.value)}
+                    placeholder="搜索版本名或 Minecraft 版本"
+                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-white/30"
                   />
                 </div>
-              )
-            })}
-          </div>
-        </section>
+              </div>
+
+              <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                {installed === null && <LoadingState />}
+                {installed?.length === 0 && (
+                  <EmptyState
+                    icon={Layers}
+                    action={
+                      <button
+                        onClick={onInstallNew}
+                        className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-white hover:bg-white/20"
+                      >
+                        <Download className="h-4 w-4" />
+                        去下载
+                      </button>
+                    }
+                  >
+                    还没有安装任何版本
+                  </EmptyState>
+                )}
+                {installed && installed.length > 0 && visible.length === 0 && <EmptyState>没有匹配的版本</EmptyState>}
+                {visible.map((version) => {
+                  const info = typeInfo(version)
+                  const current = version.id === selected
+                  const repairing = busy && install?.versionId === version.id
+                  const actionClass =
+                    'flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20'
+                  return (
+                    <div
+                      key={version.id}
+                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
+                        current
+                          ? 'border-emerald-400/40 bg-emerald-500/10'
+                          : 'border-transparent bg-black/20 hover:bg-black/30'
+                      }`}
+                    >
+                      <VersionIconPicker
+                        version={version}
+                        onChanged={(display) => updateDisplay(version.id, display)}
+                        onError={setActionError}
+                      />
+                      {/* 点击名称设为启动版本 */}
+                      <button
+                        onClick={() => !current && select(version.id)}
+                        title={current ? '主页的「启动游戏」会启动这个版本' : '点击设为启动版本'}
+                        className={`group flex min-w-0 flex-1 items-center gap-3 text-left ${current ? 'cursor-default' : ''}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate font-semibold">{version.id}</span>
+                            {current ? (
+                              <span className="flex shrink-0 items-center gap-1 text-xs text-emerald-300">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                启动版本
+                              </span>
+                            ) : (
+                              <span className="hidden shrink-0 items-center gap-1 text-xs text-white/50 group-hover:flex">
+                                <CircleDot className="h-3.5 w-3.5" />
+                                设为启动版本
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-1 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs">
+                            <span className={`shrink-0 rounded-md px-2 py-0.5 ${info.className}`}>{info.label}</span>
+                            <span className="shrink-0 text-white/50">{version.minecraftVersion}</span>
+                            {isModded(version) && (modUpdates[version.id]?.mods.length ?? 0) > 0 && (
+                              <span
+                                title={`可以更新：${modUpdates[version.id].mods
+                                  .slice(0, 8)
+                                  .map((m) => m.title)
+                                  .join('、')}${modUpdates[version.id].mods.length > 8 ? ' 等' : ''}（点「模组」查看）`}
+                                className="shrink-0 rounded-md bg-amber-500/15 px-2 py-0.5 text-amber-300"
+                                data-testid="mod-update-badge"
+                              >
+                                {modUpdates[version.id].mods.length} 个模组可更新
+                              </span>
+                            )}
+                            {version.modpack && (
+                              <span
+                                title={`用启动器安装的整合包：${version.modpack.name} ${version.modpack.version}`}
+                                className="min-w-0 max-w-40 truncate rounded-md bg-emerald-500/15 px-2 py-0.5 text-emerald-300"
+                              >
+                                整合包 {version.modpack.version}
+                              </span>
+                            )}
+                            {version.isolated && (
+                              <span
+                                title="模组、存档、配置放在该版本自己的文件夹里"
+                                className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 text-white/60"
+                              >
+                                隔离
+                              </span>
+                            )}
+                            {stats?.versions[version.id] && (
+                              <span
+                                title={`启动 ${stats.versions[version.id].launches} 次`}
+                                className="shrink-0 text-white/40"
+                              >
+                                已玩 {formatDuration(stats.versions[version.id].totalMs)}
+                              </span>
+                            )}
+                            {version.customized && (
+                              <span
+                                title="该版本有自己的设置（内存、Java 等）"
+                                className="shrink-0 rounded-md bg-sky-500/15 px-2 py-0.5 text-sky-300"
+                              >
+                                独立设置
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => toggleFavorite(version)}
+                        title={version.favorite ? '取消收藏' : '收藏：排在列表前面，主页的版本列表里也排在前面'}
+                        aria-pressed={version.favorite}
+                        className={`shrink-0 rounded-lg p-1.5 hover:bg-white/10 ${
+                          version.favorite ? 'text-amber-300' : 'text-white/30 hover:text-white/70'
+                        }`}
+                      >
+                        <Star className={`h-4 w-4 ${version.favorite ? 'fill-current' : ''}`} />
+                      </button>
+                      {isModded(version) ? (
+                        <button
+                          onClick={() => setModsFor(version)}
+                          title="管理该版本的模组"
+                          className={`relative ${actionClass}`}
+                        >
+                          <Puzzle className="h-3.5 w-3.5" />
+                          模组
+                          {(modUpdates[version.id]?.mods.length ?? 0) > 0 && (
+                            <span
+                              aria-label={`${modUpdates[version.id].mods.length} 个模组可更新`}
+                              className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold leading-none text-white"
+                            >
+                              {modUpdates[version.id].mods.length}
+                            </span>
+                          )}
+                        </button>
+                      ) : (
+                        // 原版没有「模组」按钮：留出同样宽的空位，每一行的按钮都上下对齐
+                        <span aria-hidden className={`${actionClass} invisible`}>
+                          <Puzzle className="h-3.5 w-3.5" />
+                          模组
+                        </span>
+                      )}
+                      <button
+                        onClick={() => setWorldsFor(version)}
+                        title="管理该版本的存档与数据包"
+                        className={actionClass}
+                      >
+                        <Globe className="h-3.5 w-3.5" />
+                        存档
+                      </button>
+                      <button
+                        onClick={() => setResourcesFor(version)}
+                        title="管理该版本的资源包和光影包"
+                        className={actionClass}
+                      >
+                        <ImageIcon className="h-3.5 w-3.5" />
+                        资源
+                      </button>
+                      <button
+                        onClick={() => setSettingsFor(version)}
+                        title="版本设置：单独设置内存、Java、窗口大小等"
+                        className={actionClass}
+                      >
+                        <Settings2 className="h-3.5 w-3.5" />
+                        设置
+                      </button>
+                      <MoreMenu
+                        busy={busy}
+                        repairing={repairing}
+                        onRename={() => setNaming({ mode: 'rename', version })}
+                        onCopy={() => setNaming({ mode: 'copy', version })}
+                        onShortcut={() =>
+                          run(async () => {
+                            const path = await window.api.createDesktopShortcut(version.id)
+                            setNotice(
+                              `已在桌面创建快捷方式：${path.split(/[\\/]/).pop()}，双击即可直接启动 ${version.id}`
+                            )
+                          })
+                        }
+                        onExport={() => setExportFor(version)}
+                        onShareLog={() => {
+                          shareTarget.current = version.id
+                          share.ask()
+                        }}
+                        onOpenFolder={() => window.api.openVersionDir(version.id)}
+                        onRepair={() => repair(version.id)}
+                        onDelete={() => remove(version.id)}
+                        onUpdateModpack={
+                          isModded(version) || version.modpack ? () => setUpdatingFor(version) : undefined
+                        }
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          </LayoutBlock>
+        </BlockLayout>
       </div>
     </>
   )

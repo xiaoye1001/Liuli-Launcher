@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { ArrowLeft } from 'lucide-react'
+import { LayoutEditButton } from './BlockLayout'
 
 /**
  * 页面标题栏：所有页面统一的高度和排版（大标题 + 一行说明，右边放操作按钮）。
@@ -14,7 +15,8 @@ function PageHeader({
   actions,
   icon,
   onBack,
-  backTitle = '返回'
+  backTitle = '返回',
+  layoutPage
 }: {
   title: ReactNode
   /** 标题下面的一行说明 */
@@ -31,6 +33,8 @@ function PageHeader({
   onBack?: () => void
   /** 返回按钮的提示文字 */
   backTitle?: string
+  /** 这个页面的布局名：有的话右边显示「编辑布局」按钮 */
+  layoutPage?: string
 }): JSX.Element {
   return (
     <div className="flex h-[60px] shrink-0 items-center justify-between gap-4">
@@ -66,7 +70,12 @@ function PageHeader({
         </div>
         {after}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-3">{actions}</div>}
+      {(actions || layoutPage) && (
+        <div className="flex shrink-0 items-center gap-3">
+          {actions}
+          {layoutPage && <LayoutEditButton page={layoutPage} />}
+        </div>
+      )}
     </div>
   )
 }

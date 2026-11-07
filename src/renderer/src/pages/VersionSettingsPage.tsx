@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import VersionIcon from '../components/VersionIcon'
 import PageHeader from '../components/PageHeader'
+import { BlockLayout, LayoutBlock } from '../components/BlockLayout'
 import { HEADER_BUTTON } from '../components/headerButtons'
 import JavaSelect, { type JavaChoice } from '../components/JavaSelect'
 import MemoryPlanSummary from '../components/MemoryPlanSummary'
@@ -510,6 +511,7 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
             </span>
           </span>
         }
+        layoutPage="version-settings"
         actions={
           <>
             <AnimatePresence>
@@ -559,410 +561,430 @@ function VersionSettingsPage({ version, onBack, onChanged }: VersionSettingsPage
       )}
 
       <div className="page-scroll min-h-0 flex-1">
-        <div className="grid gap-4 lg:grid-cols-2">
-          {/* 内存 */}
-          <Card
-            icon={MemoryStick}
-            tint="bg-sky-500/15 text-sky-300"
-            title="游戏内存"
-            desc="整合包和大型模组需要更多内存；分配太多反而会让回收变慢"
-            overridden={memoryOverridden}
-            onReset={() => setMemory(0)}
-          >
-            <Segmented
-              value={memoryDraft ? 'custom' : 'global'}
-              options={[
-                ['global', `跟随全局（${global.memoryAuto ? '自动分配' : formatMemory(global.maxMemory)}）`],
-                ['custom', '单独设置']
-              ]}
-              onChange={(mode) =>
-                setMemory(
-                  mode === 'global'
-                    ? 0
-                    : Math.min(memoryDraft || recommendedMemory || global.maxMemory || 4096, memoryMax)
-                )
-              }
-            />
-            {memoryDraft > 0 ? (
-              <div className="mt-4">
-                <div className="flex items-end justify-between">
-                  <span className="text-xs text-white/60">最大内存</span>
-                  <span className="font-mono text-2xl font-bold text-sky-300">{formatMemory(memoryDraft)}</span>
+        <BlockLayout page="version-settings" className="flex flex-col gap-4" gap="gap-4">
+          <LayoutBlock id="memory" title="游戏内存" defaultWidth="left">
+            {/* 内存 */}
+            <Card
+              icon={MemoryStick}
+              tint="bg-sky-500/15 text-sky-300"
+              title="游戏内存"
+              desc="整合包和大型模组需要更多内存；分配太多反而会让回收变慢"
+              overridden={memoryOverridden}
+              onReset={() => setMemory(0)}
+            >
+              <Segmented
+                value={memoryDraft ? 'custom' : 'global'}
+                options={[
+                  ['global', `跟随全局（${global.memoryAuto ? '自动分配' : formatMemory(global.maxMemory)}）`],
+                  ['custom', '单独设置']
+                ]}
+                onChange={(mode) =>
+                  setMemory(
+                    mode === 'global'
+                      ? 0
+                      : Math.min(memoryDraft || recommendedMemory || global.maxMemory || 4096, memoryMax)
+                  )
+                }
+              />
+              {memoryDraft > 0 ? (
+                <div className="mt-4">
+                  <div className="flex items-end justify-between">
+                    <span className="text-xs text-white/60">最大内存</span>
+                    <span className="font-mono text-2xl font-bold text-sky-300">{formatMemory(memoryDraft)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={MEMORY_MIN}
+                    max={memoryMax}
+                    step={MEMORY_STEP}
+                    value={Math.min(memoryDraft, memoryMax)}
+                    onChange={(e) => setMemory(Number(e.target.value))}
+                    className="mt-2 w-full cursor-pointer accent-sky-400"
+                  />
+                  <div className="flex justify-between text-xs text-white/40">
+                    <span>{formatMemory(MEMORY_MIN)}</span>
+                    <span>本机 {formatMemory(totalMemory)}</span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {MEMORY_PRESETS.filter((gb) => gb * 1024 <= memoryMax).map((gb) => (
+                      <button
+                        key={gb}
+                        onClick={() => setMemory(gb * 1024)}
+                        className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${
+                          memoryDraft === gb * 1024 ? 'bg-sky-500/30 text-sky-300' : 'bg-white/10 hover:bg-white/20'
+                        }`}
+                      >
+                        {gb} GB
+                      </button>
+                    ))}
+                    {recommendedMemory && (
+                      <button
+                        onClick={() => setMemory(Math.min(recommendedMemory, memoryMax))}
+                        className="rounded-lg bg-emerald-500/20 px-2.5 py-1 text-xs text-emerald-200 transition-colors hover:bg-emerald-500/30"
+                        title="按这个版本的模组、光影、材质包等估算的建议值"
+                      >
+                        推荐 {formatMemory(recommendedMemory)}
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <input
-                  type="range"
-                  min={MEMORY_MIN}
-                  max={memoryMax}
-                  step={MEMORY_STEP}
-                  value={Math.min(memoryDraft, memoryMax)}
-                  onChange={(e) => setMemory(Number(e.target.value))}
-                  className="mt-2 w-full cursor-pointer accent-sky-400"
-                />
-                <div className="flex justify-between text-xs text-white/40">
-                  <span>{formatMemory(MEMORY_MIN)}</span>
-                  <span>本机 {formatMemory(totalMemory)}</span>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {MEMORY_PRESETS.filter((gb) => gb * 1024 <= memoryMax).map((gb) => (
-                    <button
-                      key={gb}
-                      onClick={() => setMemory(gb * 1024)}
-                      className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${
-                        memoryDraft === gb * 1024 ? 'bg-sky-500/30 text-sky-300' : 'bg-white/10 hover:bg-white/20'
-                      }`}
-                    >
-                      {gb} GB
-                    </button>
-                  ))}
-                  {recommendedMemory && (
-                    <button
-                      onClick={() => setMemory(Math.min(recommendedMemory, memoryMax))}
-                      className="rounded-lg bg-emerald-500/20 px-2.5 py-1 text-xs text-emerald-200 transition-colors hover:bg-emerald-500/30"
-                      title="按这个版本的模组、光影、材质包等估算的建议值"
-                    >
-                      推荐 {formatMemory(recommendedMemory)}
-                    </button>
+              ) : (
+                <div className="mt-4 rounded-xl bg-black/20 px-4 py-3">
+                  {global.memoryAuto ? (
+                    plan ? (
+                      <MemoryPlanSummary plan={plan} />
+                    ) : planFailed ? (
+                      <div className="text-xs text-white/50">
+                        暂时无法估算这个版本需要的内存（版本文件可能不完整），启动时会重新计算
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs text-white/50">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        正在估算这个版本需要的内存…
+                      </div>
+                    )
+                  ) : (
+                    <div className="text-xs text-white/60">
+                      全局设置为固定分配{' '}
+                      <span className="font-mono text-sm font-semibold text-white">
+                        {formatMemory(global.maxMemory)}
+                      </span>
+                    </div>
                   )}
                 </div>
-              </div>
-            ) : (
-              <div className="mt-4 rounded-xl bg-black/20 px-4 py-3">
-                {global.memoryAuto ? (
-                  plan ? (
-                    <MemoryPlanSummary plan={plan} />
-                  ) : planFailed ? (
-                    <div className="text-xs text-white/50">
-                      暂时无法估算这个版本需要的内存（版本文件可能不完整），启动时会重新计算
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-xs text-white/50">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      正在估算这个版本需要的内存…
-                    </div>
-                  )
-                ) : (
-                  <div className="text-xs text-white/60">
-                    全局设置为固定分配{' '}
-                    <span className="font-mono text-sm font-semibold text-white">{formatMemory(global.maxMemory)}</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </Card>
+              )}
+            </Card>
+          </LayoutBlock>
 
-          {/* Java */}
-          <Card
-            icon={Coffee}
-            tint="bg-amber-500/15 text-amber-300"
-            title="Java"
-            desc="单独指定后只有这个版本使用所选的 Java"
-            overridden={javaOverridden}
-            onReset={() => changeJava('global')}
-          >
-            <JavaSelect
-              value={javaValue}
-              onChange={changeJava}
-              javas={javaList}
-              globalLabel={globalJava}
-              required={required}
-            />
-            <div className="mt-3 text-xs leading-5 text-white/50">
-              {required ? (
-                <>
-                  这个版本需要 <span className="font-medium text-white/80">Java {required}</span> 或更高版本。
-                </>
-              ) : null}
-              {config.javaMode === 'auto' || (config.javaMode === 'global' && global.javaAuto)
-                ? '启动时自动挑选合适的 Java，本机没有时自动下载。'
-                : '启动时使用所选的 Java，不会自动下载。'}
-            </div>
-            {javaTooOld && (
-              <div className="mt-2 flex items-start gap-2 rounded-lg bg-amber-500/15 px-3 py-2 text-xs text-amber-200">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                所选的 Java {effectiveJava?.majorVersion} 版本太低，游戏无法启动，请改为「自动选择」或选择 Java{' '}
-                {required} 以上
+          <LayoutBlock id="java" title="Java" defaultWidth="right">
+            {/* Java */}
+            <Card
+              icon={Coffee}
+              tint="bg-amber-500/15 text-amber-300"
+              title="Java"
+              desc="单独指定后只有这个版本使用所选的 Java"
+              overridden={javaOverridden}
+              onReset={() => changeJava('global')}
+            >
+              <JavaSelect
+                value={javaValue}
+                onChange={changeJava}
+                javas={javaList}
+                globalLabel={globalJava}
+                required={required}
+              />
+              <div className="mt-3 text-xs leading-5 text-white/50">
+                {required ? (
+                  <>
+                    这个版本需要 <span className="font-medium text-white/80">Java {required}</span> 或更高版本。
+                  </>
+                ) : null}
+                {config.javaMode === 'auto' || (config.javaMode === 'global' && global.javaAuto)
+                  ? '启动时自动挑选合适的 Java，本机没有时自动下载。'
+                  : '启动时使用所选的 Java，不会自动下载。'}
               </div>
-            )}
-          </Card>
+              {javaTooOld && (
+                <div className="mt-2 flex items-start gap-2 rounded-lg bg-amber-500/15 px-3 py-2 text-xs text-amber-200">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  所选的 Java {effectiveJava?.majorVersion} 版本太低，游戏无法启动，请改为「自动选择」或选择 Java{' '}
+                  {required} 以上
+                </div>
+              )}
+            </Card>
+          </LayoutBlock>
 
-          {/* 版本隔离 */}
-          <Card
-            icon={FolderTree}
-            tint="bg-violet-500/15 text-violet-300"
-            title="版本隔离"
-            desc="开启后模组、存档、配置放在 versions 下这个版本自己的文件夹里"
-            overridden={isolationOverridden}
-            onReset={() => void save({ isolation: 'global' })}
-          >
-            <Segmented
-              value={config.isolation}
-              options={[
-                ['global', `跟随全局（${globalIsolated ? '隔离' : '不隔离'}）`],
-                ['on', '开启'],
-                ['off', '关闭']
-              ]}
-              onChange={(isolation) => void save({ isolation })}
-            />
-            <div className="mt-3 flex items-start gap-2 rounded-xl bg-black/20 px-3 py-2.5 text-xs text-white/60">
-              <FolderTree className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/40" />
-              <span className="min-w-0 break-all">
-                当前使用{' '}
-                <span className="font-mono text-white/80">
-                  {isolatedNow ? `.minecraft/versions/${version.id}/` : '.minecraft/'}
+          <LayoutBlock id="isolation" title="版本隔离" defaultWidth="left">
+            {/* 版本隔离 */}
+            <Card
+              icon={FolderTree}
+              tint="bg-violet-500/15 text-violet-300"
+              title="版本隔离"
+              desc="开启后模组、存档、配置放在 versions 下这个版本自己的文件夹里"
+              overridden={isolationOverridden}
+              onReset={() => void save({ isolation: 'global' })}
+            >
+              <Segmented
+                value={config.isolation}
+                options={[
+                  ['global', `跟随全局（${globalIsolated ? '隔离' : '不隔离'}）`],
+                  ['on', '开启'],
+                  ['off', '关闭']
+                ]}
+                onChange={(isolation) => void save({ isolation })}
+              />
+              <div className="mt-3 flex items-start gap-2 rounded-xl bg-black/20 px-3 py-2.5 text-xs text-white/60">
+                <FolderTree className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/40" />
+                <span className="min-w-0 break-all">
+                  当前使用{' '}
+                  <span className="font-mono text-white/80">
+                    {isolatedNow ? `.minecraft/versions/${version.id}/` : '.minecraft/'}
+                  </span>
+                  。切换后游戏会使用另一个文件夹，原来的模组和存档不会自动移动。
                 </span>
-                。切换后游戏会使用另一个文件夹，原来的模组和存档不会自动移动。
-              </span>
-            </div>
-          </Card>
+              </div>
+            </Card>
+          </LayoutBlock>
 
-          {/* 游戏窗口 */}
-          <Card
-            icon={Monitor}
-            tint="bg-emerald-500/15 text-emerald-300"
-            title="游戏窗口"
-            desc="游戏启动时的窗口大小；不设置时使用游戏默认大小"
-            overridden={windowOverridden}
-            onReset={() => void save({ windowWidth: 0, windowHeight: 0, fullscreen: false })}
-          >
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                onClick={() => void save({ windowWidth: 0, windowHeight: 0 })}
-                className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${
-                  !config.windowWidth && !config.windowHeight
-                    ? 'bg-emerald-500/25 text-emerald-200'
-                    : 'bg-white/10 hover:bg-white/20'
-                }`}
-              >
-                游戏默认
-              </button>
-              {WINDOW_PRESETS.map(([w, h]) => (
+          <LayoutBlock id="window" title="游戏窗口" defaultWidth="right">
+            {/* 游戏窗口 */}
+            <Card
+              icon={Monitor}
+              tint="bg-emerald-500/15 text-emerald-300"
+              title="游戏窗口"
+              desc="游戏启动时的窗口大小；不设置时使用游戏默认大小"
+              overridden={windowOverridden}
+              onReset={() => void save({ windowWidth: 0, windowHeight: 0, fullscreen: false })}
+            >
+              <div className="flex flex-wrap gap-1.5">
                 <button
-                  key={`${w}x${h}`}
-                  onClick={() => void save({ windowWidth: w, windowHeight: h })}
-                  className={`rounded-lg px-2.5 py-1 font-mono text-xs transition-colors ${
-                    windowPreset?.[0] === w && windowPreset?.[1] === h
+                  onClick={() => void save({ windowWidth: 0, windowHeight: 0 })}
+                  className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${
+                    !config.windowWidth && !config.windowHeight
                       ? 'bg-emerald-500/25 text-emerald-200'
                       : 'bg-white/10 hover:bg-white/20'
                   }`}
                 >
-                  {w}×{h}
+                  游戏默认
                 </button>
-              ))}
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <TextField
-                type="number"
-                value={config.windowWidth ? String(config.windowWidth) : ''}
-                placeholder="宽度"
-                className="w-24"
-                onCommit={(v) => void save({ windowWidth: Math.min(16384, Math.max(0, Math.floor(Number(v) || 0))) })}
-              />
-              <span className="text-white/40">×</span>
-              <TextField
-                type="number"
-                value={config.windowHeight ? String(config.windowHeight) : ''}
-                placeholder="高度"
-                className="w-24"
-                onCommit={(v) => void save({ windowHeight: Math.min(16384, Math.max(0, Math.floor(Number(v) || 0))) })}
-              />
-              <div className="ml-auto">
-                <Switch
-                  checked={config.fullscreen}
-                  onChange={(fullscreen) => void save({ fullscreen })}
-                  label="全屏启动"
-                />
+                {WINDOW_PRESETS.map(([w, h]) => (
+                  <button
+                    key={`${w}x${h}`}
+                    onClick={() => void save({ windowWidth: w, windowHeight: h })}
+                    className={`rounded-lg px-2.5 py-1 font-mono text-xs transition-colors ${
+                      windowPreset?.[0] === w && windowPreset?.[1] === h
+                        ? 'bg-emerald-500/25 text-emerald-200'
+                        : 'bg-white/10 hover:bg-white/20'
+                    }`}
+                  >
+                    {w}×{h}
+                  </button>
+                ))}
               </div>
-            </div>
-          </Card>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <TextField
+                  type="number"
+                  value={config.windowWidth ? String(config.windowWidth) : ''}
+                  placeholder="宽度"
+                  className="w-24"
+                  onCommit={(v) => void save({ windowWidth: Math.min(16384, Math.max(0, Math.floor(Number(v) || 0))) })}
+                />
+                <span className="text-white/40">×</span>
+                <TextField
+                  type="number"
+                  value={config.windowHeight ? String(config.windowHeight) : ''}
+                  placeholder="高度"
+                  className="w-24"
+                  onCommit={(v) =>
+                    void save({ windowHeight: Math.min(16384, Math.max(0, Math.floor(Number(v) || 0))) })
+                  }
+                />
+                <div className="ml-auto">
+                  <Switch
+                    checked={config.fullscreen}
+                    onChange={(fullscreen) => void save({ fullscreen })}
+                    label="全屏启动"
+                  />
+                </div>
+              </div>
+            </Card>
+          </LayoutBlock>
 
-          {/* 游戏内设置（options.txt） */}
-          <Card
-            icon={SlidersHorizontal}
-            tint="bg-fuchsia-500/15 text-fuchsia-300"
-            title="游戏内设置"
-            desc="修改这个版本在游戏里的设置（options.txt），修改前自动备份，可以恢复"
-            overridden={false}
-            onReset={() => undefined}
-            className="lg:col-span-2"
-          >
-            <GameOptionsPanel key={optionsKey} versionId={version.id} />
-          </Card>
-
-          {/* 版本快照 */}
-          <Card
-            icon={Zap}
-            tint="bg-amber-500/15 text-amber-300"
-            title="启动参数预设"
-            desc="一键套用内存和 JVM 参数；只改这两项，可以随时再手动调整"
-            overridden={false}
-            onReset={() => undefined}
-            className="lg:col-span-2"
-          >
-            <LaunchPresets
-              config={config}
-              totalMemory={totalMemory}
-              memoryMax={memoryMax}
-              javaMajor={effectiveJava?.majorVersion ?? required}
-              onApply={(patch) => {
-                if (patch.maxMemory !== undefined) setMemoryDraft(patch.maxMemory)
-                void save(patch)
-              }}
-            />
-          </Card>
-
-          <Card
-            icon={History}
-            tint="bg-sky-500/15 text-sky-300"
-            title="版本快照"
-            desc="把模组、模组配置和游戏设置存一份，装坏了、更新坏了可以一键恢复"
-            overridden={false}
-            onReset={() => undefined}
-            className="lg:col-span-2"
-          >
-            <VersionSnapshotsPanel versionId={version.id} onRestored={() => setOptionsKey((k) => k + 1)} />
-          </Card>
-
-          {/* 高级选项（占满一行，可以折叠） */}
-          <Card
-            icon={Terminal}
-            tint="bg-rose-500/15 text-rose-300"
-            title="高级选项"
-            desc="附加启动参数和启动前后执行的命令。不清楚用途时请保持为空"
-            overridden={advancedOverridden}
-            onReset={() =>
-              void save({
-                jvmArgs: '',
-                gameArgs: '',
-                wrapperCommand: '',
-                envVars: '',
-                preLaunchCommand: '',
-                postExitCommand: ''
-              })
-            }
-            className="lg:col-span-2"
-          >
-            <button
-              onClick={() => setAdvancedOpen(!showAdvanced)}
-              className="flex w-full items-center justify-between rounded-xl bg-black/20 px-4 py-2.5 text-sm transition-colors hover:bg-black/30"
+          <LayoutBlock id="options" title="游戏内设置" defaultWidth="full">
+            {/* 游戏内设置（options.txt） */}
+            <Card
+              icon={SlidersHorizontal}
+              tint="bg-fuchsia-500/15 text-fuchsia-300"
+              title="游戏内设置"
+              desc="修改这个版本在游戏里的设置（options.txt），修改前自动备份，可以恢复"
+              overridden={false}
+              onReset={() => undefined}
+              className="lg:col-span-2"
             >
-              <span className="text-white/70">{showAdvanced ? '收起高级选项' : '展开高级选项'}</span>
-              <ChevronDown
-                className={`h-4 w-4 text-white/50 transition-transform ${showAdvanced ? 'rotate-180' : ''}`}
-              />
-            </button>
-            <AnimatePresence initial={false}>
-              {showAdvanced && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.25 }}
-                  className="overflow-hidden"
-                >
-                  <div className="grid gap-5 pt-4 lg:grid-cols-2">
-                    {/* 启动参数 */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm font-medium">
-                        <Terminal className="h-4 w-4 text-white/50" />
-                        启动参数
-                      </div>
-                      <p className="text-xs text-white/40">用空格分隔；带空格的参数用引号包住</p>
-                      <Field label="JVM 参数">
-                        <TextField
-                          mono
-                          value={config.jvmArgs}
-                          placeholder="例如 -XX:+UseZGC"
-                          className="mt-1 w-full"
-                          onCommit={(jvmArgs) => void save({ jvmArgs })}
-                        />
-                      </Field>
-                      <Field label="游戏参数">
-                        <TextField
-                          mono
-                          value={config.gameArgs}
-                          placeholder="例如 --quickPlayMultiplayer mc.example.com"
-                          className="mt-1 w-full"
-                          onCommit={(gameArgs) => void save({ gameArgs })}
-                        />
-                      </Field>
-                      <Field label="包装命令" hint="游戏通过这个命令启动">
-                        <TextField
-                          mono
-                          value={config.wrapperCommand}
-                          placeholder={IS_WINDOWS ? '一般不需要' : '例如 gamemoderun、prime-run、mangohud'}
-                          className="mt-1 w-full"
-                          onCommit={(wrapperCommand) => void save({ wrapperCommand })}
-                        />
-                      </Field>
-                      <Field label="环境变量" hint="每行一个「名称=值」">
-                        <TextAreaField
-                          value={config.envVars}
-                          placeholder={'例如\n__GL_THREADED_OPTIMIZATIONS=1'}
-                          onCommit={(envVars) => void save({ envVars })}
-                        />
-                      </Field>
-                    </div>
+              <GameOptionsPanel key={optionsKey} versionId={version.id} />
+            </Card>
+          </LayoutBlock>
 
-                    {/* 启动命令 */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm font-medium">
-                        <SquareTerminal className="h-4 w-4 text-white/50" />
-                        启动前后执行的命令
+          <LayoutBlock id="presets" title="启动参数预设" defaultWidth="full">
+            {/* 版本快照 */}
+            <Card
+              icon={Zap}
+              tint="bg-amber-500/15 text-amber-300"
+              title="启动参数预设"
+              desc="一键套用内存和 JVM 参数；只改这两项，可以随时再手动调整"
+              overridden={false}
+              onReset={() => undefined}
+              className="lg:col-span-2"
+            >
+              <LaunchPresets
+                config={config}
+                totalMemory={totalMemory}
+                memoryMax={memoryMax}
+                javaMajor={effectiveJava?.majorVersion ?? required}
+                onApply={(patch) => {
+                  if (patch.maxMemory !== undefined) setMemoryDraft(patch.maxMemory)
+                  void save(patch)
+                }}
+              />
+            </Card>
+          </LayoutBlock>
+
+          <LayoutBlock id="snapshots" title="版本快照" defaultWidth="full">
+            <Card
+              icon={History}
+              tint="bg-sky-500/15 text-sky-300"
+              title="版本快照"
+              desc="把模组、模组配置和游戏设置存一份，装坏了、更新坏了可以一键恢复"
+              overridden={false}
+              onReset={() => undefined}
+              className="lg:col-span-2"
+            >
+              <VersionSnapshotsPanel versionId={version.id} onRestored={() => setOptionsKey((k) => k + 1)} />
+            </Card>
+          </LayoutBlock>
+
+          <LayoutBlock id="advanced" title="高级选项" defaultWidth="full">
+            {/* 高级选项（占满一行，可以折叠） */}
+            <Card
+              icon={Terminal}
+              tint="bg-rose-500/15 text-rose-300"
+              title="高级选项"
+              desc="附加启动参数和启动前后执行的命令。不清楚用途时请保持为空"
+              overridden={advancedOverridden}
+              onReset={() =>
+                void save({
+                  jvmArgs: '',
+                  gameArgs: '',
+                  wrapperCommand: '',
+                  envVars: '',
+                  preLaunchCommand: '',
+                  postExitCommand: ''
+                })
+              }
+              className="lg:col-span-2"
+            >
+              <button
+                onClick={() => setAdvancedOpen(!showAdvanced)}
+                className="flex w-full items-center justify-between rounded-xl bg-black/20 px-4 py-2.5 text-sm transition-colors hover:bg-black/30"
+              >
+                <span className="text-white/70">{showAdvanced ? '收起高级选项' : '展开高级选项'}</span>
+                <ChevronDown
+                  className={`h-4 w-4 text-white/50 transition-transform ${showAdvanced ? 'rotate-180' : ''}`}
+                />
+              </button>
+              <AnimatePresence initial={false}>
+                {showAdvanced && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="grid gap-5 pt-4 lg:grid-cols-2">
+                      {/* 启动参数 */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <Terminal className="h-4 w-4 text-white/50" />
+                          启动参数
+                        </div>
+                        <p className="text-xs text-white/40">用空格分隔；带空格的参数用引号包住</p>
+                        <Field label="JVM 参数">
+                          <TextField
+                            mono
+                            value={config.jvmArgs}
+                            placeholder="例如 -XX:+UseZGC"
+                            className="mt-1 w-full"
+                            onCommit={(jvmArgs) => void save({ jvmArgs })}
+                          />
+                        </Field>
+                        <Field label="游戏参数">
+                          <TextField
+                            mono
+                            value={config.gameArgs}
+                            placeholder="例如 --quickPlayMultiplayer mc.example.com"
+                            className="mt-1 w-full"
+                            onCommit={(gameArgs) => void save({ gameArgs })}
+                          />
+                        </Field>
+                        <Field label="包装命令" hint="游戏通过这个命令启动">
+                          <TextField
+                            mono
+                            value={config.wrapperCommand}
+                            placeholder={IS_WINDOWS ? '一般不需要' : '例如 gamemoderun、prime-run、mangohud'}
+                            className="mt-1 w-full"
+                            onCommit={(wrapperCommand) => void save({ wrapperCommand })}
+                          />
+                        </Field>
+                        <Field label="环境变量" hint="每行一个「名称=值」">
+                          <TextAreaField
+                            value={config.envVars}
+                            placeholder={'例如\n__GL_THREADED_OPTIMIZATIONS=1'}
+                            onCommit={(envVars) => void save({ envVars })}
+                          />
+                        </Field>
                       </div>
-                      <p className="text-xs text-white/40">
-                        通过系统命令行在版本的游戏目录中执行，输出显示在游戏日志里
-                      </p>
-                      <Field label="启动前执行" hint="执行失败时取消启动">
-                        <TextField
-                          mono
-                          value={config.preLaunchCommand}
-                          placeholder={
-                            IS_WINDOWS
-                              ? '例如 copy /y %INST_DIR%\\options-backup.txt %INST_DIR%\\options.txt'
-                              : '例如 cp "$INST_DIR/options-backup.txt" "$INST_DIR/options.txt"'
-                          }
-                          className="mt-1 w-full"
-                          onCommit={(preLaunchCommand) => void save({ preLaunchCommand })}
-                        />
-                      </Field>
-                      <Field label="游戏退出后执行">
-                        <TextField
-                          mono
-                          value={config.postExitCommand}
-                          placeholder={
-                            IS_WINDOWS ? '例如 explorer %INST_DIR%\\screenshots' : '例如 notify-send "游戏已退出"'
-                          }
-                          className="mt-1 w-full"
-                          onCommit={(postExitCommand) => void save({ postExitCommand })}
-                        />
-                      </Field>
-                      <div className="rounded-xl bg-black/20 px-3 py-2.5">
-                        <div className="mb-1.5 text-xs text-white/50">命令里可以使用的变量</div>
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                          {[
-                            ['INST_NAME', '版本名'],
-                            ['INST_DIR', '游戏目录'],
-                            ['INST_MC_DIR', '.minecraft 目录'],
-                            ['INST_JAVA', 'Java 路径'],
-                            ['INST_MC_VERSION', 'Minecraft 版本'],
-                            ['INST_EXIT_CODE', '退出码（退出后）']
-                          ].map(([name, desc]) => (
-                            <div key={name} className="flex min-w-0 items-center gap-1.5 text-xs">
-                              <code className="shrink-0 rounded bg-black/30 px-1 font-mono text-white/70">
-                                {varRef(name)}
-                              </code>
-                              <span className="truncate text-white/40">{desc}</span>
-                            </div>
-                          ))}
+
+                      {/* 启动命令 */}
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          <SquareTerminal className="h-4 w-4 text-white/50" />
+                          启动前后执行的命令
+                        </div>
+                        <p className="text-xs text-white/40">
+                          通过系统命令行在版本的游戏目录中执行，输出显示在游戏日志里
+                        </p>
+                        <Field label="启动前执行" hint="执行失败时取消启动">
+                          <TextField
+                            mono
+                            value={config.preLaunchCommand}
+                            placeholder={
+                              IS_WINDOWS
+                                ? '例如 copy /y %INST_DIR%\\options-backup.txt %INST_DIR%\\options.txt'
+                                : '例如 cp "$INST_DIR/options-backup.txt" "$INST_DIR/options.txt"'
+                            }
+                            className="mt-1 w-full"
+                            onCommit={(preLaunchCommand) => void save({ preLaunchCommand })}
+                          />
+                        </Field>
+                        <Field label="游戏退出后执行">
+                          <TextField
+                            mono
+                            value={config.postExitCommand}
+                            placeholder={
+                              IS_WINDOWS ? '例如 explorer %INST_DIR%\\screenshots' : '例如 notify-send "游戏已退出"'
+                            }
+                            className="mt-1 w-full"
+                            onCommit={(postExitCommand) => void save({ postExitCommand })}
+                          />
+                        </Field>
+                        <div className="rounded-xl bg-black/20 px-3 py-2.5">
+                          <div className="mb-1.5 text-xs text-white/50">命令里可以使用的变量</div>
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                            {[
+                              ['INST_NAME', '版本名'],
+                              ['INST_DIR', '游戏目录'],
+                              ['INST_MC_DIR', '.minecraft 目录'],
+                              ['INST_JAVA', 'Java 路径'],
+                              ['INST_MC_VERSION', 'Minecraft 版本'],
+                              ['INST_EXIT_CODE', '退出码（退出后）']
+                            ].map(([name, desc]) => (
+                              <div key={name} className="flex min-w-0 items-center gap-1.5 text-xs">
+                                <code className="shrink-0 rounded bg-black/30 px-1 font-mono text-white/70">
+                                  {varRef(name)}
+                                </code>
+                                <span className="truncate text-white/40">{desc}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </Card>
-        </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </Card>
+          </LayoutBlock>
+        </BlockLayout>
       </div>
       {wizard && (
         <RepairWizard
