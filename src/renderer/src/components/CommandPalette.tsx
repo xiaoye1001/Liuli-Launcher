@@ -22,6 +22,7 @@ import {
   CircuitBoard,
   FileDiff,
   Paintbrush,
+  Puzzle,
   BookOpen,
   Trash2,
   Trophy,
@@ -250,6 +251,14 @@ function CommandPalette({ navigate, openVersionSettings }: CommandPaletteProps):
         icon: BookOpen,
         keywords: '合成 配方 合成表 熔炉 切石机 锻造 村民 交易 绿宝石 工作站 recipe craft trade villager',
         run: tool('recipes')
+      },
+      {
+        id: 'tool:plugins',
+        title: '插件管理',
+        group: '百宝箱',
+        icon: Puzzle,
+        keywords: '插件 扩展 安装插件 plugin extension addon',
+        run: tool('plugins')
       },
       {
         id: 'action:log',

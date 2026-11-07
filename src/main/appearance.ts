@@ -6,6 +6,7 @@ import { getSettings, updateSettings } from './config'
 import { screenshotPath, screenshotResponse } from './screenshots'
 import { musicResponse } from './music'
 import type { AppSettings } from '../shared/types'
+import { pluginResponse } from './plugins'
 
 /** 自定义背景图片存放在用户数据目录下 */
 export const BACKGROUND_DIR = join(app.getPath('userData'), 'backgrounds')
@@ -25,6 +26,7 @@ export function registerBackgroundProtocol(): void {
     const url = new URL(request.url)
     if (url.hostname === 'screenshot') return screenshotResponse(url)
     if (url.hostname === 'music') return musicResponse(url, request)
+    if (url.hostname === 'plugin') return pluginResponse(url)
     const name = decodeURIComponent(url.pathname.replace(/^\//, ''))
     if (url.hostname !== 'background' || !name || name !== basename(name)) {
       return new Response('Not found', { status: 404 })

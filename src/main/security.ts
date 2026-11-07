@@ -39,6 +39,10 @@ const ALLOWED_PERMISSIONS = new Set<string>(['clipboard-sanitized-write', 'local
 export function hardenWebContents(): void {
   app.on('web-contents-created', (_, contents) => {
     contents.on('will-navigate', (event) => event.preventDefault())
+    // 插件的 iframe 只能停留在插件自己的页面（不能跳到外面的网站）
+    contents.on('will-frame-navigate', (event) => {
+      if (!event.isMainFrame && !event.url.startsWith('liuli://plugin/')) event.preventDefault()
+    })
     contents.on('will-redirect', (event) => event.preventDefault())
     contents.on('will-attach-webview', (event) => event.preventDefault())
     contents.setWindowOpenHandler((details) => {
@@ -50,8 +54,15 @@ export function hardenWebContents(): void {
   // 摄像头、麦克风、定位、通知、USB / 串口等一律拒绝（Electron 默认会允许）
   void app.whenReady().then(() => {
     const ses = session.defaultSession
-    ses.setPermissionRequestHandler((_wc, permission, callback) => callback(ALLOWED_PERMISSIONS.has(permission)))
-    ses.setPermissionCheckHandler((_wc, permission) => ALLOWED_PERMISSIONS.has(permission))
+    // 插件页面（liuli://plugin/）一个权限都不给：要用剪贴板等只能通过启动器的插件接口
+    const fromPlugin = (url: string | undefined): boolean => (url ?? '').startsWith('liuli://plugin/')
+    ses.setPermissionRequestHandler((_wc, permission, callback, details) =>
+      callback(ALLOWED_PERMISSIONS.has(permission) && !fromPlugin(details.requestingUrl))
+    )
+    ses.setPermissionCheckHandler(
+      (_wc, permission, requestingOrigin, details) =>
+        ALLOWED_PERMISSIONS.has(permission) && !fromPlugin(details.requestingUrl) && !fromPlugin(requestingOrigin)
+    )
     ses.setDevicePermissionHandler(() => false)
   })
 }

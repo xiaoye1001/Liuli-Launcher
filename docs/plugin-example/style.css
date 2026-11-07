@@ -1,0 +1,53 @@
+body {
+  margin: 0;
+  padding: 16px;
+  font:
+    14px system-ui,
+    sans-serif;
+  color: #e5e7eb;
+  background: transparent;
+}
+h1 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+#status {
+  margin: 0 0 12px;
+  color: #9ca3af;
+  font-size: 12px;
+}
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+li {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+li b {
+  width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  color: inherit;
+}
+button {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: #10b981;
+  color: #fff;
+  cursor: pointer;
+}

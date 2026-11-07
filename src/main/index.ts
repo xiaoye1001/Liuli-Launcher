@@ -35,6 +35,17 @@ import {
   setServerAddonEnabled
 } from './serverAddons'
 import { applyModSyncCode, createModSyncCode, previewModSyncCode } from './modSync'
+import {
+  callPlugin,
+  cleanupPendingPlugins,
+  clearPluginData,
+  discardPlugin,
+  installPlugin,
+  listPlugins,
+  pickPlugin,
+  setPluginEnabled,
+  uninstallPlugin
+} from './plugins'
 import { listConfigFiles, readConfigFile, restoreConfigFile, saveConfigEntries, saveConfigText } from './modConfigs'
 import { clearExtraInstance, killExtraInstance, launchExtraInstance, listExtraInstances } from './extraInstances'
 import {
@@ -817,6 +828,14 @@ function registerIpc(): void {
     deleteWaypoint(String(versionId), String(folder), id)
   )
   ipcMain.handle('modSync:create', (_, versionId: string) => createModSyncCode(String(versionId)))
+  ipcMain.handle('plugins:list', () => listPlugins())
+  ipcMain.handle('plugins:pick', (event) => pickPlugin(BrowserWindow.fromWebContents(event.sender)))
+  ipcMain.handle('plugins:install', (_, token: unknown) => installPlugin(token))
+  ipcMain.handle('plugins:discard', (_, token: unknown) => discardPlugin(token))
+  ipcMain.handle('plugins:setEnabled', (_, id: unknown, enabled: unknown) => setPluginEnabled(id, enabled))
+  ipcMain.handle('plugins:uninstall', (_, id: unknown) => uninstallPlugin(id))
+  ipcMain.handle('plugins:clearData', (_, id: unknown) => clearPluginData(id))
+  ipcMain.handle('plugins:call', (_, id: unknown, method: unknown, params: unknown) => callPlugin(id, method, params))
   ipcMain.handle('configs:list', (_, versionId: string) => listConfigFiles(String(versionId)))
   ipcMain.handle('configs:read', (_, versionId: string, name: unknown) => readConfigFile(String(versionId), name))
   ipcMain.handle('configs:save', (_, versionId: string, name: unknown, changes: unknown) =>
@@ -1100,6 +1119,7 @@ app.whenReady().then(async () => {
   setupPlayReminder()
   setupAutoBackup()
   setupScreenshotSessions()
+  void cleanupPendingPlugins()
   setupLagReports()
   setupLaunchTiming()
   setupGameMonitor()
