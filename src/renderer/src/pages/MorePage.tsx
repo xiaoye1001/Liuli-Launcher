@@ -287,7 +287,7 @@ function MorePage(): JSX.Element {
       <PageHeader
         title="更多"
         subtitle="百宝箱：按分类放好的小工具"
-        after={
+        actions={
           <div className="flex rounded-xl bg-black/20 p-1" role="tablist" aria-label="百宝箱分类">
             {GROUPS.map((g) => (
               <button
