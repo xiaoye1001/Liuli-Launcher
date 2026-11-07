@@ -11,6 +11,7 @@ import { modsContextOf } from './mods'
 import { parseNbt, type NbtCompound } from './nbt'
 import { readPackMeta } from './resources'
 import { zipDirectory } from './zipWriter'
+import { assertGameDirFree } from './gameUsage'
 import type {
   WorldBackup,
   WorldDatapack,
@@ -37,16 +38,8 @@ export async function gameDirOf(versionId: string): Promise<string> {
  * 所以比较的是游戏目录，而不只是版本名
  */
 async function assertGameStopped(versionId: string): Promise<void> {
-  const game = getGameStatus()
-  if (!(game.state === 'launching' || game.state === 'running') || !game.versionId) return
-  if (game.versionId === versionId) throw new Error('游戏正在运行，请退出游戏后再操作存档')
-  const [running, target] = await Promise.all([
-    gameDirOf(game.versionId).catch(() => ''),
-    gameDirOf(versionId).catch(() => '')
-  ])
-  if (running && target && resolve(running).toLowerCase() === resolve(target).toLowerCase()) {
-    throw new Error(`游戏（${game.versionId}）正在使用同一个存档文件夹，请退出游戏后再操作存档`)
-  }
+  // 主游戏和多开的游戏窗口都算
+  await assertGameDirFree(versionId, '操作存档')
 }
 
 /** 存档文件夹名、数据包文件名只能是普通名字，防止通过 ../ 访问其他文件 */

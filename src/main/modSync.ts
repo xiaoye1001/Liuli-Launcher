@@ -108,10 +108,19 @@ export async function previewModSyncCode(versionId: string, code: unknown): Prom
 export async function applyModSyncCode(versionId: string, code: unknown, replace: unknown): Promise<ModSyncResult> {
   assertGameStopped(versionId)
   const preview = await previewModSyncCode(versionId, code)
-  const todo = preview.items.filter((i) => i.status === 'new' || (replace === true && i.status === 'different'))
+  const wanted = preview.items.filter((i) => i.status === 'new' || (replace === true && i.status === 'different'))
+  // 不适合这个游戏版本或加载器的模组装上去游戏多半打不开：不装，告诉用户
+  const todo = wanted.filter((i) => i.fits)
   if (todo.length > 0) await autoSnapshot(versionId, '使用模组同步码')
   const ctx = await modsContextOf(versionId)
-  const result: ModSyncResult = { installed: [], replaced: [], failed: [], skipped: preview.items.length - todo.length }
+  const result: ModSyncResult = {
+    installed: [],
+    replaced: [],
+    failed: wanted
+      .filter((i) => !i.fits)
+      .map((i) => ({ title: i.title, error: '不适合这个版本（游戏版本或加载器不一样），没有安装' })),
+    skipped: preview.items.length - wanted.length
+  }
   for (const item of todo) {
     try {
       if (item.status === 'new') {

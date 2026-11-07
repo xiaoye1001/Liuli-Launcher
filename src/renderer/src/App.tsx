@@ -26,6 +26,7 @@ import type { ModpackInfo, ResourceType } from '../../shared/types'
 import { DEFAULT_TITLE, useAppearance, useAppearanceLoaded } from './utils/appearance'
 import DynamicBackground from './components/DynamicBackground'
 import { ThemeProvider } from './context/ThemeContext'
+import { setLayoutEditing } from './components/BlockLayout'
 
 interface PageContext {
   droppedModpack: ModpackInfo | null
@@ -124,6 +125,8 @@ function App(): JSX.Element {
   useEffect(() => {
     if (!appearance.animations) setSplash(false)
   }, [appearance.animations])
+  // 换页面时退出「编辑布局」
+  useEffect(() => setLayoutEditing(null), [page])
   // 在设置里隐藏了当前所在的页面时回到主页（从其它页面跳转过去仍然可以打开）
   // 依赖用字符串：其它设置变化时数组会重新生成，不能因此跳走
   const hiddenKey = appearance.hiddenPages.join(',')
@@ -136,7 +139,11 @@ function App(): JSX.Element {
     // 关闭动画时，framer-motion 的位移、缩放等动画也一并关闭
     <ThemeProvider>
       <MotionConfig reducedMotion={appearance.animations ? 'never' : 'always'}>
-        <div className="relative isolate flex h-full overflow-hidden app-background text-white">
+        <div
+          className={`relative isolate flex h-full overflow-hidden app-background text-white ${
+            appearance.navPosition === 'top' ? 'flex-col' : appearance.navPosition === 'right' ? 'flex-row-reverse' : ''
+          }`}
+        >
           {/* 动态背景：主题方案的动态图层 + 自定义壁纸 + 粒子特效 */}
           <DynamicBackground />
           {/* 窗口顶部的拖动区域（Windows、Linux 隐藏了系统标题栏） */}
@@ -151,7 +158,9 @@ function App(): JSX.Element {
               setPage('download')
             }}
           />
-          <main className="relative flex-1 overflow-hidden p-8">
+          <main
+            className={`relative min-h-0 flex-1 overflow-hidden p-8 ${appearance.navPosition === 'top' ? 'pt-6' : ''}`}
+          >
             {/*
               页面切换：等上一页的退场动画播完再显示下一页。
               注意：页面里不要用 framer-motion 的 layout / layoutId（布局动画），这类元素在页面里卸载后

@@ -540,6 +540,7 @@ function ResourceBrowser({
   return (
     <div className="flex h-full min-w-0 flex-col gap-4">
       <PageHeader
+        layoutPage="download"
         title={meta.label}
         subtitle={
           <span className="truncate">

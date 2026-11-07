@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import ModrinthBrowser from '../components/ModrinthBrowser'
 import PageHeader from '../components/PageHeader'
+import { BlockLayout, LayoutBlock } from '../components/BlockLayout'
 import { EmptyState, LoadingState } from '../components/EmptyState'
 import { HEADER_BUTTON, HEADER_ICON_BUTTON, HEADER_PRIMARY } from '../components/headerButtons'
 import ModIssuesCard from '../components/ModIssuesCard'
@@ -306,6 +307,7 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
     <div className="flex h-full flex-col gap-4">
       {/* 顶部：返回、标题、操作（与其他页面的标题栏对齐） */}
       <PageHeader
+        layoutPage="mods"
         onBack={onBack}
         backTitle="返回版本列表"
         icon={<Puzzle className="h-6 w-6 text-violet-300" />}
@@ -366,324 +368,338 @@ function ModsPage({ version, onBack }: ModsPageProps): JSX.Element {
         }
       />
 
-      {error && (
-        <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span className="break-all">{error}</span>
-        </div>
-      )}
-      {notice && <div className="rounded-xl bg-emerald-500/15 px-4 py-2.5 text-sm text-emerald-200">{notice}</div>}
-      {perf && (
-        <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm">
-          <div className="flex items-center gap-2">
-            <Gauge className="h-4 w-4 text-emerald-300" />
-            <span className="font-medium">
-              一键优化：新装了 {perf.filter((r) => r.status === 'installed').length} 个优化模组
-            </span>
-            <button
-              onClick={() => setPerf(null)}
-              title="关闭"
-              className="ml-auto rounded p-1 text-white/50 hover:bg-white/10"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <div className="mt-2 grid gap-1">
-            {perf.map((r) => (
-              <div key={r.name} className="flex items-center gap-2 text-xs">
-                {r.status === 'installed' || r.status === 'already' ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-300" />
-                ) : (
-                  <AlertTriangle
-                    className={`h-3.5 w-3.5 shrink-0 ${r.status === 'failed' ? 'text-red-300' : 'text-white/40'}`}
-                  />
-                )}
-                <span className="shrink-0">{r.name}</span>
-                <span className="min-w-0 truncate text-white/50" title={r.detail}>
-                  {
-                    {
-                      installed: '已安装',
-                      already: '已经装了',
-                      skipped: '跳过',
-                      unavailable: '没有适用的版本',
-                      failed: '失败'
-                    }[r.status]
-                  }
-                  {r.detail ? ` · ${r.detail}` : ''}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 模组列表 */}
-      <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
-        <div className="mb-3 flex w-fit rounded-xl bg-black/20 p-1">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => {
-                setTab(t.key)
-                if (t.key === 'modrinth') setBrowserOpened(true)
-              }}
-              className={`rounded-lg px-4 py-1.5 text-sm transition-colors ${
-                tab === t.key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
-              }`}
-            >
-              {t.key === 'installed' ? `${t.label}（${list?.mods.length ?? 0}）` : t.label}
-            </button>
-          ))}
-        </div>
-
-        {/* 两个标签页都保持挂载，切换时保留搜索结果 */}
-        {browserOpened && (
-          <div className={`min-h-0 flex-1 flex-col ${tab === 'modrinth' ? 'flex' : 'hidden'}`}>
-            <ModrinthBrowser versionId={version.id} onInstalled={load} preset={searchPreset} />
-          </div>
-        )}
-        <div className={`min-h-0 flex-1 flex-col ${tab === 'installed' ? 'flex' : 'hidden'}`}>
-          <div className="flex items-center gap-3">
-            <div className="flex flex-1 items-center gap-2 rounded-xl bg-black/20 px-3 py-2">
-              <Search className="h-4 w-4 text-white/40" />
-              <input
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                placeholder="搜索模组名称（支持中文名）或文件名"
-                className="flex-1 bg-transparent text-sm outline-none placeholder:text-white/30"
-              />
+      <BlockLayout page="mods" widths={false}>
+        <LayoutBlock id="messages" title="提示和性能优化">
+          {error && (
+            <div className="flex items-start gap-3 rounded-xl bg-red-500/20 px-4 py-3 text-sm text-red-200">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span className="break-all">{error}</span>
             </div>
-            <span className="shrink-0 text-xs text-white/50">
-              共 {list?.mods.length ?? 0} 个 · 已启用 {enabledCount} 个
-            </span>
-            {updateCount > 0 ? (
-              <button
-                onClick={updateAll}
-                disabled={pending !== null}
-                className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500 disabled:opacity-50"
-              >
-                {pending === '__all__' ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <ArrowUpCircle className="h-3.5 w-3.5" />
-                )}
-                全部更新（{updateCount}）
-              </button>
-            ) : null}
-            <button
-              onClick={checkUpdates}
-              disabled={checking || pending !== null || !list?.mods.length}
-              title="在 Modrinth 上查找适用于当前版本的新版本"
-              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
-            >
-              {checking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-              检查更新
-            </button>
-            {(list?.mods.length ?? 0) > 0 && (
-              <button
-                onClick={() => setProfiles(true)}
-                disabled={pending !== null}
-                title="把模组开关存成方案，一键切换"
-                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
-              >
-                <Layers3 className="h-3.5 w-3.5" />
-                方案
-              </button>
-            )}
-            {version.loader && version.loader !== 'optifine' && (
-              <button
-                onClick={() => setCollections(true)}
-                disabled={pending !== null}
-                title="把常用的模组存成合集，或者把合集装到这个版本"
-                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
-              >
-                <Library className="h-3.5 w-3.5" />
-                合集
-              </button>
-            )}
-            {version.loader && version.loader !== 'optifine' && (list?.mods.length ?? 0) > 0 && (
-              <button
-                onClick={() => setMigration(true)}
-                disabled={pending !== null}
-                title="换新的游戏版本时，检查这些模组在新版本上有没有，一键装过去"
-                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
-              >
-                <ArrowRightLeft className="h-3.5 w-3.5" />
-                迁移
-              </button>
-            )}
-            {version.loader && version.loader !== 'optifine' && (
-              <button
-                onClick={() => setConfigs(true)}
-                title="改模组的配置文件（开关、数字、文字），改坏了可以恢复"
-                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                配置
-              </button>
-            )}
-            {version.loader && version.loader !== 'optifine' && (
-              <button
-                onClick={() => setSync(true)}
-                disabled={pending !== null}
-                title="把模组做成同步码发给朋友，或者粘贴朋友的同步码装齐同样的模组"
-                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
-              >
-                <Share2 className="h-3.5 w-3.5" />
-                同步码
-              </button>
-            )}
-            {version.loader && version.loader !== 'optifine' && (list?.mods.length ?? 0) > 1 && (
-              <button
-                onClick={() => setBisect(true)}
-                disabled={pending !== null}
-                title="游戏崩溃又不知道是哪个模组：每轮只开一半，几轮后找到出问题的模组"
-                className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs disabled:opacity-50 ${
-                  bisectRound !== null
-                    ? 'border-sky-400/40 bg-sky-500/20 text-sky-100 hover:bg-sky-500/30'
-                    : 'border-white/10 bg-white/10 hover:bg-white/20'
-                }`}
-              >
-                <SearchCheck className="h-3.5 w-3.5" />
-                {bisectRound !== null ? `排查中（第 ${bisectRound} 轮）` : '排查'}
-              </button>
-            )}
-          </div>
-
-          {list && (
-            <ModIssuesCard
-              issues={list.issues}
-              busy={pending !== null}
-              onToggle={(fileName) => {
-                const mod = list.mods.find((m) => m.fileName === fileName)
-                if (mod) void toggle(mod)
-              }}
-              onSearch={(text) => {
-                setSearchPreset({ text, nonce: Date.now() })
-                setBrowserOpened(true)
-                setTab('modrinth')
-              }}
-              onDelete={(fileName) => {
-                const mod = list.mods.find((m) => m.fileName === fileName)
-                if (mod) void remove(mod)
-              }}
-            />
           )}
+          {notice && <div className="rounded-xl bg-emerald-500/15 px-4 py-2.5 text-sm text-emerald-200">{notice}</div>}
+          {perf && (
+            <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm">
+              <div className="flex items-center gap-2">
+                <Gauge className="h-4 w-4 text-emerald-300" />
+                <span className="font-medium">
+                  一键优化：新装了 {perf.filter((r) => r.status === 'installed').length} 个优化模组
+                </span>
+                <button
+                  onClick={() => setPerf(null)}
+                  title="关闭"
+                  className="ml-auto rounded p-1 text-white/50 hover:bg-white/10"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="mt-2 grid gap-1">
+                {perf.map((r) => (
+                  <div key={r.name} className="flex items-center gap-2 text-xs">
+                    {r.status === 'installed' || r.status === 'already' ? (
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-300" />
+                    ) : (
+                      <AlertTriangle
+                        className={`h-3.5 w-3.5 shrink-0 ${r.status === 'failed' ? 'text-red-300' : 'text-white/40'}`}
+                      />
+                    )}
+                    <span className="shrink-0">{r.name}</span>
+                    <span className="min-w-0 truncate text-white/50" title={r.detail}>
+                      {
+                        {
+                          installed: '已安装',
+                          already: '已经装了',
+                          skipped: '跳过',
+                          unavailable: '没有适用的版本',
+                          failed: '失败'
+                        }[r.status]
+                      }
+                      {r.detail ? ` · ${r.detail}` : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </LayoutBlock>
 
-          <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-            {loading && !list && <LoadingState />}
-            {list && list.mods.length === 0 && (
-              <EmptyState icon={Puzzle}>还没有模组，点「添加模组」选择 .jar 文件，或打开文件夹直接放进去</EmptyState>
-            )}
-            {list && list.mods.length > 0 && visible.length === 0 && <EmptyState>没有匹配的模组</EmptyState>}
-            {visible.map((mod) => {
-              const kindInfo = mod.kind !== 'unknown' ? KIND_LABELS[mod.kind] : null
-              const mismatch = versionFamily && family(mod.kind) && family(mod.kind) !== versionFamily
-              return (
-                <div
-                  key={mod.fileName}
-                  className={`flex items-center gap-3 rounded-xl bg-black/20 px-4 py-2.5 transition-opacity ${
-                    mod.enabled ? '' : 'opacity-50'
+        <LayoutBlock id="list" title="模组列表">
+          {/* 模组列表 */}
+          <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
+            <div className="mb-3 flex w-fit rounded-xl bg-black/20 p-1">
+              {TABS.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => {
+                    setTab(t.key)
+                    if (t.key === 'modrinth') setBrowserOpened(true)
+                  }}
+                  className={`rounded-lg px-4 py-1.5 text-sm transition-colors ${
+                    tab === t.key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
                   }`}
                 >
-                  {mod.icon ? (
-                    <img src={mod.icon} alt="" className="h-10 w-10 shrink-0 rounded-lg [image-rendering:pixelated]" />
-                  ) : (
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10">
-                      <Puzzle className="h-5 w-5 text-white/40" />
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      {/* 常用模组显示中文名，原名放在后面 */}
-                      <span className="truncate text-sm font-semibold">{mod.zhName ?? mod.name}</span>
-                      {mod.zhName && <span className="truncate text-xs text-white/50">{mod.name}</span>}
-                      {mod.version && <span className="shrink-0 font-mono text-xs text-white/50">{mod.version}</span>}
-                      {kindInfo && (
-                        <span className={`shrink-0 rounded px-1.5 text-xs ${kindInfo.className}`}>
-                          {kindInfo.label}
-                        </span>
-                      )}
-                      {mismatch && (
-                        <span
-                          title={`这是 ${kindInfo?.label} 模组，当前版本无法加载`}
-                          className="flex shrink-0 items-center gap-1 rounded bg-red-500/20 px-1.5 text-xs text-red-300"
-                        >
-                          <AlertTriangle className="h-3 w-3" />
-                          不兼容
-                        </span>
-                      )}
-                    </div>
-                    <div className="truncate text-xs text-white/40" title={mod.description || mod.fileName}>
-                      {mod.description || mod.fileName}
-                    </div>
-                  </div>
-                  {updates?.[mod.fileName] && (
-                    <button
-                      onClick={() => updateOne(mod, updates[mod.fileName])}
-                      disabled={pending !== null}
-                      title={`更新到 ${updates[mod.fileName].newFileName}`}
-                      className="flex shrink-0 items-center gap-1 rounded-lg bg-emerald-500/20 px-2.5 py-1 text-xs text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-50"
-                    >
-                      {pending === mod.fileName ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <ArrowUpCircle className="h-3.5 w-3.5" />
-                      )}
-                      更新到 {updates[mod.fileName].newVersion}
-                      {updates[mod.fileName].prerelease && '（测试版）'}
-                    </button>
-                  )}
-                  {rollbacks[baseName(mod.fileName)] && (
-                    <button
-                      onClick={() => rollback(mod, rollbacks[baseName(mod.fileName)])}
-                      disabled={pending !== null}
-                      title={`退回到更新前的 ${rollbacks[baseName(mod.fileName)].oldFile}（${new Date(
-                        rollbacks[baseName(mod.fileName)].at
-                      ).toLocaleString('zh-CN')} 更新）`}
-                      className="flex shrink-0 items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1 text-xs text-white/70 hover:bg-white/20 hover:text-white disabled:opacity-50"
-                    >
-                      {pending === mod.fileName ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Undo2 className="h-3.5 w-3.5" />
-                      )}
-                      退回旧版
-                    </button>
-                  )}
-                  <McmodLink name={mod.name} label={false} />
-                  <span className="shrink-0 text-xs text-white/30">{formatSize(mod.size)}</span>
-                  {/* 启用开关 */}
+                  {t.key === 'installed' ? `${t.label}（${list?.mods.length ?? 0}）` : t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* 两个标签页都保持挂载，切换时保留搜索结果 */}
+            {browserOpened && (
+              <div className={`min-h-0 flex-1 flex-col ${tab === 'modrinth' ? 'flex' : 'hidden'}`}>
+                <ModrinthBrowser versionId={version.id} onInstalled={load} preset={searchPreset} />
+              </div>
+            )}
+            <div className={`min-h-0 flex-1 flex-col ${tab === 'installed' ? 'flex' : 'hidden'}`}>
+              <div className="flex items-center gap-3">
+                <div className="flex flex-1 items-center gap-2 rounded-xl bg-black/20 px-3 py-2">
+                  <Search className="h-4 w-4 text-white/40" />
+                  <input
+                    value={keyword}
+                    onChange={(e) => setKeyword(e.target.value)}
+                    placeholder="搜索模组名称（支持中文名）或文件名"
+                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-white/30"
+                  />
+                </div>
+                <span className="shrink-0 text-xs text-white/50">
+                  共 {list?.mods.length ?? 0} 个 · 已启用 {enabledCount} 个
+                </span>
+                {updateCount > 0 ? (
                   <button
-                    role="switch"
-                    aria-checked={mod.enabled}
-                    onClick={() => toggle(mod)}
+                    onClick={updateAll}
                     disabled={pending !== null}
-                    title={mod.enabled ? '点击禁用' : '点击启用'}
-                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:cursor-wait ${
-                      mod.enabled ? 'bg-emerald-500' : 'bg-white/20'
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500/80 px-3 py-1.5 text-xs font-medium hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    {pending === '__all__' ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <ArrowUpCircle className="h-3.5 w-3.5" />
+                    )}
+                    全部更新（{updateCount}）
+                  </button>
+                ) : null}
+                <button
+                  onClick={checkUpdates}
+                  disabled={checking || pending !== null || !list?.mods.length}
+                  title="在 Modrinth 上查找适用于当前版本的新版本"
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+                >
+                  {checking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  检查更新
+                </button>
+                {(list?.mods.length ?? 0) > 0 && (
+                  <button
+                    onClick={() => setProfiles(true)}
+                    disabled={pending !== null}
+                    title="把模组开关存成方案，一键切换"
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+                  >
+                    <Layers3 className="h-3.5 w-3.5" />
+                    方案
+                  </button>
+                )}
+                {version.loader && version.loader !== 'optifine' && (
+                  <button
+                    onClick={() => setCollections(true)}
+                    disabled={pending !== null}
+                    title="把常用的模组存成合集，或者把合集装到这个版本"
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+                  >
+                    <Library className="h-3.5 w-3.5" />
+                    合集
+                  </button>
+                )}
+                {version.loader && version.loader !== 'optifine' && (list?.mods.length ?? 0) > 0 && (
+                  <button
+                    onClick={() => setMigration(true)}
+                    disabled={pending !== null}
+                    title="换新的游戏版本时，检查这些模组在新版本上有没有，一键装过去"
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+                  >
+                    <ArrowRightLeft className="h-3.5 w-3.5" />
+                    迁移
+                  </button>
+                )}
+                {version.loader && version.loader !== 'optifine' && (
+                  <button
+                    onClick={() => setConfigs(true)}
+                    title="改模组的配置文件（开关、数字、文字），改坏了可以恢复"
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                    配置
+                  </button>
+                )}
+                {version.loader && version.loader !== 'optifine' && (
+                  <button
+                    onClick={() => setSync(true)}
+                    disabled={pending !== null}
+                    title="把模组做成同步码发给朋友，或者粘贴朋友的同步码装齐同样的模组"
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
+                  >
+                    <Share2 className="h-3.5 w-3.5" />
+                    同步码
+                  </button>
+                )}
+                {version.loader && version.loader !== 'optifine' && (list?.mods.length ?? 0) > 1 && (
+                  <button
+                    onClick={() => setBisect(true)}
+                    disabled={pending !== null}
+                    title="游戏崩溃又不知道是哪个模组：每轮只开一半，几轮后找到出问题的模组"
+                    className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs disabled:opacity-50 ${
+                      bisectRound !== null
+                        ? 'border-sky-400/40 bg-sky-500/20 text-sky-100 hover:bg-sky-500/30'
+                        : 'border-white/10 bg-white/10 hover:bg-white/20'
                     }`}
                   >
-                    <span
-                      className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
-                        mod.enabled ? 'left-6' : 'left-1'
+                    <SearchCheck className="h-3.5 w-3.5" />
+                    {bisectRound !== null ? `排查中（第 ${bisectRound} 轮）` : '排查'}
+                  </button>
+                )}
+              </div>
+
+              {list && (
+                <ModIssuesCard
+                  issues={list.issues}
+                  busy={pending !== null}
+                  onToggle={(fileName) => {
+                    const mod = list.mods.find((m) => m.fileName === fileName)
+                    if (mod) void toggle(mod)
+                  }}
+                  onSearch={(text) => {
+                    setSearchPreset({ text, nonce: Date.now() })
+                    setBrowserOpened(true)
+                    setTab('modrinth')
+                  }}
+                  onDelete={(fileName) => {
+                    const mod = list.mods.find((m) => m.fileName === fileName)
+                    if (mod) void remove(mod)
+                  }}
+                />
+              )}
+
+              <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                {loading && !list && <LoadingState />}
+                {list && list.mods.length === 0 && (
+                  <EmptyState icon={Puzzle}>
+                    还没有模组，点「添加模组」选择 .jar 文件，或打开文件夹直接放进去
+                  </EmptyState>
+                )}
+                {list && list.mods.length > 0 && visible.length === 0 && <EmptyState>没有匹配的模组</EmptyState>}
+                {visible.map((mod) => {
+                  const kindInfo = mod.kind !== 'unknown' ? KIND_LABELS[mod.kind] : null
+                  const mismatch = versionFamily && family(mod.kind) && family(mod.kind) !== versionFamily
+                  return (
+                    <div
+                      key={mod.fileName}
+                      className={`flex items-center gap-3 rounded-xl bg-black/20 px-4 py-2.5 transition-opacity ${
+                        mod.enabled ? '' : 'opacity-50'
                       }`}
-                    />
-                  </button>
-                  <button
-                    onClick={() => remove(mod)}
-                    disabled={pending !== null}
-                    title="删除（移到回收站）"
-                    className="rounded-lg p-2 text-white/50 hover:bg-red-500/30 hover:text-red-200 disabled:opacity-40"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
+                    >
+                      {mod.icon ? (
+                        <img
+                          src={mod.icon}
+                          alt=""
+                          className="h-10 w-10 shrink-0 rounded-lg [image-rendering:pixelated]"
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10">
+                          <Puzzle className="h-5 w-5 text-white/40" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          {/* 常用模组显示中文名，原名放在后面 */}
+                          <span className="truncate text-sm font-semibold">{mod.zhName ?? mod.name}</span>
+                          {mod.zhName && <span className="truncate text-xs text-white/50">{mod.name}</span>}
+                          {mod.version && (
+                            <span className="shrink-0 font-mono text-xs text-white/50">{mod.version}</span>
+                          )}
+                          {kindInfo && (
+                            <span className={`shrink-0 rounded px-1.5 text-xs ${kindInfo.className}`}>
+                              {kindInfo.label}
+                            </span>
+                          )}
+                          {mismatch && (
+                            <span
+                              title={`这是 ${kindInfo?.label} 模组，当前版本无法加载`}
+                              className="flex shrink-0 items-center gap-1 rounded bg-red-500/20 px-1.5 text-xs text-red-300"
+                            >
+                              <AlertTriangle className="h-3 w-3" />
+                              不兼容
+                            </span>
+                          )}
+                        </div>
+                        <div className="truncate text-xs text-white/40" title={mod.description || mod.fileName}>
+                          {mod.description || mod.fileName}
+                        </div>
+                      </div>
+                      {updates?.[mod.fileName] && (
+                        <button
+                          onClick={() => updateOne(mod, updates[mod.fileName])}
+                          disabled={pending !== null}
+                          title={`更新到 ${updates[mod.fileName].newFileName}`}
+                          className="flex shrink-0 items-center gap-1 rounded-lg bg-emerald-500/20 px-2.5 py-1 text-xs text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-50"
+                        >
+                          {pending === mod.fileName ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <ArrowUpCircle className="h-3.5 w-3.5" />
+                          )}
+                          更新到 {updates[mod.fileName].newVersion}
+                          {updates[mod.fileName].prerelease && '（测试版）'}
+                        </button>
+                      )}
+                      {rollbacks[baseName(mod.fileName)] && (
+                        <button
+                          onClick={() => rollback(mod, rollbacks[baseName(mod.fileName)])}
+                          disabled={pending !== null}
+                          title={`退回到更新前的 ${rollbacks[baseName(mod.fileName)].oldFile}（${new Date(
+                            rollbacks[baseName(mod.fileName)].at
+                          ).toLocaleString('zh-CN')} 更新）`}
+                          className="flex shrink-0 items-center gap-1 rounded-lg bg-white/10 px-2.5 py-1 text-xs text-white/70 hover:bg-white/20 hover:text-white disabled:opacity-50"
+                        >
+                          {pending === mod.fileName ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Undo2 className="h-3.5 w-3.5" />
+                          )}
+                          退回旧版
+                        </button>
+                      )}
+                      <McmodLink name={mod.name} label={false} />
+                      <span className="shrink-0 text-xs text-white/30">{formatSize(mod.size)}</span>
+                      {/* 启用开关 */}
+                      <button
+                        role="switch"
+                        aria-checked={mod.enabled}
+                        onClick={() => toggle(mod)}
+                        disabled={pending !== null}
+                        title={mod.enabled ? '点击禁用' : '点击启用'}
+                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:cursor-wait ${
+                          mod.enabled ? 'bg-emerald-500' : 'bg-white/20'
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-1 h-4 w-4 rounded-full bg-[#fff] shadow transition-all ${
+                            mod.enabled ? 'left-6' : 'left-1'
+                          }`}
+                        />
+                      </button>
+                      <button
+                        onClick={() => remove(mod)}
+                        disabled={pending !== null}
+                        title="删除（移到回收站）"
+                        className="rounded-lg p-2 text-white/50 hover:bg-red-500/30 hover:text-red-200 disabled:opacity-40"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </section>
+        </LayoutBlock>
+      </BlockLayout>
       {migration && <ModMigrationDialog versionId={version.id} onClose={() => setMigration(false)} />}
       {configs && <ModConfigDialog versionId={version.id} onClose={() => setConfigs(false)} />}
       {sync && <ModSyncDialog versionId={version.id} onClose={() => setSync(false)} onInstalled={() => void load()} />}

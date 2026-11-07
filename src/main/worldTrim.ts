@@ -9,7 +9,7 @@ import { open, readdir, rm, stat } from 'fs/promises'
 import { dirname, join } from 'path'
 import { inflateSync, gunzipSync } from 'zlib'
 import { backupWorld, getWorldDetails, worldRegionDir } from './worlds'
-import { getGameStatus } from './launch'
+import { assertGameDirFree } from './gameUsage'
 import type { WorldSizeReport, WorldTrimPlan } from '../shared/types'
 
 async function worldPath(versionId: string, folder: string): Promise<string> {
@@ -130,11 +130,9 @@ function regionCenter(name: string): { x: number; z: number } | null {
   return m ? { x: Number(m[1]) * 512 + 256, z: Number(m[2]) * 512 + 256 } : null
 }
 
-function assertStopped(versionId: string): void {
-  const game = getGameStatus()
-  if ((game.state === 'launching' || game.state === 'running') && game.versionId === versionId) {
-    throw new Error('游戏正在运行，请退出游戏后再整理存档')
-  }
+/** 正在玩的游戏（包括多开的窗口、共用同一个存档文件夹的其他版本）用着存档时不能删 */
+function assertStopped(versionId: string): Promise<void> {
+  return assertGameDirFree(versionId, '整理存档')
 }
 
 /**
@@ -190,7 +188,7 @@ export async function applyWorldTrim(
   maxMinutes: unknown,
   keepRadius: unknown
 ): Promise<{ removed: number; bytes: number; backup: string }> {
-  assertStopped(versionId)
+  await assertStopped(versionId)
   const plan = await planWorldTrim(versionId, folder, maxMinutes, keepRadius)
   if (plan.regions.length === 0) throw new Error('没有可以删掉的区域')
   const backup = await backupWorld(versionId, folder)

@@ -5,9 +5,10 @@
  * - 第一次修改前把原文件备份到 liuli-config-backup，可以一键恢复原样；也可以直接改文本
  * - 游戏运行时不能改（游戏退出时会重写配置）；只能操作 config 文件夹里的文件
  */
-import { copyFile, lstat, mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises'
+import { copyFile, lstat, mkdir, readdir, readFile, realpath, rm, stat, writeFile } from 'fs/promises'
 import { dirname, extname, join, relative, resolve, sep } from 'path'
-import { assertGameStopped, modsContextOf } from './mods'
+import { modsContextOf } from './mods'
+import { assertGameDirFree } from './gameUsage'
 import type { ConfigEntry, ConfigFileInfo, ConfigFileView } from '../shared/types'
 
 const EXTENSIONS = ['.toml', '.json', '.json5', '.properties', '.cfg', '.txt', '.yml', '.yaml', '.ini']
@@ -31,6 +32,9 @@ async function resolveConfig(versionId: string, name: unknown): Promise<{ path: 
   if (!EXTENSIONS.includes(extname(path).toLowerCase())) throw new Error('不是配置文件')
   const info = await lstat(path).catch(() => null)
   if (!info || !info.isFile()) throw new Error('找不到这个配置文件')
+  // 中间的文件夹是指向别处的链接时，实际位置可能在 config 外面
+  const [real, realRoot] = await Promise.all([realpath(path), realpath(roots.config)])
+  if (!real.startsWith(realRoot + sep)) throw new Error('无效的文件名')
   const rel = relative(roots.config, path).split(sep).join('/')
   return { path, rel, backup: join(roots.backup, ...rel.split('/')) }
 }
@@ -329,7 +333,7 @@ async function backupOnce(file: { path: string; backup: string }): Promise<void>
 
 /** 保存修改过的设置项：changes 是 设置项 ID → 新的值 */
 export async function saveConfigEntries(versionId: string, name: unknown, changes: unknown): Promise<ConfigFileView> {
-  assertGameStopped(versionId)
+  await assertGameDirFree(versionId, '修改模组配置')
   const file = await resolveConfig(versionId, name)
   if (!changes || typeof changes !== 'object') throw new Error('没有要保存的修改')
   const text = await readFile(file.path, 'utf-8')
@@ -388,7 +392,7 @@ export async function saveConfigEntries(versionId: string, name: unknown, change
 
 /** 直接保存整个文本 */
 export async function saveConfigText(versionId: string, name: unknown, text: unknown): Promise<ConfigFileView> {
-  assertGameStopped(versionId)
+  await assertGameDirFree(versionId, '修改模组配置')
   const file = await resolveConfig(versionId, name)
   if (typeof text !== 'string') throw new Error('内容无效')
   if (Buffer.byteLength(text) > MAX_BYTES) throw new Error('内容太长了')
@@ -406,7 +410,7 @@ export async function saveConfigText(versionId: string, name: unknown, text: unk
 
 /** 恢复成第一次修改前的样子 */
 export async function restoreConfigFile(versionId: string, name: unknown): Promise<ConfigFileView> {
-  assertGameStopped(versionId)
+  await assertGameDirFree(versionId, '修改模组配置')
   const file = await resolveConfig(versionId, name)
   if (!(await stat(file.backup).catch(() => null))) throw new Error('这个文件没有改过（没有备份）')
   await copyFile(file.backup, file.path)

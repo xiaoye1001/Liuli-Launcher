@@ -3,7 +3,7 @@ import { Eye, EyeOff, Lock, RotateCcw } from 'lucide-react'
 import { NAV_ITEMS } from './Sidebar'
 import { DEFAULT_SUBTITLE, DEFAULT_TITLE } from '../utils/appearance'
 import { WELCOME_VARIABLES, renderWelcome } from '../utils/welcome'
-import { HIDEABLE_PAGES } from '../../../shared/types'
+import { HIDEABLE_PAGES, NAV_PAGES, normalizeOrder } from '../../../shared/types'
 import type { AppSettings } from '../../../shared/types'
 
 const DEFAULT_WELCOME_TITLE = '欢迎回来，{name}'
@@ -114,40 +114,42 @@ function LayoutSettings({ settings, update, updateSlider }: Props): JSX.Element 
       </div>
 
       {/* 侧边栏页面 */}
-      <div className="mt-4 text-xs text-white/60">侧边栏显示的页面</div>
+      <div className="mt-4 text-xs text-white/60">导航栏显示的页面</div>
       <div className="mt-1.5 flex flex-wrap gap-2" aria-label="侧边栏显示的页面">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon
-          const hideable = HIDEABLE_PAGES.includes(item.key)
-          const shown = !hidden.includes(item.key)
-          return (
-            <button
-              key={item.key}
-              role="checkbox"
-              aria-checked={shown}
-              disabled={!hideable}
-              title={hideable ? (shown ? '点击隐藏' : '点击显示') : '始终显示'}
-              onClick={() => togglePage(item.key)}
-              className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors disabled:cursor-default ${
-                shown
-                  ? 'border-emerald-400/40 bg-emerald-500/10'
-                  : 'border-white/10 bg-white/5 text-white/40 line-through'
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {item.label}
-              {hideable ? (
-                shown ? (
-                  <Eye className="h-3.5 w-3.5 text-white/50" />
+        {normalizeOrder(settings.navOrder, NAV_PAGES)
+          .map((key) => NAV_ITEMS.find((n) => n.key === key)!)
+          .map((item) => {
+            const Icon = item.icon
+            const hideable = HIDEABLE_PAGES.includes(item.key)
+            const shown = !hidden.includes(item.key)
+            return (
+              <button
+                key={item.key}
+                role="checkbox"
+                aria-checked={shown}
+                disabled={!hideable}
+                title={hideable ? (shown ? '点击隐藏' : '点击显示') : '始终显示'}
+                onClick={() => togglePage(item.key)}
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors disabled:cursor-default ${
+                  shown
+                    ? 'border-emerald-400/40 bg-emerald-500/10'
+                    : 'border-white/10 bg-white/5 text-white/40 line-through'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {item.label}
+                {hideable ? (
+                  shown ? (
+                    <Eye className="h-3.5 w-3.5 text-white/50" />
+                  ) : (
+                    <EyeOff className="h-3.5 w-3.5" />
+                  )
                 ) : (
-                  <EyeOff className="h-3.5 w-3.5" />
-                )
-              ) : (
-                <Lock className="h-3.5 w-3.5 text-white/40" />
-              )}
-            </button>
-          )
-        })}
+                  <Lock className="h-3.5 w-3.5 text-white/40" />
+                )}
+              </button>
+            )
+          })}
       </div>
       <div className="mt-1.5 text-xs text-white/40">隐藏的页面只是不在侧边栏显示，从主页等处的按钮仍然可以打开</div>
 

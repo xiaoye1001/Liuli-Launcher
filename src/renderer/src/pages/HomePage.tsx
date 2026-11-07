@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Activity,
@@ -812,25 +812,36 @@ function HomePage({
     </div>
   )
 
+  /** 主页模块按个性化里排的顺序；靠下时上面留白露出背景，靠上时留白在下面 */
+  const order = appearance.homeModuleOrder
+  const alignTop = appearance.homeAlign === 'top'
+
   if (wide) {
+    const modules = order.map((key) => {
+      if (key === 'recent') return <Fragment key="recent">{recentPlays}</Fragment>
+      if (key === 'news') {
+        // 崩溃提示显示着的时候不显示新闻，给原因分析留出空间
+        return settings?.showNews && newsRoom && !crashShown ? (
+          <NewsPanel
+            key="news"
+            compact={!newsFull}
+            onHide={async () => setSettings(await window.api.updateSettings({ showNews: false }))}
+          />
+        ) : null
+      }
+      return <Fragment key="hero">{hero}</Fragment>
+    })
     return (
-      <div className="flex h-full gap-5">
-        {/* 左边：上面留白露出背景，下面依次是最近游玩、新闻、问候 */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
+      <div className={`flex h-full gap-5 ${appearance.homeLaunchSide === 'left' ? 'flex-row-reverse' : ''}`}>
+        {/* 一边是最近游玩、新闻、问候（顺序可以在个性化里改），另一边是启动坞 */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4" data-testid="home-modules">
           {crash}
-          <div className="min-h-0 flex-1" />
-          {recentPlays}
-          {/* 崩溃提示显示着的时候不显示新闻，给原因分析留出空间 */}
-          {settings?.showNews && newsRoom && !crashShown && (
-            <NewsPanel
-              compact={!newsFull}
-              onHide={async () => setSettings(await window.api.updateSettings({ showNews: false }))}
-            />
-          )}
-          {hero}
+          {!alignTop && <div className="min-h-0 flex-1" />}
+          {modules}
+          {alignTop && <div className="min-h-0 flex-1" />}
         </div>
 
-        {/* 右边：启动坞 */}
+        {/* 启动坞（默认在右边） */}
         <aside
           aria-label="启动"
           className="relative flex w-[19rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/10 p-5 shadow-2xl backdrop-blur-xl"
@@ -952,62 +963,78 @@ function HomePage({
   }
 
   // 窄窗口：上下排列，问候和启动放在同一张卡片里（窗口矮的时候放得下）
-  return (
-    <div className="flex h-full flex-col justify-end gap-4">
-      {tall ? news : <div className="flex-1" />}
-      {recentPlays}
-      {crash}
-      <section className="relative shrink-0 rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
-        {prism}
-        {settings?.showSplash && (
-          <SplashText greeting={birthdayToday ? `生日快乐${nameValid ? `，${displayName}` : ''}！` : undefined} />
-        )}
-        {birthdayToday && appearance.animations && <BirthdayConfetti />}
-        <h1 className="text-3xl font-bold tracking-tight">
-          {welcomeTitle ? renderWelcome(welcomeTitle, welcomeValues) : `欢迎回来${nameValid ? `，${displayName}` : ''}`}
-        </h1>
-        <p className="mt-2 text-sm text-white/60">
-          {versions.length === 0
-            ? '还没有安装任何版本，请先到「下载」页安装游戏。'
-            : welcomeSubtitle
-              ? renderWelcome(welcomeSubtitle, welcomeValues)
-              : '选择版本后点击启动，开始你的冒险。'}
-        </p>
-        {settings?.showTrivia && <TriviaLine />}
-        {settings?.showDailyGoal && <DailyGoalLine />}
-        <GameReleaseBanner onInstall={onInstallVersion} />
-        <LagReportBanner onOpenVersionSettings={onOpenVersionSettings} />
-        <OnThisDay className="mt-2 text-xs text-white/60 hover:text-white" />
-        <div className="mt-5 flex flex-wrap items-end gap-4">
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-white/50">{msAccount ? accountLabel : '离线玩家名'}</span>
-            <div className="flex w-44 items-center gap-2">
-              {msAccount && <SkinHead skin={msAccount.skin} size={28} />}
-              <div className="min-w-0 flex-1">{nameField(false)}</div>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <span className="flex items-center justify-between text-xs text-white/50">
-              游戏版本
-              <button onClick={onManageVersions} className="text-white/50 hover:text-white hover:underline">
-                管理版本
-              </button>
-            </span>
-            <div className="flex gap-2">
-              <VersionSelect versions={versions} value={selected} onChange={selectVersion} />
-              {settingsButton}
-            </div>
-          </div>
-          <div className="ml-auto flex gap-2">
-            {logButton(false)}
-            {launchButton(false)}
+  const heroCard = (
+    <section className="relative shrink-0 rounded-2xl border border-white/10 bg-white/10 p-6 shadow-2xl backdrop-blur-xl">
+      {prism}
+      {settings?.showSplash && (
+        <SplashText greeting={birthdayToday ? `生日快乐${nameValid ? `，${displayName}` : ''}！` : undefined} />
+      )}
+      {birthdayToday && appearance.animations && <BirthdayConfetti />}
+      <h1 className="text-3xl font-bold tracking-tight">
+        {welcomeTitle ? renderWelcome(welcomeTitle, welcomeValues) : `欢迎回来${nameValid ? `，${displayName}` : ''}`}
+      </h1>
+      <p className="mt-2 text-sm text-white/60">
+        {versions.length === 0
+          ? '还没有安装任何版本，请先到「下载」页安装游戏。'
+          : welcomeSubtitle
+            ? renderWelcome(welcomeSubtitle, welcomeValues)
+            : '选择版本后点击启动，开始你的冒险。'}
+      </p>
+      {settings?.showTrivia && <TriviaLine />}
+      {settings?.showDailyGoal && <DailyGoalLine />}
+      <GameReleaseBanner onInstall={onInstallVersion} />
+      <LagReportBanner onOpenVersionSettings={onOpenVersionSettings} />
+      <OnThisDay className="mt-2 text-xs text-white/60 hover:text-white" />
+      <div className="mt-5 flex flex-wrap items-end gap-4">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs text-white/50">{msAccount ? accountLabel : '离线玩家名'}</span>
+          <div className="flex w-44 items-center gap-2">
+            {msAccount && <SkinHead skin={msAccount.skin} size={28} />}
+            <div className="min-w-0 flex-1">{nameField(false)}</div>
           </div>
         </div>
-        {(running || javaTask?.state === 'running' || killConfirm || !nameValid || launchError || killError) && (
-          <div className="mt-3 space-y-2">{statusLines(false)}</div>
-        )}
-        {lastWorld && !busy && <div className="mt-2 flex justify-end">{continueButton(false)}</div>}
-      </section>
+        <div className="flex flex-col gap-1.5">
+          <span className="flex items-center justify-between text-xs text-white/50">
+            游戏版本
+            <button onClick={onManageVersions} className="text-white/50 hover:text-white hover:underline">
+              管理版本
+            </button>
+          </span>
+          <div className="flex gap-2">
+            <VersionSelect versions={versions} value={selected} onChange={selectVersion} />
+            {settingsButton}
+          </div>
+        </div>
+        <div className="ml-auto flex gap-2">
+          {logButton(false)}
+          {launchButton(false)}
+        </div>
+      </div>
+      {(running || javaTask?.state === 'running' || killConfirm || !nameValid || launchError || killError) && (
+        <div className="mt-3 space-y-2">{statusLines(false)}</div>
+      )}
+      {lastWorld && !busy && <div className="mt-2 flex justify-end">{continueButton(false)}</div>}
+    </section>
+  )
+  const newsShown = !!settings?.showNews && tall
+  const narrowModules = order.map((key) => {
+    if (key === 'recent') return <Fragment key="recent">{recentPlays}</Fragment>
+    if (key === 'news') return newsShown ? <Fragment key="news">{news}</Fragment> : null
+    // 崩溃提示放在问候和启动卡片的上面
+    return (
+      <Fragment key="hero">
+        {crash}
+        {heroCard}
+      </Fragment>
+    )
+  })
+  // 新闻会占满剩下的高度；没有新闻时用一块空白把内容推到下面（或上面）
+  const filler = newsShown ? null : <div className="flex-1" />
+  return (
+    <div className="flex h-full flex-col justify-end gap-4" data-testid="home-modules">
+      {!alignTop && filler}
+      {narrowModules}
+      {alignTop && filler}
     </div>
   )
 }

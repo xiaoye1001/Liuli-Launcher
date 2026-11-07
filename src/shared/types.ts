@@ -216,6 +216,18 @@ export interface AppSettings {
   launcherSubtitle: string
   /** 侧边栏隐藏的页面（取值见 HIDEABLE_PAGES） */
   hiddenPages: string[]
+  /** 导航栏放在哪里：左边、右边、顶部 */
+  navPosition: NavPosition
+  /** 导航栏里页面的顺序（取值见 NAV_PAGES；少了的按默认顺序补在后面） */
+  navOrder: string[]
+  /** 主页的启动区（账号、版本、启动游戏）放在哪边（窗口够宽时） */
+  homeLaunchSide: 'left' | 'right'
+  /** 主页模块从上到下的顺序（取值见 HOME_MODULES） */
+  homeModuleOrder: string[]
+  /** 主页内容靠下（露出上面的背景）还是靠上 */
+  homeAlign: 'bottom' | 'top'
+  /** 各个页面自己排的布局（页面 → 区块的顺序、隐藏、宽度），见 sanitizePageLayouts */
+  pageLayouts: Record<string, PageLayout>
   /** 主页欢迎语标题，支持 {name} {greeting} {version} {tip}；空字符串为默认 */
   welcomeTitle: string
   /** 主页欢迎语副标题，同上 */
@@ -410,6 +422,21 @@ export const PARTICLE_EFFECTS: ParticleEffect[] = ['auto', 'none', 'sakura', 'en
 
 /** 可以在侧边栏隐藏的页面（主页和设置始终显示） */
 export const HIDEABLE_PAGES = ['account', 'versions', 'servers', 'download', 'multiplayer', 'ai', 'more']
+
+export type NavPosition = 'left' | 'right' | 'top'
+
+/** 导航栏里的所有页面（默认顺序） */
+export const NAV_PAGES = ['home', 'account', 'versions', 'servers', 'download', 'multiplayer', 'ai', 'more', 'settings']
+
+/** 主页可以排顺序的模块（默认顺序）：最近游玩、Minecraft 新闻、欢迎卡片 */
+export const HOME_MODULES = ['recent', 'news', 'hero']
+
+/** 整理用户排的顺序：只留认识的、不重复的，少了的按默认顺序补在后面 */
+export function normalizeOrder(input: unknown, all: readonly string[]): string[] {
+  const list = Array.isArray(input) ? input.filter((x): x is string => typeof x === 'string' && all.includes(x)) : []
+  const unique = [...new Set(list)]
+  return [...unique, ...all.filter((x) => !unique.includes(x))]
+}
 
 /** 可选的界面缩放比例（%） */
 export const UI_SCALES = [80, 90, 100, 110, 125, 150]
@@ -2330,4 +2357,40 @@ export interface ServerModImportResult {
   existing: string[]
   /** 不是 Fabric 模组 */
   invalid: string[]
+}
+
+/** 区块的宽度：占满一行，或者放在左列 / 右列（窗口窄时左右列上下排） */
+export type BlockWidth = 'full' | 'left' | 'right'
+
+/** 一个页面自己排的布局；没记录的区块按页面默认的顺序和宽度 */
+export interface PageLayout {
+  order: string[]
+  hidden: string[]
+  width: Record<string, BlockWidth>
+}
+
+const LAYOUT_PAGE_RE = /^[a-z][a-z0-9.-]{0,40}$/
+const LAYOUT_BLOCK_RE = /^[a-z][a-zA-Z0-9-]{0,40}$/
+const BLOCK_WIDTHS: BlockWidth[] = ['full', 'left', 'right']
+
+/** 检查页面布局：只留格式正确的页面名、区块名和宽度，数量有上限 */
+export function sanitizePageLayouts(input: unknown): Record<string, PageLayout> {
+  const out: Record<string, PageLayout> = Object.create(null) as Record<string, PageLayout>
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return out
+  const ids = (list: unknown): string[] =>
+    Array.isArray(list)
+      ? [...new Set(list.filter((x): x is string => typeof x === 'string' && LAYOUT_BLOCK_RE.test(x)))].slice(0, 60)
+      : []
+  for (const [page, raw] of Object.entries(input as Record<string, unknown>).slice(0, 60)) {
+    if (!LAYOUT_PAGE_RE.test(page) || !raw || typeof raw !== 'object' || Array.isArray(raw)) continue
+    const r = raw as { order?: unknown; hidden?: unknown; width?: unknown }
+    const width: Record<string, BlockWidth> = Object.create(null) as Record<string, BlockWidth>
+    if (r.width && typeof r.width === 'object' && !Array.isArray(r.width)) {
+      for (const [id, w] of Object.entries(r.width as Record<string, unknown>).slice(0, 60)) {
+        if (LAYOUT_BLOCK_RE.test(id) && BLOCK_WIDTHS.includes(w as BlockWidth)) width[id] = w as BlockWidth
+      }
+    }
+    out[page] = { order: ids(r.order), hidden: ids(r.hidden), width }
+  }
+  return out
 }

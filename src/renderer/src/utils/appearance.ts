@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import type { AppSettings } from '../../../shared/types'
 import { ACCENT_VARIABLE_NAMES, accentVariables } from './accent'
 import { DEFAULT_AUTO_THEME } from '../../../shared/theme'
+import { HOME_MODULES, NAV_PAGES, normalizeOrder } from '../../../shared/types'
 
 /** 需要立即在界面上生效的外观设置 */
 export type Appearance = Pick<
@@ -27,6 +28,12 @@ export type Appearance = Pick<
   | 'launcherTitle'
   | 'launcherSubtitle'
   | 'hiddenPages'
+  | 'navPosition'
+  | 'navOrder'
+  | 'homeLaunchSide'
+  | 'homeModuleOrder'
+  | 'homeAlign'
+  | 'pageLayouts'
   | 'welcomeTitle'
   | 'welcomeSubtitle'
 >
@@ -56,6 +63,12 @@ let current: Appearance = {
   launcherTitle: '',
   launcherSubtitle: '',
   hiddenPages: [],
+  navPosition: 'left',
+  navOrder: [...NAV_PAGES],
+  homeLaunchSide: 'right',
+  homeModuleOrder: [...HOME_MODULES],
+  homeAlign: 'bottom',
+  pageLayouts: {},
   welcomeTitle: '',
   welcomeSubtitle: ''
 }
@@ -86,6 +99,12 @@ function apply(settings: AppSettings): void {
     launcherTitle: settings.launcherTitle ?? '',
     launcherSubtitle: settings.launcherSubtitle ?? '',
     hiddenPages: Array.isArray(settings.hiddenPages) ? settings.hiddenPages : [],
+    navPosition: settings.navPosition === 'right' || settings.navPosition === 'top' ? settings.navPosition : 'left',
+    navOrder: normalizeOrder(settings.navOrder, NAV_PAGES),
+    homeLaunchSide: settings.homeLaunchSide === 'left' ? 'left' : 'right',
+    homeModuleOrder: normalizeOrder(settings.homeModuleOrder, HOME_MODULES),
+    homeAlign: settings.homeAlign === 'top' ? 'top' : 'bottom',
+    pageLayouts: settings.pageLayouts && typeof settings.pageLayouts === 'object' ? settings.pageLayouts : {},
     welcomeTitle: settings.welcomeTitle ?? '',
     welcomeSubtitle: settings.welcomeSubtitle ?? ''
   }

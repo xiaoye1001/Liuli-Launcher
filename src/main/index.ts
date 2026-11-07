@@ -312,7 +312,15 @@ import type {
   LocalServerPlayerAction,
   CloudBackupInput
 } from '../shared/types'
-import { HIDEABLE_PAGES, PARTICLE_EFFECTS, THEME_PRESETS } from '../shared/types'
+import {
+  HIDEABLE_PAGES,
+  sanitizePageLayouts,
+  HOME_MODULES,
+  NAV_PAGES,
+  normalizeOrder,
+  PARTICLE_EFFECTS,
+  THEME_PRESETS
+} from '../shared/types'
 import { sanitizeAutoTheme, sanitizeCustomThemes } from '../shared/theme'
 import { exportTheme, importTheme } from './themeFiles'
 import type { ParticleEffect, ThemePreset } from '../shared/types'
@@ -396,6 +404,10 @@ async function applySettingsInput(input: unknown): Promise<AppSettings> {
     const pages = Array.isArray(patch.hiddenPages) ? patch.hiddenPages : []
     patch = { ...patch, hiddenPages: HIDEABLE_PAGES.filter((p) => pages.includes(p)) }
   }
+  if ('navOrder' in patch) patch = { ...patch, navOrder: normalizeOrder(patch.navOrder, NAV_PAGES) }
+  if ('homeModuleOrder' in patch)
+    patch = { ...patch, homeModuleOrder: normalizeOrder(patch.homeModuleOrder, HOME_MODULES) }
+  if ('pageLayouts' in patch) patch = { ...patch, pageLayouts: sanitizePageLayouts(patch.pageLayouts) }
   if ('fontFamily' in patch) patch = { ...patch, fontFamily: sanitizeFontFamily(patch.fontFamily) }
   const next = await updateSettings(patch)
   // 代理与下载线程数立即生效
