@@ -1,0 +1,9 @@
+{
+  "id": "version-notes",
+  "name": "版本便签",
+  "version": "1.0.0",
+  "description": "给每个游戏版本记一句便签，一键启动",
+  "author": "琉璃启动器",
+  "entry": "index.html",
+  "permissions": ["versions", "launch", "game", "notifications"]
+}

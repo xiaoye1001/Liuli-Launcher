@@ -2394,3 +2394,45 @@ export function sanitizePageLayouts(input: unknown): Record<string, PageLayout> 
   }
   return out
 }
+
+/** 插件可以申请的权限 */
+export type PluginPermission = 'versions' | 'launch' | 'game' | 'notifications' | 'network' | 'clipboard' | 'open-url'
+
+export const PLUGIN_PERMISSIONS: PluginPermission[] = [
+  'versions',
+  'launch',
+  'game',
+  'notifications',
+  'network',
+  'clipboard',
+  'open-url'
+]
+
+/** 插件的 manifest.json（检查过的） */
+export interface PluginManifest {
+  id: string
+  name: string
+  version: string
+  description: string
+  author: string
+  /** 入口页面（插件里的相对路径） */
+  entry: string
+  permissions: PluginPermission[]
+  /** 联网可以访问的网站（申请了 network 权限时） */
+  hosts: string[]
+}
+
+export interface PluginInfo extends PluginManifest {
+  enabled: boolean
+  installedAt: number
+  /** 插件文件坏了时的原因 */
+  error?: string
+}
+
+/** 选好了插件、等用户确认权限 */
+export interface PluginPending {
+  token: string
+  manifest: PluginManifest
+  /** 已经装了同一个插件时：原来的版本 */
+  update: { version: string } | null
+}

@@ -375,6 +375,19 @@ const api = {
   exportMapArt: (versionId: string, input: Record<string, unknown>) =>
     ipcRenderer.invoke('mapArt:export', versionId, input),
   getRecipeBook: (versionId: string) => ipcRenderer.invoke('recipes:book', versionId),
+  listPlugins: () => ipcRenderer.invoke('plugins:list'),
+  pickPlugin: () => ipcRenderer.invoke('plugins:pick'),
+  installPlugin: (token: string) => ipcRenderer.invoke('plugins:install', token),
+  discardPlugin: (token: string) => ipcRenderer.invoke('plugins:discard', token),
+  setPluginEnabled: (id: string, enabled: boolean) => ipcRenderer.invoke('plugins:setEnabled', id, enabled),
+  uninstallPlugin: (id: string) => ipcRenderer.invoke('plugins:uninstall', id),
+  clearPluginData: (id: string) => ipcRenderer.invoke('plugins:clearData', id),
+  callPlugin: (id: string, method: string, params: unknown) => ipcRenderer.invoke('plugins:call', id, method, params),
+  onPluginsChanged: (listener: () => void) => {
+    const handler = (): void => listener()
+    ipcRenderer.on('plugins:changed', handler)
+    return () => ipcRenderer.removeListener('plugins:changed', handler)
+  },
   listLagReports: () => ipcRenderer.invoke('lagReports:list'),
   markLagReportSeen: (id: string) => ipcRenderer.invoke('lagReports:seen', id),
   onLagReport: (listener: (report: LagReport) => void) => {

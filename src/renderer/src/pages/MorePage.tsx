@@ -21,6 +21,7 @@ import {
   Sprout,
   Trash2,
   Trophy,
+  Puzzle,
   Zap,
   type LucideIcon
 } from 'lucide-react'
@@ -43,6 +44,9 @@ import VersionDiffPanel from '../components/VersionDiffPanel'
 import MapArtPanel from '../components/MapArtPanel'
 import RecipeLookupPanel from '../components/RecipeLookupPanel'
 import PageHeader from '../components/PageHeader'
+import PluginsPanel from '../components/PluginsPanel'
+import PluginHost from '../components/PluginHost'
+import type { PluginInfo } from '../../../shared/types'
 import { BlockLayout, LayoutBlock } from '../components/BlockLayout'
 
 type ToolKey =
@@ -64,13 +68,17 @@ type ToolKey =
   | 'diff'
   | 'mapart'
   | 'recipes'
+  | 'plugins'
+  /** 插件自己的页面 */
+  | `plugin:${string}`
 
 /** 百宝箱的分类（按显示顺序） */
 const GROUPS = [
   { key: 'play', title: '游戏工具', desc: '玩的时候查、算、生成', icon: Gamepad2 },
   { key: 'together', title: '开服与多开', desc: '和朋友一起玩', icon: Users },
   { key: 'maintain', title: '维护与排查', desc: '下载、Java、清理、找问题', icon: Wrench },
-  { key: 'records', title: '我的记录', desc: '游玩时长和成就', icon: BarChart3 }
+  { key: 'records', title: '我的记录', desc: '游玩时长和成就', icon: BarChart3 },
+  { key: 'plugins', title: '插件', desc: '装上别人做的小工具（运行在沙箱里）', icon: Puzzle }
 ] as const
 
 type GroupKey = (typeof GROUPS)[number]['key']
@@ -216,8 +224,18 @@ const TOOLS: Tool[] = [
     desc: '怎么做、能做什么、村民交易',
     icon: BookOpen,
     tint: 'text-amber-300'
+  },
+  {
+    key: 'plugins',
+    group: 'plugins',
+    title: '插件管理',
+    desc: '安装、启用、卸载插件',
+    icon: Puzzle,
+    tint: 'text-violet-300'
   }
 ]
+
+const isPluginKey = (key: string): key is `plugin:${string}` => key.startsWith('plugin:')
 
 const LAST_TOOL_KEY = TOOLBOX_KEY
 /** 每个分类上次打开的工具（切换分类时回到它） */
@@ -227,13 +245,15 @@ const GROUP_TOOLS_KEY = 'liuli-toolbox-group-tools'
 function lastTool(): ToolKey {
   try {
     const saved = localStorage.getItem(LAST_TOOL_KEY)
-    return TOOLS.some((t) => t.key === saved) ? (saved as ToolKey) : 'download'
+    // 插件页面先记下，插件列表读到后不存在再换成插件管理
+    return saved && (TOOLS.some((t) => t.key === saved) || isPluginKey(saved)) ? (saved as ToolKey) : 'download'
   } catch {
     return 'download'
   }
 }
 
 function groupOf(key: ToolKey): GroupKey {
+  if (isPluginKey(key)) return 'plugins'
   return TOOLS.find((t) => t.key === key)?.group ?? 'play'
 }
 
@@ -246,6 +266,7 @@ function readGroupTools(): Partial<Record<GroupKey, ToolKey>> {
       const key = raw?.[g.key]
       const tool = TOOLS.find((t) => t.key === key && t.group === g.key)
       if (tool) out[g.key] = tool.key
+      else if (g.key === 'plugins' && typeof key === 'string' && isPluginKey(key)) out[g.key] = key
     }
   } catch {
     // 读不到时每个分类打开第一个工具
@@ -257,6 +278,22 @@ function readGroupTools(): Partial<Record<GroupKey, ToolKey>> {
 function MorePage(): JSX.Element {
   const [current, setCurrent] = useState<ToolKey>(lastTool)
   const [groupTools, setGroupTools] = useState(readGroupTools)
+  /** 启用的插件：每个是「插件」分类里的一张卡片 */
+  const [plugins, setPlugins] = useState<PluginInfo[] | null>(null)
+  useEffect(() => {
+    const load = (): void =>
+      void window.api
+        .listPlugins()
+        .then((list) => setPlugins(list.filter((p) => p.enabled && !p.error)))
+        .catch(() => setPlugins([]))
+    load()
+    return window.api.onPluginsChanged(load)
+  }, [])
+  const openPlugin = plugins && isPluginKey(current) ? plugins.find((p) => `plugin:${p.id}` === current) : undefined
+  // 记住的插件已经卸载或停用：换成插件管理
+  useEffect(() => {
+    if (plugins && isPluginKey(current) && !openPlugin) setCurrent('plugins')
+  }, [plugins, current, openPlugin])
   const group = groupOf(current)
   const groupInfo = GROUPS.find((g) => g.key === group) ?? GROUPS[0]
 
@@ -281,7 +318,15 @@ function MorePage(): JSX.Element {
   // 快速搜索（Ctrl+K）跳到某个工具：同时切到它的分类
   useEffect(() => onJump('more', (key) => TOOLS.some((t) => t.key === key) && setCurrent(key as ToolKey)), [])
 
-  const tools = TOOLS.filter((t) => t.group === group)
+  const pluginTools: Tool[] = (plugins ?? []).map((p) => ({
+    key: `plugin:${p.id}`,
+    group: 'plugins',
+    title: p.name,
+    desc: p.description || `插件 · v${p.version}`,
+    icon: Puzzle,
+    tint: 'text-violet-300'
+  }))
+  const tools = [...TOOLS, ...pluginTools].filter((t) => t.group === group)
 
   return (
     <div className="page-scroll flex h-full flex-col gap-4">
@@ -299,11 +344,11 @@ function MorePage(): JSX.Element {
                 aria-selected={group === g.key}
                 title={g.desc}
                 onClick={() => openGroup(g.key)}
-                className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm transition-colors ${
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors lg:px-4 ${
                   group === g.key ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white'
                 }`}
               >
-                <g.icon className="h-4 w-4" />
+                <g.icon className="hidden h-4 w-4 lg:block" />
                 {g.title}
               </button>
             ))}
@@ -363,6 +408,8 @@ function MorePage(): JSX.Element {
           {current === 'diff' && <VersionDiffPanel />}
           {current === 'mapart' && <MapArtPanel />}
           {current === 'recipes' && <RecipeLookupPanel />}
+          {current === 'plugins' && <PluginsPanel onOpen={(id) => select(`plugin:${id}`)} />}
+          {openPlugin && <PluginHost plugin={openPlugin} />}
         </LayoutBlock>
       </BlockLayout>
     </div>

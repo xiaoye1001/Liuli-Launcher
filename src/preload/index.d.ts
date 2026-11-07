@@ -1,6 +1,8 @@
 import type { AchievementStatus } from '../shared/achievements'
 import type {
   RecipeBook,
+  PluginInfo,
+  PluginPending,
   ServerAddonKind,
   ServerAddons,
   ServerModImportResult,
@@ -608,6 +610,15 @@ declare global {
       /** 地图画导出成投影 */
       exportMapArt: (versionId: string, input: Record<string, unknown>) => Promise<{ path: string; blocks: number }>
       getRecipeBook: (versionId: string) => Promise<RecipeBook>
+      listPlugins: () => Promise<PluginInfo[]>
+      pickPlugin: () => Promise<PluginPending | null>
+      installPlugin: (token: string) => Promise<PluginInfo[]>
+      discardPlugin: (token: string) => Promise<void>
+      setPluginEnabled: (id: string, enabled: boolean) => Promise<PluginInfo[]>
+      uninstallPlugin: (id: string) => Promise<PluginInfo[]>
+      clearPluginData: (id: string) => Promise<void>
+      callPlugin: (id: string, method: string, params: unknown) => Promise<unknown>
+      onPluginsChanged: (listener: () => void) => () => void
       listLagReports: () => Promise<LagReport[]>
       markLagReportSeen: (id: string) => Promise<void>
       onLagReport: (listener: (report: LagReport) => void) => () => void
