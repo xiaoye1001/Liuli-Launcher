@@ -3,6 +3,7 @@ import type { AppSettings } from '../../../shared/types'
 import { ACCENT_VARIABLE_NAMES, accentVariables } from './accent'
 import { DEFAULT_AUTO_THEME } from '../../../shared/theme'
 import { HOME_MODULES, NAV_PAGES, normalizeOrder } from '../../../shared/types'
+import { syncLanguage } from './i18n'
 
 /** 需要立即在界面上生效的外观设置 */
 export type Appearance = Pick<
@@ -138,7 +139,11 @@ function apply(settings: AppSettings): void {
 export function initAppearance(): void {
   window.api
     .getSettings()
-    .then(apply)
+    .then((settings) => {
+      // 浏览器存储里记的语言和设置里的不一样时（例如存储被清掉了），以设置里的为准
+      syncLanguage(settings.language)
+      apply(settings)
+    })
     .catch(() => {
       // 读不到设置时按默认外观继续，不能让依赖它的界面一直等待
       loaded = true

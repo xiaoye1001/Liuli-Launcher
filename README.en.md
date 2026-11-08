@@ -115,7 +115,7 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - **Version diff**: compare the mods and config files of two versions (for example before and after a modpack update)
 - **Map art generator**: convert an image to map colors, get the block list (in stacks and shulker boxes) and save it as a Litematica schematic to build from
 - **Recipe and trade lookup**: reads the recipes from the version's own game files to show how an item is made and what it is used for, plus common vanilla villager trades and job site blocks
-- **Plugins**: install .zip plugins under Toolbox → Plugins (or drop them onto the launcher window); a plugin can add a **home screen widget** that you can place alongside recent plays and news to add small tools to the launcher. Plugins run in an isolated sandbox with no access to accounts, login tokens, keys or files on your computer; the permissions a plugin asks for are listed before you agree to install it, and you can disable it, clear its data or uninstall it at any time. To make your own, see the [plugin guide](docs/plugins.md) (Chinese) and the [example plugin](docs/plugin-example/)
+- **Plugins**: install .zip plugins under Toolbox → Plugins (or drop them onto the launcher window); plugins with an update address are checked for new versions and update in one click; a plugin can add a **home screen widget** that you can place alongside recent plays and news to add small tools to the launcher. Plugins run in an isolated sandbox with no access to accounts, login tokens, keys or files on your computer; the permissions a plugin asks for are listed before you agree to install it, and you can disable it, clear its data or uninstall it at any time. To make your own, see the [plugin guide](docs/plugins.md) (Chinese) and the [example plugin](docs/plugin-example/)
 
 ### Accounts
 - Offline accounts, **Microsoft accounts** and authlib-injector skin sites such as LittleSkin
@@ -127,6 +127,7 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - Original built-in themes (HD wallpapers and background music); custom wallpapers (images or video), accent colors, fonts and UI scale
 - Home-screen splash text and a daily Minecraft fact; set a screenshot as the launcher wallpaper; a small surprise on your birthday if you set it
 - A **daily goal** on the home screen (a small in-game challenge each day; keep a streak to unlock an achievement) and **on this day** (screenshots you took on today's date in earlier years)
+- **English interface**: switch between Simplified Chinese and English under Settings → Personalize → Language (the English interface currently covers the main pages: sidebar, home, settings, toolbox, plugin manager and more)
 - **Ctrl+K quick search** for pages, settings, tools and versions
 - **Custom layout**: put the navigation bar on the left, right or top and reorder its pages; put the home screen's launch area on the left or right, reorder recent plays, news and the welcome card, and align the content to the bottom or top
 - **Page layout editor**: on settings, account, version settings, download, servers, multiplayer, AI assistant, toolbox and other pages, click "Edit layout" in the title bar to drag or move blocks, hide the ones you don't use and put them full width or in the left / right column; each page is saved separately and can be reset
@@ -134,6 +135,7 @@ Playing requires Java: Java 21 for 1.20.5+, Java 17 for 1.18 – 1.20.4, Java 16
 - 23 **launcher achievements** (including hidden ones) with an in-game style toast
 - Background music player, click effects and official Minecraft news
 - Automatic updates with signature verification and one-click restart
+- **Pre-launch check**: before launching, the launcher checks for too much allocated memory, mods that do not fit the version and a nearly full disk, and lets you fix them or launch anyway
 - A **first-run guide** sets up your name, look and download source and installs your first game
 - **Export / import settings**: save settings, custom themes, servers, seeds, mod collections and the skin wardrobe to one file and restore them on another computer (accounts, keys, passwords and local paths are never included)
 

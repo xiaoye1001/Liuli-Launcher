@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, ChevronDown, Loader2, Sparkles, Undo2 } from 'lucide-react'
 import type { JavaInfo } from '../../../shared/types'
+import { t } from '../utils/i18n'
 
 /**
  * Java 下拉选择框：第一项是「自动选择」（按游戏版本匹配本机的 Java，没有时自动下载），
@@ -65,8 +66,8 @@ function JavaSelect({ value, onChange, javas, globalLabel, required, disabled }:
       ? [
           {
             value: 'global',
-            title: '跟随全局设置',
-            subtitle: `当前全局：${globalLabel}`,
+            title: t('跟随全局设置'),
+            subtitle: t('当前全局：{0}', { 0: globalLabel }),
             badge: (
               <IconBadge>
                 <Undo2 className="h-4 w-4" />
@@ -77,8 +78,8 @@ function JavaSelect({ value, onChange, javas, globalLabel, required, disabled }:
       : []),
     {
       value: 'auto',
-      title: '自动选择（推荐）',
-      subtitle: '按游戏版本匹配本机的 Java，没有合适的会自动下载对应版本',
+      title: t('自动选择（推荐）'),
+      subtitle: t('按游戏版本匹配本机的 Java，没有合适的会自动下载对应版本'),
       badge: (
         <IconBadge>
           <Sparkles className="h-4 w-4" />
@@ -90,7 +91,7 @@ function JavaSelect({ value, onChange, javas, globalLabel, required, disabled }:
       title: `Java ${java.version}`,
       subtitle: java.path,
       badge: <MajorBadge major={java.majorVersion} />,
-      warning: required && java.majorVersion < required ? `这个版本需要 Java ${required} 或更高` : undefined
+      warning: required && java.majorVersion < required ? t('这个版本需要 Java {0} 或更高', { 0: required }) : undefined
     }))
   ]
 
@@ -101,10 +102,10 @@ function JavaSelect({ value, onChange, javas, globalLabel, required, disabled }:
       ? { value, title: 'Java', subtitle: value, badge: <MajorBadge major={0} /> }
       : {
           value,
-          title: value ? '找不到之前选择的 Java' : '还没有选择 Java',
+          title: value ? t('找不到之前选择的 Java') : t('还没有选择 Java'),
           subtitle: value,
           badge: <MajorBadge major={0} />,
-          warning: '请重新选择，或改为自动选择'
+          warning: t('请重新选择，或改为自动选择')
         })
 
   // 列表内容变化（例如重新查找到 Java）时，高亮项不超出范围
@@ -245,7 +246,7 @@ function JavaSelect({ value, onChange, javas, globalLabel, required, disabled }:
             })}
             {javas !== null && javas.length === 0 && (
               <li className="px-2.5 py-2 text-xs text-white/50">
-                本机没有找到 Java，选择「自动选择」后启动时会自动下载
+                {t('本机没有找到 Java，选择「自动选择」后启动时会自动下载')}
               </li>
             )}
           </motion.ul>

@@ -29,6 +29,7 @@ import type {
 } from '../../../shared/types'
 import PageHeader from '../components/PageHeader'
 import { BlockLayout, LayoutBlock } from '../components/BlockLayout'
+import { t } from '../utils/i18n'
 
 const MODES: { key: MultiplayerMode; title: string; desc: string; icon: LucideIcon; tint: string }[] = [
   {
@@ -439,8 +440,8 @@ function MultiplayerPage(): JSX.Element {
   return (
     <div className="page-scroll flex h-full flex-col gap-4">
       <PageHeader
-        title="联机"
-        subtitle="和好友一起玩：创建房间把房间码发给好友，或者粘贴好友的房间码加入"
+        title={t('联机')}
+        subtitle={t('和好友一起玩：创建房间把房间码发给好友，或者粘贴好友的房间码加入')}
         layoutPage="multiplayer"
       />
 

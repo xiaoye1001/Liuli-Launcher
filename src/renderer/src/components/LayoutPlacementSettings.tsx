@@ -2,6 +2,7 @@ import { ArrowDown, ArrowUp, PanelLeft, PanelRight, PanelTop, RotateCcw, type Lu
 import { NAV_ITEMS } from './Sidebar'
 import { HOME_MODULES, NAV_PAGES, normalizeOrder } from '../../../shared/types'
 import type { AppSettings } from '../../../shared/types'
+import { t } from '../utils/i18n'
 
 interface Props {
   settings: AppSettings
@@ -9,10 +10,10 @@ interface Props {
 }
 
 const HOME_MODULE_NAMES: Record<string, string> = {
-  recent: '最近游玩',
-  news: 'Minecraft 新闻',
-  plugins: '插件小组件',
-  hero: '欢迎卡片'
+  recent: t('最近游玩'),
+  news: t('Minecraft 新闻'),
+  plugins: t('插件小组件'),
+  hero: t('欢迎卡片')
 }
 
 /** 一组单选按钮（和其它设置里的分段按钮一样） */
@@ -82,8 +83,8 @@ function OrderList({
               onClick={() => onMove(i, -1)}
               disabled={i === 0}
               className={button}
-              title="往前移"
-              aria-label={`${item.label}往前移`}
+              title={t('往前移')}
+              aria-label={t('{0}往前移', { 0: item.label })}
             >
               <ArrowUp className="h-3.5 w-3.5" />
             </button>
@@ -91,8 +92,8 @@ function OrderList({
               onClick={() => onMove(i, 1)}
               disabled={i === items.length - 1}
               className={button}
-              title="往后移"
-              aria-label={`${item.label}往后移`}
+              title={t('往后移')}
+              aria-label={t('{0}往后移', { 0: item.label })}
             >
               <ArrowDown className="h-3.5 w-3.5" />
             </button>
@@ -130,7 +131,7 @@ function LayoutPlacementSettings({ settings, update }: Props): JSX.Element {
   return (
     <div className="mt-6" data-testid="layout-placement">
       <div className="flex items-center justify-between">
-        <div className="text-sm font-medium">布局：放在哪里</div>
+        <div className="text-sm font-medium">{t('布局：放在哪里')}</div>
         {!isDefault && (
           <button
             onClick={() =>
@@ -145,65 +146,66 @@ function LayoutPlacementSettings({ settings, update }: Props): JSX.Element {
             className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            恢复默认布局
+            {t('恢复默认布局')}
           </button>
         )}
       </div>
 
       <div className="mt-3 space-y-2">
         <Segmented
-          label="导航栏"
+          label={t('导航栏')}
           value={navPosition}
           onChange={(v) => void update({ navPosition: v })}
           options={[
-            { value: 'left', label: '左边', icon: PanelLeft },
-            { value: 'right', label: '右边', icon: PanelRight },
-            { value: 'top', label: '顶部', icon: PanelTop }
+            { value: 'left', label: t('左边'), icon: PanelLeft },
+            { value: 'right', label: t('右边'), icon: PanelRight },
+            { value: 'top', label: t('顶部'), icon: PanelTop }
           ]}
         />
         <Segmented
-          label="主页的启动区（账号、版本、启动游戏）"
+          label={t('主页的启动区（账号、版本、启动游戏）')}
           value={launchSide}
           onChange={(v) => void update({ homeLaunchSide: v })}
           options={[
-            { value: 'left', label: '左边', icon: PanelLeft },
-            { value: 'right', label: '右边', icon: PanelRight }
+            { value: 'left', label: t('左边'), icon: PanelLeft },
+            { value: 'right', label: t('右边'), icon: PanelRight }
           ]}
         />
         <Segmented
-          label="主页内容"
+          label={t('主页内容')}
           value={align}
           onChange={(v) => void update({ homeAlign: v })}
           options={[
-            { value: 'bottom', label: '靠下（上面露出背景）' },
-            { value: 'top', label: '靠上' }
+            { value: 'bottom', label: t('靠下（上面露出背景）') },
+            { value: 'top', label: t('靠上') }
           ]}
         />
       </div>
 
       <div className="mt-2 grid grid-cols-2 gap-2">
         <OrderList
-          label="主页模块（从上到下）"
+          label={t('主页模块（从上到下）')}
           items={homeOrder.map((key) => ({ key, label: HOME_MODULE_NAMES[key] ?? key }))}
           onMove={(i, d) => void update({ homeModuleOrder: moved(homeOrder, i, d) })}
         />
         <OrderList
-          label="导航栏页面的顺序"
+          label={t('导航栏页面的顺序')}
           items={navOrder.map((key) => {
             const item = NAV_ITEMS.find((n) => n.key === key)
             return {
               key,
               label: item?.label ?? key,
               icon: item?.icon,
-              note: hidden.includes(key) ? '（已隐藏）' : undefined
+              note: hidden.includes(key) ? t('（已隐藏）') : undefined
             }
           })}
           onMove={(i, d) => void update({ navOrder: moved(navOrder, i, d) })}
         />
       </div>
       <div className="mt-1.5 text-xs text-white/40">
-        窗口比较窄时，主页的欢迎卡片和启动区会合成一张卡片，按「欢迎卡片」的位置摆放。
-        其他页面（设置、账号、版本设置、下载、服务器、联机、AI 助手、更多……）点标题栏右边的「编辑布局」自己排
+        {t(
+          '窗口比较窄时，主页的欢迎卡片和启动区会合成一张卡片，按「欢迎卡片」的位置摆放。 其他页面（设置、账号、版本设置、下载、服务器、联机、AI 助手、更多……）点标题栏右边的「编辑布局」自己排'
+        )}
       </div>
     </div>
   )

@@ -126,6 +126,14 @@ export function parseManifest(raw: unknown): PluginManifest {
         : 120
     }
   }
+  let updates: { github: string } | null = null
+  if (m.updates !== undefined && m.updates !== null) {
+    const u = (typeof m.updates === 'object' && !Array.isArray(m.updates) ? m.updates : {}) as Record<string, unknown>
+    const github = typeof u.github === 'string' ? u.github.trim() : ''
+    if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9._-]{1,100}$/.test(github) || /\/\.+$/.test(github))
+      throw new Error('检查更新的仓库（updates.github）要写成 owner/repo，例如 xiaoye1001/my-plugin')
+    updates = { github }
+  }
   return {
     id,
     name,
@@ -135,7 +143,8 @@ export function parseManifest(raw: unknown): PluginManifest {
     entry,
     permissions,
     hosts,
-    widget
+    widget,
+    updates
   }
 }
 
@@ -192,6 +201,7 @@ export async function listPlugins(): Promise<PluginInfo[]> {
         permissions: [],
         hosts: [],
         widget: null,
+        updates: null,
         enabled: false,
         installedAt: s.installedAt,
         widgetShown: false,
@@ -314,7 +324,11 @@ export async function preparePlugin(zipPath: string): Promise<PluginPending> {
     const old = installed ? await manifestOf(manifest.id).catch(() => null) : null
     if (!installed && (await readState()).length >= MAX_PLUGINS) throw new Error(`最多装 ${MAX_PLUGINS} 个插件`)
     pending.set(token, { dir, manifest })
-    return { token, manifest, update: old ? { version: old.version } : null }
+    return {
+      token,
+      manifest,
+      update: old ? { version: old.version, permissions: old.permissions, hosts: old.hosts } : null
+    }
   } catch (e) {
     await rm(dir, { recursive: true, force: true }).catch(() => undefined)
     throw e

@@ -75,6 +75,8 @@ function defaultSettings(): AppSettings {
     memoryAuto: true,
     optimizeGc: true,
     checkFiles: true,
+    preLaunchCheck: true,
+    language: 'zh-CN',
     openLogOnLaunch: false,
     launchSplash: true,
     darkLoadingScreen: true,
@@ -192,6 +194,7 @@ export function isManagedSetting(key: string): boolean {
 
 /** 取值固定的设置项 */
 const ENUM_VALUES: Partial<Record<keyof AppSettings, readonly string[]>> = {
+  language: ['zh-CN', 'en'],
   navPosition: ['left', 'right', 'top'],
   homeLaunchSide: ['left', 'right'],
   homeAlign: ['bottom', 'top'],

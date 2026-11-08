@@ -8,6 +8,7 @@ import SkinWardrobe from '../components/SkinWardrobe'
 import type { AccountsInfo, AppSettings, MsSkinProfile, SkinModel } from '../../../shared/types'
 import PageHeader from '../components/PageHeader'
 import { BlockLayout, LayoutBlock } from '../components/BlockLayout'
+import { t } from '../utils/i18n'
 
 const ANIMATIONS: { key: SkinAnimation; label: string }[] = [
   { key: 'idle', label: '站立' },
@@ -102,7 +103,7 @@ function AccountPage(): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-4">
       {/* 标题栏在最上面，和其他页面的标题位置一致 */}
-      <PageHeader title="账号" subtitle="切换启动游戏使用的账号，更换皮肤和披风" layoutPage="account" />
+      <PageHeader title={t('账号')} subtitle={t('切换启动游戏使用的账号，更换皮肤和披风')} layoutPage="account" />
 
       <div className="flex min-h-0 flex-1 gap-6">
         <BlockLayout page="account.main" widths={false}>

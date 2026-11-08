@@ -48,6 +48,8 @@ import {
   setPluginWidgetShown,
   uninstallPlugin
 } from './plugins'
+import { preLaunchCheck } from './launchCheck'
+import { checkPluginUpdates, preparePluginUpdate, schedulePluginUpdateCheck } from './pluginUpdates'
 import { listConfigFiles, readConfigFile, restoreConfigFile, saveConfigEntries, saveConfigText } from './modConfigs'
 import { clearExtraInstance, killExtraInstance, launchExtraInstance, listExtraInstances } from './extraInstances'
 import {
@@ -833,6 +835,8 @@ function registerIpc(): void {
   ipcMain.handle('plugins:list', () => listPlugins())
   ipcMain.handle('plugins:pick', (event) => pickPlugin(BrowserWindow.fromWebContents(event.sender)))
   ipcMain.handle('plugins:prepareFile', (_, path: unknown) => preparePluginFile(path))
+  ipcMain.handle('plugins:checkUpdates', (_, force: unknown) => checkPluginUpdates(force === true))
+  ipcMain.handle('plugins:prepareUpdate', (_, id: unknown) => preparePluginUpdate(id))
   ipcMain.handle('plugins:install', (_, token: unknown) => installPlugin(token))
   ipcMain.handle('plugins:discard', (_, token: unknown) => discardPlugin(token))
   ipcMain.handle('plugins:setEnabled', (_, id: unknown, enabled: unknown) => setPluginEnabled(id, enabled))
@@ -938,6 +942,9 @@ function registerIpc(): void {
     await autoSnapshot(versionId, '安装模组')
     return installFromModrinth(versionId, projectId)
   })
+  // 换界面语言后重新加载页面（页面自己发起的跳转、刷新都被安全设置拦下了，这里由主进程刷新发起请求的窗口）
+  ipcMain.handle('window:reload', (event) => event.sender.reload())
+  ipcMain.handle('game:preLaunchCheck', (_, versionId: unknown) => preLaunchCheck(String(versionId)))
   ipcMain.handle('game:launch', (_, versionId: string, server?: string, world?: string) => {
     // 「多人游戏」「无缝衔接」成就在游戏窗口出现后才解锁（启动失败不算）
     noteLaunchRequest(server, world)
@@ -1124,6 +1131,7 @@ app.whenReady().then(async () => {
   setupAutoBackup()
   setupScreenshotSessions()
   void cleanupPendingPlugins()
+  schedulePluginUpdateCheck()
   setupLagReports()
   setupLaunchTiming()
   setupGameMonitor()

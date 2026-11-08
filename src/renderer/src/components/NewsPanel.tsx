@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { EyeOff, Loader2, Newspaper, RefreshCw } from 'lucide-react'
 import type { NewsList } from '../../../shared/types'
+import { t } from '../utils/i18n'
 
 function cleanError(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e)
@@ -39,19 +40,19 @@ function NewsPanel({ onHide, compact = false }: { onHide: () => void; compact?: 
     <section className="rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl">
       <div className="flex items-center gap-2">
         <Newspaper className="h-4 w-4 text-sky-300" />
-        <h2 className="text-sm font-semibold">Minecraft 新闻</h2>
-        {news?.offline && <span className="text-xs text-white/40">（无法连接，显示的是上次获取的新闻）</span>}
+        <h2 className="text-sm font-semibold">{t('Minecraft 新闻')}</h2>
+        {news?.offline && <span className="text-xs text-white/40">{t('（无法连接，显示的是上次获取的新闻）')}</span>}
         <button
           onClick={() => load(true)}
           disabled={loading}
-          title="刷新"
+          title={t('刷新')}
           className="ml-auto rounded-lg p-1.5 text-white/50 hover:bg-white/10 hover:text-white disabled:opacity-50"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
         </button>
         <button
           onClick={onHide}
-          title="不再显示新闻（可以在「设置 → 个性化」中重新打开）"
+          title={t('不再显示新闻（可以在「设置 → 个性化」中重新打开）')}
           className="rounded-lg p-1.5 text-white/50 hover:bg-white/10 hover:text-white"
         >
           <EyeOff className="h-3.5 w-3.5" />
@@ -61,11 +62,11 @@ function NewsPanel({ onHide, compact = false }: { onHide: () => void; compact?: 
       {!news && loading && (
         <div className="flex items-center gap-2 py-6 text-xs text-white/40">
           <Loader2 className="h-4 w-4 animate-spin" />
-          正在获取新闻…
+          {t('正在获取新闻…')}
         </div>
       )}
       {error && !news && <div className="py-4 text-xs text-white/40">{error}</div>}
-      {news && news.items.length === 0 && <div className="py-4 text-xs text-white/40">暂时没有新闻</div>}
+      {news && news.items.length === 0 && <div className="py-4 text-xs text-white/40">{t('暂时没有新闻')}</div>}
       {news && news.items.length > 0 && (
         <div className="-mx-1 mt-3 flex gap-3 overflow-x-auto px-1 pb-1">
           {news.items.map((item) => {

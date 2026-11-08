@@ -77,6 +77,10 @@ export interface AppSettings {
   optimizeGc: boolean
   /** 启动前检查游戏文件，自动补全缺失或损坏的文件 */
   checkFiles: boolean
+  /** 界面语言：简体中文或英文（英文目前翻译了主要页面） */
+  language: 'zh-CN' | 'en'
+  /** 点启动前检查容易出错的情况（内存分配太多、模组不适合这个版本、磁盘快满了），有问题时先提示 */
+  preLaunchCheck: boolean
   /** 启动游戏时自动打开日志窗口（默认关闭，可以随时在主页点「日志」打开） */
   openLogOnLaunch: boolean
   /** 启动器不在前台时（最小化、切到其他窗口），在桌面中央显示启动悬浮窗，游戏窗口出现后自动消失 */
@@ -865,6 +869,15 @@ export type ModIssue =
       reason: string
       mods: { fileName: string; name: string; version: string }[]
     }
+
+/** 启动前检查发现的一个问题 */
+export interface LaunchCheckIssue {
+  kind: 'memory' | 'mods' | 'disk'
+  /** 一句话说明，例如「分配的内存比电脑剩下的还多」 */
+  title: string
+  /** 具体情况和建议 */
+  detail: string
+}
 
 /** 版本游戏目录里的本地资源：资源包或光影包 */
 export type LocalResourceKind = 'resourcepack' | 'shader'
@@ -2449,6 +2462,19 @@ export interface PluginManifest {
   hosts: string[]
   /** 主页小组件：插件里的另一个页面，显示在主页上（没有就是 null） */
   widget: PluginWidget | null
+  /** 检查更新的地方：GitHub 仓库（owner/repo），看它最新的发布（没有就是 null） */
+  updates: { github: string } | null
+}
+
+/** 插件有新版本 */
+export interface PluginUpdate {
+  version: string
+  /** 发布说明（纯文字） */
+  notes: string
+  /** 发布页面 */
+  page: string
+  /** 发布里的插件 zip（没有时只能去发布页面手动下载） */
+  download: string | null
 }
 
 export interface PluginWidget {
@@ -2474,6 +2500,6 @@ export interface PluginInfo extends PluginManifest {
 export interface PluginPending {
   token: string
   manifest: PluginManifest
-  /** 已经装了同一个插件时：原来的版本 */
-  update: { version: string } | null
+  /** 已经装了同一个插件时：原来的版本和权限（用来标出新增的权限） */
+  update: { version: string; permissions: PluginPermission[]; hosts: string[] } | null
 }

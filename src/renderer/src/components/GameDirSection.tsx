@@ -13,6 +13,7 @@ import {
   XCircle
 } from 'lucide-react'
 import type { GameDirInfo, GameDirSummary } from '../../../shared/types'
+import { t } from '../utils/i18n'
 
 function cleanError(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e)
@@ -61,7 +62,7 @@ function DirRow({
               autoFocus
               value={name}
               maxLength={32}
-              aria-label="目录名字"
+              aria-label={t('目录名字')}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') void submit()
@@ -69,10 +70,10 @@ function DirRow({
               }}
               className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/20 px-3 py-1 text-sm outline-none focus:border-emerald-400/50"
             />
-            <button onClick={submit} disabled={!name.trim()} title="保存" className={iconButton}>
+            <button onClick={submit} disabled={!name.trim()} title={t('保存')} className={iconButton}>
               <Check className="h-4 w-4" />
             </button>
-            <button onClick={() => setEditing(false)} title="取消" className={iconButton}>
+            <button onClick={() => setEditing(false)} title={t('取消')} className={iconButton}>
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -80,13 +81,17 @@ function DirRow({
           <div className="flex items-center gap-2">
             <span className="truncate text-sm font-semibold">{dir.name}</span>
             {dir.current && (
-              <span className="shrink-0 rounded-md bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">使用中</span>
+              <span className="shrink-0 rounded-md bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">
+                {t('使用中')}
+              </span>
             )}
             {dir.isDefault && (
-              <span className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 text-xs text-white/60">默认</span>
+              <span className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 text-xs text-white/60">{t('默认')}</span>
             )}
             {dir.isOfficial && (
-              <span className="shrink-0 rounded-md bg-sky-500/20 px-2 py-0.5 text-xs text-sky-300">官方启动器</span>
+              <span className="shrink-0 rounded-md bg-sky-500/20 px-2 py-0.5 text-xs text-sky-300">
+                {t('官方启动器')}
+              </span>
             )}
           </div>
         )}
@@ -95,7 +100,11 @@ function DirRow({
             {dir.path}
           </span>
           <span className="shrink-0">
-            {dir.exists ? `· ${dir.versionCount} 个版本` : <span className="text-amber-300">· 找不到文件夹</span>}
+            {dir.exists ? (
+              t('· {0} 个版本', { 0: dir.versionCount })
+            ) : (
+              <span className="text-amber-300">{t('· 找不到文件夹')}</span>
+            )}
           </span>
         </div>
       </div>
@@ -107,7 +116,7 @@ function DirRow({
               disabled={busy}
               className="mr-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20 disabled:opacity-50"
             >
-              使用
+              {t('使用')}
             </button>
           )}
           <button
@@ -115,12 +124,12 @@ function DirRow({
               setName(dir.name)
               setEditing(true)
             }}
-            title="重命名"
+            title={t('重命名')}
             className={iconButton}
           >
             <Pencil className="h-4 w-4" />
           </button>
-          <button onClick={onOpen} disabled={!dir.exists} title="在文件管理器中打开" className={iconButton}>
+          <button onClick={onOpen} disabled={!dir.exists} title={t('在文件管理器中打开')} className={iconButton}>
             <ExternalLink className="h-4 w-4" />
           </button>
           <button
@@ -128,10 +137,10 @@ function DirRow({
             disabled={busy || dir.current || dir.isDefault}
             title={
               dir.current
-                ? '正在使用的目录不能移除'
+                ? t('正在使用的目录不能移除')
                 : dir.isDefault
-                  ? '默认目录不能移除'
-                  : '从列表中移除（不会删除文件夹里的文件）'
+                  ? t('默认目录不能移除')
+                  : t('从列表中移除（不会删除文件夹里的文件）')
             }
             className={iconButton}
           >
@@ -170,7 +179,7 @@ function GameDirSection({ onChanged }: { onChanged: () => void }): JSX.Element {
         if (next.path !== before) {
           onChanged()
           const current = next.dirs.find((d) => d.current)
-          setNotice(`已切换到「${current?.name ?? next.path}」`)
+          setNotice(t('已切换到「{0}」', { 0: current?.name ?? next.path }))
         } else if (message) {
           setNotice(message)
         }
@@ -189,9 +198,9 @@ function GameDirSection({ onChanged }: { onChanged: () => void }): JSX.Element {
       <div className="flex items-center gap-3">
         <FolderOpen className="h-5 w-5 text-sky-300" />
         <div>
-          <h2 className="text-lg font-semibold">游戏目录</h2>
+          <h2 className="text-lg font-semibold">{t('游戏目录')}</h2>
           <p className="text-xs text-white/50">
-            游戏版本、存档、资源包等文件的存放位置（.minecraft 文件夹）。可以添加多个目录并随时切换
+            {t('游戏版本、存档、资源包等文件的存放位置（.minecraft 文件夹）。可以添加多个目录并随时切换')}
           </p>
         </div>
       </div>
@@ -200,7 +209,7 @@ function GameDirSection({ onChanged }: { onChanged: () => void }): JSX.Element {
         {!info && !error && (
           <div className="flex items-center gap-2 py-3 text-xs text-white/40">
             <Loader2 className="h-4 w-4 animate-spin" />
-            正在读取…
+            {t('正在读取…')}
           </div>
         )}
         {info?.dirs.map((dir) => (
@@ -212,7 +221,10 @@ function GameDirSection({ onChanged }: { onChanged: () => void }): JSX.Element {
             onRename={(name) => run(() => window.api.renameGameDir(dir.path, name))}
             onOpen={() => window.api.openGameDir(dir.path).catch((e) => setError(cleanError(e)))}
             onRemove={() =>
-              run(() => window.api.removeGameDir(dir.path), `已从列表中移除「${dir.name}」，文件夹里的文件没有删除`)
+              run(
+                () => window.api.removeGameDir(dir.path),
+                t('已从列表中移除「{0}」，文件夹里的文件没有删除', { 0: dir.name })
+              )
             }
           />
         ))}
@@ -227,7 +239,7 @@ function GameDirSection({ onChanged }: { onChanged: () => void }): JSX.Element {
           className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-50"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderPlus className="h-4 w-4" />}
-          添加文件夹...
+          {t('添加文件夹...')}
         </motion.button>
         {info?.officialExists && !officialListed && (
           <button
@@ -237,7 +249,7 @@ function GameDirSection({ onChanged }: { onChanged: () => void }): JSX.Element {
             className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/10 px-4 py-2 text-sm hover:bg-white/20 disabled:opacity-50"
           >
             <Box className="h-4 w-4" />
-            添加官方启动器目录
+            {t('添加官方启动器目录')}
           </button>
         )}
       </div>

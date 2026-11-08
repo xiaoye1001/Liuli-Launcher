@@ -16,6 +16,7 @@ import {
   Users,
   type LucideIcon
 } from 'lucide-react'
+import { t } from '../utils/i18n'
 
 export type PageKey =
   | 'home'
@@ -35,15 +36,15 @@ interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { key: 'home', label: '主页', icon: House },
-  { key: 'account', label: '账号', icon: UserRound },
-  { key: 'versions', label: '版本', icon: Layers },
-  { key: 'servers', label: '服务器', icon: Server },
-  { key: 'download', label: '下载', icon: Download },
-  { key: 'multiplayer', label: '联机', icon: Users },
-  { key: 'ai', label: 'AI 助手', icon: Sparkles },
-  { key: 'more', label: '更多', icon: LayoutGrid },
-  { key: 'settings', label: '设置', icon: Settings }
+  { key: 'home', label: t('主页'), icon: House },
+  { key: 'account', label: t('账号'), icon: UserRound },
+  { key: 'versions', label: t('版本'), icon: Layers },
+  { key: 'servers', label: t('服务器'), icon: Server },
+  { key: 'download', label: t('下载'), icon: Download },
+  { key: 'multiplayer', label: t('联机'), icon: Users },
+  { key: 'ai', label: t('AI 助手'), icon: Sparkles },
+  { key: 'more', label: t('更多'), icon: LayoutGrid },
+  { key: 'settings', label: t('设置'), icon: Settings }
 ]
 
 interface SidebarProps {
@@ -65,16 +66,16 @@ function useNavItems(): NavItem[] {
 /** 版本号和快速搜索入口 */
 function VersionLine({ portableDir, className }: { portableDir: string | null; className: string }): JSX.Element {
   return (
-    <div className={className} title={portableDir ? `数据保存在 ${portableDir}` : undefined}>
+    <div className={className} title={portableDir ? t('数据保存在 {0}', { 0: portableDir }) : undefined}>
       v{__APP_VERSION__}
-      {portableDir && ' · 免安装版'}
+      {portableDir && t(' · 免安装版')}
       {' · '}
       <button
         onClick={() => window.dispatchEvent(new Event(OPEN_PALETTE_EVENT))}
-        title="快速搜索页面、设置、工具和版本"
+        title={t('快速搜索页面、设置、工具和版本')}
         className="hover:text-white/70"
       >
-        {PALETTE_SHORTCUT} 搜索
+        {t('{0} 搜索', { 0: PALETTE_SHORTCUT })}
       </button>
     </div>
   )
@@ -115,7 +116,7 @@ function Sidebar({ current, onChange }: SidebarProps): JSX.Element {
         className="relative z-20 flex shrink-0 items-center gap-4 border-b border-white/10 bg-white/5 px-8 pb-2 pt-9 backdrop-blur-xl"
       >
         <div className="flex w-44 min-w-0 shrink-0 items-center gap-3">{brand}</div>
-        <nav className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" aria-label="页面">
+        <nav className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" aria-label={t('页面')}>
           {items.map((item) => {
             const active = item.key === current
             const Icon = item.icon

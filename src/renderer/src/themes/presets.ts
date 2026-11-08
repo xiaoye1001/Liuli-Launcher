@@ -1,5 +1,6 @@
 import { themePatch } from '../../../shared/theme'
 import type { AppSettings, CustomTheme, ParticleEffect, ThemePreset } from '../../../shared/types'
+import { t } from '../utils/i18n'
 
 /** 主题方案：一键切换配色、明暗、面板质感与专属动态背景 */
 export interface ThemePresetInfo {
@@ -25,9 +26,9 @@ export interface ThemePresetInfo {
 export const THEME_PRESET_LIST: ThemePresetInfo[] = [
   {
     key: 'aurora',
-    name: '极夜流光',
+    name: t('极夜流光'),
     emoji: '🌌',
-    desc: '石板灰底色，缓慢流动的翡翠极光',
+    desc: t('石板灰底色，缓慢流动的翡翠极光'),
     mode: 'dark',
     accent: '#1bd96a',
     particles: 'none',
@@ -38,9 +39,9 @@ export const THEME_PRESET_LIST: ThemePresetInfo[] = [
   },
   {
     key: 'sky',
-    name: '晴空柔光',
+    name: t('晴空柔光'),
     emoji: '☀️',
-    desc: '冰川蓝白，阳光光晕与飘动云雾',
+    desc: t('冰川蓝白，阳光光晕与飘动云雾'),
     mode: 'light',
     accent: '#0ea5e9',
     particles: 'none',
@@ -51,9 +52,9 @@ export const THEME_PRESET_LIST: ThemePresetInfo[] = [
   },
   {
     key: 'cherry',
-    name: '樱花物语',
+    name: t('樱花物语'),
     emoji: '🌸',
-    desc: '粉紫夜空，樱花花瓣随风飘落',
+    desc: t('粉紫夜空，樱花花瓣随风飘落'),
     mode: 'dark',
     accent: '#f472b6',
     particles: 'sakura',
@@ -64,9 +65,9 @@ export const THEME_PRESET_LIST: ThemePresetInfo[] = [
   },
   {
     key: 'end',
-    name: '末地星云',
+    name: t('末地星云'),
     emoji: '🔮',
-    desc: '深空星云，紫色星尘缓缓上浮',
+    desc: t('深空星云，紫色星尘缓缓上浮'),
     mode: 'dark',
     accent: '#a855f7',
     particles: 'ender',
@@ -77,9 +78,9 @@ export const THEME_PRESET_LIST: ThemePresetInfo[] = [
   },
   {
     key: 'acrylic',
-    name: '极简亚克力',
+    name: t('极简亚克力'),
     emoji: '🧊',
-    desc: '深灰蓝微噪点，Win11 风格边缘高光',
+    desc: t('深灰蓝微噪点，Win11 风格边缘高光'),
     mode: 'dark',
     accent: '#3b82f6',
     particles: 'none',
@@ -90,9 +91,9 @@ export const THEME_PRESET_LIST: ThemePresetInfo[] = [
   },
   {
     key: 'nether',
-    name: '下界余烬',
+    name: t('下界余烬'),
     emoji: '🔥',
-    desc: '暗曜石黑红，底部热浪与升腾火星',
+    desc: t('暗曜石黑红，底部热浪与升腾火星'),
     mode: 'dark',
     accent: '#f97316',
     particles: 'embers',
@@ -103,9 +104,9 @@ export const THEME_PRESET_LIST: ThemePresetInfo[] = [
   },
   {
     key: 'classic',
-    name: '经典琉璃',
+    name: t('经典琉璃'),
     emoji: '💎',
-    desc: '原来的渐变背景，保留当前主题色',
+    desc: t('原来的渐变背景，保留当前主题色'),
     mode: null,
     accent: null,
     particles: 'none',
@@ -121,13 +122,13 @@ export function presetInfo(key: ThemePreset | undefined): ThemePresetInfo {
 }
 
 export const PARTICLE_OPTIONS: { key: ParticleEffect; label: string }[] = [
-  { key: 'auto', label: '跟随主题' },
-  { key: 'none', label: '无' },
-  { key: 'sakura', label: '樱花飘落' },
-  { key: 'ender', label: '末影星尘' },
-  { key: 'fireflies', label: '萤火虫' },
-  { key: 'rain', label: '细雨微尘' },
-  { key: 'embers', label: '下界余烬' }
+  { key: 'auto', label: t('跟随主题') },
+  { key: 'none', label: t('无') },
+  { key: 'sakura', label: t('樱花飘落') },
+  { key: 'ender', label: t('末影星尘') },
+  { key: 'fireflies', label: t('萤火虫') },
+  { key: 'rain', label: t('细雨微尘') },
+  { key: 'embers', label: t('下界余烬') }
 ]
 
 /** 切换到某个主题方案时要修改的设置 */
@@ -165,5 +166,5 @@ export function targetPatch(
 /** 自动切换目标的显示名称 */
 export function targetName(target: string, customThemes: CustomTheme[]): string {
   if (target.startsWith('preset:')) return presetInfo(target.slice(7) as ThemePreset).name
-  return customThemes.find((t) => t.id === target.slice(7))?.name ?? '（已删除的主题）'
+  return customThemes.find((t) => t.id === target.slice(7))?.name ?? t('（已删除的主题）')
 }

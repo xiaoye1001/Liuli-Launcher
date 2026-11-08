@@ -5,9 +5,10 @@ import { DEFAULT_SUBTITLE, DEFAULT_TITLE } from '../utils/appearance'
 import { WELCOME_VARIABLES, renderWelcome } from '../utils/welcome'
 import { HIDEABLE_PAGES, NAV_PAGES, normalizeOrder } from '../../../shared/types'
 import type { AppSettings } from '../../../shared/types'
+import { t } from '../utils/i18n'
 
-const DEFAULT_WELCOME_TITLE = '欢迎回来，{name}'
-const DEFAULT_WELCOME_SUBTITLE = '选择版本后点击启动，开始你的冒险。'
+const DEFAULT_WELCOME_TITLE = t('欢迎回来，{name}')
+const DEFAULT_WELCOME_SUBTITLE = t('选择版本后点击启动，开始你的冒险。')
 
 type TextKey = 'launcherTitle' | 'launcherSubtitle' | 'welcomeTitle' | 'welcomeSubtitle'
 
@@ -76,11 +77,11 @@ function LayoutSettings({ settings, update, updateSlider }: Props): JSX.Element 
   return (
     <div className="mt-6">
       <div className="flex items-center justify-between">
-        <div className="text-sm font-medium">侧边栏与主页</div>
+        <div className="text-sm font-medium">{t('侧边栏与主页')}</div>
         {!isDefault && (
           <button onClick={reset} className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white">
             <RotateCcw className="h-3.5 w-3.5" />
-            全部恢复默认
+            {t('全部恢复默认')}
           </button>
         )}
       </div>
@@ -88,24 +89,24 @@ function LayoutSettings({ settings, update, updateSlider }: Props): JSX.Element 
       {/* 启动器名称 */}
       <div className="mt-3 grid grid-cols-2 gap-4">
         <label className="block">
-          <span className="text-xs text-white/60">启动器名称（也是窗口标题）</span>
+          <span className="text-xs text-white/60">{t('启动器名称（也是窗口标题）')}</span>
           <input
             value={text.launcherTitle}
             maxLength={20}
             placeholder={DEFAULT_TITLE}
-            aria-label="启动器名称"
+            aria-label={t('启动器名称')}
             onChange={(e) => change('launcherTitle', e.target.value)}
             onBlur={() => trim('launcherTitle')}
             className={inputClass}
           />
         </label>
         <label className="block">
-          <span className="text-xs text-white/60">名称下方的小字</span>
+          <span className="text-xs text-white/60">{t('名称下方的小字')}</span>
           <input
             value={text.launcherSubtitle}
             maxLength={30}
             placeholder={DEFAULT_SUBTITLE}
-            aria-label="名称下方的小字"
+            aria-label={t('名称下方的小字')}
             onChange={(e) => change('launcherSubtitle', e.target.value)}
             onBlur={() => trim('launcherSubtitle')}
             className={inputClass}
@@ -114,8 +115,8 @@ function LayoutSettings({ settings, update, updateSlider }: Props): JSX.Element 
       </div>
 
       {/* 侧边栏页面 */}
-      <div className="mt-4 text-xs text-white/60">导航栏显示的页面</div>
-      <div className="mt-1.5 flex flex-wrap gap-2" aria-label="侧边栏显示的页面">
+      <div className="mt-4 text-xs text-white/60">{t('导航栏显示的页面')}</div>
+      <div className="mt-1.5 flex flex-wrap gap-2" aria-label={t('侧边栏显示的页面')}>
         {normalizeOrder(settings.navOrder, NAV_PAGES)
           .map((key) => NAV_ITEMS.find((n) => n.key === key)!)
           .map((item) => {
@@ -128,7 +129,7 @@ function LayoutSettings({ settings, update, updateSlider }: Props): JSX.Element 
                 role="checkbox"
                 aria-checked={shown}
                 disabled={!hideable}
-                title={hideable ? (shown ? '点击隐藏' : '点击显示') : '始终显示'}
+                title={hideable ? (shown ? t('点击隐藏') : t('点击显示')) : t('始终显示')}
                 onClick={() => togglePage(item.key)}
                 className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition-colors disabled:cursor-default ${
                   shown
@@ -151,18 +152,20 @@ function LayoutSettings({ settings, update, updateSlider }: Props): JSX.Element 
             )
           })}
       </div>
-      <div className="mt-1.5 text-xs text-white/40">隐藏的页面只是不在侧边栏显示，从主页等处的按钮仍然可以打开</div>
+      <div className="mt-1.5 text-xs text-white/40">
+        {t('隐藏的页面只是不在侧边栏显示，从主页等处的按钮仍然可以打开')}
+      </div>
 
       {/* 欢迎语 */}
       <div className="mt-4 grid grid-cols-1 gap-3">
         <label className="block">
-          <span className="text-xs text-white/60">主页欢迎语</span>
+          <span className="text-xs text-white/60">{t('主页欢迎语')}</span>
           <input
             ref={welcomeInputs.welcomeTitle}
             value={text.welcomeTitle}
             maxLength={60}
             placeholder={DEFAULT_WELCOME_TITLE}
-            aria-label="主页欢迎语"
+            aria-label={t('主页欢迎语')}
             onFocus={() => (lastWelcome.current = 'welcomeTitle')}
             onChange={(e) => change('welcomeTitle', e.target.value)}
             onBlur={() => trim('welcomeTitle')}
@@ -170,13 +173,13 @@ function LayoutSettings({ settings, update, updateSlider }: Props): JSX.Element 
           />
         </label>
         <label className="block">
-          <span className="text-xs text-white/60">欢迎语下方的说明</span>
+          <span className="text-xs text-white/60">{t('欢迎语下方的说明')}</span>
           <input
             ref={welcomeInputs.welcomeSubtitle}
             value={text.welcomeSubtitle}
             maxLength={120}
             placeholder={DEFAULT_WELCOME_SUBTITLE}
-            aria-label="欢迎语下方的说明"
+            aria-label={t('欢迎语下方的说明')}
             onFocus={() => (lastWelcome.current = 'welcomeSubtitle')}
             onChange={(e) => change('welcomeSubtitle', e.target.value)}
             onBlur={() => trim('welcomeSubtitle')}
@@ -185,7 +188,7 @@ function LayoutSettings({ settings, update, updateSlider }: Props): JSX.Element 
         </label>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/50">
-        插入：
+        {t('插入：')}
         {WELCOME_VARIABLES.map((v) => (
           <button
             key={v.key}
@@ -198,8 +201,8 @@ function LayoutSettings({ settings, update, updateSlider }: Props): JSX.Element 
           </button>
         ))}
       </div>
-      <div className="mt-3 rounded-xl bg-black/20 px-4 py-3" aria-label="欢迎语预览">
-        <div className="text-xs text-white/40">预览</div>
+      <div className="mt-3 rounded-xl bg-black/20 px-4 py-3" aria-label={t('欢迎语预览')}>
+        <div className="text-xs text-white/40">{t('预览')}</div>
         <div className="mt-1 text-lg font-bold">
           {renderWelcome(text.welcomeTitle || DEFAULT_WELCOME_TITLE, values)}
         </div>

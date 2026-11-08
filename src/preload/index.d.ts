@@ -1,8 +1,10 @@
 import type { AchievementStatus } from '../shared/achievements'
 import type {
+  LaunchCheckIssue,
   RecipeBook,
   PluginInfo,
   PluginPending,
+  PluginUpdate,
   ServerAddonKind,
   ServerAddons,
   ServerModImportResult,
@@ -494,6 +496,10 @@ declare global {
       installFromModrinth: (versionId: string, projectId: string) => Promise<ModrinthInstallResult>
       /** 启动游戏；server 不为空时进入游戏后直接连接该服务器，world 不为空时直接进入这个存档（1.20 起） */
       launchGame: (versionId: string, server?: string, world?: string) => Promise<void>
+      /** 启动前检查：内存、模组、磁盘空间（关掉检查时返回空列表） */
+      preLaunchCheck: (versionId: string) => Promise<LaunchCheckIssue[]>
+      /** 重新加载这个窗口（换界面语言后） */
+      reloadWindow: () => Promise<void>
       /** 查询 GitHub 上的最新版本 */
       checkUpdate: () => Promise<UpdateInfo>
       /** 在浏览器中打开新版本的安装包或发布页面 */
@@ -614,6 +620,10 @@ declare global {
       pickPlugin: () => Promise<PluginPending | null>
       /** 拖进来的 zip 是插件时准备安装（等用户确认），不是插件返回 null */
       preparePluginFile: (path: string) => Promise<PluginPending | null>
+      /** 插件更新：插件 id → 新版本（一天最多查一次，force 时马上查） */
+      checkPluginUpdates: (force?: boolean) => Promise<Record<string, PluginUpdate>>
+      /** 下载插件的新版本并检查，等用户确认后用 installPlugin 装上 */
+      preparePluginUpdate: (id: string) => Promise<PluginPending>
       installPlugin: (token: string) => Promise<PluginInfo[]>
       discardPlugin: (token: string) => Promise<void>
       setPluginEnabled: (id: string, enabled: boolean) => Promise<PluginInfo[]>

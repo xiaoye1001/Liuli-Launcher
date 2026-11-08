@@ -2,6 +2,7 @@ import { Lightbulb } from 'lucide-react'
 import PageHeader from '../components/PageHeader'
 import AiSettings from '../components/AiSettings'
 import { BlockLayout, LayoutBlock } from '../components/BlockLayout'
+import { t } from '../utils/i18n'
 
 const STEPS = [
   '选择服务商，填写你自己在服务商那里申请的 API Key 和模型，点「测试连接」确认可以使用',
@@ -13,7 +14,11 @@ const STEPS = [
 function AiPage(): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-4">
-      <PageHeader title="AI 助手" subtitle="用 AI 分析游戏崩溃和启动失败的原因，并给出解决方法" layoutPage="ai" />
+      <PageHeader
+        title={t('AI 助手')}
+        subtitle={t('用 AI 分析游戏崩溃和启动失败的原因，并给出解决方法')}
+        layoutPage="ai"
+      />
 
       <BlockLayout page="ai" className="page-scroll flex min-h-0 flex-1 flex-col gap-6 pb-4">
         <LayoutBlock id="settings" title="连接设置">

@@ -1,5 +1,6 @@
 import { Music, Pause, Play, SkipBack, SkipForward } from 'lucide-react'
 import { nextTrack, prevTrack, togglePlay, trackTitle, useMusic } from '../utils/music'
+import { t } from '../utils/i18n'
 
 /** 正在播放时跳动的音量条 */
 function Equalizer({ active }: { active: boolean }): JSX.Element {
@@ -23,37 +24,37 @@ function MiniPlayer({ compact = false }: { compact?: boolean }): JSX.Element | n
   const status = music.error
     ? music.error
     : music.gamePaused
-      ? '游戏运行中，已暂停'
+      ? t('游戏运行中，已暂停')
       : music.userPaused
-        ? '已暂停'
-        : '正在播放'
+        ? t('已暂停')
+        : t('正在播放')
   const paused = music.userPaused || music.gamePaused || !music.playing
   const button = 'rounded-lg p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white'
   if (compact) {
     return (
       <div
         className="flex shrink-0 items-center gap-1 rounded-xl border border-white/10 bg-black/20 py-1 pl-2.5 pr-1"
-        aria-label="背景音乐"
+        aria-label={t('背景音乐')}
       >
         {music.playing ? <Equalizer active /> : <Music className="h-4 w-4 shrink-0 text-emerald-300" />}
         <span
           className={`ml-1 max-w-[8rem] truncate text-xs ${music.error ? 'text-red-300' : 'text-white/70'}`}
           title={music.error || `${trackTitle(music.current)} · ${status}`}
         >
-          {music.error ? music.error : music.current ? trackTitle(music.current) : '背景音乐'}
+          {music.error ? music.error : music.current ? trackTitle(music.current) : t('背景音乐')}
         </span>
-        <button onClick={prevTrack} className={button} title="上一首" aria-label="上一首">
+        <button onClick={prevTrack} className={button} title={t('上一首')} aria-label={t('上一首')}>
           <SkipBack className="h-3.5 w-3.5" />
         </button>
         <button
           onClick={togglePlay}
           className={button}
-          title={paused ? '播放' : '暂停'}
-          aria-label={paused ? '播放' : '暂停'}
+          title={paused ? t('播放') : t('暂停')}
+          aria-label={paused ? t('播放') : t('暂停')}
         >
           {paused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
         </button>
-        <button onClick={nextTrack} className={button} title="下一首" aria-label="下一首">
+        <button onClick={nextTrack} className={button} title={t('下一首')} aria-label={t('下一首')}>
           <SkipForward className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -62,13 +63,13 @@ function MiniPlayer({ compact = false }: { compact?: boolean }): JSX.Element | n
   return (
     <div
       className="mb-3 rounded-xl border border-white/10 bg-black/20 p-3 [@media(max-height:680px)]:mb-0"
-      aria-label="背景音乐"
+      aria-label={t('背景音乐')}
     >
       <div className="flex items-center gap-2">
         {music.playing ? <Equalizer active /> : <Music className="h-4 w-4 shrink-0 text-emerald-300" />}
         <div className="min-w-0 flex-1">
           <div className="truncate text-xs font-medium" title={trackTitle(music.current)}>
-            {music.current ? trackTitle(music.current) : '背景音乐'}
+            {music.current ? trackTitle(music.current) : t('背景音乐')}
           </div>
           <div className={`truncate text-[11px] ${music.error ? 'text-red-300' : 'text-white/40'}`} title={status}>
             {status}
@@ -76,18 +77,18 @@ function MiniPlayer({ compact = false }: { compact?: boolean }): JSX.Element | n
         </div>
       </div>
       <div className="mt-2 flex items-center justify-center gap-2">
-        <button onClick={prevTrack} className={button} title="上一首" aria-label="上一首">
+        <button onClick={prevTrack} className={button} title={t('上一首')} aria-label={t('上一首')}>
           <SkipBack className="h-4 w-4" />
         </button>
         <button
           onClick={togglePlay}
           className="rounded-full bg-white/10 p-2 text-white transition-colors hover:bg-white/20"
-          title={paused ? '播放' : '暂停'}
-          aria-label={paused ? '播放' : '暂停'}
+          title={paused ? t('播放') : t('暂停')}
+          aria-label={paused ? t('播放') : t('暂停')}
         >
           {paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
         </button>
-        <button onClick={nextTrack} className={button} title="下一首" aria-label="下一首">
+        <button onClick={nextTrack} className={button} title={t('下一首')} aria-label={t('下一首')}>
           <SkipForward className="h-4 w-4" />
         </button>
       </div>

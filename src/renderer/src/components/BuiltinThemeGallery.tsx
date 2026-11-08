@@ -7,6 +7,7 @@ import cherry from '../assets/themes/cherry.webp'
 import auroraNight from '../assets/themes/aurora_night.webp'
 import nether from '../assets/themes/nether.webp'
 import theEnd from '../assets/themes/the_end.webp'
+import { t } from '../utils/i18n'
 
 /** 精选主题的缩略图（打包进界面，体积很小；原图在 resources/themes） */
 const THUMBNAILS: Record<string, string> = {
@@ -35,7 +36,7 @@ function BuiltinThemeGallery({
     setApplying(id)
     try {
       await window.api.applyBuiltinTheme(id)
-      onMessage(`已应用「${name}」，背景音乐已切换为主题音乐`)
+      onMessage(t('已应用「{0}」，背景音乐已切换为主题音乐', { 0: name }))
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       onMessage(message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), true)
@@ -45,7 +46,7 @@ function BuiltinThemeGallery({
   }
 
   return (
-    <div className="mt-3 grid grid-cols-5 gap-3" aria-label="精选主题">
+    <div className="mt-3 grid grid-cols-5 gap-3" aria-label={t('精选主题')}>
       {BUILTIN_THEMES.map((theme) => {
         const active =
           settings.backgroundMode === 'fixed' &&
@@ -57,7 +58,7 @@ function BuiltinThemeGallery({
             key={theme.id}
             onClick={() => void apply(theme.id, theme.name)}
             disabled={!!applying}
-            title={`${theme.description}\n背景音乐：${theme.musicTitle}`}
+            title={t('{0}\n背景音乐：{1}', { 0: theme.description, 1: theme.musicTitle })}
             data-builtin-theme={theme.id}
             className={`group overflow-hidden rounded-xl border text-left transition-all disabled:cursor-wait ${
               active
@@ -74,7 +75,7 @@ function BuiltinThemeGallery({
               />
               <span className="absolute bottom-1.5 left-1.5 flex items-center gap-1 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] text-white/90 backdrop-blur-sm">
                 <Music2 className="h-3 w-3" />
-                原创音乐
+                {t('原创音乐')}
               </span>
               {busy && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/40">

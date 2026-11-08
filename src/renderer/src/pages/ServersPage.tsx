@@ -29,6 +29,7 @@ import type {
 import PageHeader from '../components/PageHeader'
 import { BlockLayout, LayoutBlock } from '../components/BlockLayout'
 import { EmptyState, LoadingState } from '../components/EmptyState'
+import { t } from '../utils/i18n'
 
 function cleanError(e: unknown): string {
   const message = e instanceof Error ? e.message : String(e)
@@ -188,8 +189,8 @@ function ServersPage(): JSX.Element {
   return (
     <div className="flex h-full flex-col gap-4">
       <PageHeader
-        title="服务器"
-        subtitle={`共 ${servers?.length ?? 0} 个 · 点「加入」会启动游戏并直接进入服务器`}
+        title={t('服务器')}
+        subtitle={t('共 {0} 个 · 点「加入」会启动游戏并直接进入服务器', { 0: servers?.length ?? 0 })}
         layoutPage="servers"
         actions={
           <>
